@@ -1,410 +1,2 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { PDFParse } from 'pdf-parse';
-import sharp from 'sharp';
-import { generarPdfExamen } from '../src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.js';
-import {
-  detectarColisionesDuplexOmr,
-  validarSeparacionDuplexOmr
-} from '../src/modulos/modulo_generacion_pdf/domain/duplexOmrGuard.js';
-import type { MapaOmr } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
-
-afterEach(() => vi.unstubAllEnvs());
-
-describe('plantilla OMR de tinta reducida y engrapado', () => {
-  it('valida el registro dÃºplex segÃºn el volteo y la tolerancia configurada', () => {
-    const mapa = (volteo: 'borde-largo' | 'borde-corto', toleranciaRegistroMm: number): MapaOmr => ({
-      margenMm: 8,
-      templateVersion: 4,
-      templateId: 'omr-canonical-v4',
-      impresion: { modo: 'duplex', volteo, paginasPorHoja: 2, toleranciaRegistroMm },
-      perfilLayout: {} as MapaOmr['perfilLayout'],
-      perfil: { burbujaRadio: 8.5 } as MapaOmr['perfil'],
-      paginas: [
-        { numeroPagina: 1, templateId: 'omr-canonical-v4', duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, preguntas: [
-          { numeroPregunta: 1, idPregunta: 'q1', opciones: [{ letra: 'A', x: 100, y: 100 }] }
-        ] },
-        { numeroPagina: 2, templateId: 'omr-canonical-v4', duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }, preguntas: [
-          { numeroPregunta: 2, idPregunta: 'q2', opciones: [{ letra: 'A', x: 492, y: 100 }] }
-        ] }
-      ]
-    });
-
-    expect(detectarColisionesDuplexOmr(mapa('borde-largo', 3))).toHaveLength(1);
-    expect(() => validarSeparacionDuplexOmr(mapa('borde-largo', 3))).toThrow(/Plantilla OMR dÃºplex insegura/);
-    expect(detectarColisionesDuplexOmr(mapa('borde-corto', 3))).toHaveLength(0);
-    expect(detectarColisionesDuplexOmr(mapa('borde-largo', 1))).toHaveLength(0);
-  });
-
-  it('rechaza texto del reverso detrÃ¡s de una burbuja despuÃ©s del volteo dÃºplex', () => {
-    const mapa: MapaOmr = {
-      margenMm: 8,
-      templateVersion: 4,
-      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 3 },
-      perfilLayout: {} as MapaOmr['perfilLayout'],
-      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
-      paginas: [
-        { numeroPagina: 1, duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, preguntas: [
-          { numeroPregunta: 1, idPregunta: 'q1', opciones: [{ letra: 'A', x: 100, y: 100, radio: 8 }] }
-        ] },
-        { numeroPagina: 2, duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 }, preguntas: [
-          {
-            numeroPregunta: 2,
-            idPregunta: 'q2',
-            opciones: [],
-            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 503, y: 96, width: 20, height: 9 } }]
-          }
-        ] }
-      ]
-    };
-
-    const colisiones = detectarColisionesDuplexOmr(mapa);
-    expect(colisiones.some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
-    expect(() => validarSeparacionDuplexOmr(mapa)).toThrow(/contenido impreso detrÃ¡s de una zona OMR/);
-  });
-
-  it('rechaza texto del frente detrÃ¡s de una burbuja del reverso', () => {
-    const mapa: MapaOmr = {
-      margenMm: 8,
-      templateVersion: 4,
-      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
-      perfilLayout: {} as MapaOmr['perfilLayout'],
-      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
-      paginas: [
-        {
-          numeroPagina: 1,
-          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
-          preguntas: [{
-            numeroPregunta: 1,
-            idPregunta: 'q1',
-            opciones: [],
-            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 100, y: 96, width: 20, height: 9 } }]
-          }]
-        },
-        {
-          numeroPagina: 2,
-          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
-          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [{ letra: 'A', x: 503, y: 100, radio: 8 }] }]
-        }
-      ]
-    };
-
-    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
-  });
-
-  it('rechaza tinta del reverso detrÃ¡s de la reserva completa del QR', () => {
-    const mapa: MapaOmr = {
-      margenMm: 8,
-      templateVersion: 4,
-      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
-      perfilLayout: {} as MapaOmr['perfilLayout'],
-      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
-      paginas: [
-        {
-          numeroPagina: 1,
-          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
-          qr: { texto: 'qr', x: 500, y: 700, size: 32, padding: 3, marginModules: 4 },
-          preguntas: []
-        },
-        {
-          numeroPagina: 2,
-          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
-          preguntas: [{
-            numeroPregunta: 2,
-            idPregunta: 'q2',
-            opciones: [],
-            textRuns: [{ tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 103, y: 706, width: 12, height: 8 } }]
-          }]
-        }
-      ]
-    };
-
-    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'qr-con-tinta-reverso')).toBe(true);
-  });
-
-  it('rechaza una imagen del reverso detrÃ¡s de una burbuja', () => {
-    const mapa: MapaOmr = {
-      margenMm: 8,
-      templateVersion: 4,
-      templateId: 'omr-inline-exam-v1',
-      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 1 },
-      perfilLayout: {} as MapaOmr['perfilLayout'],
-      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
-      paginas: [
-        {
-          numeroPagina: 1,
-          templateId: 'omr-inline-exam-v1',
-          duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 },
-          preguntas: [{ numeroPregunta: 1, idPregunta: 'q1', opciones: [{ letra: 'A', x: 100, y: 100, radio: 8 }] }]
-        },
-        {
-          numeroPagina: 2,
-          templateId: 'omr-inline-exam-v1',
-          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
-          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [], imagen: { x: 503, y: 96, width: 20, height: 9 } }]
-        }
-      ]
-    };
-
-    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'burbuja-con-tinta-reverso')).toBe(true);
-  });
-
-  it('rechaza texto del reverso detrÃ¡s de un fiducial de pÃ¡gina', () => {
-    const marcas = {
-      tipo: 'cuadrados' as const,
-      size: 4,
-      quietZone: 2,
-      tl: { x: 10, y: 782 }, tr: { x: 602, y: 782 },
-      bl: { x: 10, y: 10 }, br: { x: 602, y: 10 }
-    };
-    const mapa: MapaOmr = {
-      margenMm: 8,
-      templateVersion: 4,
-      templateId: 'omr-inline-exam-v1',
-      impresion: { modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 0 },
-      perfilLayout: {} as MapaOmr['perfilLayout'],
-      perfil: { burbujaRadio: 8 } as MapaOmr['perfil'],
-      paginas: [
-        { numeroPagina: 1, templateId: 'omr-inline-exam-v1', duplex: { hoja: 1, lado: 'frente', indiceEnHoja: 1 }, marcasPagina: marcas, preguntas: [] },
-        {
-          numeroPagina: 2,
-          templateId: 'omr-inline-exam-v1',
-          duplex: { hoja: 1, lado: 'reverso', indiceEnHoja: 2 },
-          marcasPagina: marcas,
-          preguntas: [{ numeroPregunta: 2, idPregunta: 'q2', opciones: [], textRuns: [
-            { tipo: 'texto', fuente: 'sans', size: 8, lineHeight: 10, bbox: { x: 590, y: 780, width: 10, height: 3 } }
-          ] }]
-        }
-      ]
-    };
-
-    expect(detectarColisionesDuplexOmr(mapa).some((item) => item.tipo === 'fiducial-con-tinta-reverso')).toBe(true);
-  });
-
-  it('ubica GRAPA dentro de una reserva punteada, Ecofont y geometrÃ­a libre de seÃ±ales OMR', async () => {
-    vi.stubEnv('EXAMEN_LAYOUT_USAR_RELLENOS_DECORATIVOS', '');
-    vi.stubEnv('EXAMEN_OMR_TOLERANCIA_REGISTRO_DUPLEX_MM', '');
-    const preguntas = Array.from({ length: 25 }, (_, indice) => ({
-      id: `p${indice + 1}`,
-      enunciado: 'Â¿QuÃ© funciÃ³n cumple next() en un middleware?',
-      opciones: [
-        { texto: 'A', esCorrecta: false },
-        { texto: 'B', esCorrecta: true },
-        { texto: 'C', esCorrecta: false },
-        { texto: 'D', esCorrecta: false },
-        { texto: 'E', esCorrecta: false }
-      ]
-    }));
-    const idsPreguntas = preguntas.map(({ id }) => id);
-    const resultado = await generarPdfExamen({
-      titulo: 'Control de plantilla',
-      folio: 'OMR-STAPLE-001',
-      examId: '9AD3DD18-9353-46A4-B99F-16FC94FB',
-      preguntas,
-      mapaVariante: {
-        ordenPreguntas: idsPreguntas,
-        ordenOpcionesPorPregunta: Object.fromEntries(idsPreguntas.map((id) => [id, [0, 1, 2, 3, 4]]))
-      },
-      tipoExamen: 'parcial',
-      totalPaginas: 1,
-      margenMm: 8,
-      templateVersion: 4,
-      encabezado: {
-        institucion: 'Centro Universitario Hidalguense',
-        materia: 'Control de plantilla',
-        mostrarMarcaInstitucional: true
-      }
-    });
-
-    const pagina = resultado.mapaOmr.paginas[0]!;
-    expect(resultado.mapaOmr.paginas.length).toBeGreaterThanOrEqual(2);
-    expect(resultado.mapaOmr.impresion).toMatchObject({
-      modo: 'duplex', volteo: 'borde-largo', paginasPorHoja: 2, toleranciaRegistroMm: 3
-    });
-    const zona = pagina.layoutDebug?.bindingZone;
-    const etiquetaZona = pagina.layoutDebug?.bindingLabel;
-    const slots = pagina.layoutDebug?.headerSlots ?? [];
-    const logo = slots.find((slot) => slot.id === 'logo-izquierdo');
-    expect(resultado.mapaOmr.perfilLayout.usarRellenosDecorativos).toBe(false);
-    expect(zona).toBeDefined();
-    expect(etiquetaZona).toBeDefined();
-    expect(etiquetaZona!.x).toBeGreaterThanOrEqual(zona!.x);
-    expect(etiquetaZona!.y).toBeGreaterThanOrEqual(zona!.y);
-    expect(etiquetaZona!.x + etiquetaZona!.width).toBeLessThanOrEqual(zona!.x + zona!.width);
-    expect(etiquetaZona!.y + etiquetaZona!.height).toBeLessThanOrEqual(zona!.y + zona!.height);
-    expect(etiquetaZona!.height).toBeGreaterThan(etiquetaZona!.width);
-    expect(etiquetaZona!.rotation).toBe(270);
-    expect(zona!.x).toBeGreaterThanOrEqual((4.5 * 72) / 25.4);
-    expect(logo).toBeDefined();
-    expect(zona!.x + zona!.width).toBeLessThanOrEqual(logo!.x);
-    expect(zona!.width).toBeGreaterThanOrEqual((8 * 72) / 25.4);
-    expect(zona!.height).toBeGreaterThanOrEqual((20 * 72) / 25.4);
-    const zonaFisicaFrente = pagina.layoutDebug?.bindingKeepOutZone;
-    const despejeGrapa = (3 * 72) / 25.4;
-    expect(zonaFisicaFrente).toEqual(zona);
-    expect(pagina.layoutDebug?.qr).toBeDefined();
-    const fiducial = pagina.marcasPagina?.tl;
-    expect(fiducial).toBeDefined();
-    const quiet = Number(pagina.marcasPagina?.quietZone ?? 0);
-    const size = Number(pagina.marcasPagina?.size ?? 0);
-    expect(zona!.y + zona!.height).toBeLessThanOrEqual(fiducial!.y - size - quiet - (2 * 72) / 25.4);
-    expect(zona!.x + zona!.width).toBeLessThanOrEqual(Number(pagina.layoutDebug?.qr?.x ?? 0));
-    const interseca = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
-      a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-    // RegresiÃ³n de OMR-STAPLE-001: la regla de calificaciÃ³n no debe
-    // atravesar la de grupo aunque las etiquetas no se intersecten.
-    const campos = pagina.layoutDebug?.headerFieldBoxes ?? [];
-    const iconos = pagina.layoutDebug?.headerIconBoxes ?? [];
-    const qrHeader = pagina.layoutDebug?.qr;
-    expect(qrHeader).toBeDefined();
-    expect(campos).toHaveLength(4);
-    for (const [indice, campo] of campos.entries()) {
-      expect(campo.width, campo.id).toBeGreaterThanOrEqual(10);
-      for (const otro of campos.slice(indice + 1)) {
-        expect(interseca(campo, otro), `${campo.id} invade ${otro.id}`).toBe(false);
-      }
-      for (const icono of iconos) {
-        expect(interseca(campo, icono), `${campo.id} invade ${icono.id}`).toBe(false);
-      }
-      if (campo.id === 'reactivos-linea' || campo.id === 'calificacion-linea') {
-        expect(campo.x).toBeGreaterThanOrEqual(qrHeader!.x - 6);
-        expect(campo.y + campo.height).toBeLessThan(qrHeader!.y);
-      }
-    }
-    expect(resultado.mapaOmr.paginas.flatMap((item) => item.preguntas)).toHaveLength(25);
-    const cajasNoGrapables = [
-      ...(pagina.layoutDebug?.headerTextBlocks ?? []),
-      ...(pagina.layoutDebug?.headerIconBoxes ?? []),
-      ...(pagina.layoutDebug?.headerFieldBoxes ?? []),
-      ...(pagina.layoutDebug?.headerSlots ?? []),
-      ...(pagina.layoutDebug?.questionBlockBoxes ?? []),
-      ...(pagina.layoutDebug?.questionPromptBoxes ?? []),
-      ...(pagina.layoutDebug?.omrPanelBoxes ?? [])
-    ];
-    expect(cajasNoGrapables.every((caja) => !interseca(zona!, caja))).toBe(true);
-    expect(pagina.preguntas[0]?.textRuns?.length).toBeGreaterThan(0);
-    expect(pagina.preguntas[0]?.textRuns?.every((run) => run.fuente === 'Ecofont Vera Sans')).toBe(true);
-
-    const ladosConGrapa = new Set<string>();
-    for (const [indicePagina, paginaDuplex] of resultado.mapaOmr.paginas.entries()) {
-      const zonaReserva = paginaDuplex.layoutDebug?.bindingKeepOutZone;
-      expect(zonaReserva).toBeDefined();
-      const expandida = indicePagina > 0;
-      expect(zonaReserva!.width).toBeCloseTo(zona!.width + (expandida ? despejeGrapa * 2 : 0), 5);
-      expect(zonaReserva!.height).toBeCloseTo(zona!.height + (expandida ? despejeGrapa * 2 : 0), 5);
-      if (expandida) expect(zonaReserva!.y).toBeCloseTo(zona!.y - despejeGrapa, 5);
-      const esReverso = paginaDuplex.duplex?.lado === 'reverso';
-      ladosConGrapa.add(esReverso ? 'reverso' : 'frente');
-      expect(zonaReserva!.x).toBeCloseTo(
-        (esReverso ? 612 - zona!.x - zona!.width : zona!.x) - (expandida ? despejeGrapa : 0),
-        5
-      );
-      const marcasPagina = paginaDuplex.marcasPagina;
-      expect(marcasPagina).toBeDefined();
-      const margenQuiet = Number(marcasPagina!.quietZone) + (2 * 72) / 25.4;
-      const margenGrapa = paginaDuplex.numeroPagina === 1 ? (3 * 72) / 25.4 : 0;
-      const zonaGrapaSegura = {
-        x: zonaReserva!.x - margenGrapa,
-        y: zonaReserva!.y - margenGrapa,
-        width: zonaReserva!.width + margenGrapa * 2,
-        height: zonaReserva!.height + margenGrapa * 2
-      };
-      for (const esquina of ['tl', 'tr', 'bl', 'br'] as const) {
-        const marca = marcasPagina![esquina];
-        const izquierda = esquina.endsWith('l');
-        const superior = esquina.startsWith('t');
-        const quietZone = {
-          x: (izquierda ? marca.x : marca.x - marcasPagina!.size) - margenQuiet,
-          y: (superior ? marca.y - marcasPagina!.size : marca.y) - margenQuiet,
-          width: marcasPagina!.size + margenQuiet * 2,
-          height: marcasPagina!.size + margenQuiet * 2
-        };
-        expect(interseca(zonaGrapaSegura, quietZone), `la grapa de ${paginaDuplex.duplex?.lado} invade ${esquina}`)
-          .toBe(false);
-      }
-      const reservaQr = paginaDuplex.layoutDebug?.qr;
-      expect(reservaQr).toBeDefined();
-      const despejeQrGrapa = (12.5 * 72) / 25.4;
-      const distanciaQrGrapa = esReverso
-        ? zonaReserva!.x - (reservaQr!.x + reservaQr!.width)
-        : reservaQr!.x - (zonaReserva!.x + zonaReserva!.width);
-      expect(distanciaQrGrapa).toBeGreaterThanOrEqual(despejeQrGrapa);
-      if (expandida) {
-        const contenidoCritico = [
-          paginaDuplex.layoutDebug?.qr,
-          ...(paginaDuplex.layoutDebug?.questionPromptBoxes ?? []),
-          ...(paginaDuplex.layoutDebug?.continuationTextBlocks ?? []),
-          ...(paginaDuplex.layoutDebug?.omrPanelBoxes ?? [])
-        ].filter((caja): caja is NonNullable<typeof caja> => Boolean(caja));
-        expect(contenidoCritico.every((caja) => !interseca(zonaReserva!, caja))).toBe(true);
-      }
-      for (const pregunta of paginaDuplex.preguntas) {
-        for (const opcion of pregunta.opciones) {
-          const puntoX = Math.max(zonaReserva!.x, Math.min(opcion.x, zonaReserva!.x + zonaReserva!.width));
-          const puntoY = Math.max(zonaReserva!.y, Math.min(opcion.y, zonaReserva!.y + zonaReserva!.height));
-          expect(Math.hypot(opcion.x - puntoX, opcion.y - puntoY)).toBeGreaterThanOrEqual(
-            resultado.mapaOmr.perfil.burbujaRadio
-          );
-        }
-      }
-    }
-    expect(ladosConGrapa).toEqual(new Set(['frente', 'reverso']));
-
-    const parser = new PDFParse({ data: resultado.pdfBytes });
-    try {
-      expect((await parser.getText()).text).toContain('GRAPA');
-      const capturas = await parser.getScreenshot({
-        partial: [1, 2],
-        desiredWidth: 1530,
-        imageBuffer: true,
-        imageDataUrl: false
-      });
-      const captura = capturas.pages[0]!;
-      if (process.env.OMR_QA_WRITE_CONTROL_ARTIFACTS === '1') {
-        const directorio = path.resolve(
-          process.env.OMR_QA_OUTPUT_DIR ?? path.resolve(process.cwd(), '../../output/qa/qa_omr_plantilla_20260925')
-        );
-        await mkdir(directorio, { recursive: true });
-        await writeFile(path.join(directorio, 'control_omr_grapa_punteada.png'), captura.data);
-        await writeFile(path.join(directorio, 'control_omr_grapa_reverso.png'), capturas.pages[1]!.data);
-      }
-      const roiGrapa = await sharp(captura.data)
-        .extract({
-          left: Math.floor(zona!.x * captura.width / 612),
-          top: Math.floor((792 - (zona!.y + zona!.height)) * captura.width / 612),
-          width: Math.ceil(zona!.width * captura.width / 612),
-          height: Math.ceil(zona!.height * captura.width / 612)
-        })
-        .greyscale()
-        .raw()
-        .toBuffer();
-      const pixelesTintaGrapa = [...roiGrapa].filter((pixel) => pixel < 190).length;
-      const pixelesFondoPunteado = [...roiGrapa].filter((pixel) => pixel >= 190 && pixel < 254).length;
-      expect(pixelesTintaGrapa).toBeGreaterThan(15);
-      expect(pixelesTintaGrapa).toBeLessThan(roiGrapa.length * 0.1);
-      expect(pixelesFondoPunteado).toBeGreaterThan(20);
-      const reservaReverso = resultado.mapaOmr.paginas[1]!.layoutDebug!.bindingKeepOutZone!;
-      const roiReverso = await sharp(capturas.pages[1]!.data)
-        .extract({
-          left: Math.floor(reservaReverso.x * capturas.pages[1]!.width / 612),
-          top: Math.floor((792 - (reservaReverso.y + reservaReverso.height)) * capturas.pages[1]!.width / 612),
-          width: Math.ceil(reservaReverso.width * capturas.pages[1]!.width / 612),
-          height: Math.ceil(reservaReverso.height * capturas.pages[1]!.width / 612)
-        })
-        .removeAlpha()
-        .raw()
-        .toBuffer();
-      const pixelesTintaReverso = [...roiReverso].filter((pixel) => pixel < 250).length;
-      expect(pixelesTintaReverso).toBeLessThan(roiReverso.length * 0.01);
-      const pixelExterior = await sharp(captura.data)
-        .extract({ left: 4, top: 396, width: 1, height: 1 })
-        .removeAlpha()
-        .raw()
-        .toBuffer();
-      expect([...pixelExterior]).toEqual([255, 255, 255]);
-    } finally {
-      await parser.destroy();
-    }
-  });
-});
+YªçŠx³¬uç%j·Â+ar‰ì¶ë•ë_¢ºÞjË"‚v›•ëÚ®&›•ëj¹âžðjÇ^rV«yÜ"¶(žËn±é^µú+­æ¬²('i¹^½ªâi¹^±¥µÁ½ÉÐì…™Ñ•É… °‘•ÍÉ¥‰”°•áÁ•Ð°¥Ð°Ù¤ô™É½´€Ù¥Ñ•ÍÐœì4)¥µÁ½ÉÐìµ­‘¥È°ÝÉ¥Ñ•¥±”ô™É½´€¹½‘”é™Ì½ÁÉ½µ¥Í•Ìœì4)¥µÁ½ÉÐÁ…Ñ ™É½´€¹½‘”éÁ…Ñ œì4)¥µÁ½ÉÐìAA…ÉÍ”ô™É½´€Á‘˜µÁ…ÉÍ”œì4)¥µÁ½ÉÐÍ¡…ÉÀ™É½´€Í¡…ÉÀœì4)¥µÁ½ÉÐì•¹•É…ÉA‘™á…µ•¸ô™É½´€œ¸¸½ÍÉŒ½µ½‘Õ±½Ì½µ½‘Õ±½}•¹•É…¥½¹}Á‘˜½Í•ÉÙ¥¥½•¹•É…¥½¹A‘˜¹©Ìœì4)¥µÁ½ÉÐì4(€‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ°4(€Ù…±¥‘…ÉM•Á…É…¥½¹ÕÁ±•á=µÈ4)ô™É½´€œ¸¸½ÍÉŒ½µ½‘Õ±½Ì½µ½‘Õ±½}•¹•É…¥½¹}Á‘˜½‘½µ…¥¸½‘ÕÁ±•á=µÉÕ…É¹©Ìœì4)¥µÁ½ÉÐÑåÁ”ì5…Á…=µÈô™É½´€œ¸¸½ÍÉŒ½µ½‘Õ±½Ì½µ½‘Õ±½}•¹•É…¥½¹}Á‘˜½Í¡…É•½Ñ¥Á½ÍA‘˜¹©Ìœì4(4)…™Ñ•É…   ¤€ôøÙ¤¹Õ¹ÍÑÕ‰±±¹ÙÌ ¤¤ì4(4)‘•ÍÉ¥‰” Á±…¹Ñ¥±±„=5H‘”Ñ¥¹Ñ„É•‘Õ¥‘„ä•¹É…Á…‘¼œ°€ ¤€ôøì4(€¥Ð Ù…±¥‘„•°É•¥ÍÑÉ¼“éÁ±•àÍ•Ÿé¸•°Ù½±Ñ•¼ä±„Ñ½±•É…¹¥„½¹™¥ÕÉ…‘„œ°€ ¤€ôøì4(€€€½¹ÍÐµ…Á„€ô€¡Ù½±Ñ•¼è€‰½É‘”µ±…É¼œð€‰½É‘”µ½ÉÑ¼œ°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è¹Õµ‰•È¤è5…Á…=µÈ€ôø€¡ì4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€Ñ•µÁ±…Ñ•%è€½µÈµ…¹½¹¥…°µØÐœ°4(€€€€€¥µÁÉ•Í¥½¸èìµ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´ô°4(€€€€€Á•É™¥±1…å½ÕÐèíô…Ì5…Á…=µÉlÁ•É™¥±1…å½ÕÐt°4(€€€€€Á•É™¥°èì‰ÕÉ‰Õ©…I…‘¥¼è€à¸Ôô…Ì5…Á…=µÉlÁ•É™¥°t°4(€€€€€Á…¥¹…Ìèl4(€€€€€€€ì¹Õµ•É½A…¥¹„è€Ä°Ñ•µÁ±…Ñ•%è€½µÈµ…¹½¹¥…°µØÐœ°‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€™É•¹Ñ”œ°¥¹‘¥•¹!½©„è€Äô°ÁÉ•Õ¹Ñ…Ìèl4(€€€€€€€€€ì¹Õµ•É½AÉ•Õ¹Ñ„è€Ä°¥‘AÉ•Õ¹Ñ„è€ÄÄœ°½Á¥½¹•Ìèmì±•ÑÉ„è€œ°àè€ÄÀÀ°äè€ÄÀÀõtô4(€€€€€€€tô°4(€€€€€€€ì¹Õµ•É½A…¥¹„è€È°Ñ•µÁ±…Ñ•%è€½µÈµ…¹½¹¥…°µØÐœ°‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€É•Ù•ÉÍ¼œ°¥¹‘¥•¹!½©„è€Èô°ÁÉ•Õ¹Ñ…Ìèl4(€€€€€€€€€ì¹Õµ•É½AÉ•Õ¹Ñ„è€È°¥‘AÉ•Õ¹Ñ„è€ÄÈœ°½Á¥½¹•Ìèmì±•ÑÉ„è€œ°àè€ÐäÈ°äè€ÄÀÀõtô4(€€€€€€€tô4(€€€€€t4(€€€ô¤ì4(4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„ ‰½É‘”µ±…É¼œ°€Ì¤¤¤¹Ñ½!…Ù•1•¹Ñ  Ä¤ì4(€€€•áÁ•Ð  ¤€ôøÙ…±¥‘…ÉM•Á…É…¥½¹ÕÁ±•á=µÈ¡µ…Á„ ‰½É‘”µ±…É¼œ°€Ì¤¤¤¹Ñ½Q¡É½Ü ½A±…¹Ñ¥±±„=5H“éÁ±•à¥¹Í•ÕÉ„¼¤ì4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„ ‰½É‘”µ½ÉÑ¼œ°€Ì¤¤¤¹Ñ½!…Ù•1•¹Ñ  À¤ì4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„ ‰½É‘”µ±…É¼œ°€Ä¤¤¤¹Ñ½!…Ù•1•¹Ñ  À¤ì4(€ô¤ì4(4(€¥Ð É•¡…é„Ñ•áÑ¼‘•°É•Ù•ÉÍ¼‘•ÑË…Ì‘”Õ¹„‰ÕÉ‰Õ©„‘•ÍÁ×¥Ì‘•°Ù½±Ñ•¼“éÁ±•àœ°€ ¤€ôøì4(€€€½¹ÍÐµ…Á„è5…Á…=µÈ€ôì4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€¥µÁÉ•Í¥½¸èìµ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼è€‰½É‘”µ±…É¼œ°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è€Ìô°4(€€€€€Á•É™¥±1…å½ÕÐèíô…Ì5…Á…=µÉlÁ•É™¥±1…å½ÕÐt°4(€€€€€Á•É™¥°èì‰ÕÉ‰Õ©…I…‘¥¼è€àô…Ì5…Á…=µÉlÁ•É™¥°t°4(€€€€€Á…¥¹…Ìèl4(€€€€€€€ì¹Õµ•É½A…¥¹„è€Ä°‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€™É•¹Ñ”œ°¥¹‘¥•¹!½©„è€Äô°ÁÉ•Õ¹Ñ…Ìèl4(€€€€€€€€€ì¹Õµ•É½AÉ•Õ¹Ñ„è€Ä°¥‘AÉ•Õ¹Ñ„è€ÄÄœ°½Á¥½¹•Ìèmì±•ÑÉ„è€œ°àè€ÄÀÀ°äè€ÄÀÀ°É…‘¥¼è€àõtô4(€€€€€€€tô°4(€€€€€€€ì¹Õµ•É½A…¥¹„è€È°‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€É•Ù•ÉÍ¼œ°¥¹‘¥•¹!½©„è€Èô°ÁÉ•Õ¹Ñ…Ìèl4(€€€€€€€€€ì4(€€€€€€€€€€€¹Õµ•É½AÉ•Õ¹Ñ„è€È°4(€€€€€€€€€€€¥‘AÉ•Õ¹Ñ„è€ÄÈœ°4(€€€€€€€€€€€½Á¥½¹•Ìèmt°4(€€€€€€€€€€€Ñ•áÑIÕ¹ÌèmìÑ¥Á¼è€Ñ•áÑ¼œ°™Õ•¹Ñ”è€Í…¹Ìœ°Í¥é”è€à°±¥¹•!•¥¡Ðè€ÄÀ°‰‰½àèìàè€ÔÀÌ°äè€äØ°Ý¥‘Ñ è€ÈÀ°¡•¥¡Ðè€äôõt4(€€€€€€€€€ô4(€€€€€€€tô4(€€€€€t4(€€€ôì4(4(€€€½¹ÍÐ½±¥Í¥½¹•Ì€ô‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„¤ì4(€€€•áÁ•Ð¡½±¥Í¥½¹•Ì¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹Ñ¥Á¼€ôôô€‰ÕÉ‰Õ©„µ½¸µÑ¥¹Ñ„µÉ•Ù•ÉÍ¼œ¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€€€•áÁ•Ð  ¤€ôøÙ…±¥‘…ÉM•Á…É…¥½¹ÕÁ±•á=µÈ¡µ…Á„¤¤¹Ñ½Q¡É½Ü ½½¹Ñ•¹¥‘¼¥µÁÉ•Í¼‘•ÑË…Ì‘”Õ¹„é½¹„=5H¼¤ì4(€ô¤ì4(4(€¥Ð É•¡…é„Ñ•áÑ¼‘•°™É•¹Ñ”‘•ÑË…Ì‘”Õ¹„‰ÕÉ‰Õ©„‘•°É•Ù•ÉÍ¼œ°€ ¤€ôøì4(€€€½¹ÍÐµ…Á„è5…Á…=µÈ€ôì4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€¥µÁÉ•Í¥½¸èìµ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼è€‰½É‘”µ±…É¼œ°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è€Äô°4(€€€€€Á•É™¥±1…å½ÕÐèíô…Ì5…Á…=µÉlÁ•É™¥±1…å½ÕÐt°4(€€€€€Á•É™¥°èì‰ÕÉ‰Õ©…I…‘¥¼è€àô…Ì5…Á…=µÉlÁ•É™¥°t°4(€€€€€Á…¥¹…Ìèl4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€Ä°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€™É•¹Ñ”œ°¥¹‘¥•¹!½©„è€Äô°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmì4(€€€€€€€€€€€¹Õµ•É½AÉ•Õ¹Ñ„è€Ä°4(€€€€€€€€€€€¥‘AÉ•Õ¹Ñ„è€ÄÄœ°4(€€€€€€€€€€€½Á¥½¹•Ìèmt°4(€€€€€€€€€€€Ñ•áÑIÕ¹ÌèmìÑ¥Á¼è€Ñ•áÑ¼œ°™Õ•¹Ñ”è€Í…¹Ìœ°Í¥é”è€à°±¥¹•!•¥¡Ðè€ÄÀ°‰‰½àèìàè€ÄÀÀ°äè€äØ°Ý¥‘Ñ è€ÈÀ°¡•¥¡Ðè€äôõt4(€€€€€€€€€õt4(€€€€€€€ô°4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€È°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€É•Ù•ÉÍ¼œ°¥¹‘¥•¹!½©„è€Èô°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmì¹Õµ•É½AÉ•Õ¹Ñ„è€È°¥‘AÉ•Õ¹Ñ„è€ÄÈœ°½Á¥½¹•Ìèmì±•ÑÉ„è€œ°àè€ÔÀÌ°äè€ÄÀÀ°É…‘¥¼è€àõtõt4(€€€€€€€ô4(€€€€€t4(€€€ôì4(4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„¤¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹Ñ¥Á¼€ôôô€‰ÕÉ‰Õ©„µ½¸µÑ¥¹Ñ„µÉ•Ù•ÉÍ¼œ¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€ô¤ì4(4(€¥Ð É•¡…é„Ñ¥¹Ñ„‘•°É•Ù•ÉÍ¼‘•ÑË…Ì‘”±„É•Í•ÉÙ„½µÁ±•Ñ„‘•°EHœ°€ ¤€ôøì4(€€€½¹ÍÐµ…Á„è5…Á…=µÈ€ôì4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€¥µÁÉ•Í¥½¸èìµ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼è€‰½É‘”µ±…É¼œ°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è€Äô°4(€€€€€Á•É™¥±1…å½ÕÐèíô…Ì5…Á…=µÉlÁ•É™¥±1…å½ÕÐt°4(€€€€€Á•É™¥°èì‰ÕÉ‰Õ©…I…‘¥¼è€àô…Ì5…Á…=µÉlÁ•É™¥°t°4(€€€€€Á…¥¹…Ìèl4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€Ä°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€™É•¹Ñ”œ°¥¹‘¥•¹!½©„è€Äô°4(€€€€€€€€€ÅÈèìÑ•áÑ¼è€ÅÈœ°àè€ÔÀÀ°äè€ÜÀÀ°Í¥é”è€ÌÈ°Á…‘‘¥¹œè€Ì°µ…É¥¹5½‘Õ±•Ìè€Ðô°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmt4(€€€€€€€ô°4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€È°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€É•Ù•ÉÍ¼œ°¥¹‘¥•¹!½©„è€Èô°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmì4(€€€€€€€€€€€¹Õµ•É½AÉ•Õ¹Ñ„è€È°4(€€€€€€€€€€€¥‘AÉ•Õ¹Ñ„è€ÄÈœ°4(€€€€€€€€€€€½Á¥½¹•Ìèmt°4(€€€€€€€€€€€Ñ•áÑIÕ¹ÌèmìÑ¥Á¼è€Ñ•áÑ¼œ°™Õ•¹Ñ”è€Í…¹Ìœ°Í¥é”è€à°±¥¹•!•¥¡Ðè€ÄÀ°‰‰½àèìàè€ÄÀÌ°äè€ÜÀØ°Ý¥‘Ñ è€ÄÈ°¡•¥¡Ðè€àôõt4(€€€€€€€€€õt4(€€€€€€€ô4(€€€€€t4(€€€ôì4(4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„¤¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹Ñ¥Á¼€ôôô€ÅÈµ½¸µÑ¥¹Ñ„µÉ•Ù•ÉÍ¼œ¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€ô¤ì4(4(€¥Ð É•¡…é„Õ¹„¥µ…•¸‘•°É•Ù•ÉÍ¼‘•ÑË…Ì‘”Õ¹„‰ÕÉ‰Õ©„œ°€ ¤€ôøì4(€€€½¹ÍÐµ…Á„è5…Á…=µÈ€ôì4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€Ñ•µÁ±…Ñ•%è€½µÈµ¥¹±¥¹”µ•á…´µØÄœ°4(€€€€€¥µÁÉ•Í¥½¸èìµ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼è€‰½É‘”µ±…É¼œ°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è€Äô°4(€€€€€Á•É™¥±1…å½ÕÐèíô…Ì5…Á…=µÉlÁ•É™¥±1…å½ÕÐt°4(€€€€€Á•É™¥°èì‰ÕÉ‰Õ©…I…‘¥¼è€àô…Ì5…Á…=µÉlÁ•É™¥°t°4(€€€€€Á…¥¹…Ìèl4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€Ä°4(€€€€€€€€€Ñ•µÁ±…Ñ•%è€½µÈµ¥¹±¥¹”µ•á…´µØÄœ°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€™É•¹Ñ”œ°¥¹‘¥•¹!½©„è€Äô°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmì¹Õµ•É½AÉ•Õ¹Ñ„è€Ä°¥‘AÉ•Õ¹Ñ„è€ÄÄœ°½Á¥½¹•Ìèmì±•ÑÉ„è€œ°àè€ÄÀÀ°äè€ÄÀÀ°É…‘¥¼è€àõtõt4(€€€€€€€ô°4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€È°4(€€€€€€€€€Ñ•µÁ±…Ñ•%è€½µÈµ¥¹±¥¹”µ•á…´µØÄœ°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€É•Ù•ÉÍ¼œ°¥¹‘¥•¹!½©„è€Èô°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmì¹Õµ•É½AÉ•Õ¹Ñ„è€È°¥‘AÉ•Õ¹Ñ„è€ÄÈœ°½Á¥½¹•Ìèmt°¥µ…•¸èìàè€ÔÀÌ°äè€äØ°Ý¥‘Ñ è€ÈÀ°¡•¥¡Ðè€äôõt4(€€€€€€€ô4(€€€€€t4(€€€ôì4(4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„¤¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹Ñ¥Á¼€ôôô€‰ÕÉ‰Õ©„µ½¸µÑ¥¹Ñ„µÉ•Ù•ÉÍ¼œ¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€ô¤ì4(4(€¥Ð É•¡…é„Ñ•áÑ¼‘•°É•Ù•ÉÍ¼‘•ÑË…Ì‘”Õ¸™¥‘Õ¥…°‘”Ã…¥¹„œ°€ ¤€ôøì4(€€€½¹ÍÐµ…É…Ì€ôì4(€€€€€Ñ¥Á¼è€Õ…‘É…‘½Ìœ…Ì½¹ÍÐ°4(€€€€€Í¥é”è€Ð°4(€€€€€ÅÕ¥•Ñi½¹”è€È°4(€€€€€Ñ°èìàè€ÄÀ°äè€ÜàÈô°ÑÈèìàè€ØÀÈ°äè€ÜàÈô°4(€€€€€‰°èìàè€ÄÀ°äè€ÄÀô°‰Èèìàè€ØÀÈ°äè€ÄÀô4(€€€ôì4(€€€½¹ÍÐµ…Á„è5…Á…=µÈ€ôì4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€Ñ•µÁ±…Ñ•%è€½µÈµ¥¹±¥¹”µ•á…´µØÄœ°4(€€€€€¥µÁÉ•Í¥½¸èìµ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼è€‰½É‘”µ±…É¼œ°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è€Àô°4(€€€€€Á•É™¥±1…å½ÕÐèíô…Ì5…Á…=µÉlÁ•É™¥±1…å½ÕÐt°4(€€€€€Á•É™¥°èì‰ÕÉ‰Õ©…I…‘¥¼è€àô…Ì5…Á…=µÉlÁ•É™¥°t°4(€€€€€Á…¥¹…Ìèl4(€€€€€€€ì¹Õµ•É½A…¥¹„è€Ä°Ñ•µÁ±…Ñ•%è€½µÈµ¥¹±¥¹”µ•á…´µØÄœ°‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€™É•¹Ñ”œ°¥¹‘¥•¹!½©„è€Äô°µ…É…ÍA…¥¹„èµ…É…Ì°ÁÉ•Õ¹Ñ…Ìèmtô°4(€€€€€€€ì4(€€€€€€€€€¹Õµ•É½A…¥¹„è€È°4(€€€€€€€€€Ñ•µÁ±…Ñ•%è€½µÈµ¥¹±¥¹”µ•á…´µØÄœ°4(€€€€€€€€€‘ÕÁ±•àèì¡½©„è€Ä°±…‘¼è€É•Ù•ÉÍ¼œ°¥¹‘¥•¹!½©„è€Èô°4(€€€€€€€€€µ…É…ÍA…¥¹„èµ…É…Ì°4(€€€€€€€€€ÁÉ•Õ¹Ñ…Ìèmì¹Õµ•É½AÉ•Õ¹Ñ„è€È°¥‘AÉ•Õ¹Ñ„è€ÄÈœ°½Á¥½¹•Ìèmt°Ñ•áÑIÕ¹Ìèl4(€€€€€€€€€€€ìÑ¥Á¼è€Ñ•áÑ¼œ°™Õ•¹Ñ”è€Í…¹Ìœ°Í¥é”è€à°±¥¹•!•¥¡Ðè€ÄÀ°‰‰½àèìàè€ÔäÀ°äè€ÜàÀ°Ý¥‘Ñ è€ÄÀ°¡•¥¡Ðè€Ìôô4(€€€€€€€€€tõt4(€€€€€€€ô4(€€€€€t4(€€€ôì4(4(€€€•áÁ•Ð¡‘•Ñ•Ñ…É½±¥Í¥½¹•ÍÕÁ±•á=µÈ¡µ…Á„¤¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹Ñ¥Á¼€ôôô€™¥‘Õ¥…°µ½¸µÑ¥¹Ñ„µÉ•Ù•ÉÍ¼œ¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€ô¤ì4(4(€¥Ð Õ‰¥„IA‘•¹ÑÉ¼‘”Õ¹„É•Í•ÉÙ„ÁÕ¹Ñ•…‘„°½™½¹Ðä•½µ•ÑËµ„±¥‰É”‘”Í—Å…±•Ì=5Hœ°…Íå¹Œ€ ¤€ôøì4(€€€Ù¤¹ÍÑÕ‰¹Ø a59}1e=UQ}UMI}I119=M}=IQ%Y=Lœ°€œœ¤ì4(€€€Ù¤¹ÍÑÕ‰¹Ø a59}=5I}Q=1I9%}I%MQI=}UA1a}54œ°€œœ¤ì4(€€€½¹ÍÐÁÉ•Õ¹Ñ…Ì€ôÉÉ…ä¹™É½´¡ì±•¹Ñ è€ÈÔô°€¡|°¥¹‘¥”¤€ôø€¡ì4(€€€€€¥èÀ‘í¥¹‘¥”€¬€Åõ€°4(€€€€€•¹Õ¹¥…‘¼è€Ÿ
+ýE×¤™Õ¹§Í¸ÕµÁ±”¹•áÐ ¤•¸Õ¸µ¥‘‘±•Ý…É”üœ°4(€€€€€½Á¥½¹•Ìèl4(€€€€€€€ìÑ•áÑ¼è€œ°•Í½ÉÉ•Ñ„è™…±Í”ô°4(€€€€€€€ìÑ•áÑ¼è€œ°•Í½ÉÉ•Ñ„èÑÉÕ”ô°4(€€€€€€€ìÑ•áÑ¼è€œ°•Í½ÉÉ•Ñ„è™…±Í”ô°4(€€€€€€€ìÑ•áÑ¼è€œ°•Í½ÉÉ•Ñ„è™…±Í”ô°4(€€€€€€€ìÑ•áÑ¼è€œ°•Í½ÉÉ•Ñ„è™…±Í”ô4(€€€€€t4(€€€ô¤¤ì4(€€€½¹ÍÐ¥‘ÍAÉ•Õ¹Ñ…Ì€ôÁÉ•Õ¹Ñ…Ì¹µ…À ¡ì¥ô¤€ôø¥¤ì4(€€€½¹ÍÐÉ•ÍÕ±Ñ…‘¼€ô…Ý…¥Ð•¹•É…ÉA‘™á…µ•¸¡ì4(€€€€€Ñ¥ÑÕ±¼è€½¹ÑÉ½°‘”Á±…¹Ñ¥±±„œ°4(€€€€€™½±¥¼è€=5HµMQA1´ÀÀÄœ°4(€€€€€•á…µ%è€œåÍÄà´äÌÔÌ´ÐÙÐµäå´ÄÙäÑœ°4(€€€€€ÁÉ•Õ¹Ñ…Ì°4(€€€€€µ…Á…Y…É¥…¹Ñ”èì4(€€€€€€€½É‘•¹AÉ•Õ¹Ñ…Ìè¥‘ÍAÉ•Õ¹Ñ…Ì°4(€€€€€€€½É‘•¹=Á¥½¹•ÍA½ÉAÉ•Õ¹Ñ„è=‰©•Ð¹™É½µ¹ÑÉ¥•Ì¡¥‘ÍAÉ•Õ¹Ñ…Ì¹µ…À ¡¥¤€ôøm¥°lÀ°€Ä°€È°€Ì°€Ñut¤¤4(€€€€€ô°4(€€€€€Ñ¥Á½á…µ•¸è€Á…É¥…°œ°4(€€€€€Ñ½Ñ…±A…¥¹…Ìè€Ä°4(€€€€€µ…É•¹5´è€à°4(€€€€€Ñ•µÁ±…Ñ•Y•ÉÍ¥½¸è€Ð°4(€€€€€•¹…‰•é…‘¼èì4(€€€€€€€¥¹ÍÑ¥ÑÕ¥½¸è€•¹ÑÉ¼U¹¥Ù•ÉÍ¥Ñ…É¥¼!¥‘…±Õ•¹Í”œ°4(€€€€€€€µ…Ñ•É¥„è€½¹ÑÉ½°‘”Á±…¹Ñ¥±±„œ°4(€€€€€€€µ½ÍÑÉ…É5…É…%¹ÍÑ¥ÑÕ¥½¹…°èÑÉÕ”4(€€€€€ô4(€€€ô¤ì4(4(€€€½¹ÍÐÁ…¥¹„€ôÉ•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹Á…¥¹…ÍlÁt„ì4(€€€•áÁ•Ð¡É•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹Á…¥¹…Ì¹±•¹Ñ ¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…° È¤ì4(€€€•áÁ•Ð¡É•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹¥µÁÉ•Í¥½¸¤¹Ñ½5…Ñ¡=‰©•Ð¡ì4(€€€€€µ½‘¼è€‘ÕÁ±•àœ°Ù½±Ñ•¼è€‰½É‘”µ±…É¼œ°Á…¥¹…ÍA½É!½©„è€È°Ñ½±•É…¹¥…I•¥ÍÑÉ½5´è€Ì4(€€€ô¤ì4(€€€½¹ÍÐé½¹„€ôÁ…¥¹„¹±…å½ÕÑ•‰Õœü¹‰¥¹‘¥¹i½¹”ì4(€€€½¹ÍÐ•Ñ¥ÅÕ•Ñ…i½¹„€ôÁ…¥¹„¹±…å½ÕÑ•‰Õœü¹‰¥¹‘¥¹1…‰•°ì4(€€€½¹ÍÐÍ±½ÑÌ€ôÁ…¥¹„¹±…å½ÕÑ•‰Õœü¹¡•…‘•ÉM±½ÑÌ€üümtì4(€€€½¹ÍÐ±½¼€ôÍ±½ÑÌ¹™¥¹ ¡Í±½Ð¤€ôøÍ±½Ð¹¥€ôôô€±½¼µ¥éÅÕ¥•É‘¼œ¤ì4(€€€•áÁ•Ð¡É•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹Á•É™¥±1…å½ÕÐ¹ÕÍ…ÉI•±±•¹½Í•½É…Ñ¥Ù½Ì¤¹Ñ½	”¡™…±Í”¤ì4(€€€•áÁ•Ð¡é½¹„¤¹Ñ½	••™¥¹• ¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„¤¹Ñ½	••™¥¹• ¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„„¹à¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…°¡é½¹„„¹à¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„„¹ä¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…°¡é½¹„„¹ä¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„„¹à€¬•Ñ¥ÅÕ•Ñ…i½¹„„¹Ý¥‘Ñ ¤¹Ñ½	•1•ÍÍQ¡…¹=ÉÅÕ…°¡é½¹„„¹à€¬é½¹„„¹Ý¥‘Ñ ¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„„¹ä€¬•Ñ¥ÅÕ•Ñ…i½¹„„¹¡•¥¡Ð¤¹Ñ½	•1•ÍÍQ¡…¹=ÉÅÕ…°¡é½¹„„¹ä€¬é½¹„„¹¡•¥¡Ð¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„„¹¡•¥¡Ð¤¹Ñ½	•É•…Ñ•ÉQ¡…¸¡•Ñ¥ÅÕ•Ñ…i½¹„„¹Ý¥‘Ñ ¤ì4(€€€•áÁ•Ð¡•Ñ¥ÅÕ•Ñ…i½¹„„¹É½Ñ…Ñ¥½¸¤¹Ñ½	” ÈÜÀ¤ì4(€€€•áÁ•Ð¡é½¹„„¹à¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…°  Ð¸Ô€¨€ÜÈ¤€¼€ÈÔ¸Ð¤ì4(€€€•áÁ•Ð¡±½¼¤¹Ñ½	••™¥¹• ¤ì4(€€€•áÁ•Ð¡é½¹„„¹à€¬é½¹„„¹Ý¥‘Ñ ¤¹Ñ½	•1•ÍÍQ¡…¹=ÉÅÕ…°¡±½¼„¹à¤ì4(€€€•áÁ•Ð¡é½¹„„¹Ý¥‘Ñ ¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…°  à€¨€ÜÈ¤€¼€ÈÔ¸Ð¤ì4(€€€•áÁ•Ð¡é½¹„„¹¡•¥¡Ð¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…°  ÈÀ€¨€ÜÈ¤€¼€ÈÔ¸Ð¤ì4(€€€½¹ÍÐé½¹…¥Í¥…É•¹Ñ”€ôÁ…¥¹„¹±…å½ÕÑ•‰Õœü¹‰¥¹‘¥¹-••Á=ÕÑi½¹”ì4(€€€½¹ÍÐ‘•ÍÁ•©•É…Á„€ô€ Ì€¨€ÜÈ¤€¼€ÈÔ¸Ðì4(€€€•áÁ•Ð¡é½¹…¥Í¥…É•¹Ñ”¤¹Ñ½ÅÕ…°¡é½¹„¤ì4(€€€•áÁ•Ð¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹ÅÈ¤¹Ñ½	••™¥¹• ¤ì4(€€€½¹ÍÐ™¥‘Õ¥…°€ôÁ…¥¹„¹µ…É…ÍA…¥¹„ü¹Ñ°ì4(€€€•áÁ•Ð¡™¥‘Õ¥…°¤¹Ñ½	••™¥¹• ¤ì4(€€€½¹ÍÐÅÕ¥•Ð€ô9Õµ‰•È¡Á…¥¹„¹µ…É…ÍA…¥¹„ü¹ÅÕ¥•Ñi½¹”€üü€À¤ì4(€€€½¹ÍÐÍ¥é”€ô9Õµ‰•È¡Á…¥¹„¹µ…É…ÍA…¥¹„ü¹Í¥é”€üü€À¤ì4(€€€•áÁ•Ð¡é½¹„„¹ä€¬é½¹„„¹¡•¥¡Ð¤¹Ñ½	•1•ÍÍQ¡…¹=ÉÅÕ…°¡™¥‘Õ¥…°„¹ä€´Í¥é”€´ÅÕ¥•Ð€´€ È€¨€ÜÈ¤€¼€ÈÔ¸Ð¤ì4(€€€•áÁ•Ð¡é½¹„„¹à€¬é½¹„„¹Ý¥‘Ñ ¤¹Ñ½	•1•ÍÍQ¡…¹=ÉÅÕ…°¡9Õµ‰•È¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹ÅÈü¹à€üü€À¤¤ì4(€€€½¹ÍÐ¥¹Ñ•ÉÍ•„€ô€¡„èìàè¹Õµ‰•Èìäè¹Õµ‰•ÈìÝ¥‘Ñ è¹Õµ‰•Èì¡•¥¡Ðè¹Õµ‰•Èô°ˆèìàè¹Õµ‰•Èìäè¹Õµ‰•ÈìÝ¥‘Ñ è¹Õµ‰•Èì¡•¥¡Ðè¹Õµ‰•Èô¤€ôø4(€€€€€„¹à€ðˆ¹à€¬ˆ¹Ý¥‘Ñ €˜˜„¹à€¬„¹Ý¥‘Ñ €øˆ¹à€˜˜„¹ä€ðˆ¹ä€¬ˆ¹¡•¥¡Ð€˜˜„¹ä€¬„¹¡•¥¡Ð€øˆ¹äì4(€€€½¹ÍÐ…©…Í9½É…Á…‰±•Ì€ôl4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹¡•…‘•ÉQ•áÑ	±½­Ì€üümt¤°4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹¡•…‘•É%½¹	½á•Ì€üümt¤°4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹¡•…‘•É¥•±‘	½á•Ì€üümt¤°4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹¡•…‘•ÉM±½ÑÌ€üümt¤°4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹ÅÕ•ÍÑ¥½¹	±½­	½á•Ì€üümt¤°4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹ÅÕ•ÍÑ¥½¹AÉ½µÁÑ	½á•Ì€üümt¤°4(€€€€€€¸¸¸¡Á…¥¹„¹±…å½ÕÑ•‰Õœü¹½µÉA…¹•±	½á•Ì€üümt¤4(€€€tì4(€€€•áÁ•Ð¡…©…Í9½É…Á…‰±•Ì¹•Ù•Éä ¡…©„¤€ôø€…¥¹Ñ•ÉÍ•„¡é½¹„„°…©„¤¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€€€•áÁ•Ð¡Á…¥¹„¹ÁÉ•Õ¹Ñ…ÍlÁtü¹Ñ•áÑIÕ¹Ìü¹±•¹Ñ ¤¹Ñ½	•É•…Ñ•ÉQ¡…¸ À¤ì4(€€€•áÁ•Ð¡Á…¥¹„¹ÁÉ•Õ¹Ñ…ÍlÁtü¹Ñ•áÑIÕ¹Ìü¹•Ù•Éä ¡ÉÕ¸¤€ôøÉÕ¸¹™Õ•¹Ñ”€ôôô€½™½¹ÐY•É„M…¹Ìœ¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(4(€€€½¹ÍÐ±…‘½Í½¹É…Á„€ô¹•ÜM•ÐñÍÑÉ¥¹œø ¤ì4(€€€™½È€¡½¹ÍÐm¥¹‘¥•A…¥¹„°Á…¥¹…ÕÁ±•át½˜É•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹Á…¥¹…Ì¹•¹ÑÉ¥•Ì ¤¤ì4(€€€€€½¹ÍÐé½¹…I•Í•ÉÙ„€ôÁ…¥¹…ÕÁ±•à¹±…å½ÕÑ•‰Õœü¹‰¥¹‘¥¹-••Á=ÕÑi½¹”ì4(€€€€€•áÁ•Ð¡é½¹…I•Í•ÉÙ„¤¹Ñ½	••™¥¹• ¤ì4(€€€€€½¹ÍÐµ…É•¹M•ÕÉ½A…¥¹„€ô¥¹‘¥•A…¥¹„€ôôô€À€ü€À€è‘•ÍÁ•©•É…Á„ì4(€€€€€½¹ÍÐ•ÍI•Ù•ÉÍ¼€ôÁ…¥¹…ÕÁ±•à¹‘ÕÁ±•àü¹±…‘¼€ôôô€É•Ù•ÉÍ¼œì4(€€€€€±…‘½Í½¹É…Á„¹…‘¡•ÍI•Ù•ÉÍ¼€ü€É•Ù•ÉÍ¼œ€è€™É•¹Ñ”œ¤ì4(€€€€€½¹ÍÐá	…Í”€ô•ÍI•Ù•ÉÍ¼€ü€ØÄÈ€´é½¹„„¹à€´é½¹„„¹Ý¥‘Ñ €èé½¹„„¹àì4(€€€€€½¹ÍÐáÍÁ•É…‘„€ô5…Ñ ¹µ…à À°á	…Í”€´µ…É•¹M•ÕÉ½A…¥¹„¤ì4(€€€€€½¹ÍÐåÍÁ•É…‘„€ô5…Ñ ¹µ…à À°é½¹„„¹ä€´µ…É•¹M•ÕÉ½A…¥¹„¤ì4(€€€€€•áÁ•Ð¡é½¹…I•Í•ÉÙ„„¹à¤¹Ñ½	•±½Í•Q¼¡áÍÁ•É…‘„°€Ô¤ì4(€€€€€•áÁ•Ð¡é½¹…I•Í•ÉÙ„„¹ä¤¹Ñ½	•±½Í•Q¼¡åÍÁ•É…‘„°€Ô¤ì4(€€€€€•áÁ•Ð¡é½¹…I•Í•ÉÙ„„¹Ý¥‘Ñ ¤¹Ñ½	•±½Í•Q¼ 4(€€€€€€€5…Ñ ¹µ¥¸ ØÄÈ°á	…Í”€¬é½¹„„¹Ý¥‘Ñ €¬µ…É•¹M•ÕÉ½A…¥¹„¤€´áÍÁ•É…‘„°4(€€€€€€€€Ô4(€€€€€€¤ì4(€€€€€•áÁ•Ð¡é½¹…I•Í•ÉÙ„„¹¡•¥¡Ð¤¹Ñ½	•±½Í•Q¼ 4(€€€€€€€5…Ñ ¹µ¥¸ ÜäÈ°é½¹„„¹ä€¬é½¹„„¹¡•¥¡Ð€¬µ…É•¹M•ÕÉ½A…¥¹„¤€´åÍÁ•É…‘„°4(€€€€€€€€Ô4(€€€€€€¤ì4(€€€€€½¹ÍÐµ…É…ÍA…¥¹„€ôÁ…¥¹…ÕÁ±•à¹µ…É…ÍA…¥¹„ì4(€€€€€•áÁ•Ð¡µ…É…ÍA…¥¹„¤¹Ñ½	••™¥¹• ¤ì4(€€€€€½¹ÍÐµ…É•¹EÕ¥•Ð€ô9Õµ‰•È¡µ…É…ÍA…¥¹„„¹ÅÕ¥•Ñi½¹”¤€¬€ È€¨€ÜÈ¤€¼€ÈÔ¸Ðì4(€€€€€½¹ÍÐµ…É•¹É…Á„€ôÁ…¥¹…ÕÁ±•à¹¹Õµ•É½A…¥¹„€ôôô€Ä€ü€ Ì€¨€ÜÈ¤€¼€ÈÔ¸Ð€è€Àì4(€€€€€½¹ÍÐé½¹…É…Á…M•ÕÉ„€ôì4(€€€€€€€àè5…Ñ ¹µ…à À°é½¹…I•Í•ÉÙ„„¹à€´µ…É•¹É…Á„¤°4(€€€€€€€äè5…Ñ ¹µ…à À°é½¹…I•Í•ÉÙ„„¹ä€´µ…É•¹É…Á„¤°4(€€€€€€€Ý¥‘Ñ è5…Ñ ¹µ¥¸ ØÄÈ°é½¹…I•Í•ÉÙ„„¹à€¬é½¹…I•Í•ÉÙ„„¹Ý¥‘Ñ €¬µ…É•¹É…Á„¤€´5…Ñ ¹µ…à À°é½¹…I•Í•ÉÙ„„¹à€´µ…É•¹É…Á„¤°4(€€€€€€€¡•¥¡Ðè5…Ñ ¹µ¥¸ ÜäÈ°é½¹…I•Í•ÉÙ„„¹ä€¬é½¹…I•Í•ÉÙ„„¹¡•¥¡Ð€¬µ…É•¹É…Á„¤€´5…Ñ ¹µ…à À°é½¹…I•Í•ÉÙ„„¹ä€´µ…É•¹É…Á„¤4(€€€€€ôì4(€€€€€™½È€¡½¹ÍÐ•ÍÅÕ¥¹„½˜lÑ°œ°€ÑÈœ°€‰°œ°€‰Èt…Ì½¹ÍÐ¤ì4(€€€€€€€½¹ÍÐµ…É„€ôµ…É…ÍA…¥¹„…m•ÍÅÕ¥¹…tì4(€€€€€€€½¹ÍÐ¥éÅÕ¥•É‘„€ô•ÍÅÕ¥¹„¹•¹‘Í]¥Ñ  °œ¤ì4(€€€€€€€½¹ÍÐÍÕÁ•É¥½È€ô•ÍÅÕ¥¹„¹ÍÑ…ÉÑÍ]¥Ñ  Ðœ¤ì4(€€€€€€€½¹ÍÐÅÕ¥•Ñi½¹”€ôì4(€€€€€€€€€àè€¡¥éÅÕ¥•É‘„€üµ…É„¹à€èµ…É„¹à€´µ…É…ÍA…¥¹„„¹Í¥é”¤€´µ…É•¹EÕ¥•Ð°4(€€€€€€€€€äè€¡ÍÕÁ•É¥½È€üµ…É„¹ä€´µ…É…ÍA…¥¹„„¹Í¥é”€èµ…É„¹ä¤€´µ…É•¹EÕ¥•Ð°4(€€€€€€€€€Ý¥‘Ñ èµ…É…ÍA…¥¹„„¹Í¥é”€¬µ…É•¹EÕ¥•Ð€¨€È°4(€€€€€€€€€¡•¥¡Ðèµ…É…ÍA…¥¹„„¹Í¥é”€¬µ…É•¹EÕ¥•Ð€¨€È4(€€€€€€€ôì4(€€€€€€€•áÁ•Ð¡¥¹Ñ•ÉÍ•„¡é½¹…É…Á…M•ÕÉ„°ÅÕ¥•Ñi½¹”¤°±„É…Á„‘”€‘íÁ…¥¹…ÕÁ±•à¹‘ÕÁ±•àü¹±…‘½ô¥¹Ù…‘”€‘í•ÍÅÕ¥¹…õ€¤4(€€€€€€€€€€¹Ñ½	”¡™…±Í”¤ì4(€€€€€ô4(€€€€€½¹ÍÐÉ•Í•ÉÙ…EÈ€ôÁ…¥¹…ÕÁ±•à¹±…å½ÕÑ•‰Õœü¹ÅÈì4(€€€€€•áÁ•Ð¡É•Í•ÉÙ…EÈ¤¹Ñ½	••™¥¹• ¤ì4(€€€€€½¹ÍÐ‘•ÍÁ•©•EÉÉ…Á„€ô€ ÄÈ¸Ô€¨€ÜÈ¤€¼€ÈÔ¸Ðì4(€€€€€½¹ÍÐ‘¥ÍÑ…¹¥…EÉÉ…Á„€ô•ÍI•Ù•ÉÍ¼4(€€€€€€€€üé½¹…I•Í•ÉÙ„„¹à€´€¡É•Í•ÉÙ…EÈ„¹à€¬É•Í•ÉÙ…EÈ„¹Ý¥‘Ñ ¤4(€€€€€€€€èÉ•Í•ÉÙ…EÈ„¹à€´€¡é½¹…I•Í•ÉÙ„„¹à€¬é½¹…I•Í•ÉÙ„„¹Ý¥‘Ñ ¤ì4(€€€€€•áÁ•Ð¡‘¥ÍÑ…¹¥…EÉÉ…Á„¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…°¡‘•ÍÁ•©•EÉÉ…Á„¤ì4(€€€€€¥˜€¡¥¹‘¥•A…¥¹„€ø€À¤ì4(€€€€€€€½¹ÍÐ½¹Ñ•¹¥‘½É¥Ñ¥¼€ôl4(€€€€€€€€€Á…¥¹…ÕÁ±•à¹±…å½ÕÑ•‰Õœü¹ÅÈ°4(€€€€€€€€€€¸¸¸¡Á…¥¹…ÕÁ±•à¹±…å½ÕÑ•‰Õœü¹ÅÕ•ÍÑ¥½¹AÉ½µÁÑ	½á•Ì€üümt¤°4(€€€€€€€€€€¸¸¸¡Á…¥¹…ÕÁ±•à¹±…å½ÕÑ•‰Õœü¹½¹Ñ¥¹Õ…Ñ¥½¹Q•áÑ	±½­Ì€üümt¤°4(€€€€€€€€€€¸¸¸¡Á…¥¹…ÕÁ±•à¹±…å½ÕÑ•‰Õœü¹½µÉA…¹•±	½á•Ì€üümt¤4(€€€€€€€t¹™¥±Ñ•È ¡…©„¤è…©„¥Ì9½¹9Õ±±…‰±”ñÑåÁ•½˜…©„ø€ôø	½½±•…¸¡…©„¤¤ì4(€€€€€€€•áÁ•Ð¡½¹Ñ•¹¥‘½É¥Ñ¥¼¹•Ù•Éä ¡…©„¤€ôø€…¥¹Ñ•ÉÍ•„¡é½¹…I•Í•ÉÙ„„°…©„¤¤¤¹Ñ½	”¡ÑÉÕ”¤ì4(€€€€€ô4(€€€€€™½È€¡½¹ÍÐÁÉ•Õ¹Ñ„½˜Á…¥¹…ÕÁ±•à¹ÁÉ•Õ¹Ñ…Ì¤ì4(€€€€€€€™½È€¡½¹ÍÐ½Á¥½¸½˜ÁÉ•Õ¹Ñ„¹½Á¥½¹•Ì¤ì4(€€€€€€€€€½¹ÍÐÁÕ¹Ñ½`€ô5…Ñ ¹µ…à¡é½¹…I•Í•ÉÙ„„¹à°5…Ñ ¹µ¥¸¡½Á¥½¸¹à°é½¹…I•Í•ÉÙ„„¹à€¬é½¹…I•Í•ÉÙ„„¹Ý¥‘Ñ ¤¤ì4(€€€€€€€€€½¹ÍÐÁÕ¹Ñ½d€ô5…Ñ ¹µ…à¡é½¹…I•Í•ÉÙ„„¹ä°5…Ñ ¹µ¥¸¡½Á¥½¸¹ä°é½¹…I•Í•ÉÙ„„¹ä€¬é½¹…I•Í•ÉÙ„„¹¡•¥¡Ð¤¤ì4(€€€€€€€€€•áÁ•Ð¡5…Ñ ¹¡åÁ½Ð¡½Á¥½¸¹à€´ÁÕ¹Ñ½`°½Á¥½¸¹ä€´ÁÕ¹Ñ½d¤¤¹Ñ½	•É•…Ñ•ÉQ¡…¹=ÉÅÕ…° 4(€€€€€€€€€€€É•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹Á•É™¥°¹‰ÕÉ‰Õ©…I…‘¥¼4(€€€€€€€€€€¤ì4(€€€€€€€ô4(€€€€€ô4(€€€ô4(€€€•áÁ•Ð¡±…‘½Í½¹É…Á„¤¹Ñ½ÅÕ…°¡¹•ÜM•Ð¡l™É•¹Ñ”œ°€É•Ù•ÉÍ¼t¤¤ì4(4(€€€½¹ÍÐÁ…ÉÍ•È€ô¹•ÜAA…ÉÍ”¡ì‘…Ñ„èÉ•ÍÕ±Ñ…‘¼¹Á‘™	åÑ•Ìô¤ì4(€€€ÑÉäì4(€€€€€•áÁ•Ð ¡…Ý…¥ÐÁ…ÉÍ•È¹•ÑQ•áÐ ¤¤¹Ñ•áÐ¤¹Ñ½½¹Ñ…¥¸ IAœ¤ì4(€€€€€½¹ÍÐ…ÁÑÕÉ…Ì€ô…Ý…¥ÐÁ…ÉÍ•È¹•ÑMÉ••¹Í¡½Ð¡ì4(€€€€€€€Á…ÉÑ¥…°èlÄ°€Ét°4(€€€€€€€‘•Í¥É•‘]¥‘Ñ è€ÄÔÌÀ°4(€€€€€€€¥µ…•	Õ™™•ÈèÑÉÕ”°4(€€€€€€€¥µ…•…Ñ…UÉ°è™…±Í”4(€€€€€ô¤ì4(€€€€€½¹ÍÐ…ÁÑÕÉ„€ô…ÁÑÕÉ…Ì¹Á…•ÍlÁt„ì4(€€€€€¥˜€¡ÁÉ½•ÍÌ¹•¹Ø¹=5I}E}]I%Q}=9QI=1}IQ%QL€ôôô€œÄœ¤ì4(€€€€€€€½¹ÍÐ‘¥É•Ñ½É¥¼€ôÁ…Ñ ¹É•Í½±Ù” 4(€€€€€€€€€ÁÉ½•ÍÌ¹•¹Ø¹=5I}E}=UQAUQ}%H€üüÁ…Ñ ¹É•Í½±Ù”¡ÁÉ½•ÍÌ¹Ý ¤°€œ¸¸¼¸¸½½ÕÑÁÕÐ½Å„½Å…}½µÉ}Á±…¹Ñ¥±±…|ÈÀÈØÀäÈÔœ¤4(€€€€€€€€¤ì4(€€€€€€€…Ý…¥Ðµ­‘¥È¡‘¥É•Ñ½É¥¼°ìÉ•ÕÉÍ¥Ù”èÑÉÕ”ô¤ì4(€€€€€€€…Ý…¥ÐÝÉ¥Ñ•¥±”¡Á…Ñ ¹©½¥¸¡‘¥É•Ñ½É¥¼°€½¹ÑÉ½±}½µÉ}É…Á…}ÁÕ¹Ñ•…‘„¹Á¹œœ¤°…ÁÑÕÉ„¹‘…Ñ„¤ì4(€€€€€€€…Ý…¥ÐÝÉ¥Ñ•¥±”¡Á…Ñ ¹©½¥¸¡‘¥É•Ñ½É¥¼°€½¹ÑÉ½±}½µÉ}É…Á…}É•Ù•ÉÍ¼¹Á¹œœ¤°…ÁÑÕÉ…Ì¹Á…•ÍlÅt„¹‘…Ñ„¤ì4(€€€€€ô4(€€€€€½¹ÍÐÉ½¥É…Á„€ô…Ý…¥ÐÍ¡…ÉÀ¡…ÁÑÕÉ„¹‘…Ñ„¤4(€€€€€€€€¹•áÑÉ…Ð¡ì4(€€€€€€€€€±•™Ðè5…Ñ ¹™±½½È¡é½¹„„¹à€¨…ÁÑÕÉ„¹Ý¥‘Ñ €¼€ØÄÈ¤°4(€€€€€€€€€Ñ½Àè5…Ñ ¹™±½½È  ÜäÈ€´€¡é½¹„„¹ä€¬é½¹„„¹¡•¥¡Ð¤¤€¨…ÁÑÕÉ„¹Ý¥‘Ñ €¼€ØÄÈ¤°4(€€€€€€€€€Ý¥‘Ñ è5…Ñ ¹•¥°¡é½¹„„¹Ý¥‘Ñ €¨…ÁÑÕÉ„¹Ý¥‘Ñ €¼€ØÄÈ¤°4(€€€€€€€€€¡•¥¡Ðè5…Ñ ¹•¥°¡é½¹„„¹¡•¥¡Ð€¨…ÁÑÕÉ„¹Ý¥‘Ñ €¼€ØÄÈ¤4(€€€€€€€ô¤4(€€€€€€€€¹É•åÍ…±” ¤4(€€€€€€€€¹É…Ü ¤4(€€€€€€€€¹Ñ½	Õ™™•È ¤ì4(€€€€€½¹ÍÐÁ¥á•±•ÍQ¥¹Ñ…É…Á„€ôl¸¸¹É½¥É…Á…t¹™¥±Ñ•È ¡Á¥á•°¤€ôøÁ¥á•°€ð€ÄäÀ¤¹±•¹Ñ ì4(€€€€€½¹ÍÐÁ¥á•±•Í½¹‘½AÕ¹Ñ•…‘¼€ôl¸¸¹É½¥É…Á…t¹™¥±Ñ•È ¡Á¥á•°¤€ôøÁ¥á•°€øô€ÄäÀ€˜˜Á¥á•°€ð€ÈÔÐ¤¹±•¹Ñ ì4(€€€€€•áÁ•Ð¡Á¥á•±•ÍQ¥¹Ñ…É…Á„¤¹Ñ½	•É•…Ñ•ÉQ¡…¸ ÄÔ¤ì4(€€€€€•áÁ•Ð¡Á¥á•±•ÍQ¥¹Ñ…É…Á„¤¹Ñ½	•1•ÍÍQ¡…¸¡É½¥É…Á„¹±•¹Ñ €¨€À¸Ä¤ì4(€€€€€•áÁ•Ð¡Á¥á•±•Í½¹‘½AÕ¹Ñ•…‘¼¤¹Ñ½	•É•…Ñ•ÉQ¡…¸ ÈÀ¤ì4(€€€€€½¹ÍÐÉ•Í•ÉÙ…I•Ù•ÉÍ¼€ôÉ•ÍÕ±Ñ…‘¼¹µ…Á…=µÈ¹Á…¥¹…ÍlÅt„¹±…å½ÕÑ•‰Õœ„¹‰¥¹‘¥¹-••Á=ÕÑi½¹”„ì4(€€€€€½¹ÍÐÉ½¥I•Ù•ÉÍ¼€ô…Ý…¥ÐÍ¡…ÉÀ¡…ÁÑÕÉ…Ì¹Á…•ÍlÅt„¹‘…Ñ„¤4(€€€€€€€€¹•áÑÉ…Ð¡ì4(€€€€€€€€€±•™Ðè5…Ñ ¹™±½½È¡É•Í•ÉÙ…I•Ù•ÉÍ¼¹à€¨…ÁÑÕÉ…Ì¹Á…•ÍlÅt„¹Ý¥‘Ñ €¼€ØÄÈ¤°4(€€€€€€€€€Ñ½Àè5…Ñ ¹™±½½È  ÜäÈ€´€¡É•Í•ÉÙ…I•Ù•ÉÍ¼¹ä€¬É•Í•ÉÙ…I•Ù•ÉÍ¼¹¡•¥¡Ð¤¤€¨…ÁÑÕÉ…Ì¹Á…•ÍlÅt„¹Ý¥‘Ñ €¼€ØÄÈ¤°4(€€€€€€€€€Ý¥‘Ñ è5…Ñ ¹•¥°¡É•Í•ÉÙ…I•Ù•ÉÍ¼¹Ý¥‘Ñ €¨…ÁÑÕÉ…Ì¹Á…•ÍlÅt„¹Ý¥‘Ñ €¼€ØÄÈ¤°4(€€€€€€€€€¡•¥¡Ðè5…Ñ ¹•¥°¡É•Í•ÉÙ…I•Ù•ÉÍ¼¹¡•¥¡Ð€¨…ÁÑÕÉ…Ì¹Á…•ÍlÅt„¹Ý¥‘Ñ €¼€ØÄÈ¤4(€€€€€€€ô¤4(€€€€€€€€¹É•µ½Ù•±Á¡„ ¤4(€€€€€€€€¹É…Ü ¤4(€€€€€€€€¹Ñ½	Õ™™•È ¤ì4(€€€€€½¹ÍÐÁ¥á•±•ÍQ¥¹Ñ…I•Ù•ÉÍ¼€ôl¸¸¹É½¥I•Ù•ÉÍ½t¹™¥±Ñ•È ¡Á¥á•°¤€ôøÁ¥á•°€ð€ÈÔÀ¤¹±•¹Ñ ì4(€€€€€•áÁ•Ð¡Á¥á•±•ÍQ¥¹Ñ…I•Ù•ÉÍ¼¤¹Ñ½	•1•ÍÍQ¡…¸¡É½¥I•Ù•ÉÍ¼¹±•¹Ñ €¨€À¸ÀÄ¤ì4(€€€€€½¹ÍÐÁ¥á•±áÑ•É¥½È€ô…Ý…¥ÐÍ¡…ÉÀ¡…ÁÑÕÉ„¹‘…Ñ„¤4(€€€€€€€€¹•áÑÉ…Ð¡ì±•™Ðè€Ð°Ñ½Àè€ÌäØ°Ý¥‘Ñ è€Ä°¡•¥¡Ðè€Äô¤4(€€€€€€€€¹É•µ½Ù•±Á¡„ ¤4(€€€€€€€€¹É…Ü ¤4(€€€€€€€€¹Ñ½	Õ™™•È ¤ì4(€€€€€•áÁ•Ð¡l¸¸¹Á¥á•±áÑ•É¥½Ét¤¹Ñ½ÅÕ…°¡lÈÔÔ°€ÈÔÔ°€ÈÔÕt¤ì4(4(€€€€€½¹ÍÐ½¹Ñ…ÉA¥á•±•Í9•½¸€ô…Íå¹Œ€¡é½¹„èì±•™Ðè¹Õµ‰•ÈìÑ½Àè¹Õµ‰•ÈìÝ¥‘Ñ è¹Õµ‰•Èì¡•¥¡Ðè¹Õµ‰•Èô¤€ôøì4(€€€€€€€½¹ÍÐì‘…Ñ„°¥¹™¼ô€ô…Ý…¥ÐÍ¡…ÉÀ¡…ÁÑÕÉ„¹‘…Ñ„¤4(€€€€€€€€€€¹•áÑÉ…Ð¡é½¹„¤4(€€€€€€€€€€¹É•µ½Ù•±Á¡„ ¤4(€€€€€€€€€€¹É…Ü ¤4(€€€€€€€€€€¹Ñ½	Õ™™•È¡ìÉ•Í½±Ù•]¥Ñ¡=‰©•ÐèÑÉÕ”ô¤ì4(€€€€€€€±•Ð¥…¸€ô€Àì4(€€€€€€€±•Ðµ…•¹Ñ„€ô€Àì4(€€€€€€€™½È€¡±•Ð¥¹‘¥”€ô€Àì¥¹‘¥”€ð¥¹™¼¹Ý¥‘Ñ €¨¥¹™¼¹¡•¥¡Ð€¨¥¹™¼¹¡…¹¹•±Ìì¥¹‘¥”€¬ô¥¹™¼¹¡…¹¹•±Ì¤ì4(€€€€€€€€€½¹ÍÐÉ½©¼€ô‘…Ñ…m¥¹‘¥•t€üü€Àì4(€€€€€€€€€½¹ÍÐÙ•É‘”€ô‘…Ñ…m¥¹‘¥”€¬€Åt€üü€Àì4(€€€€€€€€€½¹ÍÐ…éÕ°€ô‘…Ñ…m¥¹‘¥”€¬€Ét€üü€Àì4(€€€€€€€€€¥˜€¡É½©¼€ð€ÄÈÀ€˜˜Ù•É‘”€ø€ÜÔ€˜˜…éÕ°€ø€äÔ¤¥…¸€¬ô€Äì4(€€€€€€€€€¥˜€¡É½©¼€ø€ÄÈÀ€˜˜Ù•É‘”€ð€ÄÀÔ€˜˜…éÕ°€ø€ØÔ¤µ…•¹Ñ„€¬ô€Äì4(€€€€€€€ô4(€€€€€€€É•ÑÕÉ¸ì¥…¸°µ…•¹Ñ„ôì4(€€€€€ôì4(€€€€€•áÁ•Ð¡…Ý…¥Ð½¹Ñ…ÉA¥á•±•Í9•½¸¡ì±•™Ðè€ÄÐÀ°Ñ½Àè€Ôà°Ý¥‘Ñ è€ÄÀÀ°¡•¥¡Ðè€ÄØô¤¹Ñ¡•¸ ¡ì¥…¸ô¤€ôø¥…¸¤¤4(€€€€€€€€¹Ñ½	•É•…Ñ•ÉQ¡…¸ Ð¤ì4(€€€€€•áÁ•Ð¡…Ý…¥Ð½¹Ñ…ÉA¥á•±•Í9•½¸¡ì±•™Ðè€ÄÈäÀ°Ñ½Àè€Ôà°Ý¥‘Ñ è€ÄÀÀ°¡•¥¡Ðè€ÄØô¤¹Ñ¡•¸ ¡ìµ…•¹Ñ„ô¤€ôøµ…•¹Ñ„¤¤4(€€€€€€€€¹Ñ½	•É•…Ñ•ÉQ¡…¸ Ð¤ì4(€€€ô™¥¹…±±äì4(€€€€€…Ý…¥ÐÁ…ÉÍ•È¹‘•ÍÑÉ½ä ¤ì4(€€€ô4(€ô¤ì4)ô¤ì4(

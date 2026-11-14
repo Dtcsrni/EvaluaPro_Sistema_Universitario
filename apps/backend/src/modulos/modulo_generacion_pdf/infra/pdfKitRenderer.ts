@@ -1,5123 +1,2431 @@
-/**
- * pdfKitRenderer
- *
- * Responsabilidad: Modulo interno del sistema.
- * Limites: Mantener contrato y comportamiento observable del modulo.
- */
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import fontkit from '@pdf-lib/fontkit';
-import {
-  LineCapStyle,
-  PDFDocument,
-  StandardFonts,
-  TextRenderingMode,
-  degrees,
-  popGraphicsState,
-  pushGraphicsState,
-  rgb,
-  setLineWidth,
-  setStrokingColor,
-  setTextRenderingMode,
-  type PDFFont,
-  type PDFImage,
-  type PDFPage
-} from 'pdf-lib';
-import QRCode from 'qrcode';
-import sharp from 'sharp';
-import type { ExamenPdf } from '../domain/examenPdf.js';
-import {
-  ALTO_CARTA,
-  ANCHO_CARTA,
-  MM_A_PUNTOS,
-  type BlockSpecOmr,
-  type EngineHintsOmr,
-  type MarkerSpecOmr,
-  type PaginaOmr,
-  type PerfilLayoutImpresion,
-  type PerfilPlantillaOmr,
-  type ResultadoGeneracionPdf
-} from '../shared/tiposPdf.js';
-import { PERFIL_OMR_CANONICO, PERFIL_OMR_INLINE_EXAM } from '../domain/layoutExamen.js';
-import { TEMPLATE_VERSION_CANONICA } from '../domain/templateCanonico.js';
-import { PDF_VISUAL_BASELINE_RGB } from './pdfVisualBaseline.js';
-import {
-  compactarOpcionBancoParaPdf,
-  normalizarEnunciadoBanco
-} from '../../modulo_banco_preguntas/index.js';
-
-type PerfilPlantillaRender = PerfilPlantillaOmr & {
-  version: 4;
-  qrRasterScale: number;
-  burbujaStroke: number;
-  burbujaOffsetX: number;
-  omrHeaderGap: number;
-  omrTagWidth: number;
-  omrTagHeight: number;
-  omrTagFontSize: number;
-  omrLabelFontSize: number;
-  omrBoxBorderWidth: number;
-  omrPanelPadding: number;
-  fiducialMargin: number;
-  fiducialQuietZone: number;
-};
-
-type LogoEmbed = {
-  image: PDFImage;
-  width: number;
-  height: number;
-};
-
-type SegmentoTexto = {
-  texto: string;
-  font: PDFFont;
-  size: number;
-  esCodigo?: boolean;
-  /** Evita separar una formula entre base, operador y sub/superindice. */
-  noWrap?: boolean;
-  subrayado?: boolean;
-  offsetY?: number;
-  espacioAntes?: boolean;
-  espacioDespues?: boolean;
-};
-type LineaSegmentos = { segmentos: SegmentoTexto[]; lineHeight: number };
-type RectBox = { x: number; y: number; width: number; height: number };
-type EstiloTexto = 'regular' | 'bold' | 'italic';
-type TextRunDebug = {
-  tipo: 'texto' | 'codigo';
-  fuente: string;
-  size: number;
-  lineHeight: number;
-  bbox: RectBox;
-};
-
-const PERFIL_OMR_CANONICO_RENDER: PerfilPlantillaRender = {
-  ...PERFIL_OMR_CANONICO,
-  version: 4,
-  // Escala entera alta: conserva bordes nÃ­tidos en el bitmap embebido antes
-  // de que el driver Epson lo rasterice al tamaÃ±o fÃ­sico del sÃ­mbolo.
-  qrRasterScale: 24,
-  burbujaStroke: 1,
-  burbujaOffsetX: 4.4,
-  omrHeaderGap: 4,
-  // La insignia numÃ©rica queda en la banda superior, separada verticalmente
-  // de la primera burbuja. Su tamaÃ±o compacto evita que se interprete como
-  // tinta vecina dentro del ROI OMR al rasterizar.
-  // La etiqueta queda mÃ¡s alta y legible, pero sigue siendo una seÃ±al
-  // auxiliar fuera de la ventana circular de respuesta. El tamaÃ±o permite
-  // identificar el reactivo tambiÃ©n despuÃ©s de fotografiar la hoja.
-  omrTagWidth: 16,
-  // La caja reducida conserva el numero en 8 pt y libera 1.2 pt visibles
-  // antes de la primera burbuja, sin aumentar la altura del panel.
-  omrTagHeight: 7,
-  omrTagFontSize: 8,
-  omrLabelFontSize: 5.6,
-  omrBoxBorderWidth: 0.9,
-  // Las quiet zones ya forman parte del panel; no aÃ±adir un halo blanco
-  // exterior que agrande el rectÃ¡ngulo visible sin aportar seÃ±al OMR.
-  omrPanelPadding: 0,
-  fiducialMargin: 1,
-  fiducialQuietZone: PERFIL_OMR_CANONICO.fiducialQuietZone ?? 0.6 * MM_A_PUNTOS,
-  bubbleStrokePt: 1,
-};
-
-const FUENTE_ECOFONT_ARCHIVO = 'ecofont_vera_sans_regular.ttf';
-const FUENTE_ECOFONT_FAMILIA = 'Ecofont Vera Sans';
-const QR_STAPLE_CLEARANCE_MM = 11;
-
-function mmAPuntos(mm: number) {
-  return mm * MM_A_PUNTOS;
-}
-
-// Colision AABB para prevenir solapes de bloques en la plantilla final.
-function rectInterseca(a: RectBox, b: RectBox): boolean {
-  // Evita que una diferencia flotante subcentÃ©sima convierta dos bordes
-  // diseÃ±ados para tocarse en un falso solape de impresiÃ³n.
-  const epsilonPt = 0.01;
-  return a.x < b.x + b.width - epsilonPt
-    && a.x + a.width > b.x + epsilonPt
-    && a.y < b.y + b.height - epsilonPt
-    && a.y + a.height > b.y + epsilonPt;
-}
-
-// Falla temprano si un bloque critico sale del area imprimible.
-function assertRectDentroPagina(rect: RectBox, nombre: string) {
-  if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > ANCHO_CARTA || rect.y + rect.height > ALTO_CARTA) {
-    throw new Error(`Layout invalido: ${nombre} fuera de la pagina`);
-  }
-}
-
-// Los elementos de identidad no solo deben estar dentro de la hoja: deben
-// estar contenidos en la reserva que los gobierna. La tolerancia permite
-// absorber el redondeo de puntos sin ocultar un solape real.
-function assertRectContenida(rect: RectBox, contenedor: RectBox, nombre: string, tolerancia = 0.01) {
-  if (
-    rect.x < contenedor.x - tolerancia ||
-    rect.y < contenedor.y - tolerancia ||
-    rect.x + rect.width > contenedor.x + contenedor.width + tolerancia ||
-    rect.y + rect.height > contenedor.y + contenedor.height + tolerancia
-  ) {
-    throw new Error(`Layout invalido: ${nombre} fuera de su reserva`);
-  }
-}
-
-function normalizarEspacios(valor: string) {
-  return valor.replace(/\s+/g, ' ').trim();
-}
-
-function quitarPrefijoReactivo(texto: string, numero: number) {
-  const textoNormalizado = normalizarEnunciadoBanco(texto);
-  const numeroEsperado = String(numero).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const prefijoEtiquetado = new RegExp(
-    `^\\s*<([a-z][\\w-]*)(?:\\s[^>]*)?>\\s*Reactivo\\s+${numeroEsperado}\\s*[.:)\\-]?\\s*</\\1>\\s*[.:)\\-]?\\s*`,
-    'i'
-  );
-  const prefijoPlano = new RegExp(`^\\s*Reactivo\\s+${numeroEsperado}\\s*[.:)\\-]?\\s*`, 'i');
-  return textoNormalizado.replace(prefijoEtiquetado, '').replace(prefijoPlano, '');
-}
-
-function sanitizarTextoPdf(valor: string) {
-  return String(valor ?? '')
-    .replace(/\u2192/g, '->')
-    .replace(/\u2190/g, '<-')
-    .replace(/\u2191/g, '^')
-    .replace(/\u2193/g, 'v')
-    .replace(/\u21d2/g, '=>')
-    .replace(/\u21d0/g, '<=')
-    .replace(/\u2265/g, '>=')
-    .replace(/\u2264/g, '<=')
-    .replace(/\u2260/g, '!=')
-    .replace(/\u00b7/g, '-')
-    .replace(/\u2022/g, '-')
-    .replace(/\u25cf/g, 'O')
-    .replace(/\u25d0/g, 'O')
-    .replace(/\u2717/g, 'x')
-    .replace(/\u2713/g, 'v')
-    .replace(/\u2014/g, '-')
-    .replace(/\u2013/g, '-')
-    .replace(/\u201c|\u201d/g, '"')
-    .replace(/\u2018|\u2019/g, "'");
-}
-
-// Algunos editores entregan sub/superindices como caracteres Unicode en vez
-// de HTML. Convertirlos solo en bloques de texto evita que una fuente PDF sin
-// esos glifos produzca cuadrados, sin alterar bloques de codigo monoespaciado.
-function normalizarIndicesUnicode(texto: string) {
-  const subindices: Record<string, string> = {
-    'â‚€': '0', 'â‚': '1', 'â‚‚': '2', 'â‚ƒ': '3', 'â‚„': '4', 'â‚…': '5', 'â‚†': '6', 'â‚‡': '7', 'â‚ˆ': '8', 'â‚‰': '9',
-    'â‚Š': '+', 'â‚‹': '-', 'â‚Œ': '=', 'â‚': '(', 'â‚': ')', 'â‚': 'a', 'â‚‘': 'e', 'â‚•': 'h', 'áµ¢': 'i', 'â±¼': 'j',
-    'â‚–': 'k', 'â‚—': 'l', 'â‚˜': 'm', 'â‚™': 'n', 'â‚’': 'o', 'â‚š': 'p', 'áµ£': 'r', 'â‚›': 's', 'â‚œ': 't', 'áµ¤': 'u',
-    'áµ¥': 'v', 'â‚“': 'x'
-  };
-  const superindices: Record<string, string> = {
-    'â°': '0', 'Â¹': '1', 'Â²': '2', 'Â³': '3', 'â´': '4', 'âµ': '5', 'â¶': '6', 'â·': '7', 'â¸': '8', 'â¹': '9',
-    'âº': '+', 'â»': '-', 'â¼': '=', 'â½': '(', 'â¾': ')', 'â¿': 'n', 'â±': 'i'
-  };
-  const convertir = (valor: string, tabla: Record<string, string>, etiqueta: 'sub' | 'sup') =>
-    `<${etiqueta}>${tabla[valor] ?? valor}</${etiqueta}>`;
-  return String(texto ?? '')
-    .replace(/[â‚€â‚â‚‚â‚ƒâ‚„â‚…â‚†â‚‡â‚ˆâ‚‰â‚Šâ‚‹â‚Œâ‚â‚â‚â‚‘â‚•áµ¢â±¼â‚–â‚—â‚˜â‚™â‚’â‚šáµ£â‚›â‚œáµ¤áµ¥â‚“]/g, (valor) => convertir(valor, subindices, 'sub'))
-    .replace(/[â°Â¹Â²Â³â´âµâ¶â·â¸â¹âºâ»â¼â½â¾â¿â±]/g, (valor) => convertir(valor, superindices, 'sup'));
-}
-
-function partirCodigoEnLineas(texto: string) {
-  return String(texto ?? '')
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((linea) => linea.replace(/\t/g, '  '));
-}
-
-// Detecta bloques fenced code (`...`) para render monoespaciado.
-function partirBloquesCodigo(texto: string) {
-  const src = String(texto ?? '');
-  const bloques: Array<{ tipo: 'texto' | 'codigo'; contenido: string }> = [];
-  let indice = 0;
-
-  while (indice < src.length) {
-    const inicio = src.indexOf('```', indice);
-    if (inicio === -1) {
-      bloques.push({ tipo: 'texto', contenido: src.slice(indice) });
-      break;
-    }
-
-    if (inicio > indice) bloques.push({ tipo: 'texto', contenido: src.slice(indice, inicio) });
-
-    const fin = src.indexOf('```', inicio + 3);
-    if (fin === -1) {
-      bloques.push({ tipo: 'texto', contenido: src.slice(inicio) });
-      break;
-    }
-
-    const cuerpo = src.slice(inicio + 3, fin);
-    const lineas = partirCodigoEnLineas(cuerpo);
-    const primera = lineas[0] ?? '';
-    const resto = lineas.slice(1);
-    const pareceLenguaje = primera.trim().length > 0 && resto.length > 0;
-    bloques.push({ tipo: 'codigo', contenido: (pareceLenguaje ? resto : lineas).join('\n') });
-    indice = fin + 3;
-  }
-
-  return bloques;
-}
-
-// Tokeniza codigo inline con backticks para estilo diferenciado.
-function partirInlineCodigo(texto: string) {
-  const src = String(texto ?? '');
-  const salida: Array<{ tipo: 'texto' | 'codigo'; contenido: string }> = [];
-  let actual = '';
-  let enCodigo = false;
-
-  for (let indice = 0; indice < src.length; indice += 1) {
-    const caracter = src[indice];
-    if (caracter === '`') {
-      salida.push({ tipo: enCodigo ? 'codigo' : 'texto', contenido: actual });
-      actual = '';
-      enCodigo = !enCodigo;
-      continue;
-    }
-    actual += caracter;
-  }
-
-  salida.push({ tipo: enCodigo ? 'codigo' : 'texto', contenido: actual });
-  return salida;
-}
-
-function partirInlineEstilosMarkdown(texto: string) {
-  const src = String(texto ?? '');
-  const salida: Array<{
-    texto: string;
-    estilo: EstiloTexto;
-    subrayado: boolean;
-    noWrap?: boolean;
-    escala?: number;
-    offsetY?: number;
-    espacioAntes?: boolean;
-    espacioDespues?: boolean;
-  }> = [];
-  let actual = '';
-  let negrita = false;
-  let cursiva = false;
-  let subrayado = false;
-
-  const estiloActual = (): EstiloTexto => {
-    if (negrita) return 'bold';
-    if (cursiva) return 'italic';
-    return 'regular';
-  };
-
-  const pushActual = () => {
-    if (!actual) return;
-    salida.push({
-      texto: actual,
-      estilo: estiloActual(),
-      subrayado,
-      espacioAntes: /^\s/.test(actual),
-      espacioDespues: /\s$/.test(actual)
-    });
-    actual = '';
-  };
-
-  let i = 0;
-  while (i < src.length) {
-    if (src.slice(i).match(/^<u>/i)) {
-      pushActual();
-      subrayado = true;
-      i += 3;
-      continue;
-    }
-    if (src.slice(i).match(/^<\/u>/i)) {
-      pushActual();
-      subrayado = false;
-      i += 4;
-      continue;
-    }
-    if (src[i] === '_' && src[i + 1] === '_') {
-      pushActual();
-      subrayado = !subrayado;
-      i += 2;
-      continue;
-    }
-    if (src[i] === '*' && src[i + 1] === '*') {
-      pushActual();
-      negrita = !negrita;
-      i += 2;
-      continue;
-    }
-    if (src[i] === '*') {
-      pushActual();
-      cursiva = !cursiva;
-      i += 1;
-      continue;
-    }
-    actual += src[i];
-    i += 1;
-  }
-  pushActual();
-  return salida;
-}
-
-export function decodificarEntidadesPdf(texto: string) {
-  const entidades: Record<string, string> = {
-    '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'"
-  };
-  return String(texto ?? '').replace(/&(?:nbsp|amp|lt|gt|quot|#39|apos);/gi, (entidad) => entidades[entidad.toLowerCase()] ?? entidad);
-}
-
-function escaparHtmlTextoPdf(texto: string) {
-  return String(texto ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// Conversor inline deliberadamente acotado: cubre la notaciÃ³n habitual de
-// reactivos y la transforma en HTML tipogrÃ¡fico que el renderer ya sabe medir.
-// No intenta ejecutar TeX ni deja que el contenido se interprete como HTML.
-function convertirLatexAHtml(texto: string) {
-  const fuente = decodificarEntidadesPdf(String(texto ?? ''))
-    .trim()
-    .replace(/^\\\(|\\\)$/g, '')
-    .replace(/^\\\[|\\\]$/g, '')
-    .replace(/^\$|\$$/g, '')
-    .trim();
-  const comandos: Record<string, string> = {
-    // La fuente de impresiÃ³n base no contiene todos los glifos griegos;
-    // usar nombres ASCII evita cuadrados vacÃ­os y mantiene la fÃ³rmula legible
-    // incluso cuando no se dispone de una fuente matemÃ¡tica dedicada.
-    alpha: 'alpha', beta: 'beta', gamma: 'gamma', delta: 'delta', epsilon: 'epsilon', theta: 'theta',
-    lambda: 'lambda', mu: 'mu', pi: 'Ï€', sigma: 'sigma', phi: 'phi', omega: 'omega',
-    Gamma: 'Gamma', Delta: 'Delta', Theta: 'Theta', Lambda: 'Lambda', Pi: 'Pi', Sigma: 'Sigma',
-    Phi: 'Phi', Omega: 'Omega', pm: '+/-', times: 'x', cdot: '*', le: '<=', leq: '<=',
-    ge: '>=', geq: '>=', neq: '!=', approx: '~', infty: 'infinity', to: '->',
-    rightarrow: '->', leftarrow: '<-', partial: 'âˆ‚', int: 'âˆ«', sum: 'âˆ‘'
-  };
-
-  function grupo(indice: number): { html: string; indice: number } {
-    if (fuente[indice] !== '{') return { html: '', indice };
-    return fragmento(indice + 1);
-  }
-
-  function atom(indice: number): { html: string; indice: number } {
-    if (fuente[indice] === '{') return grupo(indice);
-    if (fuente[indice] === '\\') return comando(indice);
-    return { html: escaparHtmlTextoPdf(fuente[indice] ?? ''), indice: indice + 1 };
-  }
-
-  function comando(indice: number): { html: string; indice: number } {
-    const match = /^([A-Za-z]+|.)/.exec(fuente.slice(indice + 1));
-    if (!match) return { html: '', indice: indice + 1 };
-    const nombre = match[1] ?? '';
-    let siguiente = indice + 1 + nombre.length;
-    if (nombre === 'frac') {
-      const numerador = grupo(siguiente);
-      const denominador = grupo(numerador.indice);
-      return { html: `(${numerador.html})/(${denominador.html})`, indice: denominador.indice };
-    }
-    if (nombre === 'sqrt') {
-      if (fuente[siguiente] === '[') {
-        const cierre = fuente.indexOf(']', siguiente + 1);
-        siguiente = cierre === -1 ? siguiente : cierre + 1;
-      }
-      const radicando = grupo(siguiente);
-      // Ecofont Vera Sans contiene el radical; usarlo evita la palabra
-      // "sqrt" pegada al radicando y conserva la semÃ¡ntica matemÃ¡tica en
-      // una hoja impresa de tamaÃ±o reducido.
-      return { html: `âˆš(${radicando.html})`, indice: radicando.indice };
-    }
-    if (nombre === 'text' || nombre === 'mathrm' || nombre === 'mathit') {
-      const contenido = grupo(siguiente);
-      return { html: contenido.html, indice: contenido.indice };
-    }
-    if (nombre === 'mathbf') {
-      const contenido = grupo(siguiente);
-      return { html: `<strong>${contenido.html}</strong>`, indice: contenido.indice };
-    }
-    if (nombre === 'left' || nombre === 'right' || nombre === 'displaystyle' || nombre === 'scriptstyle') {
-      return { html: '', indice: siguiente };
-    }
-    if (nombre === ',' || nombre === ';' || nombre === ':' || nombre === '!') {
-      return { html: nombre === '!' ? '' : ' ', indice: siguiente };
-    }
-    if (nombre === ' ' || nombre === '\\') return { html: nombre === '\\' ? '<br>' : ' ', indice: siguiente };
-    if (nombre === '%' || nombre === '_' || nombre === '{' || nombre === '}') {
-      return { html: escaparHtmlTextoPdf(nombre), indice: siguiente };
-    }
-    return { html: escaparHtmlTextoPdf(comandos[nombre] ?? nombre), indice: siguiente };
-  }
-
-  function fragmento(indiceInicial: number): { html: string; indice: number } {
-    let indice = indiceInicial;
-    let html = '';
-    while (indice < fuente.length && fuente[indice] !== '}') {
-      const caracter = fuente[indice];
-      if (caracter === '^' || caracter === '_') {
-        const siguiente = atom(indice + 1);
-        const etiqueta = caracter === '^' ? 'sup' : 'sub';
-        html += `<${etiqueta}>${siguiente.html}</${etiqueta}>`;
-        indice = siguiente.indice;
-        continue;
-      }
-      const siguiente = caracter === '\\' ? comando(indice) : atom(indice);
-      html += siguiente.html;
-      indice = siguiente.indice;
-    }
-    return { html, indice: fuente[indice] === '}' ? indice + 1 : indice };
-  }
-
-  return fragmento(0).html;
-}
-
-function reemplazarFormulasLatex(texto: string) {
-  return String(texto ?? '').replace(
-    /<span\b[^>]*\bdata-latex\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>[\s\S]*?<\/span>/gi,
-    (_coincidencia, doble: string | undefined, simple: string | undefined) =>
-      `<math>${convertirLatexAHtml(doble ?? simple ?? '')}</math>`
-  );
-}
-
-function partirInlineEstilosHtml(texto: string) {
-  const salida: Array<{
-    texto: string;
-    estilo: EstiloTexto;
-    subrayado: boolean;
-    noWrap: boolean;
-    escala?: number;
-    offsetY?: number;
-    espacioAntes?: boolean;
-    espacioDespues?: boolean;
-  }> = [];
-  const pila: Array<{ etiqueta: string; negrita: boolean; cursiva: boolean; subrayado: boolean; noWrap: boolean; escala: number; offsetY: number }> = [];
-  let negrita = false;
-  let cursiva = false;
-  let subrayado = false;
-  let noWrap = false;
-  let escala = 1;
-  let offsetY = 0;
-  const agregar = (valor: string) => {
-    const contenido = decodificarEntidadesPdf(valor);
-    if (contenido) salida.push({
-      texto: contenido,
-      estilo: negrita ? 'bold' : cursiva ? 'italic' : 'regular',
-      subrayado,
-      noWrap,
-      escala,
-      offsetY,
-      espacioAntes: /^\s/.test(contenido),
-      espacioDespues: /\s$/.test(contenido)
-    });
-  };
-  const tokens = reemplazarFormulasLatex(String(texto ?? '')).replace(/<br\s*\/?>/gi, '\n').split(/(<[^>]+>)/g);
-  for (const token of tokens) {
-    if (!token) continue;
-    const inicio = /^<\s*([a-z0-9]+)(?:\s[^>]*)?>$/i.exec(token);
-    const cierre = /^<\s*\/\s*([a-z0-9]+)\s*>$/i.exec(token);
-    if (!inicio && !cierre) {
-      agregar(token);
-      continue;
-    }
-    const etiqueta = (inicio?.[1] ?? cierre?.[1] ?? '').toLowerCase();
-    if (cierre) {
-      const anterior = pila.pop();
-      if (anterior) ({ negrita, cursiva, subrayado, noWrap, escala, offsetY } = anterior);
-      continue;
-    }
-    pila.push({ etiqueta, negrita, cursiva, subrayado, noWrap, escala, offsetY });
-    if (etiqueta === 'strong' || etiqueta === 'b') negrita = true;
-    else if (etiqueta === 'em' || etiqueta === 'i') cursiva = true;
-    else if (etiqueta === 'u') subrayado = true;
-    else if (etiqueta === 'math') noWrap = true;
-    else if (etiqueta === 'sub') { escala = 0.72; offsetY = -2.3; }
-    else if (etiqueta === 'sup') { escala = 0.72; offsetY = 3.8; }
-  }
-  return salida;
-}
-
-function normalizarEspaciosSuaves(texto: string) {
-  return String(texto ?? '')
-    .replace(/\t/g, '  ')
-    .replace(/[ ]{2,}/g, ' ')
-    .trim();
-}
-
-function widthSeg(segmento: SegmentoTexto) {
-  return segmento.font.widthOfTextAtSize(segmento.texto, segmento.size);
-}
-
-// Word-wrap por segmentos preservando estilo (texto/codigo) y cortes seguros.
-function envolverSegmentos({
-  segmentos,
-  maxWidth,
-  preservarEspaciosIniciales
-}: {
-  segmentos: SegmentoTexto[];
-  maxWidth: number;
-  preservarEspaciosIniciales?: boolean;
-}) {
-  const lineas: SegmentoTexto[][] = [];
-  let actual: SegmentoTexto[] = [];
-  let anchoActual = 0;
-
-  const pushLinea = () => {
-    lineas.push(actual);
-    actual = [];
-    anchoActual = 0;
-  };
-
-  let indiceSegmento = 0;
-  while (indiceSegmento < segmentos.length) {
-    const segmento = segmentos[indiceSegmento];
-    const texto = String(segmento.texto ?? '');
-    if (!texto) {
-      indiceSegmento += 1;
-      continue;
-    }
-
-    // Una formula se compone de varios segmentos (base, subindice y
-    // superindice). Agruparlos durante el ajuste de linea evita que un
-    // exponente quede aislado en el renglon siguiente.
-    if (segmento.noWrap) {
-      const grupo: SegmentoTexto[] = [];
-      let anchoGrupo = 0;
-      let finGrupo = indiceSegmento;
-      while (finGrupo < segmentos.length && segmentos[finGrupo]?.noWrap) {
-        const miembro = segmentos[finGrupo];
-        if (miembro?.texto) {
-          grupo.push(miembro);
-          anchoGrupo += widthSeg(miembro);
-        }
-        finGrupo += 1;
-      }
-
-      const grupoEsEspacio = grupo.length > 0 && grupo.every((miembro) => /^\s+$/.test(miembro.texto));
-      if (!preservarEspaciosIniciales && actual.length === 0 && grupoEsEspacio) {
-        indiceSegmento = finGrupo;
-        continue;
-      }
-
-      if (anchoGrupo <= maxWidth) {
-        if (anchoActual > 0 && anchoActual + anchoGrupo > maxWidth) pushLinea();
-        actual.push(...grupo);
-        anchoActual += anchoGrupo;
-        indiceSegmento = finGrupo;
-        continue;
-      }
-
-      // Fallback defensivo para una formula excepcionalmente larga: se
-      // permite partirla, pero solo despuÃ©s de intentar conservarla completa.
-      for (const miembro of grupo) {
-        const anchoMiembro = widthSeg(miembro);
-        if (anchoMiembro <= maxWidth) {
-          if (anchoActual > 0 && anchoActual + anchoMiembro > maxWidth) pushLinea();
-          actual.push({ ...miembro, noWrap: false });
-          anchoActual += anchoMiembro;
-          continue;
-        }
-        for (const caracter of miembro.texto) {
-          const caracterSeg = { ...miembro, texto: caracter, noWrap: false };
-          const anchoCaracter = widthSeg(caracterSeg);
-          if (anchoActual > 0 && anchoActual + anchoCaracter > maxWidth) pushLinea();
-          actual.push(caracterSeg);
-          anchoActual += anchoCaracter;
-        }
-      }
-      indiceSegmento = finGrupo;
-      continue;
-    }
-
-    const tokens = segmento.esCodigo || segmento.noWrap
-      ? [texto]
-      : texto.split(/(\s+)/).filter((parte) => parte.length > 0);
-
-    for (const token of tokens) {
-      const esEspacio = /^\s+$/.test(token);
-      if (!preservarEspaciosIniciales && actual.length === 0 && esEspacio) continue;
-
-      const tokenSeg = { ...segmento, texto: token };
-      const ancho = widthSeg(tokenSeg);
-      if (anchoActual + ancho <= maxWidth) {
-        actual.push(tokenSeg);
-        anchoActual += ancho;
-        continue;
-      }
-
-      if (actual.length > 0) {
-        pushLinea();
-        if (!preservarEspaciosIniciales && esEspacio) continue;
-      }
-
-      if (ancho > maxWidth && !segmento.noWrap) {
-        let chunk = '';
-        for (const caracter of token) {
-          const siguiente = chunk + caracter;
-          const anchoSiguiente = segmento.font.widthOfTextAtSize(siguiente, segmento.size);
-          if (anchoSiguiente <= maxWidth) {
-            chunk = siguiente;
-            continue;
-          }
-          if (chunk) {
-            actual.push({ ...segmento, texto: chunk });
-            pushLinea();
-          }
-          chunk = caracter;
-        }
-        if (chunk) {
-          actual.push({ ...segmento, texto: chunk });
-          anchoActual = widthSeg({ ...segmento, texto: chunk });
-        }
-        continue;
-      }
-
-      actual.push(tokenSeg);
-      anchoActual = ancho;
-    }
-    indiceSegmento += 1;
-  }
-
-  if (actual.length > 0) lineas.push(actual);
-  return lineas.length > 0 ? lineas : [[]];
-}
-
-// Envoltura de texto enriquecido con soporte de fenced-code e inline-code.
-function envolverTextoMixto({
-  texto,
-  maxWidth,
-  fuente,
-  fuenteBold,
-  fuenteItalica,
-  fuenteMono,
-  sizeTexto,
-  sizeCodigoInline,
-  sizeCodigoBloque,
-  lineHeightTexto,
-  lineHeightCodigo
-}: {
-  texto: string;
-  maxWidth: number;
-  fuente: PDFFont;
-  fuenteBold: PDFFont;
-  fuenteItalica: PDFFont;
-  fuenteMono: PDFFont;
-  sizeTexto: number;
-  sizeCodigoInline: number;
-  sizeCodigoBloque: number;
-  lineHeightTexto: number;
-  lineHeightCodigo: number;
-}) {
-  const bloques = partirBloquesCodigo(sanitizarTextoPdf(texto));
-  const lineas: LineaSegmentos[] = [];
-
-  for (const bloque of bloques) {
-    if (bloque.tipo === 'codigo') {
-      const lineasCodigo = partirCodigoEnLineas(bloque.contenido);
-      for (const linea of lineasCodigo) {
-        const seg: SegmentoTexto = { texto: String(linea ?? ''), font: fuenteMono, size: sizeCodigoBloque, esCodigo: true };
-        const env = envolverSegmentos({ segmentos: [seg], maxWidth, preservarEspaciosIniciales: true });
-        for (const lineaEnvuelta of env) {
-          lineas.push({
-            segmentos: lineaEnvuelta.length > 0 ? lineaEnvuelta : [{ ...seg, texto: '' }],
-            lineHeight: lineHeightCodigo
-          });
-        }
-      }
-      continue;
-    }
-
-    const lineasTexto = normalizarIndicesUnicode(String(bloque.contenido ?? '')).replace(/\r\n?/g, '\n').split('\n');
-    for (const lineaOriginal of lineasTexto) {
-      const matchLista = /^(\s*(?:[-*]|\d+[.)]))\s+/.exec(lineaOriginal);
-      const prefijoLista = matchLista ? `${matchLista[1].trim()} ` : '';
-      const cuerpoLinea = matchLista ? lineaOriginal.slice(matchLista[0].length) : lineaOriginal;
-
-      const inline = partirInlineCodigo(cuerpoLinea);
-      const segmentos: SegmentoTexto[] = [];
-      if (prefijoLista) {
-        segmentos.push({ texto: prefijoLista, font: fuenteBold, size: sizeTexto, esCodigo: false });
-      }
-
-      for (const segmento of inline) {
-        if (!segmento.contenido) continue;
-        if (segmento.tipo === 'codigo') {
-          const textoCodigo = normalizarEspaciosSuaves(String(segmento.contenido));
-          if (!textoCodigo) continue;
-          segmentos.push({ texto: textoCodigo, font: fuenteMono, size: sizeCodigoInline, esCodigo: true });
-          continue;
-        }
-
-        const trozos = /<\/?(?:strong|b|em|i|u|sub|sup|span|br)\b/i.test(String(segmento.contenido))
-          ? partirInlineEstilosHtml(String(segmento.contenido))
-          : partirInlineEstilosMarkdown(String(segmento.contenido));
-        for (const trozo of trozos) {
-          const textoPlano = normalizarEspaciosSuaves(trozo.texto);
-          if (!textoPlano) continue;
-          const font = trozo.estilo === 'bold' ? fuenteBold : trozo.estilo === 'italic' ? fuenteItalica : fuente;
-          segmentos.push({
-            texto: textoPlano,
-            font,
-            size: sizeTexto * (trozo.escala ?? 1),
-            esCodigo: false,
-            noWrap: trozo.noWrap,
-            subrayado: trozo.subrayado,
-            offsetY: trozo.offsetY,
-            espacioAntes: trozo.espacioAntes,
-            espacioDespues: trozo.espacioDespues
-          });
-        }
-      }
-
-      if (segmentos.length === 0) {
-        lineas.push({ segmentos: [{ texto: '', font: fuente, size: sizeTexto }], lineHeight: lineHeightTexto });
-        continue;
-      }
-
-      const segmentosConEspacios: SegmentoTexto[] = [];
-      for (const segmento of segmentos) {
-        if (segmentosConEspacios.length > 0) {
-          const previo = segmentosConEspacios[segmentosConEspacios.length - 1];
-          const separacionEscrita = Boolean(previo.espacioDespues || segmento.espacioAntes);
-          const sinMetadatosDeSeparacion = previo.espacioDespues === undefined && segmento.espacioAntes === undefined;
-          if (
-            (separacionEscrita || sinMetadatosDeSeparacion) &&
-            !/\s$/.test(previo.texto) &&
-            !/^\s/.test(segmento.texto)
-          ) {
-            segmentosConEspacios.push({ texto: ' ', font: fuente, size: sizeTexto, esCodigo: false });
-          }
-        }
-        segmentosConEspacios.push(segmento);
-      }
-
-      const env = envolverSegmentos({ segmentos: segmentosConEspacios, maxWidth });
-      for (const linea of env) {
-        lineas.push({
-          segmentos: linea.length > 0 ? linea : [{ texto: '', font: fuente, size: sizeTexto }],
-          lineHeight: lineHeightTexto
-        });
-      }
-    }
-  }
-
-  return lineas.length > 0
-    ? lineas
-    : [{ segmentos: [{ texto: '', font: fuente, size: sizeTexto }], lineHeight: lineHeightTexto }];
-}
-
-function dibujarTextoConPesoVisual(
-  page: PDFPage,
-  texto: string,
-  opciones: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb> },
-  reforzarPeso: boolean
-) {
-  if (!reforzarPeso) {
-    page.drawText(texto, opciones);
-    return;
-  }
-
-  // Ecofont solo dispone de una fuente regular. FillAndOutline refuerza el
-  // trazo dentro del mismo operador de texto: mantiene la extracciÃ³n PDF y
-  // evita duplicar visualmente el contenido o alterar el ancho tipogrÃ¡fico.
-  page.pushOperators(
-    pushGraphicsState(),
-    setTextRenderingMode(TextRenderingMode.FillAndOutline),
-    setLineWidth(Math.max(0.2, opciones.size * 0.032)),
-    setStrokingColor(opciones.color ?? rgb(0, 0, 0))
-  );
-  page.drawText(texto, opciones);
-  page.pushOperators(popGraphicsState());
-}
-
-// Dibuja lineas mixtas respetando el espaciado calculado en la envoltura.
-function dibujarLineasMixtas({
-  page,
-  lineas,
-  x,
-  y,
-  colorTexto,
-  reforzarPeso = false,
-  registrarRuns
-}: {
-  page: PDFPage;
-  lineas: LineaSegmentos[];
-  x: number;
-  y: number;
-  colorTexto?: ReturnType<typeof rgb>;
-  reforzarPeso?: boolean;
-  registrarRuns?: (run: TextRunDebug) => void;
-}) {
-  let cursorY = y;
-  for (const linea of lineas) {
-    let cursorX = x;
-    for (const segmento of linea.segmentos) {
-      const texto = String(segmento.texto ?? '');
-      if (!texto) continue;
-      dibujarTextoConPesoVisual(page, texto, {
-        x: cursorX,
-        y: cursorY + (segmento.offsetY ?? 0),
-        size: segmento.size,
-        font: segmento.font,
-        color: colorTexto
-      }, reforzarPeso);
-      const width = segmento.font.widthOfTextAtSize(texto, segmento.size);
-      if (segmento.subrayado) {
-        page.drawLine({
-          start: { x: cursorX, y: cursorY - 1.2 },
-          end: { x: cursorX + width, y: cursorY - 1.2 },
-          color: colorTexto ?? rgb(0, 0, 0),
-          thickness: Math.max(0.45, segmento.size * 0.045)
-        });
-      }
-      if (registrarRuns) {
-          registrarRuns({
-            tipo: segmento.esCodigo ? 'codigo' : 'texto',
-            fuente: FUENTE_ECOFONT_FAMILIA,
-          size: segmento.size,
-          lineHeight: linea.lineHeight,
-          bbox: {
-            x: cursorX,
-            y: cursorY,
-            width,
-            height: Math.max(linea.lineHeight, segmento.size + 1)
-          }
-        });
-      }
-      cursorX += width;
-    }
-    cursorY -= linea.lineHeight;
-  }
-  return cursorY;
-}
-
-function partirEnLineas({
-  texto,
-  maxWidth,
-  font,
-  size
-}: {
-  texto: string;
-  maxWidth: number;
-  font: PDFFont;
-  size: number;
-}) {
-  const limpio = normalizarEspacios(sanitizarTextoPdf(String(texto ?? '')));
-  if (!limpio) return [''];
-
-  const palabras = limpio.split(' ');
-  const lineas: string[] = [];
-  let actual = '';
-
-  const cabe = (valor: string) => font.widthOfTextAtSize(valor, size) <= maxWidth;
-
-  for (const palabra of palabras) {
-    const candidato = actual ? `${actual} ${palabra}` : palabra;
-    if (cabe(candidato)) {
-      actual = candidato;
-      continue;
-    }
-
-    if (actual) lineas.push(actual);
-    if (!cabe(palabra)) {
-      let chunk = '';
-      for (const caracter of palabra) {
-        const siguiente = chunk + caracter;
-        if (cabe(siguiente)) {
-          chunk = siguiente;
-        } else {
-          if (chunk) lineas.push(chunk);
-          chunk = caracter;
-        }
-      }
-      actual = chunk;
-    } else {
-      actual = palabra;
-    }
-  }
-
-  if (actual) lineas.push(actual);
-  return lineas.length > 0 ? lineas : [''];
-}
-
-function resolverPerfilRender(
-  templateVersion: 4,
-  perfilBase: PerfilPlantillaOmr
-): PerfilPlantillaRender {
-  if (templateVersion !== TEMPLATE_VERSION_CANONICA) {
-    throw new Error(`Template version ${String(templateVersion)} no compatible para renderer OMR canÃ³nico`);
-  }
-  const esInline = perfilBase.ubicacion === 'junto-a-opcion';
-  const base = esInline
-    ? { ...PERFIL_OMR_CANONICO_RENDER, ...PERFIL_OMR_INLINE_EXAM }
-    : PERFIL_OMR_CANONICO_RENDER;
-  return {
-    ...base,
-    version: TEMPLATE_VERSION_CANONICA,
-    qrSize: perfilBase.qrSize,
-    qrPadding: perfilBase.qrPadding,
-    qrMarginModulos: perfilBase.qrMarginModulos,
-    marcasEsquina: perfilBase.marcasEsquina,
-    marcaCuadradoSize: perfilBase.marcaCuadradoSize,
-    marcaCuadradoQuietZone: perfilBase.marcaCuadradoQuietZone,
-    fiducialOrientacion: perfilBase.fiducialOrientacion ?? base.fiducialOrientacion,
-    // La geometrÃ­a OMR no depende de un modo de densidad ni de un fallback:
-    // la plantilla canÃ³nica v4 siempre imprime cinco burbujas horizontales.
-    // El diÃ¡metro de 6.4 mm y el paso de 26 pt refuerzan la seÃ±al y agregan
-    // separaciÃ³n para blur, sombra, compresiÃ³n y expansiÃ³n de tinta en papel.
-    burbujaRadio: esInline ? PERFIL_OMR_INLINE_EXAM.burbujaRadio : (6.4 * MM_A_PUNTOS) / 2,
-    burbujaPasoY: esInline ? PERFIL_OMR_INLINE_EXAM.burbujaPasoY : 0,
-    burbujaPasoX: esInline ? 0 : 26,
-    orientacion: esInline ? 'vertical' : 'horizontal',
-    ubicacion: esInline ? 'junto-a-opcion' : 'panel-separado',
-    cajaOmrAncho: 147,
-    fiducialSize: perfilBase.fiducialSize,
-    fiducialMargin: perfilBase.fiducialMargin ?? base.fiducialMargin,
-    fiducialQuietZone: perfilBase.fiducialQuietZone ?? base.fiducialQuietZone,
-    bubbleStrokePt: perfilBase.bubbleStrokePt ?? base.bubbleStrokePt,
-    labelToBubbleMm: perfilBase.labelToBubbleMm ?? base.labelToBubbleMm,
-    preguntasPorBloque: perfilBase.preguntasPorBloque ?? base.preguntasPorBloque,
-    opcionesPorPregunta: perfilBase.opcionesPorPregunta ?? base.opcionesPorPregunta
-  };
-}
-
-function agregarMarcasRegistro(page: PDFPage, margen: number, perfil: PerfilPlantillaRender) {
-  const quiet = perfil.marcaCuadradoQuietZone;
-  const tam = perfil.marcaCuadradoSize;
-  const esquinas = [
-    { x: margen, y: ALTO_CARTA - margen },
-    { x: ANCHO_CARTA - margen, y: ALTO_CARTA - margen },
-    { x: margen, y: margen },
-    { x: ANCHO_CARTA - margen, y: margen }
-  ];
-
-  for (const esquina of esquinas) {
-    // Las marcas de registro quedan completamente dentro de la hoja. Antes
-    // se abrian hacia fuera y el borde del papel las recortaba al imprimir.
-    if (perfil.marcasEsquina === 'cuadrados') {
-      const x = esquina.x === margen ? esquina.x : esquina.x - tam;
-      const y = esquina.y === ALTO_CARTA - margen ? esquina.y - tam : esquina.y;
-      const xMin = Math.max(0, x - quiet);
-      const yMin = Math.max(0, y - quiet);
-      const xMax = Math.min(ANCHO_CARTA, x + tam + quiet);
-      const yMax = Math.min(ALTO_CARTA, y + tam + quiet);
-      page.drawRectangle({ x: xMin, y: yMin, width: xMax - xMin, height: yMax - yMin, color: rgb(1, 1, 1) });
-      page.drawRectangle({ x, y, width: tam, height: tam, color: rgb(0, 0, 0) });
-      if (perfil.fiducialOrientacion?.tipo === 'centro_vacio' && esquina.x === margen && esquina.y === ALTO_CARTA - margen) {
-        page.drawCircle({
-          x: x + tam / 2,
-          y: y + tam / 2,
-          size: perfil.fiducialOrientacion.radio,
-          color: rgb(1, 1, 1)
-        });
-      }
-      continue;
-    }
-
-    const grosor = Math.max(0.8, Math.min(1.4, tam * 0.1));
-    const esIzquierda = esquina.x === margen;
-    const esSuperior = esquina.y === ALTO_CARTA - margen;
-    const xHorizontal = esIzquierda ? esquina.x : esquina.x - tam;
-    const yHorizontal = esSuperior ? esquina.y - grosor : esquina.y;
-    const xVertical = esIzquierda ? esquina.x : esquina.x - grosor;
-    const yVertical = esSuperior ? esquina.y - tam : esquina.y;
-
-    const xMin = Math.max(0, Math.min(xHorizontal, xVertical) - quiet);
-    const yMin = Math.max(0, Math.min(yHorizontal, yVertical) - quiet);
-    const xMax = Math.min(ANCHO_CARTA, Math.max(xHorizontal + tam, xVertical + grosor) + quiet);
-    const yMax = Math.min(ALTO_CARTA, Math.max(yHorizontal + grosor, yVertical + tam) + quiet);
-    page.drawRectangle({ x: xMin, y: yMin, width: xMax - xMin, height: yMax - yMin, color: rgb(1, 1, 1) });
-
-    page.drawRectangle({
-      x: xHorizontal,
-      y: yHorizontal,
-      width: tam,
-      height: grosor,
-      color: rgb(0, 0, 0)
-    });
-    page.drawRectangle({
-      x: xVertical,
-      y: yVertical,
-      width: grosor,
-      height: tam,
-      color: rgb(0, 0, 0)
-    });
-  }
-}
-
-function dibujarFiducialOmr(page: PDFPage, x: number, y: number, size: number, quietZone: number) {
-  if (quietZone > 0) {
-    page.drawRectangle({
-      x: x - size / 2 - quietZone,
-      y: y - size / 2 - quietZone,
-      width: size + quietZone * 2,
-      height: size + quietZone * 2,
-      color: rgb(1, 1, 1)
-    });
-  }
-  page.drawRectangle({
-    x: x - size / 2,
-    y: y - size / 2,
-    width: size,
-    height: size,
-    color: rgb(0, 0, 0)
-  });
-}
-
-type NivelCorreccionQr = 'L' | 'M' | 'Q' | 'H';
-
-const crearSimboloQr = (qrTexto: string, errorCorrectionLevel: NivelCorreccionQr) => (QRCode as unknown as {
-    create: (texto: string, opciones: { errorCorrectionLevel: NivelCorreccionQr }) => { modules: { size: number; data: Uint8Array } };
-  }).create(qrTexto, { errorCorrectionLevel });
-
-export function resolverNivelCorreccionQr(qrTexto: string): NivelCorreccionQr {
-  const simboloH = crearSimboloQr(qrTexto, 'H');
-  // H es la polÃ­tica preferida. Si la carga futura crece y fuerza una matriz
-  // densa, se baja solo la redundancia necesaria para conservar al menos
-  // 49 mÃ³dulos: en fotografÃ­a mÃ³vil el aumento de tamaÃ±o por mÃ³dulo es mÃ¡s
-  // valioso que mantener H en un sÃ­mbolo que ya no se puede muestrear bien.
-  if (simboloH.modules.size <= 49) return 'H';
-  for (const errorCorrectionLevel of ['Q', 'M', 'L'] as const) {
-    const simbolo = crearSimboloQr(qrTexto, errorCorrectionLevel);
-    if (simbolo.modules.size <= 49) return errorCorrectionLevel;
-  }
-  return 'H';
-}
-
-function crearSimboloQrResiliente(qrTexto: string) {
-  const errorCorrectionLevel = resolverNivelCorreccionQr(qrTexto);
-  return {
-    simbolo: crearSimboloQr(qrTexto, errorCorrectionLevel),
-    errorCorrectionLevel
-  };
-}
-
-async function agregarQr(
-  pdfDoc: PDFDocument,
-  page: PDFPage,
-  qrTexto: string,
-  margen: number,
-  perfil: PerfilPlantillaRender,
-  dibujar = true
-) {
-  // jsQR devuelve las esquinas de la matriz, no las de la imagen completa con
-  // quiet zone. Persistimos ambas dimensiones para que el detector pueda
-  // reconstruir la referencia fisica exacta del simbolo.
-  const { simbolo: qrSymbol, errorCorrectionLevel } = crearSimboloQrResiliente(qrTexto);
-
-  const qrSize = perfil.qrSize;
-  const padding = perfil.qrPadding;
-  // La clave compuesta tiene una franja propia debajo del QR; el cÃ¡lculo de `y`
-  // conserva la posiciÃ³n fÃ­sica del sÃ­mbolo aunque la tarjeta crezca hacia abajo.
-  const captionHeight = 12;
-  const cardW = qrSize + padding * 2;
-  const cardH = qrSize + padding * 2 + captionHeight;
-
-  // La caja exterior completa, incluido su quiet zone, queda dentro de la
-  // cabecera y alineada con el borde imprimible. Antes el calculo usaba solo
-  // el bitmap y dejaba el marco del QR fuera del encabezado.
-  // Desplazar la tarjeta a la izquierda de la quiet zone del fiducial superior
-  // derecho permite alinear su borde superior con el margen imprimible y
-  // recuperar la altura que antes se perdÃ­a manteniendo una separaciÃ³n vertical.
-  const qrHorizontalInset = perfil.marcaCuadradoSize + perfil.marcaCuadradoQuietZone + mmAPuntos(QR_STAPLE_CLEARANCE_MM);
-  const bordeDerechoReserva = ANCHO_CARTA - margen - 4;
-  const bordeSuperiorReserva = ALTO_CARTA - margen;
-  const cardX = bordeDerechoReserva - qrHorizontalInset - cardW;
-  const cardY = bordeSuperiorReserva - cardH;
-  const x = cardX + padding;
-  const y = cardY + captionHeight + padding;
-  const matrixModules = qrSymbol.modules.size;
-  const marginModules = Math.max(0, Math.round(perfil.qrMarginModulos));
-  const totalModules = matrixModules + marginModules * 2;
-  const moduleSize = qrSize / Math.max(1, totalModules);
-
-  if (!dibujar) {
-    return {
-      qrSize,
-      x,
-      y,
-      padding,
-      errorCorrectionLevel,
-      marginModules: perfil.qrMarginModulos,
-      matrixModules,
-      moduleSize,
-      cardX,
-      cardY,
-      cardW,
-      cardH
-    };
-  }
-
-  page.drawRectangle({
-    x: cardX,
-    y: cardY,
-    width: cardW,
-    height: cardH,
-    color: rgb(1, 1, 1),
-    borderWidth: 1,
-    borderColor: rgb(0.75, 0.79, 0.84)
-  });
-
-  // Dibujar el simbolo como modulos vectoriales evita que un PNG de alta
-  // resolucion sea remuestreado al tamaÃ±o fisico del PDF. Ese remuestreo
-  // introduce bordes grises y modulos de ancho fraccionario: el PNG original
-  // se decodifica, pero la pagina rasterizada por impresora/camara puede no.
-  // Se conserva la misma geometria persistida: `x`/`y` son la esquina de la
-  // imagen completa, incluida la quiet zone, y `qrSize` es su tamaÃ±o total.
-  page.drawRectangle({
-    x,
-    y,
-    width: qrSize,
-    height: qrSize,
-    color: rgb(1, 1, 1)
-  });
-  const moduleData = qrSymbol.modules.data;
-  for (let row = 0; row < matrixModules; row += 1) {
-    let runStart = -1;
-    for (let column = 0; column <= matrixModules; column += 1) {
-      const oscuro = column < matrixModules && moduleData[row * matrixModules + column] === 1;
-      if (oscuro && runStart < 0) runStart = column;
-      if ((!oscuro || column === matrixModules) && runStart >= 0) {
-        page.drawRectangle({
-          x: x + (marginModules + runStart) * moduleSize,
-          // La matriz QR enumera filas desde arriba; PDF enumera `y` desde
-          // abajo. Invertir solo el eje vertical conserva la orientacion del
-          // simbolo y deja los patrones de busqueda en sus tres esquinas.
-          y: y + (marginModules + (matrixModules - 1 - row)) * moduleSize,
-          width: (column - runStart) * moduleSize,
-          height: moduleSize,
-          color: rgb(0, 0, 0)
-        });
-        runStart = -1;
-      }
-    }
-  }
-
-  return {
-    qrSize,
-    x,
-    y,
-    padding,
-    errorCorrectionLevel,
-    marginModules: perfil.qrMarginModulos,
-    matrixModules: qrSymbol.modules.size,
-    moduleSize,
-    cardX,
-    cardY,
-    cardW,
-    cardH
-  };
-}
-
-async function intentarEmbedImagen(pdfDoc: PDFDocument, src?: string): Promise<LogoEmbed | undefined> {
-  const ruta = String(src ?? '').trim();
-  if (!ruta) return undefined;
-
-  try {
-    const embeberBuffer = async (buffer: Buffer, formato: string) => {
-      const formatoNormalizado = formato.toLowerCase();
-      if (formatoNormalizado === 'png') {
-        const image = await pdfDoc.embedPng(buffer);
-        return { image, width: image.width, height: image.height };
-      }
-      if (formatoNormalizado === 'jpg' || formatoNormalizado === 'jpeg') {
-        const image = await pdfDoc.embedJpg(buffer);
-        return { image, width: image.width, height: image.height };
-      }
-
-      // Formatos no nativos de pdf-lib: convertir de forma segura a PNG en memoria.
-      const convertidoPng = await sharp(buffer, { animated: true }).png().toBuffer();
-      const image = await pdfDoc.embedPng(convertidoPng);
-      return { image, width: image.width, height: image.height };
-    };
-
-    const dataUrlMatch = /^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/i.exec(ruta);
-    if (dataUrlMatch) {
-      const formato = (dataUrlMatch[1] || '').toLowerCase();
-      const base64 = dataUrlMatch[2] ?? '';
-      const buffer = Buffer.from(base64, 'base64');
-      return await embeberBuffer(buffer, formato);
-    }
-
-    const candidatos = (() => {
-      if (path.isAbsolute(ruta)) return [ruta];
-      const cwd = process.cwd();
-      return [
-        path.resolve(cwd, ruta),
-        path.resolve(cwd, '..', ruta),
-        path.resolve(cwd, '..', '..', ruta),
-        path.resolve(cwd, '..', '..', '..', ruta)
-      ];
-    })();
-
-    let encontrada: string | undefined;
-    for (const candidato of candidatos) {
-      try {
-        await fs.access(candidato);
-        encontrada = candidato;
-        break;
-      } catch {
-        // continÃºa bÃºsqueda
-      }
-    }
-
-    const objetivo = encontrada ?? (path.isAbsolute(ruta) ? ruta : path.resolve(process.cwd(), ruta));
-    const buffer = await fs.readFile(objetivo);
-    const ext = path.extname(objetivo).toLowerCase().replace('.', '');
-    return await embeberBuffer(buffer, ext || 'png');
-  } catch {
-    return undefined;
-  }
-}
-
-function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: ReturnType<typeof rgb>) {
-  // La referencia combina una retÃ­cula ligera de rombos/nodos con una red
-  // diagonal extendida. Mantener ambas capas por debajo del contenido preserva
-  // contraste y zonas funcionales, sin rasterizar ni sombrear el papel.
-  const margenX = Math.min(10, rect.width * 0.04);
-  const margenY = Math.min(10, rect.height * 0.08);
-  const xMin = rect.x + margenX;
-  const xMax = rect.x + rect.width - margenX;
-  const yMin = rect.y + margenY;
-  const yMax = rect.y + rect.height - margenY;
-  const ancho = Math.max(1, xMax - xMin);
-  const alto = Math.max(1, yMax - yMin);
-  const columnas = Math.max(5, Math.ceil(ancho / 34));
-  const filas = Math.max(3, Math.ceil(alto / 30));
-  const nodos: Array<Array<{ x: number; y: number }>> = [];
-
-  for (let fila = 0; fila < filas; fila += 1) {
-    const offset = fila % 2 === 0 ? 0 : 0.5;
-    const inicioX = xMin + offset * (ancho / (columnas - 1));
-    const finX = xMax - (fila % 2 === 0 ? 0 : ancho / (columnas - 1) * 0.5);
-    const pasoX = (finX - inicioX) / (columnas - 1);
-    const y = yMin + (alto * fila) / (filas - 1);
-    nodos.push(Array.from({ length: columnas }, (_, columna) => ({
-      x: inicioX + pasoX * columna,
-      y
-    })));
-  }
-
-  // Malla facetada: diagonales vecinas y diagonales largas alternadas crean
-  // los cruces asimÃ©tricos visibles en el patrÃ³n original, con pocos trazos.
-  for (let fila = 0; fila < filas - 1; fila += 1) {
-    for (let columna = 0; columna < columnas; columna += 1) {
-      const nodo = nodos[fila]![columna]!;
-      const siguienteFila = nodos[fila + 1]!;
-      const vecinoDiagonal = columna + ((fila + columna) % 2 === 0 ? 1 : -1);
-      const vecinos = [siguienteFila[columna], siguienteFila[vecinoDiagonal]];
-      for (const vecino of vecinos) {
-        if (vecino) page.drawLine({ start: nodo, end: vecino, color, thickness: 0.46, opacity: 0.064 });
-      }
-      if ((fila + columna) % 4 === 0 && siguienteFila[columna + 2]) {
-        page.drawLine({ start: nodo, end: siguienteFila[columna + 2]!, color, thickness: 0.38, opacity: 0.046 });
-      }
-    }
-  }
-
-  // Trazos extendidos enlazan varios mÃ³dulos para evitar el aspecto de un
-  // mosaico aislado y reproducen la red diagonal amplia de la cabecera.
-  const diagonalesLargas = [
-    [nodos[0]![0]!, nodos[Math.floor((filas - 1) / 2)]![Math.floor(columnas * 0.72)]!],
-    [nodos[Math.floor((filas - 1) / 2)]![0]!, nodos[filas - 1]![Math.floor(columnas * 0.86)]!],
-    [nodos[filas - 1]![Math.floor(columnas * 0.14)]!, nodos[Math.floor((filas - 1) / 2)]![columnas - 1]!],
-    [nodos[0]![Math.floor(columnas * 0.3)]!, nodos[filas - 1]![columnas - 1]!]
-  ];
-  for (const [inicio, fin] of diagonalesLargas) {
-    page.drawLine({ start: inicio, end: fin, color, thickness: 0.58, opacity: 0.052 });
-  }
-
-  // Rombos abiertos en todos los nodos; algunos reciben un segundo contorno
-  // fino para recuperar el detalle del patrÃ³n sin aÃ±adir un emblema central.
-  for (let fila = 0; fila < filas; fila += 1) {
-    for (let columna = 0; columna < columnas; columna += 1) {
-      const centro = nodos[fila]![columna]!;
-      const destacado = (fila * 2 + columna) % 5 === 0;
-      const radioX = destacado ? 8.6 : 5.4;
-      const radioY = destacado ? 7.2 : 4.6;
-      const vertices = [
-        { x: centro.x, y: centro.y + radioY },
-        { x: centro.x + radioX, y: centro.y },
-        { x: centro.x, y: centro.y - radioY },
-        { x: centro.x - radioX, y: centro.y }
-      ];
-      for (let lado = 0; lado < vertices.length; lado += 1) {
-        page.drawLine({
-          start: vertices[lado]!,
-          end: vertices[(lado + 1) % vertices.length]!,
-          color,
-          thickness: destacado ? 0.55 : 0.4,
-          opacity: destacado ? 0.12 : 0.088
-        });
-      }
-      if (destacado) {
-        const radioInterior = 2.6;
-        const interior = [
-          { x: centro.x, y: centro.y + radioInterior },
-          { x: centro.x + radioInterior, y: centro.y },
-          { x: centro.x, y: centro.y - radioInterior },
-          { x: centro.x - radioInterior, y: centro.y }
-        ];
-        for (let lado = 0; lado < interior.length; lado += 1) {
-          page.drawLine({
-            start: interior[lado]!,
-            end: interior[(lado + 1) % interior.length]!,
-            color,
-            thickness: 0.35,
-            opacity: 0.085
-          });
-        }
-      }
-      page.drawCircle({ x: centro.x, y: centro.y, size: destacado ? 1.05 : 0.66, color, opacity: 0.14 });
-    }
-  }
-}
-
-function dibujarPatronBloqueCaptura(
-  page: PDFPage,
-  rect: RectBox,
-  color: ReturnType<typeof rgb>,
-  exclusiones: RectBox[]
-) {
-  // El bloque completo recibe Ãºnicamente una retÃ­cula de puntos tenue. Las
-  // lÃ­neas de captura se excluyen por completo para preservar una superficie
-  // limpia donde se escribe a mano; los patrones geomÃ©tricos complejos quedan
-  // reservados para la cabecera institucional.
-  const margen = 4;
-  const xMin = rect.x + margen;
-  const xMax = rect.x + rect.width - margen;
-  const yMin = rect.y + margen;
-  const yMax = rect.y + rect.height - margen;
-  const dentro = (caja: RectBox) =>
-    caja.x >= xMin && caja.y >= yMin && caja.x + caja.width <= xMax && caja.y + caja.height <= yMax;
-  const libre = (caja: RectBox) => dentro(caja) && exclusiones.every((exclusion) => !rectInterseca(caja, exclusion));
-  const colorSecundario = rgb(0.12, 0.38, 0.58);
-  const dibujarPunto = (x: number, y: number, radio: number, tono: ReturnType<typeof rgb>) => {
-    const caja = { x: x - radio, y: y - radio, width: radio * 2, height: radio * 2 };
-    if (!libre(caja)) return;
-    page.drawCircle({ x, y, size: radio, color: tono, opacity: 0.055 });
-  };
-
-  // Malla fina continua y muy clara: mantiene profundidad visual en todo el
-  // bloque sin crear bordes falsos ni competir con el texto.
-  for (let fila = 0, y = yMin + 4; y <= yMax - 4; fila += 1, y += 9) {
-    const desplazamiento = fila % 2 === 0 ? 0 : 4.5;
-    for (let x = xMin + 4 + desplazamiento; x <= xMax - 4; x += 9) {
-      dibujarPunto(x, y, 0.3, fila % 3 === 0 ? colorSecundario : color);
-    }
-  }
-}
-
-function dibujarPatronPunteadoReactivo(
-  page: PDFPage,
-  rect: RectBox,
-  color: ReturnType<typeof rgb>
-) {
-  // Conserva la textura editorial con menos marcas vectoriales por Ã¡rea.
-  // El paso de 18.375 pt reduce ~36 % los puntos frente a 14.7 pt sin cambiar
-  // su radio, tono ni opacidad; la jerarquÃ­a y la geometrÃ­a funcional permanecen.
-  const inset = 2.8;
-  const xMin = rect.x + inset;
-  const xMax = rect.x + rect.width - inset;
-  const yMin = rect.y + inset;
-  const yMax = rect.y + rect.height - inset;
-  const paso = 18.375;
-  for (let fila = 0, y = yMin; y <= yMax; fila += 1, y += paso) {
-    const desplazamiento = fila % 2 === 0 ? 0 : paso / 2;
-    for (let x = xMin + desplazamiento; x <= xMax; x += paso) {
-      page.drawCircle({
-        x,
-        y,
-        size: 0.34,
-        color,
-        opacity: 0.055
-      });
-    }
-  }
-}
-
-function dibujarOrnamentoPunteadoCuerpo(
-  page: PDFPage,
-  rect: RectBox,
-  color: ReturnType<typeof rgb>
-) {
-  // Adorno de muy baja cobertura en las esquinas del cuerpo. Aporta
-  // continuidad visual sin poner tinta debajo de preguntas, respuestas ni
-  // paneles OMR. Los puntos se dibujan antes de los elementos funcionales.
-  const margen = 8;
-  const puntos = [
-    { x: rect.x + margen, y: rect.y + margen },
-    { x: rect.x + margen + 4.5, y: rect.y + margen },
-    { x: rect.x + margen, y: rect.y + margen + 4.5 },
-    { x: rect.x + rect.width - margen, y: rect.y + rect.height - margen },
-    { x: rect.x + rect.width - margen - 4.5, y: rect.y + rect.height - margen },
-    { x: rect.x + rect.width - margen, y: rect.y + rect.height - margen - 4.5 }
-  ];
-  for (const punto of puntos) {
-    page.drawCircle({ x: punto.x, y: punto.y, size: 0.42, color, opacity: 0.08 });
-  }
-}
-
-// Iconos de cabecera alineados con el sistema SVG existente en
-// `apps/frontend/src/ui/iconos.tsx`. Se reutilizan sus trazos y proporciones
-// mediante drawSvgPath para que la iconografia de la aplicacion y del PDF sea
-// consistente, nÃ­tida y estable al imprimir en escala de grises.
-const SVG_ICONO_ALUMNO_HOMBROS = 'M5.5 21a6.5 6.5 0 0 1 13 0';
-const SVG_ICONO_ALUMNOS_HOMBRO = 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2';
-const SVG_ICONO_ALUMNOS_DERECHA = 'M22 21v-2a4 4 0 0 0-3-3.87';
-const SVG_ICONO_ALUMNOS_ARCO = 'M16 3.13a4 4 0 0 1 0 7.75';
-const SVG_ICONO_DOCENTE_GORRO = 'M22 10v6M2 10l10-5 10 5-10 5z';
-const SVG_ICONO_DOCENTE_BANDA = 'M6 12v5c3 3 9 3 12 0v-5';
-const SVG_ICONO_INFO = 'M12 16v-4';
-
-const ESCALA_ICONO_CABECERA = 0.48;
-const GROSOR_ICONO_CABECERA = 1.05;
-const ALTO_ICONO_CABECERA = 11.6;
-
-function dibujarPathIconoCabecera(
-  page: PDFPage,
-  path: string,
-  x: number,
-  y: number,
-  color: ReturnType<typeof rgb>
-) {
-  page.drawSvgPath(path, {
-    x,
-    y: y + ALTO_ICONO_CABECERA,
-    scale: ESCALA_ICONO_CABECERA,
-    borderColor: color,
-    borderWidth: GROSOR_ICONO_CABECERA,
-    opacity: 0.96
-  });
-}
-
-function dibujarIconoPersona(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
-  const escala = ESCALA_ICONO_CABECERA;
-  dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNO_HOMBROS, x, y, color);
-  page.drawCircle({
-    x: x + 12 * escala,
-    y: y + ALTO_ICONO_CABECERA - 7 * escala,
-    size: 4 * escala,
-    borderColor: color,
-    borderWidth: GROSOR_ICONO_CABECERA
-  });
-  return { x, y, width: 12, height: ALTO_ICONO_CABECERA };
-}
-
-function dibujarIconoGrupo(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
-  const escala = ESCALA_ICONO_CABECERA;
-  dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNOS_HOMBRO, x, y, color);
-  dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNOS_DERECHA, x, y, color);
-  dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNOS_ARCO, x, y, color);
-  page.drawCircle({
-    x: x + 9 * escala,
-    y: y + ALTO_ICONO_CABECERA - 7 * escala,
-    size: 4 * escala,
-    borderColor: color,
-    borderWidth: GROSOR_ICONO_CABECERA
-  });
-  return { x, y, width: 12, height: ALTO_ICONO_CABECERA };
-}
-
-function dibujarIconoDocente(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
-  dibujarPathIconoCabecera(page, SVG_ICONO_DOCENTE_GORRO, x, y, color);
-  dibujarPathIconoCabecera(page, SVG_ICONO_DOCENTE_BANDA, x, y, color);
-  // El birrete ocupa menos altura que los iconos de captura; conservar una
-  // caja ajustada evita que el icono toque la linea de materia superior.
-  return { x, y, width: 12, height: 9.6 };
-}
-
-function dibujarIconoIndicaciones(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
-  const escala = ESCALA_ICONO_CABECERA;
-  dibujarPathIconoCabecera(page, 'M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18', x, y, color);
-  dibujarPathIconoCabecera(page, SVG_ICONO_INFO, x, y, color);
-  dibujarPathIconoCabecera(page, 'M12 8h.01', x, y, color);
-  page.drawCircle({
-    x: x + 12 * escala,
-    y: y + ALTO_ICONO_CABECERA - 8 * escala,
-    size: 1.35 * escala,
-    color
-  });
-  return { x, y, width: 12, height: ALTO_ICONO_CABECERA };
-}
-
-function dibujarEjemplosMarca(
-  page: PDFPage,
-  x: number,
-  y: number,
-  fuente: PDFFont,
-  size: number
-): RectBox {
-  const radio = 3.1;
-  const centroY = y + 4.3;
-  const xCorrecta = x + radio;
-  const xIncorrecta = x + 53 + radio;
-  const colorCorrecto = rgb(0.06, 0.4, 0.34);
-  const colorIncorrecto = rgb(0.58, 0.2, 0.18);
-
-  // Correcta: la marca queda centrada y separada del borde.
-  page.drawCircle({
-    x: xCorrecta,
-    y: centroY,
-    size: radio,
-    borderColor: colorCorrecto,
-    borderWidth: 0.7
-  });
-  page.drawCircle({ x: xCorrecta, y: centroY, size: 1.05, color: colorCorrecto });
-  page.drawText('Correcta', { x: x + 8, y, size, font: fuente, color: colorCorrecto });
-
-  // Incorrecta: la marca toca el borde y se tacha suavemente para que el
-  // ejemplo no se confunda con una respuesta vÃ¡lida del examen.
-  page.drawCircle({
-    x: xIncorrecta,
-    y: centroY,
-    size: radio,
-    borderColor: colorIncorrecto,
-    borderWidth: 0.7
-  });
-  page.drawCircle({
-    x: xIncorrecta + radio * 0.68,
-    y: centroY,
-    size: 1.05,
-    color: colorIncorrecto
-  });
-  page.drawLine({
-    start: { x: xIncorrecta - radio - 1.1, y: centroY - radio - 1 },
-    end: { x: xIncorrecta + radio + 1.1, y: centroY + radio + 1 },
-    color: colorIncorrecto,
-    thickness: 0.65,
-    opacity: 0.82
-  });
-  page.drawText('Incorrecta', { x: x + 61, y, size, font: fuente, color: colorIncorrecto });
-
-  return { x, y, width: Math.max(92, 61 + fuente.widthOfTextAtSize('Incorrecta', size)), height: size + 2 };
-}
-
-function dibujarBordePagina(
-  page: PDFPage,
-  margen: number,
-  color: ReturnType<typeof rgb>,
-  acento: ReturnType<typeof rgb>
-) {
-  const inset = margen + 3.5;
-  const xMin = inset;
-  const xMax = ANCHO_CARTA - inset;
-  const yMin = inset;
-  const yMax = ALTO_CARTA - inset;
-  page.drawRectangle({
-    x: xMin,
-    y: yMin,
-    width: xMax - xMin,
-    height: yMax - yMin,
-    borderColor: color,
-    borderWidth: 0.55,
-    borderOpacity: 0.46
-  });
-
-  // Remates cromÃ¡ticos centrados en los cuatro lados: dan jerarquÃ­a al marco
-  // sin acercarse a las marcas de registro de las esquinas ni invadir el OMR.
-  const separacionEsquina = 30;
-  const segmentos = [
-    [{ x: xMin + separacionEsquina, y: yMax }, { x: xMax - separacionEsquina, y: yMax }],
-    [{ x: xMin + separacionEsquina, y: yMin }, { x: xMax - separacionEsquina, y: yMin }],
-    [{ x: xMin, y: yMin + separacionEsquina }, { x: xMin, y: yMax - separacionEsquina }],
-    [{ x: xMax, y: yMin + separacionEsquina }, { x: xMax, y: yMax - separacionEsquina }]
-  ] as const;
-  for (const [inicio, fin] of segmentos) {
-    page.drawLine({
-      start: inicio,
-      end: fin,
-      color: acento,
-      thickness: 0.9,
-      opacity: 0.68,
-      lineCap: LineCapStyle.Round
-    });
-  }
-}
-
-function dibujarLineaPunteada(
-  page: PDFPage,
-  inicio: { x: number; y: number },
-  fin: { x: number; y: number },
-  color: ReturnType<typeof rgb>,
-  grosor = 0.55,
-  opacidad = 0.62
-) {
-  const dx = fin.x - inicio.x;
-  const dy = fin.y - inicio.y;
-  const longitud = Math.hypot(dx, dy);
-  if (longitud <= 0) return;
-  const ux = dx / longitud;
-  const uy = dy / longitud;
-  const guion = 3;
-  const separacion = 2;
-  for (let recorrido = 0; recorrido < longitud; recorrido += guion + separacion) {
-    const tramo = Math.min(guion, longitud - recorrido);
-    page.drawLine({
-      start: { x: inicio.x + ux * recorrido, y: inicio.y + uy * recorrido },
-      end: { x: inicio.x + ux * (recorrido + tramo), y: inicio.y + uy * (recorrido + tramo) },
-      color,
-      thickness: grosor,
-      opacity: opacidad
-    });
-  }
-}
-
-function dibujarCajaPunteada(
-  page: PDFPage,
-  caja: RectBox,
-  color: ReturnType<typeof rgb>,
-  incluirBordeSuperior = true
-) {
-  const x2 = caja.x + caja.width;
-  const y2 = caja.y + caja.height;
-  if (incluirBordeSuperior) {
-    dibujarLineaPunteada(page, { x: caja.x, y: y2 }, { x: x2, y: y2 }, color);
-  }
-  dibujarLineaPunteada(page, { x: x2, y: y2 }, { x: x2, y: caja.y }, color);
-  dibujarLineaPunteada(page, { x: x2, y: caja.y }, { x: caja.x, y: caja.y }, color);
-  dibujarLineaPunteada(page, { x: caja.x, y: caja.y }, { x: caja.x, y: y2 }, color);
-}
-
-async function embedFuenteEcofont(pdfDoc: PDFDocument): Promise<PDFFont> {
-  const configurada = String(process.env.EXAMEN_FONT_ECOFONT_PATH ?? '').trim();
-  const cwd = process.cwd();
-  const candidatos = [
-    ...(configurada ? [configurada] : []),
-    path.resolve(cwd, 'apps', 'backend', 'assets', 'fonts', FUENTE_ECOFONT_ARCHIVO),
-    path.resolve(cwd, 'assets', 'fonts', FUENTE_ECOFONT_ARCHIVO),
-    path.resolve(cwd, '..', 'assets', 'fonts', FUENTE_ECOFONT_ARCHIVO),
-    path.resolve(cwd, '..', 'apps', 'backend', 'assets', 'fonts', FUENTE_ECOFONT_ARCHIVO),
-    path.resolve(cwd, '..', '..', 'apps', 'backend', 'assets', 'fonts', FUENTE_ECOFONT_ARCHIVO)
-  ];
-
-  for (const candidato of candidatos) {
-    try {
-      const buffer = await fs.readFile(candidato);
-      return await pdfDoc.embedFont(buffer, { subset: true });
-    } catch {
-      // La salida sigue siendo funcional si una instalaciÃ³n no trae el asset.
-    }
-  }
-  throw new Error(`No se pudo cargar la fuente obligatoria ${FUENTE_ECOFONT_ARCHIVO}`);
-}
-
-function mapearPreguntasOrdenadas(examen: ExamenPdf) {
-  const mapa = new Map(examen.preguntas.map((pregunta) => [pregunta.id, pregunta]));
-  return examen.mapaVariante.ordenPreguntas
-    .map((idPregunta) => mapa.get(idPregunta))
-    .filter((pregunta): pregunta is ExamenPdf['preguntas'][number] => Boolean(pregunta));
-}
-
-export class PdfKitRenderer {
-  constructor(
-    private readonly perfilOmr: PerfilPlantillaOmr,
-    private readonly perfilLayout: PerfilLayoutImpresion
-  ) {}
-
-  async generarPdf(examen: ExamenPdf): Promise<ResultadoGeneracionPdf> {
-    const pdfDoc = await PDFDocument.create();
-    pdfDoc.registerFontkit(fontkit);
-    // El texto legible por personas conserva Ecofont. Helvetica Bold se reserva
-    // para las dos referencias mecÃ¡nicas que lee el OCR del pie.
-    const fuente = await embedFuenteEcofont(pdfDoc);
-    const fuenteBold = fuente;
-    const fuenteItalica = fuente;
-    const fuenteMono = fuente;
-    const fuenteOcr = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    void examen.tipoExamen;
-
-    const templateVersion = examen.layout.templateVersion;
-    if (templateVersion !== TEMPLATE_VERSION_CANONICA) {
-      throw new Error(`Template version ${String(templateVersion)} no compatible para renderer OMR canÃ³nico`);
-    }
-    const perfilOmr = resolverPerfilRender(templateVersion, this.perfilOmr);
-    const omrEnLinea = perfilOmr.ubicacion === 'junto-a-opcion';
-    const omrRadio = perfilOmr.burbujaRadio;
-    const margenMm = examen.layout.margenMm;
-    const margen = mmAPuntos(margenMm);
-    const paginasObjetivo = Number.isFinite(examen.layout.totalPaginas)
-      ? Math.max(1, Math.floor(examen.layout.totalPaginas))
-      : 1;
-
-    const colorPrimario = rgb(...PDF_VISUAL_BASELINE_RGB.primary);
-    const colorGris = rgb(...PDF_VISUAL_BASELINE_RGB.textSoft);
-    const colorLinea = rgb(...PDF_VISUAL_BASELINE_RGB.line);
-    const colorAcento = rgb(...PDF_VISUAL_BASELINE_RGB.accent);
-    const colorAcentoSuave = rgb(...PDF_VISUAL_BASELINE_RGB.accentSoft);
-    const colorSeccion = rgb(...PDF_VISUAL_BASELINE_RGB.section);
-  const colorFondoPagina = rgb(1, 1, 1);
-    const colorTinta = rgb(...PDF_VISUAL_BASELINE_RGB.primary);
-    // El Ã¡rea de lectura permanece blanca: los colores decorativos se quedan
-    // fuera del ROI para que la conversiÃ³n a escala de grises no fabrique tinta.
-    const colorPanelOmr = rgb(1, 1, 1);
-    const colorBordeOmr = rgb(0.58, 0.67, 0.73);
-    // Colores funcionales diferenciados: conservan contraste al imprimir en
-    // color y siguen siendo distinguibles por luminancia en escala de grises.
-    const colorIconoAlumno = rgb(0.04, 0.43, 0.72);
-    const colorIconoGrupo = rgb(0.05, 0.50, 0.38);
-    const colorIconoDocente = rgb(0.08, 0.34, 0.56);
-    const colorIconoIndicaciones = rgb(0.42, 0.25, 0.70);
-    const coloresPregunta = [
-      { fondo: rgb(0.9, 0.955, 0.985), acento: rgb(0.05, 0.4, 0.66) },
-      { fondo: rgb(0.94, 0.93, 0.985), acento: rgb(0.28, 0.23, 0.62) },
-      { fondo: rgb(0.9, 0.97, 0.94), acento: rgb(0.04, 0.4, 0.34) },
-      { fondo: rgb(0.995, 0.95, 0.86), acento: rgb(0.66, 0.34, 0.03) }
-    ];
-    // Plantilla base en puntos (1pt ~= 1px a 72dpi) para posicionamiento estable.
-    const PLANTILLA_PX = Object.freeze({
-      headerPadTop: 7,
-      headerPadBottom: 7,
-      titleGap: 1.2,
-      lemaGap: 1,
-      metaGapTop: 1,
-      // El icono de docente se alinea a la izquierda de su metadato; esta
-      // holgura mÃ­nima evita que su caja invada la lÃ­nea de Materia.
-      metaLine: 10.6,
-      // Estos valores son separaciones entre cajas tipograficas, no distancias
-      // de linea base; asi se evita que el texto de una fila invada la otra.
-      // La banda de captura necesita aire propio: con tres puntos el ultimo
-      // metadato quedaba visualmente pegado a la regla superior de Nombre.
-      // Holgura mÃ­nima entre el Ãºltimo metadato y la fila de captura; la
-      // altura real de las cajas se valida por separado contra colisiones.
-      camposGapTop: 0.6,
-      campoRowGap: 4,
-      // La linea del campo queda claramente debajo del glifo, no pegada a la
-      // etiqueta ni confundida con una regla de fondo al rasterizar. Un
-      // descenso adicional evita que los descendentes de Ecofont parezcan
-      // atravesados por la regla en fotografÃ­as de baja resoluciÃ³n.
-      campoLineOffsetY: -5
-    });
-
-    // La configuraciÃ³n de densidad solo compacta el cuerpo del examen. La
-    // cabecera institucional usa una escala propia y estable para que los
-    // cambios de paginaciÃ³n no alteren sus campos OMR.
-    const fontScale = Math.min(1.3, Math.max(0.75, Number(examen.layout.fontScale ?? 1) || 1));
-    const lineSpacing = Math.min(1.6, Math.max(0.75, Number(examen.layout.lineSpacing ?? 1) || 1));
-    const perfilCompactoAltaDensidad = examen.layout.densityMode === 'compact'
-      && examen.totalPreguntas >= 36
-      && perfilOmr.orientacion === 'horizontal';
-    const perfilCompactoCapacidadAlta = perfilCompactoAltaDensidad && examen.totalPreguntas >= 38;
-    const perfilOmrCompactoDenso = perfilCompactoAltaDensidad || (examen.layout.densityMode === 'compact' && examen.totalPreguntas === 34 && perfilOmr.orientacion === 'horizontal');
-    const perfilCompacto35 = examen.layout.densityMode === 'compact'
-      && examen.totalPreguntas === 35
-      && perfilOmr.orientacion === 'horizontal';
-    const perfilNumeroOmrExterior = perfilOmrCompactoDenso || perfilCompacto35;
-    const priorizarCapacidadPorCara = perfilCompactoCapacidadAlta;
-    const fontScaleCabecera = 1;
-    const lineSpacingCabecera = 1;
-    // La retÃ­cula 3+2 libera suficiente ancho para conservar una tipografÃ­a
-    // legible mientras la cabecera usa una escala mÃ¡s contenida.
-    const escalaPerfilDenso = 1;
-    const sizeTitulo = 15.5 * fontScaleCabecera;
-    // TipografÃ­a de lectura humana. La escala del encabezado es deliberadamente
-    // independiente de los ajustes automÃ¡ticos del cuerpo y del OMR.
-    const sizeMeta = 8.6 * fontScaleCabecera;
-    const sizePregunta = 10.4 * fontScale * escalaPerfilDenso;
-    const sizeOpcion = 8.8 * fontScale * escalaPerfilDenso;
-    const sizeCodigoInline = 8.4 * fontScale * escalaPerfilDenso;
-    const sizeCodigoBloque = 8.3 * fontScale * escalaPerfilDenso;
-
-      const lineaPregunta = Math.max(
-      (perfilOmr.orientacion === 'horizontal' ? 10.4 : 13.2) * fontScale,
-      sizePregunta * 1.18
-    ) * lineSpacing;
-    const lineaOpcion = Math.max(
-      (perfilOmr.orientacion === 'horizontal' ? 8.8 : 11.4) * fontScale,
-      sizeOpcion * 1.18
-    ) * lineSpacing;
-    const lineaCodigoBloque = Math.max(
-      (perfilOmr.orientacion === 'horizontal' ? 8.6 : 10.8) * fontScale,
-      sizeCodigoBloque * 1.18
-    ) * lineSpacing;
-    // El espacio entre reactivos depende de la cantidad de texto del enunciado
-    // y sus respuestas. La regla visible y el bloque numerado conservan la
-    // separaciÃ³n mÃ­nima de 2 pt; los reactivos mÃ¡s densos reciben mÃ¡s aire.
-    const contarCaracteresPregunta = (pregunta: ExamenPdf['preguntas'][number]) =>
-      Array.from([
-        pregunta.enunciado,
-        ...pregunta.opciones.map((opcion) => compactarOpcionBancoParaPdf(opcion.texto))
-      ].join(' ').replace(/\s+/g, ' ').trim()).length;
-    const obtenerSeparacionPregunta = (pregunta: ExamenPdf['preguntas'][number]) => {
-      const caracteres = contarCaracteresPregunta(pregunta);
-      const separacionBase = caracteres <= 80
-        ? (perfilCompactoAltaDensidad ? 0.45 : 2)
-        : caracteres <= 240 ? 3 : 4;
-      return perfilCompactoAltaDensidad && caracteres <= 80
-        ? Math.max(0.45, separacionBase * lineSpacing)
-        : separacionBase * lineSpacing;
-    };
-    // SeparaciÃ³n tipogrÃ¡fica visible entre la regla punteada del enunciado y
-    // el inicio de las respuestas. La reserva se comparte con el planificador
-    // para que el aire visible no cause desbordes ni pÃ¡ginas adicionales.
-    const separacionEnunciadoOpciones = omrEnLinea ? omrRadio + sizeOpcion + 2 : 2;
-    // El fondo del reactivo se extiende una lÃ­nea por encima de su caja
-    // tipogrÃ¡fica. Un margen inferior corto conserva la separaciÃ³n imprimible
-    // y entrega el resto del hueco directamente al Ã¡rea de reactivos.
-    const separacionCabeceraContenido = perfilCompactoAltaDensidad
-      ? Math.max(4.5, lineaPregunta - 7.8)
-      : Math.max(9, lineaPregunta - 3.5);
-    // Holgura compartida por el planificador y el renderer entre tarjetas de
-    // opciones. Mantener un unico valor evita que el plan reserve menos alto
-    // del que finalmente consume una opcion de varias lineas.
-    // La retÃ­cula 3+2 conserva solo una holgura subpunto entre filas. La altura
-    // de cada fila mantiene una reserva tipogrÃ¡fica mÃ­nima independiente para
-    // que el ahorro no acerque los glifos al separador ni al fondo siguiente.
-    const separacionTarjetaOpcion = omrEnLinea ? 0 : perfilOmr.orientacion === 'horizontal' ? 0.25 : 3;
-    const rellenoVerticalOpcion = 2;
-    const alturaMinimaFilaOpcion = sizeOpcion + 3;
-    const omrTotalLetras = 5;
-    const omrPasoY = perfilOmr.burbujaPasoY;
-    const omrEsquemaHorizontal = perfilOmr.orientacion === 'horizontal';
-    const omrPasoX = perfilOmr.burbujaPasoX ?? 0;
-    const omrMargenHorizontal = 4.5;
-    const omrEtiquetaGap = 4;
-    // El panel horizontal conserva el diÃ¡metro OMR canÃ³nico y concentra la
-    // reserva vertical solo para la capacidad extrema (38+ reactivos). El
-    // cÃ­rculo conserva 1.2 pt libres arriba y la etiqueta 1 pt abajo; las
-    // burbujas no cambian de tamaÃ±o, paso ni centro relativo.
-    const omrMargenSuperior = omrEsquemaHorizontal
-      ? (perfilCompactoCapacidadAlta ? 1.2 : perfilOmrCompactoDenso ? 4.8 : perfilCompacto35 ? 7 : 7.4)
-      : 9;
-    // La etiqueta de cada burbuja conserva una zona blanca propia; la reserva
-    // se coordina con el desplazamiento real de las letras bajo los cÃ­rculos.
-    // La reserva inferior debe ser mayor que el desplazamiento de la etiqueta:
-    // si ambos valores coinciden, la caja tipogrÃ¡fica termina exactamente sobre
-    // el borde del panel y el raster puede mostrar la letra tocando la lÃ­nea.
-    // La reserva adicional mantiene la separaciÃ³n visible sin alterar el
-    // diÃ¡metro, paso ni la posiciÃ³n de las burbujas.
-    const omrMargenInferior = omrEsquemaHorizontal
-      ? perfilCompactoCapacidadAlta ? 7.8 : 7.6
-      : 1.5;
-    // SeparaciÃ³n positiva, subpunto y visible a 300 DPI, entre paneles OMR
-    // consecutivos. El valor evita contactos sin desperdiciar la reserva
-    // inferior cuando una continuaciÃ³n empieza debajo de los fiduciales.
-    const separacionPanelOmr = perfilCompactoCapacidadAlta ? 0 : omrEsquemaHorizontal ? 0.45 : 1;
-    // El perfil compacto coloca las cinco opciones en una fila controlada.
-    // Cada cÃ­rculo mantiene separaciÃ³n fÃ­sica de su vecino y el panel queda
-    // aislado del texto para que el ROI sea inequÃ­voco en una fotografÃ­a.
-    const anchoColRespuesta = omrEnLinea ? 0 : perfilOmr.cajaOmrAncho;
-    const fiducialSizeMinimo = perfilOmr.fiducialSize;
-    const fiducialMarginMinimo = Math.max(1.2, perfilOmr.fiducialMargin);
-    const fiducialQuietZoneMinima = perfilOmr.fiducialQuietZone;
-    const separacionBurbujaQuietZoneMinima =
-      2 * (fiducialSizeMinimo / 2 + fiducialQuietZoneMinima) + fiducialMarginMinimo;
-    const anchoOmrMinimoSeguro =
-      (omrTotalLetras - 1) * omrPasoX + 2 * (omrRadio + separacionBurbujaQuietZoneMinima);
-    if (!omrEnLinea && (!Number.isFinite(anchoColRespuesta) || anchoColRespuesta < anchoOmrMinimoSeguro)) {
-      throw new Error(`Perfil OMR canÃ³nico invÃ¡lido: ancho de caja ${String(anchoColRespuesta)}pt`);
-    }
-    // Los perfiles con nÃºmero exterior tambiÃ©n deben reservar su anchura
-    // durante la composiciÃ³n del texto, antes de comprobar las colisiones.
-    const anchoDigitoExterior = Math.max(...'0123456789'.split('').map((digito) => fuenteBold.widthOfTextAtSize(digito, 5)));
-    const anchoNumeroExterior = anchoDigitoExterior * String(examen.totalPreguntas).length;
-    const gutterRespuesta = omrEnLinea ? 0 : perfilNumeroOmrExterior ? Math.max(6, anchoNumeroExterior + 9) : 6;
-    // El panel y su halo blanco deben quedar dentro del borde imprimible.
-    // Alinearlo con la reserva derecha del QR recupera espacio para el texto
-    // sin apoyarlo en el borde fÃ­sico: se conservan 4 pt (~1.4 mm) ademÃ¡s
-    // del margen nominal configurado para la plantilla.
-    const margenExtraDerechoPanel = 4;
-    const safeRight = ANCHO_CARTA - margen - margenExtraDerechoPanel;
-    const xColRespuesta = safeRight - anchoColRespuesta;
-    const xDerechaTexto = xColRespuesta - gutterRespuesta;
-
-    if (omrEsquemaHorizontal && omrPasoX <= 0) {
-      throw new Error('Perfil OMR denso invalido: falta el paso horizontal de las burbujas');
-    }
-
-    const xNumeroPregunta = margen;
-    // Compactar Ãºnicamente el gutter entre la insignia y el texto. Se
-    // conserva una separaciÃ³n fÃ­sica de 2.5 pt para evitar contacto visual,
-    // mientras el ancho recuperado queda disponible para el reactivo.
-    const anchoInsigniaPregunta = 17;
-    const xTextoPregunta = margen + 19.5;
-    const obtenerDesplazamientoTextoPorGrapa = (zona?: RectBox) => {
-      const inicioCajaPregunta = xTextoPregunta - 2.5;
-      const finZonaGrapa = zona ? zona.x + zona.width : Number.NEGATIVE_INFINITY;
-      return zona && zona.x <= inicioCajaPregunta && finZonaGrapa > inicioCajaPregunta
-        ? finZonaGrapa + 3.5 - xTextoPregunta
-        : 0;
-    };
-    const anchoTextoPregunta = Math.max(60, xDerechaTexto - xTextoPregunta);
-
-    const instruccionesDefault =
-      'Lea y razone cada reactivo. Marque un solo cÃ­rculo sin tocar el borde; si cambia, borre la marca anterior.';
-
-    const defaultInstitucion = 'Centro Universitario Hidalguense';
-    const defaultLema = 'Sapientia est nostra fortis';
-
-    // Si el examen proporciona una cabecera, la identidad institucional es
-    // parte de la plantilla canÃ³nica por defecto. Solo se omite cuando el
-    // llamador lo solicita explÃ­citamente, evitando que una muestra o
-    // generaciÃ³n real pierda escuela, motto, materia y docente por olvidar un
-    // booleano auxiliar.
-    const mostrarMarcaInstitucional = examen.encabezado
-      ? examen.encabezado.mostrarMarcaInstitucional !== false
-      : false;
-    const institucion = mostrarMarcaInstitucional
-      ? String(examen.encabezado?.institucion ?? process.env.EXAMEN_INSTITUCION ?? defaultInstitucion).trim()
-      : '';
-    const lema = mostrarMarcaInstitucional
-      ? String(examen.encabezado?.lema ?? process.env.EXAMEN_LEMA ?? defaultLema).trim()
-      : '';
-    const materia = mostrarMarcaInstitucional ? String(examen.encabezado?.materia ?? '').trim() : '';
-    const docente = mostrarMarcaInstitucional ? String(examen.encabezado?.docente ?? '').trim() : '';
-    // La plantilla canÃ³nica integra tÃ­tulo, identidad institucional y metadatos
-    // directamente sobre el fondo geomÃ©trico; no crea una caja central independiente.
-    const tituloCabecera = examen.titulo;
-    const mostrarInstrucciones = examen.encabezado?.mostrarInstrucciones !== false;
-    const instrucciones = String(examen.encabezado?.instrucciones ?? '').trim() || instruccionesDefault;
-    // La cabecera central tiene un ancho finito entre los dos logos y el QR.
-    // Estimar las lineas antes de crear las paginas permite hacerla mas alta
-    // solo para contenido largo, sin penalizar la densidad de examenes normales.
-    const qrHorizontalInsetEstimado = perfilOmr.marcaCuadradoSize + perfilOmr.marcaCuadradoQuietZone + mmAPuntos(QR_STAPLE_CLEARANCE_MM);
-    const qrRectXEstimado = ANCHO_CARTA - margen - 4
-      - perfilOmr.qrSize - perfilOmr.qrPadding * 2 - qrHorizontalInsetEstimado;
-    const separacionQrBordeSuperior = 0;
-    // Los logotipos de 64 pt conservan tamaÃ±o fÃ­sico suficiente para impresiÃ³n
-    // y liberan altura Ãºtil en la primera pÃ¡gina. Si la identidad institucional
-    // estÃ¡ desactivada, no reservar sus slots: el tÃ­tulo y los campos aprovechan
-    // esa banda y tampoco se dibujan los logos por accidente.
-    const logoSlotSize = mostrarMarcaInstitucional ? 64 : 0;
-    const logoDerechoXEstimado = qrRectXEstimado - 6 - logoSlotSize - 4;
-    const xTextoHeaderEstimado = margen + logoSlotSize + 23;
-    const anchoHeaderCentralEstimado = Math.max(200, logoDerechoXEstimado - 4 - 5 - xTextoHeaderEstimado);
-    const estimarLineasCabecera = (texto: string, font: PDFFont, size: number) =>
-      partirEnLineas({ texto, maxWidth: anchoHeaderCentralEstimado, font, size }).length;
-    const metaCampos = [
-      materia ? `Materia: ${materia}` : '',
-      docente ? `Docente: ${docente}` : ''
-    ].filter(Boolean);
-    const lineasMetaEstimadas = metaCampos.reduce(
-      (total, campo) => total + estimarLineasCabecera(campo, fuente, sizeMeta),
-      0
-    );
-    const lineasExtraCabecera = Math.max(
-      0,
-      estimarLineasCabecera(institucion, fuenteBold, 13.6 * fontScaleCabecera) - 1
-    ) + Math.max(
-      0,
-      estimarLineasCabecera(tituloCabecera, fuenteBold, sizeTitulo) - 1
-    ) + Math.max(
-      0,
-      estimarLineasCabecera(lema, fuenteItalica, 9.2 * fontScaleCabecera) - 1
-    ) + Math.max(
-      0,
-      lineasMetaEstimadas - 1
-    );
-    // Las indicaciones viven en la banda funcional inferior de la cabecera.
-    // Medirlas con el ancho real disponible permite ampliar Ãºnicamente las
-    // cabeceras excepcionales, evitando tanto el recorte contra el QR como
-    // reservar espacio vertical innecesario en exÃ¡menes normales.
-    const tamIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera);
-    const xCajaEstimado = margen + 4;
-    const xIndicacionesEstimado = xCajaEstimado + 14 + 14;
-    const limiteZonaCalificacionEstimado = Math.max(xCajaEstimado + 8, qrRectXEstimado - 6);
-    const xDerechaIndicacionesEstimada = Math.min(qrRectXEstimado - 12, limiteZonaCalificacionEstimado - 6);
-    const anchoIndicacionesEstimado = Math.max(
-      50,
-      xDerechaIndicacionesEstimada
-        - xIndicacionesEstimado
-        - fuenteBold.widthOfTextAtSize('Indicaciones:', tamIndicacionesEstimado)
-        - 9
-    );
-    const lineasIndicacionesEstimadas = mostrarInstrucciones
-      ? partirEnLineas({
-        texto: instrucciones,
-        maxWidth: anchoIndicacionesEstimado,
-        font: fuente,
-        size: tamIndicacionesEstimado
-      }).length
-      : 0;
-    // Reservar una fila independiente para los ejemplos evita que una
-    // indicaciÃ³n larga comparta renglÃ³n con la leyenda visual.
-    const espacioEjemplosIndicaciones = mostrarInstrucciones ? 10 : 0;
-    // La reserva QR incluye la franja inferior para la clave compuesta; el
-    // cÃ¡lculo debe incluirla para que una cabecera compacta no la recorte.
-    const altoQrTarjetaEstimado = perfilOmr.qrSize + perfilOmr.qrPadding * 2 + 12;
-    // La primera cabecera debe reservar tambiÃ©n las dos filas de la zona de
-    // calificaciÃ³n bajo el QR. Sin esta reserva, una cabecera corta podÃ­a
-    // activar el bloque con altura insuficiente y dejar la segunda fila fuera
-    // del marco al validar el layout.
-    // Incluye el descenso de la regla inferior y su grosor, no solo las
-    // alturas tipogrÃ¡ficas de las dos etiquetas.
-    const sizeCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera);
-    // Debe cubrir el umbral real de activaciÃ³n de la zona (23 + 2 pt)
-    // y el ascendente de la primera fila; 22.4 pt activaba el fallback.
-    const altoZonaCalificacionEstimado = perfilCompactoAltaDensidad
-      ? sizeCalificacionEstimado + 10
-      : Math.max(26, sizeCalificacionEstimado + 16);
-    // Reducir la reserva base recupera espacio para el primer reactivo sin
-    // tocar logos, QR ni la geometrÃ­a OMR. La rama larga conserva holgura
-    // adicional y ambas quedan protegidas por las aserciones de colisiÃ³n.
-    const baseEncabezadoCompacto = lineasExtraCabecera <= 2 && lineasIndicacionesEstimadas <= 2 ? 64 : 70;
-    const altoEncabezadoPrimeraMinimo = Math.max(
-      // La fila inferior puede ocupar varias lÃ­neas; reservar el interlineado
-      // efectivo mÃ¡s un colchÃ³n evita que la Ãºltima lÃ­nea caiga fuera del
-      // header cuando la tipografÃ­a sube a 7.5 pt o el texto se envuelve.
-      baseEncabezadoCompacto + lineasExtraCabecera * 15 + (
-        lineasIndicacionesEstimadas > 0
-          ? (lineasIndicacionesEstimadas + 2) * 12 + espacioEjemplosIndicaciones
-          : 0
-      ),
-      // El QR queda horizontalmente a la izquierda de la quiet zone del
-      // fiducial superior derecho; solo conserva 4 pt de margen al borde.
-      // La reserva inferior permanece para las dos filas de calificaciÃ³n.
-      altoQrTarjetaEstimado + separacionQrBordeSuperior + altoZonaCalificacionEstimado
-    );
-    const logoIzqSrc = String(examen.layout.logos?.izquierdaPath ?? '').trim()
-      || String(examen.encabezado?.logos?.izquierdaPath ?? '').trim()
-      || String(process.env.EXAMEN_LOGO_IZQ_PATH ?? '').trim()
-      || 'logos/logo_cuh.png';
-    const logoDerSrc = String(examen.layout.logos?.derechaPath ?? '').trim()
-      || String(examen.encabezado?.logos?.derechaPath ?? '').trim()
-      || String(process.env.EXAMEN_LOGO_DER_PATH ?? '').trim()
-      || 'logos/logo_sys.png';
-
-    const logoIzquierda = await intentarEmbedImagen(pdfDoc, logoIzqSrc);
-    const logoDerecha = await intentarEmbedImagen(pdfDoc, logoDerSrc);
-    const logosOmitidos: string[] = [];
-    if (!logoIzquierda) logosOmitidos.push('izquierdo');
-    if (!logoDerecha) logosOmitidos.push('derecho');
-
-    const preguntasOrdenadas = mapearPreguntasOrdenadas(examen);
-    const totalPreguntas = preguntasOrdenadas.length;
-
-    const imagenesPregunta = new Map<string, LogoEmbed>();
-    const estadoImagenPregunta = new Map<string, 'ok' | 'error'>();
-    let imagenesIntentadas = 0;
-    let imagenesRenderizadas = 0;
-    let imagenesFallidas = 0;
-    for (const pregunta of preguntasOrdenadas) {
-      const src = String(pregunta.imagenUrl ?? '').trim();
-      if (!src) continue;
-      imagenesIntentadas += 1;
-      const emb = await intentarEmbedImagen(pdfDoc, src);
-      if (emb) {
-        imagenesPregunta.set(pregunta.id, emb);
-        estadoImagenPregunta.set(pregunta.id, 'ok');
-        imagenesRenderizadas += 1;
-      } else {
-        estadoImagenPregunta.set(pregunta.id, 'error');
-        imagenesFallidas += 1;
-      }
-    }
-
-    const GRID_STEP = this.perfilLayout.gridStepPt;
-    // Alinear el inicio de pÃ¡gina basta para mantener el layout estable. No
-    // se vuelve a cuantizar cada reactivo: el redondeo por bloque acumulaba
-    // hasta un paso de retÃ­cula por reactivo y expulsaba contenido que sÃ­ cabe.
-    const snapToGrid = (y: number) => Math.round(y / GRID_STEP) * GRID_STEP;
-    const ajustarCursorRender = (y: number) => y;
-
-    const markerSpec: MarkerSpecOmr = {
-      family: 'solid_square_4pt_v1',
-      sizeMm: Number((perfilOmr.fiducialSize / MM_A_PUNTOS).toFixed(2)),
-      quietZoneMm: Number((perfilOmr.fiducialQuietZone / MM_A_PUNTOS).toFixed(2))
-    };
-    const letrasOmr = Array.from({ length: omrTotalLetras }, (_valor, idx) => String.fromCharCode(65 + idx));
-    const etiquetaAnchoMaxOmr = Math.max(...letrasOmr.map((letra) => fuente.widthOfTextAtSize(letra, 6.8)));
-    const diametroBurbujaOmr = omrRadio * 2;
-    const pasoBurbujaX = 0;
-    const blockSpec: BlockSpecOmr = {
-      preguntasPorBloque: perfilOmr.preguntasPorBloque ?? 10,
-      opcionesPorPregunta: perfilOmr.opcionesPorPregunta ?? 5,
-      bubbleDiameterMm: Number((diametroBurbujaOmr / MM_A_PUNTOS).toFixed(2)),
-      orientation: omrEsquemaHorizontal ? 'horizontal' : 'vertical',
-      bubblePitchXmm: Number((omrPasoX / MM_A_PUNTOS).toFixed(2)),
-      bubblePitchYmm: Number((omrPasoY / MM_A_PUNTOS).toFixed(2)),
-      labelToBubbleMm: Number((perfilOmr.labelToBubbleMm ?? 5).toFixed(2)),
-      bubbleStrokePt: Number((perfilOmr.bubbleStrokePt ?? perfilOmr.burbujaStroke).toFixed(2))
-    };
-    const engineHints: EngineHintsOmr = {
-      preferredEngine: 'cv',
-      enableClahe: true,
-      adaptiveThreshold: true,
-      conservativeDecision: true,
-      // El mapa conserva coordenadas PDF, pero el detector debe poder usar QR
-      // y fiduciales para rectificar fotografÃ­as con perspectiva. Forzar una
-      // escala simple degrada precisamente ese caso de uso.
-      forceSimpleScale: false,
-      // La escala global queda como respaldo explÃ­cito si la captura no aporta
-      // una geometrÃ­a confiable; no debe ser la ruta nominal de la plantilla.
-      useMapCoordinatesStrict: omrEnLinea
-    };
-
-    const paginasMeta: ResultadoGeneracionPdf['paginas'] = [];
-    const metricasPaginas: ResultadoGeneracionPdf['metricasPaginas'] = [];
-    const paginasOmr: PaginaOmr[] = [];
-    const reversoEnBlanco = this.perfilOmr.templateId === 'omr-inline-exam-v1';
-    const lineHeightViolations: Array<{ pagina: number; preguntaId: string; lineHeight: number; min: number }> = [];
-    let minLineHeightApplied = Number.POSITIVE_INFINITY;
-
-    // Las indicaciones forman parte del encabezado en la plantilla v4; no
-    // reservar una caja independiente que consuma una franja completa.
-    const indicacionesPendientes = false;
-    const maxWidthIndicaciones = Math.max(120, xDerechaTexto - (margen + 10));
-
-    const headerHeightFirst = this.perfilLayout.headerHeightFirst;
-    const headerHeightOther = this.perfilLayout.headerHeightOther;
-    // Reserva compartida por el planificador, panel OMR y pie OCR.
-    const pieOffsetY = 0.5;
-    const pieAltura = 13;
-    const pieDespeje = 0.5;
-
-    let indicePregunta = 0;
-    let numeroPagina = 1;
-
-    // La cantidad configurada es un objetivo editorial, no un limite que
-    // pueda provocar reactivos omitidos cuando el contenido exige mas alto.
-    // El tope defensivo evita bucles infinitos si un reactivo es imposible de
-    // acomodar con la tipografia minima legible.
-    const maxPaginasSeguras = Math.max(paginasObjetivo, totalPreguntas + 1);
-    let zonaEngrapadoFisica: RectBox | undefined;
-    while (numeroPagina <= maxPaginasSeguras && indicePregunta < totalPreguntas) {
-      const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
-      const numeroPaginaPdf = pdfDoc.getPageCount();
-      // El fondo teÃ±ido ocupa toda la hoja para eliminar zonas blancas
-      // accidentales; las tarjetas QR y OMR se pintan despuÃ©s en blanco para
-      // conservar contraste y robustez de detecciÃ³n.
-      page.drawRectangle({
-        x: 0,
-        y: 0,
-        width: ANCHO_CARTA,
-        height: ALTO_CARTA,
-        color: omrEnLinea ? rgb(1, 1, 1) : colorFondoPagina
-      });
-      let qrTextoPagina = examen.generarTextoQrPagina(numeroPaginaPdf);
-
-      let preguntasDel = 0;
-      let preguntasAl = 0;
-      const mapaPagina: PaginaOmr['preguntas'] = [];
-      const headerTextBlocks: Array<{ x: number; y: number; width: number; height: number; id: string }> = [];
-      const continuationTextBlocks: Array<{ x: number; y: number; width: number; height: number; id: string }> = [];
-      const headerSlotBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const headerIconBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const headerFieldBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const questionBlockBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const questionTextInkBoxes: Array<RectBox & { id: string }> = [];
-      const questionBackgroundBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const questionPromptBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const omrPanelBoxes: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
-      const omrQuestionNumberBoxes: Array<{ id: string; numeroPregunta: number; x: number; y: number; width: number; height: number }> = [];
-      const collisionBoxes: Array<{ pagina: number; a: string; b: string }> = [];
-    let rectIndicaciones: RectBox | undefined;
-    let stapleZone: RectBox | undefined;
-    let stapleKeepOutZone: RectBox | undefined;
-    let stapleLabelZone: (RectBox & { rotation?: 90 | 270 }) | undefined;
-
-    if (zonaEngrapadoFisica) {
-      const margenSeguridadGrapa = mmAPuntos(3);
-      stapleKeepOutZone = {
-        ...zonaEngrapadoFisica,
-        x: numeroPaginaPdf % 2 === 0
-          ? ANCHO_CARTA - zonaEngrapadoFisica.x - zonaEngrapadoFisica.width
-          : zonaEngrapadoFisica.x
-      };
-      stapleKeepOutZone = {
-        x: stapleKeepOutZone.x - margenSeguridadGrapa,
-        y: stapleKeepOutZone.y - margenSeguridadGrapa,
-        width: stapleKeepOutZone.width + margenSeguridadGrapa * 2,
-        height: stapleKeepOutZone.height + margenSeguridadGrapa * 2
-      };
-    }
-    const desplazamientoTextoPorGrapa = obtenerDesplazamientoTextoPorGrapa(stapleKeepOutZone);
-
-      const yTop = ALTO_CARTA - margen;
-      const yTopContinuacionSeguro = yTop
-        - perfilOmr.marcaCuadradoSize
-        - perfilOmr.marcaCuadradoQuietZone
-        - 6;
-      const esPrimera = numeroPagina === 1;
-      const altoEncabezado = esPrimera ? Math.max(headerHeightFirst, altoEncabezadoPrimeraMinimo) : headerHeightOther;
-      const xCaja = margen + 4;
-      const wCaja = ANCHO_CARTA - 2 * margen - 8;
-      const yCaja = yTop - altoEncabezado;
-
-      // El cuerpo conserva el fondo cromÃ¡tico y sus adornos, pero una veladura
-      // blanca muy ligera reduce la cobertura continua sobre el papel. La
-      // cabecera de la primera pÃ¡gina queda fuera de esta zona y no cambia.
-      const rectCuerpoAhorro: RectBox = {
-        x: xCaja + 1,
-        y: margen + 1,
-        width: Math.max(1, wCaja - 2),
-        height: Math.max(1, (esPrimera ? yCaja - 1.2 : yTop - 1.2) - (margen + 1))
-      };
-      dibujarOrnamentoPunteadoCuerpo(page, rectCuerpoAhorro, colorAcento);
-
-      // El texto se dibuja desde la linea base hacia arriba; dejar solo 8 pt
-      // despues del encabezado permite que el primer glifo invada su borde.
-      let yFinHeaderPrimera = yCaja - separacionCabeceraContenido;
-      if (esPrimera) {
-        if (this.perfilLayout.usarRellenosDecorativos) {
-          page.drawRectangle({ x: xCaja, y: yCaja, width: wCaja, height: altoEncabezado, color: colorSeccion });
-        }
-        // Borde base de la cabecera, antes de aplicar sus zonas de identidad.
-        page.drawRectangle({
-          x: xCaja,
-          y: yCaja,
-          width: wCaja,
-          height: altoEncabezado,
-          borderWidth: 0.8,
-          borderColor: colorLinea,
-          color: this.perfilLayout.usarRellenosDecorativos ? colorAcentoSuave : rgb(1, 1, 1)
-        });
-
-        dibujarPatronPunteadoEncabezado(
-          page,
-          { x: xCaja + 1, y: yCaja + 1, width: wCaja - 2, height: altoEncabezado - 2 },
-          colorAcento
-        );
-
-        // Una regla superior aporta identidad sin atravesar la tipografia. La
-        // banda anterior ocupaba las mismas coordenadas que institucion y
-        // titulo, por lo que los glifos quedaban cortados visualmente.
-        if (this.perfilLayout.usarRellenosDecorativos) {
-          page.drawRectangle({
-            x: xCaja + 1,
-            y: yTop - 7,
-            width: wCaja - 2,
-            height: 3.5,
-            color: colorPrimario
-          });
-          page.drawRectangle({
-            x: xCaja + 1,
-            y: yTop - 7,
-            width: wCaja - 2,
-            height: 1.1,
-            color: colorAcento
-          });
-        }
-
-        // Banda inferior: concentra los campos que la persona debe llenar y
-        // conserva el mismo fondo cromÃ¡tico de toda la cabecera. El blanco
-        // semitransparente anterior ocultaba el patrÃ³n y dejaba una isla
-        // blanca visible debajo de las indicaciones.
-        dibujarLineaPunteada(
-          page,
-          { x: xCaja + 2, y: yCaja + 8 },
-          { x: xCaja + 2, y: yCaja + 48 },
-          colorAcento,
-          0.65,
-          0.55
-        );
-        // Acento interior: separa visualmente la identidad institucional del
-        // contenido sin reducir el area util del encabezado.
-        if (this.perfilLayout.usarRellenosDecorativos) {
-          page.drawRectangle({
-            x: xCaja + 5,
-            y: yCaja + 8,
-            width: 3.5,
-            height: Math.max(24, altoEncabezado - 16),
-            color: colorAcento
-          });
-        }
-
-        page.drawLine({
-          start: { x: xCaja, y: yTop - 6 },
-          end: { x: xCaja + wCaja, y: yTop - 6 },
-          color: colorLinea,
-          thickness: 0.95
-        });
-      }
-
-      // El marco decorativo debe quedar debajo de los fiduciales. Dibujarlo
-      // despues podia atravesar su quiet zone y convertir el borde en una
-      // falsa prolongacion del cuadrado durante la rectificacion CV.
-      dibujarBordePagina(page, margen, colorLinea, colorAcento);
-      agregarMarcasRegistro(page, margen, perfilOmr);
-      let qrInfo = await agregarQr(
-        pdfDoc,
-        page,
-        qrTextoPagina,
-        margen,
-        perfilOmr,
-        false
-      );
-      const { x: xQr, y: yQr, padding: qrPadding, qrSize, cardX, cardY, cardW, cardH } = qrInfo;
-      let usarZonaCalificacion = false;
-      // La zona de calificaciÃ³n debe quedar debajo del QR y a la derecha de
-      // la lÃ­nea de grupo; iniciar solo 6 pt antes de la tarjeta evita que su
-      // etiqueta se confunda con el renglÃ³n manuscrito.
-      const xLimiteZonaCalificacion = Math.max(xCaja + 8, cardX - 6);
-      // La secciÃ³n compacta requiere solo dos filas bajo el QR. El umbral
-      // reducido conserva ese bloque aun cuando la cabecera se comprime.
-      const filaUnicaZonaCalificacion = perfilCompactoAltaDensidad;
-      const altoCajaCalificacionCompacta = sizeCalificacionEstimado + (filaUnicaZonaCalificacion ? 6 : 12);
-      if (esPrimera && cardY - yCaja - 2 >= (filaUnicaZonaCalificacion ? altoCajaCalificacionCompacta + 1 : 23)) {
-        // El espacio libre bajo la tarjeta QR se convierte en zona de
-        // calificaciÃ³n. Cubrir el patrÃ³n complejo anterior evita que el
-        // mandala se confunda con texto; encima solo se dibuja una retÃ­cula
-        // de puntos tenue. La tarjeta y su quiet zone siguen blancas.
-        const xZonaCalificacionInicio = Math.max(xCaja + 1, xLimiteZonaCalificacion);
-        const zonaCalificacion: RectBox = {
-          x: xZonaCalificacionInicio,
-          y: filaUnicaZonaCalificacion
-            ? cardY - altoCajaCalificacionCompacta - 1
-            : yCaja + 1,
-          width: Math.max(1, xCaja + wCaja - 1 - xZonaCalificacionInicio),
-          height: filaUnicaZonaCalificacion
-            ? altoCajaCalificacionCompacta
-            : cardY - yCaja - 2
-        };
-        usarZonaCalificacion = true;
-        page.drawRectangle({
-          ...zonaCalificacion,
-          color: rgb(1, 1, 1),
-          borderWidth: 0.65,
-          borderColor: colorLinea
-        });
-        dibujarPatronBloqueCaptura(page, zonaCalificacion, colorAcento, []);
-      }
-      if (esPrimera && !usarZonaCalificacion) {
-        throw new Error('Layout invalido: reserva insuficiente para los campos bajo el QR');
-      }
-      const rectHeader: RectBox = { x: xCaja, y: yCaja, width: wCaja, height: altoEncabezado };
-      const rectQr: RectBox = {
-        x: cardX,
-        y: cardY,
-        width: cardW,
-        height: cardH
-      };
-      assertRectDentroPagina(rectHeader, 'encabezado');
-      assertRectDentroPagina(rectQr, 'qr');
-      if (esPrimera) {
-        assertRectContenida(rectQr, rectHeader, 'reserva QR de primera pagina');
-      }
-
-      const marcasPagina: PaginaOmr['marcasPagina'] = {
-        tipo: perfilOmr.marcasEsquina,
-        size: perfilOmr.marcaCuadradoSize,
-        quietZone: perfilOmr.marcaCuadradoQuietZone,
-        orientacion: perfilOmr.fiducialOrientacion,
-        // La coordenada persistida es el vÃ©rtice exterior del marcador. Tanto
-        // las lÃ­neas como los cuadrados abren hacia el interior de la hoja.
-        tl: { x: margen, y: ALTO_CARTA - margen },
-        tr: { x: ANCHO_CARTA - margen, y: ALTO_CARTA - margen },
-        bl: { x: margen, y: margen },
-        br: { x: ANCHO_CARTA - margen, y: margen }
-      };
-
-      const folioQr = examen.folioNormalizado;
-
-      // No se dibuja una caja de separaciÃ³n en pÃ¡ginas de continuaciÃ³n. La
-      // identificaciÃ³n ya estÃ¡ en el QR/folio y eliminar la banda superior
-      // recupera espacio Ãºtil sin alterar la reserva fÃ­sica del QR.
-      const limiteContenidoContinuacion = Number.POSITIVE_INFINITY;
-
-      const margenSeguridadFiducial = mmAPuntos(2);
-      const quietZonesFiduciales: RectBox[] = (['tl', 'tr', 'bl', 'br'] as const).map((esquina) => {
-        const marca = marcasPagina[esquina];
-        const izquierda = esquina.endsWith('l');
-        const superior = esquina.startsWith('t');
-        const extension = perfilOmr.marcaCuadradoQuietZone + margenSeguridadFiducial;
-        return {
-          x: (izquierda ? marca.x : marca.x - perfilOmr.marcaCuadradoSize) - extension,
-          y: (superior ? marca.y - perfilOmr.marcaCuadradoSize : marca.y) - extension,
-          width: perfilOmr.marcaCuadradoSize + extension * 2,
-          height: perfilOmr.marcaCuadradoSize + extension * 2
-        };
-      });
-      if (stapleKeepOutZone) {
-        // Las continuaciones ya expanden esta reserva 3 mm al espejarla.
-        // La primera pÃ¡gina conserva la zona fÃ­sica y necesita esa expansiÃ³n
-        // aquÃ­ para que todas las caras se comparen con el mismo criterio.
-        const margenSeguridadGrapa = numeroPaginaPdf === 1 ? mmAPuntos(3) : 0;
-        const zonaGrapaExpandida: RectBox = {
-          x: stapleKeepOutZone.x - margenSeguridadGrapa,
-          y: stapleKeepOutZone.y - margenSeguridadGrapa,
-          width: stapleKeepOutZone.width + margenSeguridadGrapa * 2,
-          height: stapleKeepOutZone.height + margenSeguridadGrapa * 2
-        };
-        const fiducialesInvadidos = quietZonesFiduciales
-          .map((quietZone, indice) => rectInterseca(zonaGrapaExpandida, quietZone) ? indice + 1 : null)
-          .filter((indice): indice is number => indice !== null);
-        if (fiducialesInvadidos.length > 0) {
-          const diagnostico = fiducialesInvadidos.map((indice) => {
-            const quietZone = quietZonesFiduciales[indice - 1]!;
-            return `${indice}:grapa(${zonaGrapaExpandida.x.toFixed(1)},${zonaGrapaExpandida.y.toFixed(1)},${zonaGrapaExpandida.width.toFixed(1)},${zonaGrapaExpandida.height.toFixed(1)})/quiet(${quietZone.x.toFixed(1)},${quietZone.y.toFixed(1)},${quietZone.width.toFixed(1)},${quietZone.height.toFixed(1)})`;
-          });
-          throw new Error(`Layout invalido: reserva de engrapado invade quiet zones de fiduciales ${diagnostico.join('; ')} en la pagina ${numeroPagina}`);
-        }
-      }
-
-      if (esPrimera) {
-        const headerLeft = xCaja + 8;
-        const logoSlotLeftX = headerLeft + 2;
-        // Logotipos ligeramente mayores, manteniendo una reserva explÃ­cita
-        // para que nunca invadan el texto central ni el QR.
-        const logoSlotWidth = logoSlotSize;
-        const logoSlotHeight = logoSlotSize;
-        const xTextoHeader = logoSlotLeftX + logoSlotWidth + 4;
-        const qrSlotLeft = rectQr.x - 6;
-        const logoDerechoSlotWidth = logoSlotWidth;
-        const logoDerechoSlotX = qrSlotLeft - logoDerechoSlotWidth - 4;
-        const xMaxEnc = logoDerechoSlotX - 4;
-        // El ancho tipografico no debe consumir todo el slot central: un
-        // encabezado largo necesita aire antes del logo derecho y antes del
-        // borde del panel. El inset tambien evita que el rasterizador haga
-        // parecer que el ultimo glifo invade la reserva vecina.
-        const headerTextInset = 5;
-        const xTextoHeaderInner = xTextoHeader + headerTextInset;
-        const xMaxHeaderInner = xMaxEnc - headerTextInset;
-        // Los datos que debe llenar la persona ocupan una banda propia y
-        // continua. Antes estaban confinados al panel central y dejaban una
-        // franja vacÃ­a bajo el logo izquierdo; ademÃ¡s, una etiqueta larga
-        // podÃ­a quedar recortada al calcular la lÃ­nea desde xTextoHeader.
-        const xDatosLeft = xCaja + 14;
-        const xDatosRight = rectQr.x - 12;
-        const maxWidthEnc = Math.max(200, xMaxHeaderInner - xTextoHeaderInner);
-        const xCentroHeader = xTextoHeaderInner + maxWidthEnc / 2;
-        const innerTop = yTop - PLANTILLA_PX.headerPadTop;
-        const innerBottom = yCaja + PLANTILLA_PX.headerPadBottom;
-        const xTextoCentrado = (texto: string, font: PDFFont, size: number) => {
-          const ancho = font.widthOfTextAtSize(texto, size);
-          const xObjetivo = xCentroHeader - ancho / 2;
-          return Math.max(xTextoHeaderInner, Math.min(xMaxHeaderInner - ancho, xObjetivo));
-        };
-
-        const ajustarLineas = (texto: string, font: PDFFont, size: number) =>
-          partirEnLineas({ texto, maxWidth: maxWidthEnc, font, size });
-
-        let escala = 1;
-        let yNombre: number;
-        let yGrupo: number;
-        let metaLineas: string[];
-        let instiLineas: string[];
-        let titLineas: string[];
-        let lemLineas: string[];
-        let sizeInst: number;
-        let sizeTit: number;
-        let sizeLem: number;
-        let sizeMetaEsc: number;
-        let sizeCampo: number;
-        let metaLineGap: number;
-        let yInsti: number;
-        let yTitulo: number;
-        let yLema: number;
-        let yMeta: number;
-        let yMetaUltima: number;
-
-        let iteracionesAjuste = 0;
-        do {
-          sizeInst = 13.6 * fontScaleCabecera * escala;
-          sizeTit = sizeTitulo * escala;
-          sizeLem = 9.2 * fontScaleCabecera * escala;
-          sizeMetaEsc = sizeMeta * escala;
-          sizeCampo = 9.8 * fontScaleCabecera * escala;
-          metaLineGap = Math.max(PLANTILLA_PX.metaLine * escala, sizeMetaEsc + 1.2);
-          instiLineas = ajustarLineas(institucion, fuenteBold, sizeInst);
-          titLineas = ajustarLineas(examen.titulo, fuenteBold, sizeTit);
-          lemLineas = lema ? ajustarLineas(lema, fuenteItalica, sizeLem) : [];
-
-          const lineGapInst = sizeInst + 1.2;
-          const lineGapTit = sizeTit + 1.2;
-          const lineGapLem = sizeLem + 1.1;
-          yInsti = innerTop - sizeInst;
-          const yInstUltima = yInsti - Math.max(0, instiLineas.length - 1) * lineGapInst;
-          yTitulo = yInstUltima - (sizeTit + 1 + PLANTILLA_PX.titleGap * escala);
-          const yTituloUltima = yTitulo - Math.max(0, titLineas.length - 1) * lineGapTit;
-          yLema = lemLineas.length > 0
-            ? yTituloUltima - (sizeLem + 1 + PLANTILLA_PX.lemaGap * escala)
-            : yTituloUltima - 2;
-          const yLemaUltima = yLema - Math.max(0, lemLineas.length - 1) * lineGapLem;
-          yMeta = yLemaUltima - (sizeMetaEsc + 1 + PLANTILLA_PX.metaGapTop * escala);
-          // Cada campo conserva su etiqueta y ocupa su propia linea. Unirlos
-          // en un solo parrafo hacia que el nombre del docente quedara
-          // centrado como si fuera una continuacion de la materia.
-          metaLineas = metaCampos.flatMap((campo) => partirEnLineas({
-            texto: campo,
-            maxWidth: maxWidthEnc,
-            font: fuente,
-            size: sizeMetaEsc
-          }));
-          const yMetaUlt = yMeta - (Math.max(1, metaLineas.length) - 1) * metaLineGap;
-          yMetaUltima = yMetaUlt;
-          const yNombreCalculado = yMetaUlt - (sizeCampo + 1 + PLANTILLA_PX.camposGapTop * escala);
-           // Los campos de captura comparten una sola lÃ­nea: el grupo conserva
-           // una reserva corta para cuatro letras manuscritas y el resto queda
-           // disponible para el nombre del alumno.
-          // `yMetaUlt` ya es la lÃ­nea base del Ãºltimo metadato. La versiÃ³n
-          // anterior volvÃ­a a descontar la altura del campo mÃ¡s adelante y
-          // empujaba nombre/grupo hacia abajo, creando una franja vacÃ­a.
-          const yLimiteSuperiorCampos = yMetaUlt - 0.5;
-          // En la cabecera institucional las indicaciones ya tienen una
-          // banda propia debajo de los campos. No desplazar nombre/grupo
-          // hacia el borde inferior al aumentar el texto: la altura extra de
-          // la cabecera debe absorber las lÃ­neas adicionales. La reserva se
-          // conserva para la variante sin identidad institucional, donde la
-          // banda de indicaciones comparte el panel funcional.
-          const reservaIndicacionesCampos = mostrarMarcaInstitucional
-            ? 0
-            : Math.max(0, lineasIndicacionesEstimadas - 1)
-              * (Math.max(7.5, 6.1 * fontScaleCabecera) + 1.2);
-          yNombre = Math.min(
-            yNombreCalculado,
-            yLimiteSuperiorCampos - sizeCampo - 1 - reservaIndicacionesCampos
-          );
-           yGrupo = yNombre;
-
-           if (yGrupo >= innerBottom + 1) {
-             break;
-           }
-           escala = Math.max(0.78, escala - 0.06);
-           iteracionesAjuste += 1;
-         } while (iteracionesAjuste < 8);
-
-         // Anclar la fila de captura a la banda inferior de la cabecera deja
-         // libre la zona institucional superior. La reserva usa el nÃºmero
-         // estimado de lÃ­neas de indicaciones.
-         const lineGapIndicacionesEstimado = Math.max(7.5, 6.4 * fontScaleCabecera) + 1.2;
-         // La fila de instrucciones necesita una separaciÃ³n completa aun
-         // cuando no se dibuja la identidad institucional.
-         // La fila de captura baja dentro de la franja libre: asÃ­ conserva
-         // aire respecto de los logotipos y aprovecha el espacio antes de las
-         // indicaciones sin invadir su primera lÃ­nea ni sus ejemplos.
-         const separacionDatosIndicaciones = 22;
-         const yCamposInferior = yCaja
-           + 1
-           + Math.max(0, lineasIndicacionesEstimadas - 1) * lineGapIndicacionesEstimado
-           + espacioEjemplosIndicaciones
-           + separacionDatosIndicaciones;
-         yNombre = Math.min(yNombre, yCamposInferior);
-         yGrupo = yNombre;
-
-         // En perfiles con tipografÃ­a ampliada puede no existir separaciÃ³n
-         // vertical suficiente entre la fila de captura y la zona bajo el QR.
-         // En ese caso se usa el respaldo de una sola fila para no superponer
-         // la etiqueta de calificaciÃ³n con la lÃ­nea de grupo.
-         // Separar la regla inferior del panel central del ultimo metadato evita
-        // que el texto de Docente parezca atravesado al rasterizar a 300 DPI.
-        const panelCentralBottom = mostrarMarcaInstitucional ? yMetaUltima - 10 : yCaja + 50;
-        const logoY = innerTop - logoSlotHeight - 2;
-        // La identidad institucional se compone directamente sobre el fondo
-        // geomÃ©trico. No dibujar una caja central independiente evita que el
-        // encabezado vuelva a parecer fragmentado o genere bordes falsos.
-        // La fila de indicaciones ocupa una lÃ­nea propia debajo de los campos
-        // de captura institucionales. Extender la banda unos puntos evita
-        // que el texto quede partido entre fondo y margen inferior.
-        const fieldBandBottom = yGrupo - (mostrarMarcaInstitucional ? 17 : 6);
-        const fieldBandTopBase = Math.min(panelCentralBottom - 1, logoY - 7);
-        const etiquetaNombre = 'Nombre del alumno:';
-        const etiquetaGrupo = 'Grupo:';
-        const nombreAlumno = String(examen.encabezado?.alumno?.nombre ?? '').trim();
-        const primerNombreAlumno = String(examen.encabezado?.alumno?.primerNombre ?? nombreAlumno.split(/\s+/)[0] ?? '').trim();
-        const inicialesAlumno = String(examen.encabezado?.alumno?.iniciales ?? '').trim();
-        const inicialesRestantesAlumno = inicialesAlumno.slice(1);
-        const identidadAlumno = [primerNombreAlumno, inicialesRestantesAlumno].filter(Boolean).join('_');
-        const anchoEtiquetaNombre = fuenteBold.widthOfTextAtSize(etiquetaNombre, sizeCampo);
-        const anchoEtiquetaGrupo = fuenteBold.widthOfTextAtSize(etiquetaGrupo, sizeCampo);
-        const iconoCapturaX = xDatosLeft;
-         const xEtiquetasCaptura = xDatosLeft + 14;
-         const xLineaNombre = xEtiquetasCaptura + anchoEtiquetaNombre + 8;
-         const anchoCampoGrupo = 42;
-         const xLineaGrupoFin = xDatosRight;
-         const xLineaGrupo = xLineaGrupoFin - anchoCampoGrupo;
-         const xEtiquetasGrupo = xLineaGrupo - anchoEtiquetaGrupo - 8;
-         const xIconoGrupo = xEtiquetasGrupo - 14;
-         // Nombre y grupo tienen una fila exclusiva; la calificaciÃ³n y los
-         // reactivos siempre ocupan la reserva independiente bajo el QR.
-         const xLineaNombreFin = xIconoGrupo - 8;
-         if (xLineaNombreFin <= xLineaNombre + 30) {
-           throw new Error('Layout invalido: no queda espacio suficiente para el nombre y el grupo en una sola linea');
-         }
-        if (fieldBandTopBase > fieldBandBottom) {
-          // No usar un relleno continuo: la textura punteada conserva la
-          // estÃ©tica de la cabecera y reduce tinta en la zona manuscrita.
-          const rectPatronCaptura: RectBox = {
-            x: xDatosLeft - 6,
-            y: fieldBandBottom,
-            width: Math.max(120, xDatosRight - xDatosLeft + 12),
-            height: fieldBandTopBase - fieldBandBottom
-          };
-          const exclusionesPatronCaptura: RectBox[] = [
-            // Las etiquetas pueden convivir con una textura tenue; las
-            // lÃ­neas de escritura no. AsÃ­ el bloque completo deja de verse
-            // plano sin sacrificar la zona donde se escribe a mano.
-            {
-              x: xLineaNombre - 2,
-              y: yNombre + PLANTILLA_PX.campoLineOffsetY - 2.6,
-              width: xLineaNombreFin - xLineaNombre + 4,
-              height: 4.4
-            },
-            {
-              x: xLineaGrupo - 2,
-              y: yGrupo + PLANTILLA_PX.campoLineOffsetY - 2.6,
-              width: xLineaGrupoFin - xLineaGrupo + 4,
-              height: 4.4
-            },
-          ];
-          dibujarPatronBloqueCaptura(page, rectPatronCaptura, colorAcento, exclusionesPatronCaptura);
-        }
-
-        // La cabecera ahora es clara; mantener la institucion en blanco aqui
-        // la hacia practicamente invisible al eliminar la banda oscura.
-        const colorInstitucion = colorAcento;
-        const dibujarLineasCabecera = (
-          lineas: string[],
-          yInicial: number,
-          lineGap: number,
-          font: PDFFont,
-          size: number,
-          color: ReturnType<typeof rgb>,
-          id: string,
-          negrita = false,
-          cursiva = false
-        ) => {
-          lineas.forEach((linea, indice) => {
-            const yLinea = yInicial - indice * lineGap;
-            const xLinea = xTextoCentrado(linea, font, size);
-            const inclinacion = cursiva ? { ySkew: degrees(10) } : {};
-            page.drawText(linea, { x: xLinea, y: yLinea, size, font, color, ...inclinacion });
-            if (negrita) {
-              // Ecofont solo dispone de regular; el segundo trazo desplazado
-              // aporta peso visual sin introducir otra familia tipogrÃ¡fica.
-              page.drawText(linea, { x: xLinea + 0.22, y: yLinea, size, font, color, ...inclinacion });
-            }
-            headerTextBlocks.push({
-              id: `${id}-${indice + 1}`,
-              x: xLinea,
-              y: yLinea,
-              width: font.widthOfTextAtSize(linea, size),
-              height: size + 1
-            });
-          });
-        };
-
-        if (mostrarMarcaInstitucional) {
-          dibujarLineasCabecera(instiLineas, yInsti, sizeInst + 1.2, fuenteBold, sizeInst, colorInstitucion, 'institucion', true);
-          dibujarLineasCabecera(lemLineas, yLema, sizeLem + 1.1, fuenteItalica, sizeLem, colorPrimario, 'lema', false, true);
-        }
-
-        // El tÃ­tulo sÃ­ es funcional para identificar el examen, pero no
-        // reintroduce la identidad institucional retirada de la plantilla.
-        dibujarLineasCabecera(titLineas, yTitulo, sizeTit + 1.2, fuenteBold, sizeTit, colorPrimario, 'titulo', true);
-
-        if (mostrarMarcaInstitucional) metaLineas.forEach((linea, indice) => {
-          if (!linea) return;
-          const yLinea = yMeta - indice * metaLineGap;
-          const esMateria = linea.startsWith('Materia:');
-          const fuenteMeta = esMateria ? fuenteBold : fuente;
-          const xMeta = xTextoCentrado(linea, fuenteMeta, sizeMetaEsc);
-          page.drawText(linea, {
-            x: xMeta,
-            y: yLinea,
-            size: sizeMetaEsc,
-            font: fuenteMeta,
-            color: colorGris
-          });
-          if (esMateria) {
-            // Ecofont solo se embebe en regular; este segundo trazo compacto
-            // aplica negrita visual sin cambiar de familia tipogrÃ¡fica.
-            page.drawText(linea, {
-              x: xMeta + 0.22,
-              y: yLinea,
-              size: sizeMetaEsc,
-              font: fuenteMeta,
-              color: colorGris
-            });
-          }
-            headerTextBlocks.push({
-              id: linea.startsWith('Docente:') ? 'meta-docente' : `meta-${indice + 1}`,
-              x: xMeta,
-            y: yLinea,
-            width: fuenteMeta.widthOfTextAtSize(linea, sizeMetaEsc),
-            height: sizeMetaEsc + 1
-          });
-        });
-
-        headerIconBoxes.push({ id: 'icono-alumno', ...dibujarIconoPersona(page, iconoCapturaX, yNombre + 0.4, colorIconoAlumno) });
-        page.drawText(etiquetaNombre, { x: xEtiquetasCaptura, y: yNombre, size: sizeCampo, font: fuenteBold, color: colorPrimario });
-        headerTextBlocks.push({
-          id: 'nombre-etiqueta',
-          x: xEtiquetasCaptura,
-          y: yNombre,
-          width: fuenteBold.widthOfTextAtSize(etiquetaNombre, sizeCampo),
-          height: sizeCampo + 1
-        });
-        page.drawLine({
-          start: { x: xLineaNombre, y: yNombre + PLANTILLA_PX.campoLineOffsetY },
-          end: { x: xLineaNombreFin, y: yNombre + PLANTILLA_PX.campoLineOffsetY },
-          color: colorLinea,
-          thickness: 0.8
-        });
-        headerFieldBoxes.push({
-          id: 'nombre-linea',
-          x: xLineaNombre,
-          y: yNombre + PLANTILLA_PX.campoLineOffsetY - 0.4,
-          width: Math.max(0, xLineaNombreFin - xLineaNombre),
-          height: 0.8
-        });
-
-        if (identidadAlumno) {
-          const sizeIdentidad = Math.max(5.8, 6.2 * fontScaleCabecera * escala);
-          const anchoIdentidad = fuenteItalica.widthOfTextAtSize(identidadAlumno, sizeIdentidad);
-          const xIdentidad = xDatosRight - anchoIdentidad;
-          // La identificacion ocupa la franja superior derecha, por encima
-          // del renglon manuscrito y fuera de su ancho; el guard de colisiones
-          // valida que tampoco invada docente, metadatos ni el QR.
-          const yIdentidad = yNombre + sizeCampo + 2.5;
-          if (xIdentidad < xDatosLeft || yIdentidad <= yNombre + sizeCampo + 1) {
-            throw new Error('Layout invalido: no hay espacio para la identidad corta fuera del campo manuscrito');
-          }
-          page.drawText(identidadAlumno, {
-            x: xIdentidad,
-            y: yIdentidad,
-            size: sizeIdentidad,
-            font: fuenteItalica,
-            color: colorAcento
-          });
-          headerTextBlocks.push({
-            id: 'alumno-identidad',
-            x: xIdentidad,
-            y: yIdentidad,
-            width: anchoIdentidad,
-            height: sizeIdentidad + 1
-          });
-        }
-
-         headerIconBoxes.push({ id: 'icono-grupo', ...dibujarIconoGrupo(page, xIconoGrupo, yGrupo + 0.4, colorIconoGrupo) });
-         page.drawText(etiquetaGrupo, { x: xEtiquetasGrupo, y: yGrupo, size: sizeCampo, font: fuenteBold, color: colorPrimario });
-         headerTextBlocks.push({
-           id: 'grupo-etiqueta',
-           x: xEtiquetasGrupo,
-           y: yGrupo,
-           width: fuenteBold.widthOfTextAtSize(etiquetaGrupo, sizeCampo),
-           height: sizeCampo + 1
-        });
-        page.drawLine({
-          start: { x: xLineaGrupo, y: yGrupo + PLANTILLA_PX.campoLineOffsetY },
-          end: { x: xLineaGrupoFin, y: yGrupo + PLANTILLA_PX.campoLineOffsetY },
-          color: colorLinea,
-          thickness: 0.8
-        });
-        headerFieldBoxes.push({
-          id: 'grupo-linea',
-          x: xLineaGrupo,
-          y: yGrupo + PLANTILLA_PX.campoLineOffsetY - 0.4,
-          width: Math.max(0, xLineaGrupoFin - xLineaGrupo),
-          height: 0.8
-        });
-
-        if (mostrarMarcaInstitucional && docente) {
-          const indiceDocente = metaLineas.findIndex((linea) => linea.startsWith('Docente:'));
-          if (indiceDocente >= 0) {
-            const lineaDocente = metaLineas[indiceDocente] ?? '';
-            const xDocente = xTextoCentrado(lineaDocente, fuente, sizeMetaEsc);
-            headerIconBoxes.push({
-              id: 'icono-docente',
-              ...dibujarIconoDocente(page, xDocente - 16, yMeta - indiceDocente * metaLineGap + 0.8, colorIconoDocente)
-            });
-          }
-        }
-        if (esPrimera && docente && !headerTextBlocks.some((bloque) => bloque.id === 'meta-docente')) {
-          throw new Error('Layout invalido: el nombre del docente no aparece en la cabecera');
-        }
-
-        // La zona bajo el QR concentra el conteo de reactivos y la
-        // calificaciÃ³n. Mantenerlos aquÃ­ elimina una fila saturada a la
-        // izquierda y aprovecha un espacio que antes solo tenÃ­a decoraciÃ³n.
-        if (usarZonaCalificacion) {
-        const sizeCampoAux = Math.max(6.4, 6.4 * fontScaleCabecera);
-        const xZonaCalificacion = xLimiteZonaCalificacion;
-        const xZonaCalificacionFin = xCaja + wCaja - 8;
-        // Dos filas compactas conservan ambos campos bajo el QR y recuperan
-        // el espacio horizontal que antes se desperdiciaba dentro de su tarjeta.
-        // Anclar las dos filas a la base de la cabecera deja libre la franja
-        // superior para nombre y grupo. El marco conserva toda la reserva
-        // vertical bajo el QR, pero el contenido ya no queda flotando cerca
-        // de su borde superior.
-        const yCalificacionZona = filaUnicaZonaCalificacion
-          ? cardY - sizeCampoAux - 3
-          : yCaja + 5.5;
-        const yReactivosZonaCalificacion = yCalificacionZona + 11.5;
-        const etiquetaReactivos = 'Reactivos:';
-        const textoConteoReactivos = `/ ${examen.totalPreguntas}`;
-        const anchoEtiquetaReactivos = fuenteBold.widthOfTextAtSize(etiquetaReactivos, sizeCampoAux);
-        const xLineaReactivos = xZonaCalificacion + anchoEtiquetaReactivos + 3;
-        const anchoConteoReactivos = fuente.widthOfTextAtSize(textoConteoReactivos, sizeCampoAux);
-        const xConteoReactivos = Math.min(
-          xZonaCalificacionFin - anchoConteoReactivos,
-          xLineaReactivos + (filaUnicaZonaCalificacion ? 13 : 23)
-        );
-        const xLineaReactivosFin = xConteoReactivos - 3;
-        const etiquetaCalificacion = filaUnicaZonaCalificacion ? 'Calif. (0-5):' : 'CalificaciÃ³n (0-5):';
-        const anchoEtiquetaCalificacion = fuenteBold.widthOfTextAtSize(etiquetaCalificacion, sizeCampoAux);
-        // La regla continÃºa a la derecha de la etiqueta, como un campo de
-        // captura convencional; antes quedaba debajo del texto y parecÃ­a
-        // tacharlo al rasterizar la cabecera.
-        const xEtiquetaCalificacion = Math.max(
-          filaUnicaZonaCalificacion
-            ? xConteoReactivos + anchoConteoReactivos + 6
-            : xZonaCalificacion,
-          xIconoGrupo + 14
-        );
-        const xLineaCalificacion = xEtiquetaCalificacion + anchoEtiquetaCalificacion + 3;
-        const xLineaCalificacionFin = xZonaCalificacionFin;
-        if (
-          xLineaReactivosFin - xLineaReactivos < (filaUnicaZonaCalificacion ? 10 : 1)
-          || xConteoReactivos + anchoConteoReactivos > xZonaCalificacionFin
-          || xLineaCalificacionFin - xLineaCalificacion < (filaUnicaZonaCalificacion ? 15 : 1)
-        ) {
-          throw new Error('Layout invalido: la zona de calificacion no tiene espacio suficiente');
-        }
-        page.drawText(etiquetaReactivos, {
-          x: xZonaCalificacion,
-          y: filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion,
-          size: sizeCampoAux,
-          font: fuenteBold,
-          color: colorPrimario
-        });
-        headerTextBlocks.push({
-          id: 'reactivos-etiqueta',
-          x: xZonaCalificacion,
-          y: filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion,
-          width: anchoEtiquetaReactivos,
-          height: sizeCampoAux + 1
-        });
-        page.drawLine({
-          start: { x: xLineaReactivos, y: (filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion) - 2.8 },
-          end: { x: xLineaReactivosFin, y: (filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion) - 2.8 },
-          color: colorLinea,
-          thickness: 0.8
-        });
-        headerFieldBoxes.push({
-          id: 'reactivos-linea',
-          x: xLineaReactivos,
-          y: (filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion) - 3.2,
-          width: Math.max(0, xLineaReactivosFin - xLineaReactivos),
-          height: 0.8
-        });
-        page.drawText(textoConteoReactivos, {
-          x: xConteoReactivos,
-          y: filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion,
-          size: sizeCampoAux,
-          font: fuente,
-          color: colorGris
-        });
-        headerTextBlocks.push({
-          id: 'conteo-reactivos',
-          x: xConteoReactivos,
-          y: filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion,
-          width: anchoConteoReactivos,
-          height: sizeCampoAux + 1
-        });
-        page.drawText(etiquetaCalificacion, {
-          x: xEtiquetaCalificacion,
-          y: yCalificacionZona,
-          size: sizeCampoAux,
-          font: fuenteBold,
-          color: colorPrimario
-        });
-        headerTextBlocks.push({
-          id: 'calificacion-etiqueta',
-          x: xEtiquetaCalificacion,
-          y: yCalificacionZona,
-          width: anchoEtiquetaCalificacion,
-          height: sizeCampoAux + 1
-        });
-        page.drawLine({
-          start: { x: xLineaCalificacion, y: yCalificacionZona - 3.2 },
-          end: { x: xLineaCalificacionFin, y: yCalificacionZona - 3.2 },
-          color: colorLinea,
-          thickness: 0.8
-        });
-        headerFieldBoxes.push({
-          id: 'calificacion-linea',
-          x: xLineaCalificacion,
-          y: yCalificacionZona - 3.2,
-          width: Math.max(0, xLineaCalificacionFin - xLineaCalificacion),
-          height: 0.8
-        });
-        }
-        if (mostrarInstrucciones && instrucciones.length > 0) {
-          // La etiqueta y el texto comparten una banda horizontal. El texto
-          // se envuelve usando el ancho restante despuÃ©s de la etiqueta; el
-          // cÃ¡lculo anterior medÃ­a el ancho total y luego recortaba la primera
-          // lÃ­nea contra el QR en cabeceras largas.
-          const etiquetaIndicaciones = 'Indicaciones:';
-          // La fila inferior tiene ancho y altura propios para mostrar las
-          // instrucciones completas tambiÃ©n en la cabecera institucional.
-          // Ya no se sustituye el texto por una leyenda breve: el alumno debe
-          // recibir todas las reglas de marcado en la misma hoja.
-          const textoIndicacionesHeader = instrucciones;
-          const xIndicacionesBase = xDatosLeft;
-          const xIndicacionesHeader = xIndicacionesBase + 14;
-          const tamIndicacionesHeader = Math.max(7.5, 6.4 * fontScaleCabecera);
-          const anchoEtiquetaIndicaciones = fuenteBold.widthOfTextAtSize(etiquetaIndicaciones, tamIndicacionesHeader);
-          const xTextoIndicacionesHeader = xIndicacionesHeader + anchoEtiquetaIndicaciones + 5;
-          const xDerechaIndicaciones = usarZonaCalificacion
-            ? Math.min(xDatosRight, xLimiteZonaCalificacion - 6)
-            : xDatosRight;
-          const anchoIndicacionesHeader = xDerechaIndicaciones - xTextoIndicacionesHeader - 4;
-          if (anchoIndicacionesHeader < 50) {
-            throw new Error('Layout invalido: la cabecera no tiene ancho suficiente para las indicaciones');
-          }
-          const lineGapIndicacionesHeader = tamIndicacionesHeader + 1.2;
-          const lineasIndicacionesHeader = partirEnLineas({
-            texto: textoIndicacionesHeader,
-            maxWidth: anchoIndicacionesHeader,
-            font: fuente,
-            size: tamIndicacionesHeader
-          });
-          // Normalizar las lÃ­neas fÃ­sicas antes de posicionarlas evita que un
-          // subenvolvimiento de una lÃ­nea larga se dibuje sobre la siguiente.
-          const lineasFisicasIndicaciones = lineasIndicacionesHeader.flatMap((linea, indice) => {
-            const xLineaIndicaciones = indice === 0 ? xTextoIndicacionesHeader : xIndicacionesHeader;
-            const anchoLineaDisponible = indice === 0
-              ? anchoIndicacionesHeader
-              : xDerechaIndicaciones - xIndicacionesHeader - 4;
-            const lineasFisicas = indice === 0
-              ? [linea]
-              : partirEnLineas({
-                texto: linea,
-                maxWidth: anchoLineaDisponible,
-                font: fuente,
-                size: tamIndicacionesHeader
-              });
-            return lineasFisicas.map((lineaFisica, subIndice) => ({
-              texto: lineaFisica,
-              x: subIndice === 0 ? xLineaIndicaciones : xIndicacionesHeader
-            }));
-          });
-          // La Ãºltima lÃ­nea textual queda encima de una fila propia para la
-          // leyenda, y esa fila sÃ­ se apoya en el lÃ­mite inferior del marco.
-          const yIndicacionesHeader = yCaja
-            + 1
-            + espacioEjemplosIndicaciones
-            + Math.max(0, lineasFisicasIndicaciones.length - 1) * lineGapIndicacionesHeader;
-          headerIconBoxes.push({
-            id: 'icono-indicaciones',
-            ...dibujarIconoIndicaciones(page, xIndicacionesBase, yIndicacionesHeader + 0.2, colorIconoIndicaciones)
-          });
-          page.drawText(etiquetaIndicaciones, {
-            x: xIndicacionesHeader,
-            y: yIndicacionesHeader,
-            size: tamIndicacionesHeader,
-            font: fuenteBold,
-            color: colorAcento
-          });
-          headerTextBlocks.push({
-            id: 'indicaciones-etiqueta',
-            x: xIndicacionesHeader,
-            y: yIndicacionesHeader,
-            width: anchoEtiquetaIndicaciones,
-            height: tamIndicacionesHeader + 1
-          });
-          lineasFisicasIndicaciones.forEach(({ texto, x }, indice) => {
-              const yLinea = yIndicacionesHeader - indice * lineGapIndicacionesHeader;
-              page.drawText(texto, {
-                x,
-                y: yLinea,
-                size: tamIndicacionesHeader,
-                font: fuente,
-                color: colorTinta
-              });
-              headerTextBlocks.push({
-                id: `indicaciones-${indice + 1}`,
-                x,
-                y: yLinea,
-                width: fuente.widthOfTextAtSize(texto, tamIndicacionesHeader),
-                height: tamIndicacionesHeader + 1
-              });
-          });
-          const yUltimaIndicacion = yCaja + 1;
-          const anchoEjemplosMarca = 100;
-          const xEjemplosMarca = xDerechaIndicaciones - anchoEjemplosMarca;
-          const rectEjemplosMarca = dibujarEjemplosMarca(
-            page,
-            xEjemplosMarca,
-            yUltimaIndicacion,
-            fuente,
-            5.4
-          );
-          headerTextBlocks.push({
-            id: 'ejemplos-marca',
-            ...rectEjemplosMarca
-          });
-        }
-
-        const logoIzqSlot: RectBox = {
-          x: logoSlotLeftX,
-          y: logoY,
-          width: logoSlotWidth,
-          height: logoSlotHeight
-        };
-        const logoDerSlot: RectBox = {
-          x: logoDerechoSlotX,
-          y: logoY,
-          width: logoDerechoSlotWidth,
-          height: logoSlotHeight
-        };
-        assertRectDentroPagina(logoIzqSlot, 'slot-logo-izquierdo');
-        assertRectDentroPagina(logoDerSlot, 'slot-logo-derecho');
-        assertRectContenida(logoIzqSlot, rectHeader, 'slot-logo-izquierdo');
-        assertRectContenida(logoDerSlot, rectHeader, 'slot-logo-derecho');
-        if (rectInterseca(logoIzqSlot, rectQr) || rectInterseca(logoDerSlot, rectQr)) {
-          throw new Error('Layout invalido: un slot de logo invade la reserva del QR');
-        }
-        if (logoSlotSize > 0) {
-          headerSlotBoxes.push(
-            { id: 'logo-izquierdo', ...logoIzqSlot },
-            { id: 'logo-derecho', ...logoDerSlot }
-          );
-        }
-        if (logoSlotSize > 0 && logoIzquierda) {
-          const escala = Math.min(1, logoSlotWidth / Math.max(1, logoIzquierda.width), logoSlotHeight / Math.max(1, logoIzquierda.height));
-          const w = logoIzquierda.width * escala;
-          const h = logoIzquierda.height * escala;
-          const xLogo = logoSlotLeftX + (logoSlotWidth - w) / 2;
-          const yLogo = logoIzqSlot.y + (logoSlotHeight - h) / 2;
-          page.drawImage(logoIzquierda.image, { x: xLogo, y: yLogo, width: w, height: h });
-        }
-
-        if (logoSlotSize > 0 && logoDerecha) {
-          const escala = Math.min(1, logoDerechoSlotWidth / Math.max(1, logoDerecha.width), logoSlotHeight / Math.max(1, logoDerecha.height));
-          const w = logoDerecha.width * escala;
-          const h = logoDerecha.height * escala;
-          const xLogo = logoDerechoSlotX + (logoDerechoSlotWidth - w) / 2;
-          const yLogo = logoDerSlot.y + (logoSlotHeight - h) / 2;
-          if (xLogo + w <= rectQr.x - 8) {
-            page.drawImage(logoDerecha.image, { x: xLogo, y: yLogo, width: w, height: h });
-          } else {
-            logosOmitidos.push('derecho');
-          }
-        }
-
-        // La caja del grupo conserva un respiro claro; 8.5 pt dejan cerca de
-        // 3 mm antes del primer reactivo y recuperan altura Ãºtil sin mover los
-        // campos, el QR ni las marcas de registro.
-        yFinHeaderPrimera = Math.min(yCaja - separacionCabeceraContenido, yGrupo - 8.5);
-      }
-
-      // La reserva del QR y la metadata son zonas independientes: cualquier
-      // interseccion aqui es un error de composicion, no una preferencia visual.
-      for (let i = 0; i < headerTextBlocks.length; i += 1) {
-        const bloque = headerTextBlocks[i];
-        assertRectContenida(bloque, rectHeader, `texto ${bloque.id} de la cabecera de la pagina ${numeroPagina}`);
-        if (rectInterseca(bloque, rectQr)) {
-          collisionBoxes.push({ pagina: numeroPagina, a: bloque.id, b: 'qr' });
-        }
-        for (let j = i + 1; j < headerTextBlocks.length; j += 1) {
-          const otro = headerTextBlocks[j];
-          if (rectInterseca(bloque, otro)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: bloque.id, b: otro.id });
-          }
-        }
-      }
-      for (const [indiceCampo, field] of headerFieldBoxes.entries()) {
-        assertRectContenida(field, rectHeader, `campo ${field.id} de la cabecera de la pagina ${numeroPagina}`);
-        if (rectInterseca(field, rectQr)) {
-          collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: 'qr' });
-        }
-        for (const textBlock of headerTextBlocks) {
-          if (rectInterseca(field, textBlock)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: textBlock.id });
-          }
-        }
-        for (const otro of headerFieldBoxes.slice(indiceCampo + 1)) {
-          if (rectInterseca(field, otro)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: otro.id });
-          }
-        }
-        for (const icon of headerIconBoxes) {
-          if (rectInterseca(field, icon)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: field.id, b: icon.id });
-          }
-        }
-      }
-      for (const icon of headerIconBoxes) {
-        assertRectContenida(icon, rectHeader, `icono ${icon.id} de la cabecera de la pagina ${numeroPagina}`);
-        if (rectInterseca(icon, rectQr)) {
-          collisionBoxes.push({ pagina: numeroPagina, a: icon.id, b: 'qr' });
-        }
-        for (const other of headerIconBoxes) {
-          if (other.id !== icon.id && rectInterseca(icon, other)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: icon.id, b: other.id });
-          }
-        }
-        for (const textBlock of headerTextBlocks) {
-          if (rectInterseca(icon, textBlock)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: icon.id, b: textBlock.id });
-          }
-        }
-      }
-      if (collisionBoxes.length > 0) {
-        const obtenerCaja = (id: string) => [...headerIconBoxes, ...headerTextBlocks, ...headerFieldBoxes]
-          .find((caja) => caja.id === id);
-        const detalle = collisionBoxes.map((colision) => {
-          const a = obtenerCaja(colision.a);
-          const b = obtenerCaja(colision.b);
-          return `${colision.a}<->${colision.b}${a && b ? ` (${a.x.toFixed(1)},${a.y.toFixed(1)},${a.width.toFixed(1)},${a.height.toFixed(1)} vs ${b.x.toFixed(1)},${b.y.toFixed(1)},${b.width.toFixed(1)},${b.height.toFixed(1)})` : ''}`;
-        }).join(', ');
-        throw new Error(`Layout invalido: colisiones en cabecera de la pagina ${numeroPagina}: ${detalle}`);
-      }
-
-      // Reserva separacion visual clara entre encabezado y primera pregunta.
-      const yZonaContenidoBase = esPrimera
-        ? Math.min(yFinHeaderPrimera, yCaja - separacionCabeceraContenido)
-        // La primera pregunta de una continuaciÃ³n usa la zona izquierda junto
-        // al QR. Su panel permanece debajo del QR, en la columna derecha; asÃ­
-        // se aprovecha la franja superior sin superponer reservas.
-         : !omrEsquemaHorizontal
-           ? Math.min(yTop - 8, rectQr.y + 8, limiteContenidoContinuacion)
-           : Math.min(yTopContinuacionSeguro, limiteContenidoContinuacion);
-      // En continuacion, el primer reactivo usa la izquierda del QR y su
-      // panel se baja por separado; no es necesario desperdiciar toda la
-      // franja superior solo por la reserva derecha.
-      const yZonaContenido = examen.layout.distribuirEnPaginasObjetivo && !esPrimera && stapleKeepOutZone
-        ? Math.min(yZonaContenidoBase, stapleKeepOutZone.y - mmAPuntos(2))
-        : yZonaContenidoBase;
-      const cursorYInicio = snapToGrid(yZonaContenido);
-      if (esPrimera && cursorYInicio >= yCaja) {
-        throw new Error('Layout invalido: el contenido invade el encabezado de la primera pagina');
-      }
-      let cursorY = cursorYInicio;
-
-      const alturaDisponibleMin = margen + Math.max(
-        this.perfilLayout.bottomSafePt,
-        pieOffsetY + pieAltura + pieDespeje + perfilOmr.omrPanelPadding
-      );
-      const maxImagenPreguntaAncho = Math.min(anchoTextoPregunta * 0.42, 130);
-      const maxImagenPreguntaAlto = 34;
-      // Las cajas de texto usan baseline + lineHeight; reservar una lÃ­nea
-      // completa evita que el ascendente de "A)" toque o invada el borde
-      // inferior de la ilustraciÃ³n al imprimir.
-      const separacionImagenOpciones = Math.max(4, lineaOpcion, lineaCodigoBloque) + 1.5;
-      const separacionColumnaImagen = 8;
-      const calcularLayoutImagen = (emb: LogoEmbed | undefined, anchoDisponible: number) => {
-        if (!emb) return undefined;
-        const maxW = Math.min(maxImagenPreguntaAncho, anchoDisponible * 0.42);
-        const escala = Math.min(1, maxW / emb.width, maxImagenPreguntaAlto / emb.height);
-        const width = emb.width * escala;
-        const height = emb.height * escala;
-        const anchoTexto = anchoDisponible - width - separacionColumnaImagen;
-        // La columna lateral solo se usa si mantiene una medida de lectura
-        // razonable; en anchos estrechos la imagen vuelve debajo del texto.
-        return {
-          width,
-          height,
-          anchoTexto,
-          lateral: anchoTexto >= Math.max(180, anchoDisponible * 0.48)
-        };
-      };
-
-      const xDerechaTextoContinuacion = Math.max(
-        xTextoPregunta + 60,
-        Math.min(xDerechaTexto, rectQr.x - 10, xColRespuesta - gutterRespuesta)
-      );
-      const obtenerLayoutOpciones = (
-        pregunta: ExamenPdf['preguntas'][number],
-        limiteDerecho = xDerechaTexto
-      ) => {
-        const ordenOpciones = examen.mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
-        const totalOpciones = ordenOpciones.length;
-        const anchoOpcionesTotal = Math.max(80, limiteDerecho - xTextoPregunta);
-        const prefixWidth = fuenteBold.widthOfTextAtSize('E) ', sizeOpcion) + 3;
-        if (omrEnLinea) {
-          const anchoLinea = Math.max(30, anchoOpcionesTotal - (omrRadio * 2 + mmAPuntos(3)) - prefixWidth);
-          const filas = ordenOpciones.map((indiceOpcion) => {
-            const lineas = envolverTextoMixto({
-              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto),
-              maxWidth: anchoLinea,
-              fuente,
-              fuenteBold,
-              fuenteItalica,
-              fuenteMono,
-              sizeTexto: sizeOpcion,
-              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-              sizeCodigoBloque,
-              lineHeightTexto: lineaOpcion,
-              lineHeightCodigo: lineaCodigoBloque
-            });
-            const altoTexto = lineas.reduce((total, linea) => total + linea.lineHeight, 0);
-            const alto = Math.max(10.5 * MM_A_PUNTOS, omrRadio * 2, altoTexto + rellenoVerticalOpcion);
-            return { indiceOpcion, letra: String.fromCharCode(65 + ordenOpciones.indexOf(indiceOpcion)), lineas, alto };
-          });
-          return {
-            columnas: 1,
-            porColumna: filas.length,
-            gutterCols: 0,
-            colWidth: anchoOpcionesTotal,
-            alturas: filas.map((fila) => fila.alto),
-            alturaGrid: filas.reduce((total, fila) => total + fila.alto, 0),
-            inlineRows: filas
-          };
-        }
-        if (omrEsquemaHorizontal && totalOpciones === 5) {
-          const indicePrincipal = ordenOpciones.reduce((mejor, indiceOpcion) => {
-            const actual = compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto).length;
-            const anterior = compactarOpcionBancoParaPdf(pregunta.opciones[mejor]?.texto).length;
-            return actual > anterior ? indiceOpcion : mejor;
-          }, ordenOpciones[0] ?? 0);
-          const longitudPrincipal = compactarOpcionBancoParaPdf(pregunta.opciones[indicePrincipal]?.texto).length;
-           // Mantener el orden natural A-B-C-D-E para opciones ricas. Solo una
-           // respuesta excepcionalmente extensa merece ocupar una fila propia;
-           // con textos normales, promover la opciÃ³n mÃ¡s larga desordena la
-           // lectura y hace parecer que los fondos estÃ¡n desalineados.
-           if (longitudPrincipal >= 90) {
-            const lineasPrincipal = envolverTextoMixto({
-              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indicePrincipal]?.texto),
-              maxWidth: Math.max(80, anchoOpcionesTotal - 6 - prefixWidth),
-              fuente,
-              fuenteBold,
-              fuenteItalica,
-              fuenteMono,
-              sizeTexto: sizeOpcion,
-              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-              sizeCodigoBloque,
-              lineHeightTexto: lineaOpcion,
-              lineHeightCodigo: lineaCodigoBloque
-            });
-            const restantes = ordenOpciones
-              .filter((indiceOpcion) => indiceOpcion !== indicePrincipal)
-              .map((indiceOpcion, indice) => ({
-                indiceOpcion,
-                letra: String.fromCharCode(65 + ordenOpciones.indexOf(indiceOpcion)),
-                indice
-              }));
-            const gutter = 4;
-            const anchoRestante = (anchoOpcionesTotal - gutter * 3) / 4;
-            const lineasRestantes = restantes.map((item) => envolverTextoMixto({
-              texto: compactarOpcionBancoParaPdf(pregunta.opciones[item.indiceOpcion]?.texto),
-              maxWidth: Math.max(20, anchoRestante - prefixWidth),
-              fuente,
-              fuenteBold,
-              fuenteItalica,
-              fuenteMono,
-              sizeTexto: sizeOpcion,
-              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-              sizeCodigoBloque,
-              lineHeightTexto: lineaOpcion,
-              lineHeightCodigo: lineaCodigoBloque
-            }));
-            const altoPrincipal = Math.max(alturaMinimaFilaOpcion, lineasPrincipal.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion);
-            const altoRestantes = Math.max(
-              alturaMinimaFilaOpcion,
-              ...lineasRestantes.map((lineas) => lineas.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion)
-            );
-            return {
-              columnas: 4,
-              porColumna: 1,
-              gutterCols: gutter,
-              colWidth: anchoRestante,
-              alturas: [altoRestantes],
-              alturaGrid: altoPrincipal + separacionTarjetaOpcion + altoRestantes + separacionTarjetaOpcion,
-              opcionPrincipal: {
-                indiceOpcion: indicePrincipal,
-                letra: String.fromCharCode(65 + ordenOpciones.indexOf(indicePrincipal)),
-                lineas: lineasPrincipal,
-                alto: altoPrincipal
-              },
-              opcionesRestantes: restantes.map((item, indice) => ({
-                ...item,
-                lineas: lineasRestantes[indice] ?? [],
-                alto: altoRestantes
-              }))
-            };
-          }
-        }
-        // Si las cinco respuestas caben en una linea por celda, usar una
-        // fila reduce la altura del reactivo sin bajar la tipografia. La
-        // reticula 3+2 se conserva como fallback ante cualquier wrap o ancho
-        // insuficiente, y el mismo layout alimenta el plan y el render.
-        if (omrEsquemaHorizontal && totalOpciones === 5) {
-          const columnasCompactas = 5;
-          const gutterCompacto = 5;
-          const anchoColumnaCompacta =
-            (anchoOpcionesTotal - gutterCompacto * (columnasCompactas - 1)) / columnasCompactas;
-          const anchoTextoCompacto = anchoColumnaCompacta - prefixWidth;
-          if (anchoTextoCompacto >= 50) {
-            const lineasCompactas = ordenOpciones.map((indiceOpcion) => envolverTextoMixto({
-              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto),
-              maxWidth: anchoTextoCompacto,
-              fuente,
-              fuenteBold,
-              fuenteItalica,
-              fuenteMono,
-              sizeTexto: sizeOpcion,
-              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-              sizeCodigoBloque,
-              lineHeightTexto: lineaOpcion,
-              lineHeightCodigo: lineaCodigoBloque
-            }));
-            if (lineasCompactas.every((lineas) => lineas.length === 1)) {
-              const altoFilaCompacta = Math.max(
-                alturaMinimaFilaOpcion,
-                ...lineasCompactas.map((lineas) =>
-                  lineas.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion
-                )
-              );
-              return {
-                columnas: columnasCompactas,
-                porColumna: 1,
-                gutterCols: gutterCompacto,
-                colWidth: anchoColumnaCompacta,
-                alturas: lineasCompactas.map(() => altoFilaCompacta + separacionTarjetaOpcion),
-                alturaGrid: altoFilaCompacta + separacionTarjetaOpcion
-              };
-            }
-          }
-        }
-
-        // Las respuestas que no caben en cinco celdas de una linea conservan
-        // la reticula 3+2 ya validada para el perfil horizontal.
-        const candidatos = totalOpciones >= 5
-          ? (omrEsquemaHorizontal ? [3] : [2])
-          : [1, 2];
-        return candidatos
-          .map((columnas) => {
-            // Cada reactivo conserva como mÃ­nimo dos pistas verticales. Con
-            // cinco opciones la retÃ­cula 3+2 ya las produce; con menos
-            // opciones se reserva la segunda pista para evitar bloques
-            // comprimidos y mantener un ritmo visual estable.
-            const porColumna = Math.max(2, Math.ceil(totalOpciones / columnas));
-            const gutterCols = columnas === 3 ? 6 : 8;
-            const colWidth = totalOpciones > 1
-              ? (anchoOpcionesTotal - gutterCols * (columnas - 1)) / columnas
-              : anchoOpcionesTotal;
-            // DistribuciÃ³n por filas, no por columnas: con cinco opciones la
-            // retÃ­cula queda A|B, C|D y E centrada. Esto evita que una columna
-            // termine dos filas antes que la otra y conserva el orden natural
-            // de lectura.
-            const cols = Array.from({ length: columnas }, () => [] as number[]);
-            ordenOpciones.forEach((indiceOpcion, indice) => {
-              cols[indice % columnas]?.push(indiceOpcion);
-            });
-            const alturasPorColumna = cols.map((col) => col.map((indiceOpcion) => {
-              const opcion = pregunta.opciones[indiceOpcion];
-              const lineas = envolverTextoMixto({
-                texto: compactarOpcionBancoParaPdf(opcion?.texto),
-                maxWidth: Math.max(30, colWidth - prefixWidth),
-                fuente,
-                fuenteBold,
-                fuenteItalica,
-                fuenteMono,
-                sizeTexto: sizeOpcion,
-                sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-                sizeCodigoBloque,
-                lineHeightTexto: lineaOpcion,
-                lineHeightCodigo: lineaCodigoBloque
-              });
-              const altoTexto = lineas.reduce((acc, linea) => acc + linea.lineHeight, 0);
-              return Math.max(alturaMinimaFilaOpcion, altoTexto + rellenoVerticalOpcion);
-            }));
-            const alturas = alturasPorColumna.map((col) => col.reduce(
-              (total, altoFila) => total + altoFila + separacionTarjetaOpcion,
-              0
-            ));
-            // Ambas columnas comparten la misma retÃ­cula horizontal. El alto de
-            // cada pista es el mÃ¡ximo de sus dos celdas; asÃ­ los fondos de A-D,
-            // B-E, etc. terminan exactamente en el mismo eje.
-            const alturaGrid = Array.from({ length: porColumna }, (_valor, indiceFila) => Math.max(
-              alturaMinimaFilaOpcion,
-              ...alturasPorColumna.map((col) => col[indiceFila] ?? 0)
-            )).reduce((total, altoFila) => total + altoFila + separacionTarjetaOpcion, 0);
-
-            return { columnas, porColumna, gutterCols, colWidth, alturas, alturaGrid };
-          })
-          .sort((a, b) => {
-            const alturaA = a.alturaGrid;
-            const alturaB = b.alturaGrid;
-            // Dos columnas ofrecen mayor ancho de lectura. Solo se cambia a
-            // tres cuando la reduccion vertical es material, por ejemplo en
-            // opciones extensas que de otro modo dispararian otra pagina.
-            const ratioAB = alturaA / Math.max(1, alturaB);
-            const ratioBA = alturaB / Math.max(1, alturaA);
-            if (a.columnas === 2 && b.columnas === 3 && ratioAB <= 1.35) return -1;
-            if (a.columnas === 3 && b.columnas === 2 && ratioBA <= 1.35) return 1;
-            return alturaA - alturaB || a.columnas - b.columnas;
-          })[0]!;
-      };
-
-      const calcularAlturaPregunta = (
-        pregunta: ExamenPdf['preguntas'][number],
-        limiteDerecho = xDerechaTexto
-      ) => {
-        const anchoTextoPreguntaActual = Math.max(60, limiteDerecho - xTextoPregunta);
-        const emb = imagenesPregunta.get(pregunta.id);
-        const layoutImagen = calcularLayoutImagen(emb, anchoTextoPreguntaActual);
-        const anchoEnunciado = layoutImagen?.lateral
-          ? layoutImagen.anchoTexto
-          : anchoTextoPreguntaActual;
-        const lineasEnunciado = envolverTextoMixto({
-          texto: pregunta.enunciado,
-          maxWidth: anchoEnunciado,
-          fuente,
-          fuenteBold,
-          fuenteItalica: fuenteItalica,
-          fuenteMono,
-          sizeTexto: sizePregunta,
-          sizeCodigoInline,
-          sizeCodigoBloque,
-          lineHeightTexto: lineaPregunta,
-          lineHeightCodigo: lineaCodigoBloque
-        });
-
-        let alto = lineasEnunciado.reduce((acc, linea) => acc + linea.lineHeight, 0);
-
-        if (emb) {
-          if (layoutImagen?.lateral) {
-            alto = Math.max(alto, layoutImagen.height) + separacionImagenOpciones;
-          } else {
-            alto += (layoutImagen?.height ?? Math.min(maxImagenPreguntaAlto, emb.height)) + separacionImagenOpciones;
-          }
-        }
-
-        const layoutOpciones = obtenerLayoutOpciones(pregunta, limiteDerecho);
-        // La retÃ­cula comparte la altura de cada fila entre columnas. Usar la
-        // columna mÃ¡s alta subestima el bloque cuando una opciÃ³n vecina se
-        // envuelve a mÃ¡s lÃ­neas y deja que el plan difiera del dibujo real.
-        const altoOpciones = layoutOpciones.alturaGrid;
-        const altoOmrMin = omrEnLinea
-          ? 0
-          : omrEsquemaHorizontal
-          // En el esquema horizontal el panel OMR se coloca en la misma
-          // banda vertical que la pregunta. Reservar ademÃ¡s `omrHeaderGap`
-          // y el margen de seguridad del flujo duplicaba parte de esa banda
-          // y provocaba una pÃ¡gina extra en exÃ¡menes de 25 reactivos.
-          ? Math.max(22, omrRadio * 2 + omrMargenSuperior + omrMargenInferior)
-          : perfilOmr.omrHeaderGap + 10 + (omrTotalLetras - 1) * omrPasoY + omrRadio + omrMargenInferior + 2;
-        // En continuaciones el panel de la primera pregunta vive en la
-        // columna derecha, debajo del QR. Medirlo como una segunda fila bajo
-        // las opciones inflaba artificialmente la altura y dejaba pÃ¡ginas
-        // finales subutilizadas.
-        const separacionReactivo = obtenerSeparacionPregunta(pregunta) + (examen.totalPreguntas > 20 ? 0 : 1);
-        if (omrEnLinea) {
-          alto += altoOpciones;
-        } else if (omrEsquemaHorizontal) {
-          // Texto/opciones y panel OMR usan columnas distintas: cada pista
-          // reserva su propio interlineado y el reactivo ocupa la mayor.
-          // Sumar el separador del texto al alto del panel sobrerreserva cada
-          // reactivo corto, aunque el panel ya conserva su paso mÃ­nimo real.
-          const altoFlujoTexto = alto + altoOpciones + separacionEnunciadoOpciones + separacionReactivo;
-          const altoFlujoOmr = altoOmrMin + separacionPanelOmr;
-          return Math.max(altoFlujoTexto, altoFlujoOmr);
-        } else {
-          // En el perfil vertical el panel sÃ­ queda debajo de las opciones;
-          // conservar la suma evita que las cinco burbujas salgan de la hoja.
-          alto += Math.max(altoOpciones, altoOmrMin);
-        }
-        // El render ajusta el cursor a la retÃ­cula despuÃ©s de cada bloque y
-        // conserva la lÃ­nea divisoria. La reserva adicional cubre ese ajuste
-        // y la diferencia entre la altura tipogrÃ¡fica estimada y la posiciÃ³n
-        // final de las opciones, evitando planificar contenido que luego no
-        // alcanza el margen inferior seguro. La holgura queda acotada para
-        // conservar diez reactivos legibles en una hoja Letter cuando el
-        // contenido es corto; el ajuste de retÃ­cula ya cubre el redondeo.
-        // La composiciÃ³n rica dibuja tarjetas de opciÃ³n y el cursor final se
-        // redondea a la retÃ­cula. Esta reserva adicional mantiene paridad
-        // entre el plan y el render real, evitando que una hoja final quede
-        // con un solo reactivo por acumulaciÃ³n de redondeos.
-        // La posiciÃ³n final se ajusta a una retÃ­cula de impresiÃ³n despuÃ©s de
-        // dibujar el bloque. El planificador no agrega una holgura ficticia:
-        // el separador real y las comprobaciones geomÃ©tricas del renderer son
-        // la guarda contra colisiones y permiten aprovechar toda la altura.
-        return alto + separacionEnunciadoOpciones + separacionReactivo;
-      };
-
-      if (esPrimera && indicacionesPendientes) {
-        const xInd = margen + 10;
-        const yTopInd = yCaja - 8;
-        const wIndMax = Math.max(140, xDerechaTexto - xInd - 6);
-        const wInd = Math.min(wIndMax, maxWidthIndicaciones + 16);
-
-        const hDisponible = yTopInd - (alturaDisponibleMin + 2);
-        let hMin = 30;
-        const hMax = Math.max(hMin, hDisponible);
-
-        let sizeIndicaciones = 8 * fontScaleCabecera;
-        let lineaIndicaciones = 9.6 * fontScaleCabecera * lineSpacingCabecera;
-        // Reservar una franja propia para el rotulo evita que la primera
-        // linea de instrucciones invada el titulo al renderizar en PDF.
-        const offsetPrimeraLinea = 31;
-        const paddingInferior = 8;
-        let lineasIndicaciones = partirEnLineas({
-          texto: instrucciones,
-          maxWidth: wInd - 16,
-          font: fuente,
-          size: sizeIndicaciones
-        });
-
-        for (let i = 0; i < 10; i += 1) {
-          const hNecesaria = offsetPrimeraLinea + lineasIndicaciones.length * lineaIndicaciones + paddingInferior;
-          if (hNecesaria <= hMax) break;
-          sizeIndicaciones = Math.max(7.2, sizeIndicaciones - 0.2);
-          lineaIndicaciones = Math.max(8.6, lineaIndicaciones - 0.2);
-          lineasIndicaciones = partirEnLineas({
-            texto: instrucciones,
-            maxWidth: wInd - 16,
-            font: fuente,
-            size: sizeIndicaciones
-          });
-        }
-
-        const hNecesariaFinal = offsetPrimeraLinea + lineasIndicaciones.length * lineaIndicaciones + paddingInferior;
-        hMin = Math.max(hMin, hNecesariaFinal, 40);
-        const hCaja = Math.max(hMin, hNecesariaFinal);
-
-        page.drawRectangle({
-          x: xInd,
-          y: yTopInd - hCaja,
-          width: wInd,
-          height: hCaja,
-          borderWidth: 1,
-          borderColor: colorLinea,
-          color: this.perfilLayout.usarRellenosDecorativos ? colorSeccion : rgb(1, 1, 1)
-        });
-        rectIndicaciones = { x: xInd, y: yTopInd - hCaja, width: wInd, height: hCaja };
-
-        dibujarLineaPunteada(
-          page,
-          { x: xInd + 1, y: yTopInd - 2 },
-          { x: xInd + wInd - 1, y: yTopInd - 2 },
-          colorPrimario,
-          0.65,
-          0.62
-        );
-
-        page.drawLine({
-          start: { x: xInd + 8, y: yTopInd - 21 },
-          end: { x: xInd + Math.min(wInd - 8, 92), y: yTopInd - 21 },
-          color: colorLinea,
-          thickness: 0.8
-        });
-
-        page.drawText('Indicaciones', { x: xInd + 8, y: yTopInd - 16, size: 9 * fontScaleCabecera, font: fuenteBold, color: colorAcento });
-
-        let yLinea = yTopInd - offsetPrimeraLinea;
-        const yMinTexto = yTopInd - hCaja + 8;
-        if (yLinea < yMinTexto) yLinea = yMinTexto;
-
-        for (const linea of lineasIndicaciones) {
-          if (yLinea < yMinTexto) break;
-          page.drawText(linea, { x: xInd + 8, y: yLinea, size: sizeIndicaciones, font: fuente, color: colorTinta });
-          yLinea -= lineaIndicaciones;
-        }
-
-        // La lÃ­nea base no es el lÃ­mite superior del glifo: reservar este
-        // espacio evita que ascendentes/descendentes invadan el borde de la
-        // caja de indicaciones en el PDF impreso.
-        // La separaciÃ³n editorial despuÃ©s de las indicaciones debe conservar
-        // un colchÃ³n tipogrÃ¡fico real: la lÃ­nea base no coincide con el borde
-        // superior de los glifos del primer enunciado.
-        cursorY = snapToGrid(yTopInd - hCaja - 18);
-        if (hCaja > hDisponible || cursorY <= alturaDisponibleMin) {
-          throw new Error(`Layout invalido: el bloque de indicaciones deja sin espacio la pagina ${numeroPagina}`);
-        }
-      }
-
-      const minPreguntasPorPagina = Math.max(
-        1,
-        Number.parseInt(String(process.env.EXAMEN_MIN_PREGUNTAS_POR_PAGINA ?? '10'), 10) || 10
-      );
-      // No imponer un tope editorial por cara: el planificador se detiene por
-      // la altura disponible del texto y por la capacidad fÃ­sica de los paneles
-      // OMR. AsÃ­ entran todos los reactivos legibles que caben en cada pÃ¡gina.
-      const maxPreguntasPorPagina = Number.MAX_SAFE_INTEGER;
-      // El objetivo editorial es maximizar la capacidad de cada pÃ¡gina del
-      // par dÃºplex. La capacidad fÃ­sica decide el corte; `totalPaginas` no
-      // puede forzar un reparto equilibrado que expulse reactivos a una hoja
-      // adicional. Si las dos caras no bastan, el bucle abre otra pÃ¡gina real.
-      // En continuaciones, el primer panel OMR queda debajo del QR, no a la
-      // altura del primer enunciado. Limitar por la altura del texto solamente
-      // podÃ­a planear mÃ¡s paneles de los que caben en esa columna; el ajuste
-      // final hacia arriba terminaba solapando los dos Ãºltimos paneles.
-      const altoPanelOmrMin = omrEsquemaHorizontal
-        ? Math.max(22, omrRadio * 2 + omrMargenSuperior + omrMargenInferior)
-        : 0;
-      const rellenoPanelOmr = Math.max(0, perfilOmr.omrPanelPadding);
-      const pasoPanelOmrMin = altoPanelOmrMin + separacionPanelOmr + rellenoPanelOmr * 2;
-      const separacionQrPanelOmrContinuacion = perfilCompacto35 || perfilCompactoCapacidadAlta ? 1 : 8;
-      const fondoPrimerPanelContinuacion = rectQr.y - separacionQrPanelOmrContinuacion - omrRadio * 2 - omrMargenSuperior - omrMargenInferior;
-      const capacidadPanelContinuacion = omrEsquemaHorizontal
-        ? Math.max(1, Math.floor((fondoPrimerPanelContinuacion - alturaDisponibleMin) / pasoPanelOmrMin) + 1)
-        : maxPreguntasPorPagina;
-      const topePaginaActual = Math.min(
-        maxPreguntasPorPagina,
-        !esPrimera ? capacidadPanelContinuacion : maxPreguntasPorPagina
-      );
-      const preguntasRestantesParaDistribuir = totalPreguntas - indicePregunta;
-      const paginasObjetivoRestantes = paginasObjetivo - numeroPagina + 1;
-      const topeDistribuido = examen.layout.distribuirEnPaginasObjetivo && paginasObjetivoRestantes > 0
-        ? Math.ceil(preguntasRestantesParaDistribuir / paginasObjetivoRestantes)
-        : topePaginaActual;
-      const topePreguntasPlanPagina = examen.layout.distribuirEnPaginasObjetivo
-        ? Math.min(topePaginaActual, Math.max(1, topeDistribuido))
-        : topePaginaActual;
-      // La separaciÃ³n funcional ya estÃ¡ contenida en `separacionPregunta` y
-      // en la lÃ­nea divisoria. No se redistribuye el sobrante de la pÃ¡gina:
-      // hacerlo producÃ­a huecos grandes entre reactivos, especialmente cuando
-      // la Ãºltima pÃ¡gina tenÃ­a pocos bloques. El plan y el render usan cero
-      // separaciÃ³n editorial adicional, conservando las guardas tipogrÃ¡ficas.
-      const planPagina: Array<{ indice: number; altura: number }> = [];
-      let yPlanPagina = cursorY;
-      const recalcularPlanPagina = () => {
-        let yBase = cursorY;
-        for (const item of planPagina) yBase = ajustarCursorRender(yBase - item.altura);
-        const separacionExtraPlan = 0;
-        let yRender = cursorY;
-        for (let indice = 0; indice < planPagina.length; indice += 1) {
-          const item = planPagina[indice]!;
-          yRender = ajustarCursorRender(yRender - item.altura - (indice < planPagina.length - 1 ? separacionExtraPlan : 0));
-        }
-        return { yBase, yRender };
-      };
-      while (indicePregunta + planPagina.length < preguntasOrdenadas.length && planPagina.length < topePreguntasPlanPagina) {
-        const preguntaPlan = preguntasOrdenadas[indicePregunta + planPagina.length];
-        if (!preguntaPlan) break;
-        const limiteDerechoPlan = !esPrimera && planPagina.length === 0 ? xDerechaTextoContinuacion : xDerechaTexto;
-        const alturaPlan = calcularAlturaPregunta(
-          preguntaPlan,
-          limiteDerechoPlan
-        );
-        if (yPlanPagina - alturaPlan < alturaDisponibleMin) break;
-        planPagina.push({ indice: indicePregunta + planPagina.length, altura: alturaPlan });
-        // El renderer vuelve a ajustar cada cursor a la retÃ­cula de impresiÃ³n;
-        // simularlo durante la planificaciÃ³n evita acumular fracciones que
-        // permiten planear un reactivo que el render real ya no puede dibujar.
-        yPlanPagina = ajustarCursorRender(yPlanPagina - alturaPlan);
-      }
-      while (planPagina.length > 0) {
-        const simulacion = recalcularPlanPagina();
-        if (simulacion.yRender >= alturaDisponibleMin) {
-          break;
-        }
-        planPagina.pop();
-      }
-      // Si el corte natural deja una particiÃ³n muy desigual, probar colas
-      // crecientes del plan actual y minimizar el espacio vertical libre. En
-      // compactos de 38+ reactivos se omite: llenar cada cara hasta su
-      // capacidad fÃ­sica evita expulsar contenido a una pÃ¡gina adicional.
-      const restantesSinRebalance = preguntasOrdenadas.length - (indicePregunta + planPagina.length);
-      const conteosYaEquilibrados = Math.abs(planPagina.length - restantesSinRebalance) <= 1;
-      if (
-        planPagina.length > 2
-        && numeroPagina < paginasObjetivo
-        && !examen.layout.distribuirEnPaginasObjetivo
-        && !conteosYaEquilibrados
-        && !priorizarCapacidadPorCara
-      ) {
-        const restantesTrasPlan = preguntasOrdenadas.length - (indicePregunta + planPagina.length);
-        if (restantesTrasPlan > 0 && restantesTrasPlan <= Math.max(minPreguntasPorPagina, planPagina.length)) {
-          const yInicioNuevaContinuacion = snapToGrid(
-            omrEsquemaHorizontal
-              ? Math.min(yTopContinuacionSeguro, limiteContenidoContinuacion)
-              : Math.min(yTop - 8, limiteContenidoContinuacion)
-          );
-          const maxReactivosParaMover = Math.min(planPagina.length - 2, 5);
-          let movimientoElegido = 0;
-          let mejorDiferenciaEspacioLibre = Number.POSITIVE_INFINITY;
-          const capacidadPaginaActual = Math.max(0, cursorY - alturaDisponibleMin);
-          const capacidadPaginaSiguiente = Math.max(0, yInicioNuevaContinuacion - alturaDisponibleMin);
-          for (let reactivosAMover = 0; reactivosAMover <= maxReactivosParaMover; reactivosAMover += 1) {
-            const reactivosRestantesPaginaActual = planPagina.length - reactivosAMover;
-            const alturaPaginaActual = planPagina
-              .slice(0, reactivosRestantesPaginaActual)
-              .reduce((total, item) => total + item.altura, 0);
-            if (alturaPaginaActual > capacidadPaginaActual) continue;
-
-            const totalNuevaPagina = reactivosAMover + restantesTrasPlan;
-            // Aplicar el mismo tope de paneles OMR que usarÃ¡ la pÃ¡gina de
-            // continuaciÃ³n. Medir solo el texto podÃ­a mover reactivos a una
-            // franja que no existe debajo del QR y abrir una hoja extra.
-            if (totalNuevaPagina > capacidadPanelContinuacion) continue;
-            let yNuevaPagina = yInicioNuevaContinuacion;
-            let cabenEnNuevaPagina = true;
-            for (let offset = 0; offset < totalNuevaPagina; offset += 1) {
-              const indicePlan = indicePregunta + planPagina.length - reactivosAMover + offset;
-              const preguntaPlan = preguntasOrdenadas[indicePlan];
-              if (!preguntaPlan) {
-                cabenEnNuevaPagina = false;
-                break;
-              }
-              const limiteDerechoPlan = offset === 0 ? xDerechaTextoContinuacion : xDerechaTexto;
-              const alturaPlan = calcularAlturaPregunta(preguntaPlan, limiteDerechoPlan);
-              if (yNuevaPagina - alturaPlan < alturaDisponibleMin) {
-                cabenEnNuevaPagina = false;
-                break;
-              }
-              yNuevaPagina -= alturaPlan;
-            }
-            if (cabenEnNuevaPagina) {
-              const espacioLibreActual = capacidadPaginaActual - alturaPaginaActual;
-              const espacioLibreSiguiente = capacidadPaginaSiguiente - (yInicioNuevaContinuacion - yNuevaPagina);
-              const diferenciaEspacioLibre = Math.abs(espacioLibreActual - espacioLibreSiguiente);
-              if (diferenciaEspacioLibre < mejorDiferenciaEspacioLibre - 0.01) {
-                mejorDiferenciaEspacioLibre = diferenciaEspacioLibre;
-                movimientoElegido = reactivosAMover;
-              }
-            }
-          }
-          if (movimientoElegido > 0) {
-            for (let indice = 0; indice < movimientoElegido; indice += 1) planPagina.pop();
-          }
-        }
-      }
-      // El sobrante se reparte entre reactivos ya planificados. La separaciÃ³n
-      // se limita por intervalo, no por pÃ¡gina completa: asÃ­ una continuaciÃ³n
-      // corta no queda comprimida arriba, pero tampoco crea huecos editoriales
-      // excesivos entre preguntas.
-      // `calcularAlturaPregunta` incluye holgura defensiva para no planificar
-      // bloques al limite. No se reutiliza como espacio dibujable: hacerlo
-      // puede provocar una hoja adicional en bancos que parecen cortos pero
-      // tienen opciones de dos lineas.
-      while (indicePregunta < preguntasOrdenadas.length && cursorY > alturaDisponibleMin) {
-        if (mapaPagina.length >= planPagina.length) break;
-        const pregunta = preguntasOrdenadas[indicePregunta];
-        const numero = indicePregunta + 1;
-        const yPreguntaTop = cursorY;
-        const textRunsPregunta: TextRunDebug[] = [];
-        const textRunsEnunciado: TextRunDebug[] = [];
-        let imagenPregunta: RectBox | undefined;
-        const esPrimeraPreguntaContinuacion = !esPrimera && mapaPagina.length === 0;
-        const desplazamientoTextoPregunta = !esPrimera ? desplazamientoTextoPorGrapa : 0;
-        const xTextoPreguntaRender = xTextoPregunta + desplazamientoTextoPregunta;
-        const limiteDerechoPregunta = (esPrimeraPreguntaContinuacion ? xDerechaTextoContinuacion : xDerechaTexto)
-          - desplazamientoTextoPregunta;
-        const anchoTextoPreguntaActual = Math.max(60, limiteDerechoPregunta - xTextoPregunta);
-
-        const alturaNecesaria = calcularAlturaPregunta(
-          pregunta,
-          limiteDerechoPregunta
-        );
-        if (cursorY - alturaNecesaria < alturaDisponibleMin) break;
-
-        if (!preguntasDel) preguntasDel = numero;
-        preguntasAl = numero;
-
-        const estiloPregunta = coloresPregunta[(numero - 1) % coloresPregunta.length]!;
-        // El reactivo completo es la unidad visual: un fondo tenue alternado
-        // contiene enunciado, imagen y respuestas. El OMR permanece fuera de
-        // esta tarjeta, con fondo blanco para proteger su lectura.
-        // Los bbox de texto parten de la lÃ­nea base; reservar el interlineado
-        // superior mÃ¡s una holgura corta evita que el filete punteado quede
-        // pegado a los ascendentes del primer renglÃ³n.
-        const reservaSuperiorFondo = Math.max(2, lineaPregunta + 2.5);
-        const altoFondoPregunta = Math.max(
-          1,
-          alturaNecesaria - obtenerSeparacionPregunta(pregunta) - (examen.totalPreguntas > 20 ? 0 : 1)
-        );
-        const fondoPregunta = {
-          x: xTextoPreguntaRender - 4,
-          y: yPreguntaTop - altoFondoPregunta,
-          width: Math.max(20, limiteDerechoPregunta - xTextoPregunta + 4),
-          height: altoFondoPregunta + reservaSuperiorFondo
-        };
-        // La candidata inline reserva blanco impreso detrÃ¡s del carril OMR:
-        // los puntos de fondo pueden transparentarse desde el reverso y caer
-        // dentro de la lectura de una burbuja aun cuando el panel local sea blanco.
-        if (!omrEnLinea) {
-          dibujarPatronPunteadoReactivo(page, fondoPregunta, estiloPregunta.acento);
-          page.drawLine({
-            start: { x: fondoPregunta.x + 2.2, y: fondoPregunta.y + fondoPregunta.height - 0.55 },
-            end: { x: fondoPregunta.x + fondoPregunta.width, y: fondoPregunta.y + fondoPregunta.height - 0.55 },
-            color: estiloPregunta.acento,
-            thickness: 0.65,
-            opacity: 0.42
-          });
-          dibujarLineaPunteada(
-            page,
-            { x: fondoPregunta.x + 1.1, y: fondoPregunta.y },
-            { x: fondoPregunta.x + 1.1, y: fondoPregunta.y + fondoPregunta.height },
-            estiloPregunta.acento,
-            0.7,
-            0.55
-          );
-        }
-        const textoNumero = String(numero);
-        const wNum = anchoInsigniaPregunta;
-        const xNum = xNumeroPregunta + desplazamientoTextoPregunta;
-        // En la primera pregunta de una continuaciÃ³n horizontal el texto
-        // empieza debajo de la zona segura superior, pero el fiducial de la
-        // esquina ocupa todavÃ­a parte de esa banda. Bajar solo la insignia
-        // evita que la cubra sin desplazar el bloque tipogrÃ¡fico completo.
-        const yNum = cursorY - 1 - (esPrimeraPreguntaContinuacion && omrEsquemaHorizontal ? 9 : 0);
-        const sizeNum = textoNumero.length >= 3 ? 8 : 9;
-        const numWidth = fuenteBold.widthOfTextAtSize(textoNumero, sizeNum);
-        // El nÃºmero queda como texto independiente, sin borde ni relleno;
-        // asÃ­ se elimina una masa sÃ³lida innecesaria y no compite con el OMR.
-        page.drawText(textoNumero, {
-          x: xNum + (wNum - numWidth) / 2,
-          y: yNum + 3.2,
-          size: sizeNum,
-          font: fuenteBold,
-          color: estiloPregunta.acento
-        });
-        questionTextInkBoxes.push({ id: `numero-${numero}`, x: xNum, y: yNum + 3.2, width: wNum, height: sizeNum + 1 });
-        const emb = imagenesPregunta.get(pregunta.id);
-        const layoutImagen = calcularLayoutImagen(emb, anchoTextoPreguntaActual);
-        const anchoEnunciado = layoutImagen?.lateral
-          ? layoutImagen.anchoTexto
-          : anchoTextoPreguntaActual;
-        const lineasEnunciado = envolverTextoMixto({
-          texto: quitarPrefijoReactivo(pregunta.enunciado, numero),
-          maxWidth: anchoEnunciado,
-          fuente,
-          fuenteBold,
-          fuenteItalica: fuenteItalica,
-          fuenteMono,
-          sizeTexto: sizePregunta,
-          sizeCodigoInline,
-          sizeCodigoBloque,
-          lineHeightTexto: lineaPregunta,
-          lineHeightCodigo: lineaCodigoBloque
-        });
-        const altoEnunciado = lineasEnunciado.reduce((total, linea) => total + linea.lineHeight, 0);
-        const interlineadoUltimoEnunciado = lineasEnunciado[lineasEnunciado.length - 1]?.lineHeight ?? lineaPregunta;
-        // La lÃ­nea inferior del enunciado no debe rozar los descendentes del
-        // Ãºltimo renglÃ³n. El pequeÃ±o margen superior mantiene la misma lectura
-        // cuando el filete superior del fondo queda cerca del primer renglÃ³n.
-        const separacionPreguntaRespuesta = Math.max(0.5, sizePregunta * 0.04);
-        const separacionSuperiorCajaPregunta = 3.5;
-        const cajaPregunta: RectBox = {
-          x: xTextoPreguntaRender - 2.5,
-          // El borde inferior se calcula desde la Ãºltima lÃ­nea real del
-          // enunciado, no desde la base de la primera opciÃ³n. AsÃ­ queda en la
-          // franja libre entre ambos bloques y no atraviesa sus glifos.
-          y: yPreguntaTop - altoEnunciado + interlineadoUltimoEnunciado - separacionPreguntaRespuesta,
-          width: Math.max(30, anchoEnunciado + 2.5),
-          height: Math.max(
-            4,
-            altoEnunciado - interlineadoUltimoEnunciado + separacionPreguntaRespuesta + separacionSuperiorCajaPregunta
-          )
-        };
-        assertRectDentroPagina(cajaPregunta, `caja de pregunta ${numero}`);
-        page.drawRectangle({
-          ...cajaPregunta,
-          color: rgb(1, 1, 1),
-          // El enunciado necesita una superficie claramente distinta de las
-          // opciones; la opacidad alta mantiene legible el texto sin cubrirlo.
-          opacity: 0.84,
-          borderWidth: 0
-        });
-        // El borde superior se omite deliberadamente: no hay una banda libre
-        // entre reactivos consecutivos y colocarla allÃ­ podrÃ­a atravesar el
-        // Ãºltimo renglÃ³n de la pregunta anterior. Los laterales y el borde
-        // inferior delimitan el enunciado sin cruzar ningÃºn glifo.
-        dibujarCajaPunteada(page, cajaPregunta, estiloPregunta.acento, false);
-        questionPromptBoxes.push({ id: `caja-pregunta-${numero}`, ...cajaPregunta });
-        const minLocalEnunciado = Math.max(
-          (omrEsquemaHorizontal ? 10.1 : 12.8) * fontScale,
-          sizePregunta * 1.18
-        ) * lineSpacing;
-        for (const linea of lineasEnunciado) {
-          minLineHeightApplied = Math.min(minLineHeightApplied, linea.lineHeight);
-          if (linea.lineHeight + 0.001 < minLocalEnunciado) {
-            lineHeightViolations.push({
-              pagina: numeroPagina,
-              preguntaId: pregunta.id,
-              lineHeight: linea.lineHeight,
-              min: minLocalEnunciado
-            });
-          }
-        }
-        cursorY = dibujarLineasMixtas({
-          page,
-          lineas: lineasEnunciado,
-          x: xTextoPreguntaRender,
-          y: cursorY,
-          reforzarPeso: true,
-          registrarRuns: (run) => {
-            textRunsPregunta.push(run);
-            textRunsEnunciado.push(run);
-          }
-        });
-
-        if (emb) {
-          const w = layoutImagen?.width ?? emb.width;
-          const h = layoutImagen?.height ?? emb.height;
-          const x = layoutImagen?.lateral
-            ? xTextoPreguntaRender + layoutImagen.anchoTexto + separacionColumnaImagen
-            : xTextoPreguntaRender;
-          const y = layoutImagen?.lateral
-            ? yPreguntaTop - h
-            : cursorY - h;
-          imagenPregunta = { x, y, width: w, height: h };
-          page.drawImage(emb.image, imagenPregunta);
-          cursorY = layoutImagen?.lateral
-            ? Math.min(cursorY, yPreguntaTop - h) - separacionImagenOpciones
-            : cursorY - h - separacionImagenOpciones;
-        }
-
-        const ordenOpciones = examen.mapaVariante.ordenOpcionesPorPregunta[pregunta.id] ?? [0, 1, 2, 3, 4];
-        const layoutOpciones = obtenerLayoutOpciones(pregunta, limiteDerechoPregunta);
-        const { columnas, porColumna, gutterCols, colWidth } = layoutOpciones;
-        const anchoOpcionesTotal = Math.max(80, limiteDerechoPregunta - xTextoPregunta);
-        const xCols = Array.from({ length: columnas }, (_valor, idx) => xTextoPreguntaRender + idx * (colWidth + gutterCols));
-        const prefixWidth = fuenteBold.widthOfTextAtSize('E) ', sizeOpcion) + 3;
-
-        const yInicioOpciones = cursorY - separacionEnunciadoOpciones;
-        // Las respuestas reciben una banda propia, ligeramente diferenciada
-        // del enunciado. Se dibuja antes del texto y no cambia la geometrÃ­a,
-        // por lo que no reduce capacidad ni altera el ROI OMR.
-        const fondoRespuestas: RectBox = {
-          x: xTextoPreguntaRender - 2.5,
-          y: yInicioOpciones - layoutOpciones.alturaGrid - 0.8,
-          width: Math.max(30, anchoOpcionesTotal + 2.5),
-          height: layoutOpciones.alturaGrid + 2.2
-        };
-        if (!omrEnLinea) {
-          page.drawRectangle({
-            ...fondoRespuestas,
-            color: rgb(1, 1, 1),
-            opacity: 0.28,
-            borderWidth: 0
-          });
-          dibujarPatronPunteadoReactivo(page, fondoRespuestas, estiloPregunta.acento);
-        }
-
-        const opcionesOmr: Array<{
-          letra: string;
-          x: number;
-          y: number;
-          radio?: number;
-          labelBounds?: { x: number; y: number; width: number; height: number };
-        }> = [];
-
-        const opcionesCompactas = 'compacto' in layoutOpciones && layoutOpciones.compacto === true;
-        const dibujarEtiquetaInciso = (etiqueta: string, x: number, y: number) => {
-          const estiloEtiqueta = {
-            size: Math.min(sizeOpcion, 8.2),
-            font: fuenteBold,
-            color: colorPrimario
-          } as const;
-          dibujarTextoConPesoVisual(page, etiqueta, { x, y, ...estiloEtiqueta }, true);
-          const altoEtiqueta = Math.max(estiloEtiqueta.size * 1.18, estiloEtiqueta.size + 1);
-          textRunsPregunta.push({
-            tipo: 'texto',
-            fuente: FUENTE_ECOFONT_FAMILIA,
-            size: estiloEtiqueta.size,
-            lineHeight: altoEtiqueta,
-            bbox: {
-              x,
-              y,
-              width: fuenteBold.widthOfTextAtSize(etiqueta, estiloEtiqueta.size),
-              height: altoEtiqueta
-            }
-          });
-        };
-        if (opcionesCompactas) {
-          const lineasFlujo: LineaSegmentos[] = 'lineasFlujo' in layoutOpciones
-            ? (layoutOpciones as { lineasFlujo: LineaSegmentos[] }).lineasFlujo
-            : [];
-          dibujarLineasMixtas({
-            page,
-            lineas: lineasFlujo,
-            x: xTextoPreguntaRender,
-            y: yInicioOpciones,
-            colorTexto: colorTinta,
-            registrarRuns: (run) => textRunsPregunta.push(run)
-          });
-        } else if ('opcionPrincipal' in layoutOpciones) {
-          const layoutEspecial = layoutOpciones as typeof layoutOpciones & {
-            opcionPrincipal: {
-              indiceOpcion: number;
-              letra: string;
-              lineas: LineaSegmentos[];
-              alto: number;
-            };
-            opcionesRestantes: Array<{
-              indiceOpcion: number;
-              letra: string;
-              indice: number;
-              lineas: LineaSegmentos[];
-              alto: number;
-            }>;
-          };
-          const principal = layoutEspecial.opcionPrincipal;
-          const restantes = layoutEspecial.opcionesRestantes;
-          const dibujarTarjetaAncha = (
-            xCol: number,
-            yLocal: number,
-            anchoTarjeta: number,
-            item: { indiceOpcion: number; letra: string },
-            lineas: LineaSegmentos[],
-            altoFila: number
-          ) => {
-            const yTexto = yLocal - Math.max(0, (altoFila - (lineas.reduce((total, linea) => total + linea.lineHeight, 0))) / 2);
-            const etiqueta = `${item.letra})`;
-            dibujarEtiquetaInciso(etiqueta, xCol, yTexto);
-            dibujarLineasMixtas({
-              page,
-              lineas,
-              x: xCol + prefixWidth,
-              y: yTexto,
-              colorTexto: colorTinta,
-              registrarRuns: (run) => textRunsPregunta.push(run)
-            });
-          };
-          dibujarTarjetaAncha(
-            xTextoPreguntaRender,
-            yInicioOpciones,
-            anchoOpcionesTotal,
-            principal,
-            principal.lineas,
-            principal.alto
-          );
-          const yFilaRestantes = yInicioOpciones - principal.alto - separacionTarjetaOpcion;
-          for (let indice = 0; indice < restantes.length; indice += 1) {
-            const item = restantes[indice]!;
-            dibujarTarjetaAncha(
-              xTextoPreguntaRender + indice * (layoutOpciones.colWidth + layoutOpciones.gutterCols),
-              yFilaRestantes,
-              layoutOpciones.colWidth,
-              item,
-              item.lineas,
-              item.alto
-            );
-          }
-        } else {
-        const itemsCols = Array.from({ length: columnas }, () => [] as Array<{ indiceOpcion: number; letra: string }>);
-        ordenOpciones.forEach((indiceOpcion, indice) => {
-          itemsCols[indice % columnas]?.push({
-            indiceOpcion,
-            letra: String.fromCharCode(65 + indice)
-          });
-        });
-
-        const opcionesRender = itemsCols.map((items) => items.map((item) => {
-          const opcion = pregunta.opciones[item.indiceOpcion];
-          const textoOpcion = compactarOpcionBancoParaPdf(opcion?.texto);
-          const textoLimpio = sanitizarTextoPdf(textoOpcion);
-          const lineasOpcion = envolverTextoMixto({
-            texto: textoLimpio,
-            maxWidth: Math.max(30, colWidth - prefixWidth - (omrEnLinea ? omrRadio * 2 + mmAPuntos(3) : 0)),
-            fuente,
-            fuenteBold,
-            fuenteItalica: fuenteItalica,
-            fuenteMono,
-            sizeTexto: sizeOpcion,
-            sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-            sizeCodigoBloque,
-            lineHeightTexto: lineaOpcion,
-            lineHeightCodigo: lineaCodigoBloque
-          });
-          const minLocalOpcion = Math.max(
-            (omrEsquemaHorizontal ? 8.5 : 11) * fontScale,
-            sizeOpcion * 1.18
-          ) * lineSpacing;
-          for (const linea of lineasOpcion) {
-            minLineHeightApplied = Math.min(minLineHeightApplied, linea.lineHeight);
-            if (linea.lineHeight + 0.001 < minLocalOpcion) {
-              lineHeightViolations.push({
-                pagina: numeroPagina,
-                preguntaId: pregunta.id,
-                lineHeight: linea.lineHeight,
-                min: minLocalOpcion
-              });
-            }
-          }
-          const altoTextoOpcion = lineasOpcion.reduce((acc, linea) => acc + linea.lineHeight, 0);
-          const altoFilaOpcion = Math.max(
-            alturaMinimaFilaOpcion,
-            altoTextoOpcion + rellenoVerticalOpcion,
-            omrEnLinea ? Math.max(omrRadio * 2, 10.5 * MM_A_PUNTOS) : 0
-          );
-          return { item, lineasOpcion, altoFilaOpcion };
-        }));
-        const alturasFilas = Array.from({ length: porColumna }, (_valor, indiceFila) => Math.max(
-          alturaMinimaFilaOpcion,
-          ...opcionesRender.map((col) => col[indiceFila]?.altoFilaOpcion ?? 0)
-        ));
-        let yFilaGrid = yInicioOpciones;
-
-        const dibujarItem = (
-          xCol: number,
-          yLocal: number,
-          altoFilaCompartida: number,
-          indiceFila: number,
-          render: { item: { indiceOpcion: number; letra: string }; lineasOpcion: LineaSegmentos[]; altoFilaOpcion: number }
-        ) => {
-          const { item, lineasOpcion, altoFilaOpcion } = render;
-          const yTexto = yLocal - Math.max(0, (altoFilaCompartida - altoFilaOpcion) / 2);
-          // El fondo alternado ya fue dibujado para todo el reactivo; no se
-          // generan tarjetas independientes para cada respuesta.
-          const xInciso = xCol + (omrEnLinea ? omrRadio * 2 + mmAPuntos(3) : 0);
-          if (omrEnLinea) {
-            const xBurbuja = xCol + omrRadio;
-            const yBurbuja = yTexto + sizeOpcion * 0.42;
-            const cajaBurbuja: RectBox = {
-              x: xBurbuja - omrRadio,
-              y: yBurbuja - omrRadio,
-              width: omrRadio * 2,
-              height: omrRadio * 2
-            };
-            assertRectDentroPagina(cajaBurbuja, `burbuja inline ${item.letra} de pregunta ${pregunta.id}`);
-            page.drawCircle({
-              x: xBurbuja,
-              y: yBurbuja,
-              size: omrRadio,
-              borderWidth: perfilOmr.bubbleStrokePt ?? perfilOmr.burbujaStroke,
-              borderColor: rgb(0, 0, 0)
-            });
-            const anchoEtiqueta = fuenteBold.widthOfTextAtSize(`${item.letra})`, Math.min(sizeOpcion, 8.2));
-            opcionesOmr.push({
-              letra: item.letra,
-              x: xBurbuja,
-              y: yBurbuja,
-              radio: omrRadio,
-              labelBounds: { x: xInciso, y: yTexto, width: anchoEtiqueta, height: Math.max(Math.min(sizeOpcion, 8.2) * 1.18, Math.min(sizeOpcion, 8.2) + 1) }
-            });
-          }
-          dibujarEtiquetaInciso(`${item.letra})`, xInciso, yTexto);
-          const yFinal = dibujarLineasMixtas({
-            page,
-            lineas: lineasOpcion,
-            x: xInciso + prefixWidth,
-            y: yTexto,
-            colorTexto: colorTinta,
-            registrarRuns: (run) => textRunsPregunta.push(run)
-          });
-          // Reservar una holgura explicita evita que las tarjetas consecutivas
-          // se toquen cuando una opcion ocupa varias lineas. El planificador
-          // usa la misma altura de texto y conserva el ritmo vertical.
-          return yFinal - separacionTarjetaOpcion;
-        };
-
-        for (let indiceFila = 0; indiceFila < porColumna; indiceFila += 1) {
-          const altoFilaCompartida = alturasFilas[indiceFila] ?? 0;
-          const celdasFila = opcionesRender.filter((col) => Boolean(col[indiceFila]));
-          for (let idxCol = 0; idxCol < opcionesRender.length; idxCol += 1) {
-            const render = opcionesRender[idxCol]?.[indiceFila];
-            if (!render) continue;
-            const xCelda = celdasFila.length === 1
-              ? xTextoPreguntaRender + (anchoOpcionesTotal - colWidth) / 2
-              : (xCols[idxCol] ?? xTextoPreguntaRender);
-            dibujarItem(
-              xCelda,
-              yFilaGrid,
-              altoFilaCompartida,
-              indiceFila,
-              render
-            );
-          }
-          yFilaGrid -= altoFilaCompartida + separacionTarjetaOpcion;
-        }
-        }
-        const letras = letrasOmr;
-        let cajaOmrPregunta: RectBox;
-        let etiquetaBordeInferiorGapOmr: number | undefined;
-        let fiducialesOmrPregunta: NonNullable<PaginaOmr['preguntas'][number]['fiduciales']> | undefined;
-        if (omrEnLinea) {
-          if (opcionesOmr.length !== letras.length) {
-            throw new Error(`Layout invalido: faltan burbujas inline para la pregunta ${numero}`);
-          }
-          const left = Math.min(...opcionesOmr.map((item) => item.x - omrRadio));
-          const right = Math.max(...opcionesOmr.map((item) => item.x + omrRadio));
-          const bottom = Math.min(...opcionesOmr.map((item) => item.y - omrRadio));
-          const top = Math.max(...opcionesOmr.map((item) => item.y + omrRadio));
-          cajaOmrPregunta = { x: left, y: bottom, width: right - left, height: top - bottom };
-          assertRectDentroPagina(cajaOmrPregunta, `caja de burbujas inline de la pregunta ${numero}`);
-        } else {
-        // En una continuaciÃ³n, el primer reactivo usa el ancho izquierdo para
-        // no invadir el QR. Su panel OMR, sin embargo, cabe en la columna
-        // derecha justo debajo del QR. Colocarlo allÃ­ evita aÃ±adir una altura
-        // artificial debajo de las opciones y mejora el reparto entre pÃ¡ginas.
-        const panelOmrLateralContinuacion = esPrimeraPreguntaContinuacion;
-        const yPrimeraBurbujaLateral = rectQr.y - separacionQrPanelOmrContinuacion - omrRadio - omrMargenSuperior;
-        const yPrimeraBurbujaBase = panelOmrLateralContinuacion
-          ? yPrimeraBurbujaLateral
-          // El panel normal comparte la franja de opciones, pero no debe
-          // colgar por debajo del margen seguro cuando el Ãºltimo reactivo de
-          // la hoja queda cerca del pie. Subirlo 6 pt mantiene asociaciÃ³n
-          // visual, sin alterar radio, paso ni quiet zones.
-          : yInicioOpciones - perfilOmr.omrHeaderGap - 4 + (perfilCompactoCapacidadAlta ? 12 : 0);
-        const pasoBurbujaVertical = omrPasoY;
-        const topBase = yPrimeraBurbujaBase + omrRadio + omrMargenSuperior;
-        const panelAnterior = omrEsquemaHorizontal
-          ? omrPanelBoxes[omrPanelBoxes.length - 1]
-          : undefined;
-        // Cada panel conserva una separaciÃ³n mÃ­nima respecto al anterior. La
-        // correcciÃ³n se calcula con la geometrÃ­a efectiva, por lo que tambiÃ©n
-        // cubre continuaciones, textos de distinta altura y redondeos de la
-        // retÃ­cula sin recurrir a desplazamientos fijos.
-        const desplazamientoPanelPorColision = panelAnterior
-          ? Math.max(0, topBase - (panelAnterior.y - separacionPanelOmr))
-          : 0;
-        let yPrimeraBurbuja = yPrimeraBurbujaBase - desplazamientoPanelPorColision;
-        // El cÃ¡lculo tipogrÃ¡fico puede dejar el Ãºltimo panel horizontal unos
-        // puntos por debajo del margen seguro porque su etiqueta inferior
-        // tiene una reserva propia. Subir Ãºnicamente el panel conserva el
-        // texto y evita que la impresora recorte la fila OMR.
-        const bottomCalculado = yPrimeraBurbuja - omrRadio - omrMargenInferior;
-        if (bottomCalculado < alturaDisponibleMin) {
-          yPrimeraBurbuja += alturaDisponibleMin - bottomCalculado;
-        }
-        const top = yPrimeraBurbuja + omrRadio + omrMargenSuperior;
-        const bottom = omrEsquemaHorizontal
-          ? yPrimeraBurbuja - omrRadio - omrMargenInferior
-          : yPrimeraBurbuja - (letras.length - 1) * pasoBurbujaVertical - omrRadio - omrMargenInferior;
-        const hCaja = Math.max(22, top - bottom);
-        const panelPad = perfilOmr.omrPanelPadding;
-        const xPanel = xColRespuesta;
-        const panelRect: RectBox = {
-          x: xPanel,
-          y: bottom,
-          width: anchoColRespuesta,
-          height: hCaja
-        };
-        cajaOmrPregunta = panelRect;
-        const panelOuterRect: RectBox = {
-          x: xPanel - panelPad,
-          y: bottom - panelPad,
-          width: anchoColRespuesta + panelPad * 2,
-          height: hCaja + panelPad * 2
-        };
-        assertRectDentroPagina(panelOuterRect, `halo-omr-pregunta-${numero}`);
-        if (esPrimeraPreguntaContinuacion && rectInterseca(panelOuterRect, rectQr)) {
-          throw new Error(`Layout invalido: el primer panel OMR de la pagina ${numeroPagina} invade el QR`);
-        }
-        if (panelOuterRect.x < margen + 3.5 || panelOuterRect.x + panelOuterRect.width > ANCHO_CARTA - margen - 3.5) {
-          throw new Error(`Layout invalido: panel OMR ${numero} invade el marco imprimible`);
-        }
-        omrPanelBoxes.push({ id: `omr-${numero}`, ...panelOuterRect });
-
-        if (panelPad > 0) {
-          page.drawRectangle({
-            ...panelOuterRect,
-            color: rgb(1, 1, 1)
-          });
-        }
-        page.drawRectangle({
-          ...panelRect,
-          borderWidth: perfilOmr.omrBoxBorderWidth,
-          borderColor: colorBordeOmr,
-          color: colorPanelOmr
-        });
-        assertRectDentroPagina(
-          panelRect,
-          `omr-pregunta-${numero}`
-        );
-        if (panelRect.y < alturaDisponibleMin) {
-          throw new Error(
-            `Layout invalido: el panel OMR ${numero} invade la zona segura inferior de la pagina ${numeroPagina}`
-          );
-        }
-
-        const hTag = perfilNumeroOmrExterior ? 0 : perfilOmr.omrTagHeight;
-        const wTag = perfilOmr.omrTagWidth;
-        // El fiducial superior izquierdo ocupa la esquina del panel. Separar
-        // la etiqueta del borde evita que el cuadrado se lea como un sÃ­mbolo
-        // pegado al nÃºmero del reactivo al rasterizar a baja resoluciÃ³n.
-        // El fiducial reforzado necesita una reserva horizontal mayor; mover
-        // la insignia unos puntos evita invadir su quiet zone sin acercarla
-        // al borde derecho del panel.
-        const xTag = xPanel + 13;
-        // El borde superior del panel es una reserva real: colocar aquÃ­ la
-        // insignia deja la holgura completa de la banda antes de la burbuja,
-        // incluso si sus proyecciones horizontales coinciden.
-        const yTag = omrEsquemaHorizontal ? top - hTag : yPrimeraBurbuja + omrRadio + 3;
-        const cajaNumeroOmr: RectBox = {
-          x: xTag,
-          y: yTag,
-          width: perfilNumeroOmrExterior ? 0 : wTag,
-          height: hTag
-        };
-        assertRectContenida(cajaNumeroOmr, panelRect, `insignia numerica OMR de la pregunta ${numero}`);
-        // Los nÃºmeros van fuera de la retÃ­cula en perfiles compactos para
-        // preservar la lectura OMR.
-        if (perfilNumeroOmrExterior) {
-          // Se dibujan despuÃ©s de validar texto, burbujas y fiduciales.
-        } else if (this.perfilLayout.usarEtiquetaOmrSolida) {
-          page.drawRectangle({ x: xTag, y: yTag, width: wTag, height: hTag, color: colorPrimario, opacity: 0.9 });
-          for (const punto of [
-            { x: xTag + 2.1, y: yTag + 2.1 },
-            { x: xTag + wTag - 2.1, y: yTag + hTag - 2.1 }
-          ]) {
-            page.drawCircle({ x: punto.x, y: punto.y, size: 0.3, color: rgb(1, 1, 1), opacity: 0.18 });
-          }
-          const anchoNumero = fuenteBold.widthOfTextAtSize(String(numero), perfilOmr.omrTagFontSize);
-          page.drawText(String(numero), {
-            x: xTag + Math.max(0.8, (wTag - anchoNumero) / 2),
-            y: yTag + Math.max(0.4, (hTag - perfilOmr.omrTagFontSize) / 2),
-            size: perfilOmr.omrTagFontSize,
-            font: fuenteBold,
-            color: rgb(1, 1, 1)
-          });
-          page.drawText(String(numero), {
-            x: xTag + Math.max(0.8, (wTag - anchoNumero) / 2) + 0.18,
-            y: yTag + Math.max(0.4, (hTag - perfilOmr.omrTagFontSize) / 2),
-            size: perfilOmr.omrTagFontSize,
-            font: fuenteBold,
-            color: rgb(1, 1, 1)
-          });
-        } else {
-          // El nÃºmero queda directamente sobre el fondo del panel: la caja
-          // se conserva solo como reserva lÃ³gica para proteger la burbuja,
-          // pero ya no se imprime su rectÃ¡ngulo.
-          const anchoNumero = fuenteBold.widthOfTextAtSize(String(numero), perfilOmr.omrTagFontSize);
-          page.drawText(String(numero), {
-            x: xTag + Math.max(0.8, (wTag - anchoNumero) / 2),
-            y: yTag + Math.max(0.4, (hTag - perfilOmr.omrTagFontSize) / 2),
-            size: perfilOmr.omrTagFontSize,
-            font: fuenteBold,
-            color: colorPrimario
-          });
-          page.drawText(String(numero), {
-            x: xTag + Math.max(0.8, (wTag - anchoNumero) / 2) + 0.18,
-            y: yTag + Math.max(0.4, (hTag - perfilOmr.omrTagFontSize) / 2),
-            size: perfilOmr.omrTagFontSize,
-            font: fuenteBold,
-            color: colorPrimario
-          });
-        }
-
-        // No se imprime una etiqueta auxiliar dentro del ROI OMR. La leyenda
-        // `RESP.` competÃ­a con la primera fila de burbujas al rasterizar y no
-        // aporta informaciÃ³n necesaria para detectar ni calificar respuestas.
-
-        const etiquetaAnchoMax = etiquetaAnchoMaxOmr;
-        const diametroBurbuja = diametroBurbujaOmr;
-        const etiquetaGapBurbuja = omrEsquemaHorizontal ? 1.2 : omrEtiquetaGap;
-        // Mantener las letras separadas del cÃ­rculo y del borde inferior sin
-        // aumentar la caja OMR: el panel debe seguir siendo compacto y la
-        // etiqueta debe conservar una reserva visible al rasterizar.
-        const etiquetaOmrOffsetVertical = omrEsquemaHorizontal ? 6.8 : 8.5;
-        etiquetaBordeInferiorGapOmr = omrMargenInferior - etiquetaOmrOffsetVertical;
-        const xBurbujaBase = omrEsquemaHorizontal
-          ? xPanel + (anchoColRespuesta - (letras.length - 1) * omrPasoX) / 2
-          : xPanel + Math.max(
-              omrMargenHorizontal + etiquetaAnchoMax + etiquetaGapBurbuja + omrRadio,
-              anchoColRespuesta * 0.48
-            );
-        const cajasBurbujas: RectBox[] = [];
-        const cajasEtiquetasOmr: RectBox[] = [];
-        for (let idx = 0; idx < letras.length; idx += 1) {
-          const letra = letras[idx];
-          const xBurbuja = omrEsquemaHorizontal
-            ? xBurbujaBase + idx * omrPasoX
-            : xBurbujaBase;
-          const yBurbuja = omrEsquemaHorizontal
-            ? yPrimeraBurbuja
-            : yPrimeraBurbuja - idx * pasoBurbujaVertical;
-          const tamanoEtiquetaOmr = omrEsquemaHorizontal ? 5 : 6.8;
-          const etiquetaAncho = fuente.widthOfTextAtSize(letra, tamanoEtiquetaOmr);
-          if (xBurbuja - omrRadio < xPanel || xBurbuja + omrRadio > xPanel + anchoColRespuesta) {
-            throw new Error(`Layout invalido: opcion OMR ${letra} fuera del panel de la pregunta ${numero}`);
-          }
-          const cajaBurbuja: RectBox = {
-            x: xBurbuja - omrRadio,
-            y: yBurbuja - omrRadio,
-            width: diametroBurbuja,
-            height: diametroBurbuja
-          };
-          if (rectInterseca(cajaNumeroOmr, cajaBurbuja)) {
-            throw new Error(`Layout invalido: la insignia numerica invade la burbuja ${letra} de la pregunta ${numero}`);
-          }
-          assertRectContenida(cajaBurbuja, panelRect, `burbuja ${letra} de la pregunta ${numero}`);
-          const cajaEtiqueta: RectBox = omrEsquemaHorizontal
-            ? {
-                x: xBurbuja - etiquetaAncho / 2,
-                y: yBurbuja - omrRadio - etiquetaOmrOffsetVertical,
-                width: etiquetaAncho,
-                height: tamanoEtiquetaOmr + 1
-              }
-            : {
-                x: xBurbuja - omrRadio - etiquetaGapBurbuja - etiquetaAncho,
-                y: yBurbuja - 2.4,
-                width: etiquetaAncho,
-                height: 6.8 + 1
-              };
-          assertRectContenida(cajaEtiqueta, panelRect, `etiqueta ${letra} de la pregunta ${numero}`);
-          cajasEtiquetasOmr.push(cajaEtiqueta);
-          if (cajasBurbujas.some((anterior) => rectInterseca(anterior, cajaBurbuja))) {
-            throw new Error(`Layout invalido: burbujas OMR superpuestas en la pregunta ${numero}`);
-          }
-          cajasBurbujas.push(cajaBurbuja);
-          page.drawCircle({
-            x: xBurbuja,
-            y: yBurbuja,
-            size: omrRadio,
-            borderWidth: perfilOmr.bubbleStrokePt ?? perfilOmr.burbujaStroke,
-            borderColor: rgb(0, 0, 0)
-          });
-          page.drawText(letra, {
-            x: omrEsquemaHorizontal ? xBurbuja - etiquetaAncho / 2 : xBurbuja - omrRadio - etiquetaGapBurbuja - etiquetaAncho,
-            y: omrEsquemaHorizontal ? yBurbuja - omrRadio - etiquetaOmrOffsetVertical : yBurbuja - 2.4,
-            size: tamanoEtiquetaOmr,
-            font: fuente,
-            color: colorTinta
-          });
-          opcionesOmr.push({ letra, x: xBurbuja, y: yBurbuja, radio: omrRadio, labelBounds: cajaEtiqueta });
-        }
-        for (const cajaEtiqueta of cajasEtiquetasOmr) {
-          if (cajasBurbujas.some((cajaBurbuja) => rectInterseca(cajaEtiqueta, cajaBurbuja))) {
-            throw new Error(`Layout invalido: una etiqueta OMR invade una burbuja de la pregunta ${numero}`);
-          }
-        }
-
-        const fidSize = perfilOmr.fiducialSize;
-        const fidMargin = Math.max(1.2, perfilOmr.fiducialMargin);
-        const halfFid = fidSize / 2;
-        // El quiet zone tambien ocupa tinta/espacio: el centro debe
-        // calcularse a partir de ambos, no solo del tamano del fiducial.
-        const fidEdgeInset = halfFid + perfilOmr.fiducialQuietZone + fidMargin;
-        const xFid = xPanel + fidEdgeInset;
-        const xFidRight = xPanel + anchoColRespuesta - fidEdgeInset;
-        const yFidTop = top - fidEdgeInset;
-        const yFidBottom = bottom + fidEdgeInset;
-        if (yFidBottom >= yFidTop) {
-          throw new Error(`Layout invalido: fiduciales invertidos en pregunta ${numero}`);
-        }
-        dibujarFiducialOmr(page, xFid, yFidTop, fidSize, perfilOmr.fiducialQuietZone);
-        dibujarFiducialOmr(page, xFid, yFidBottom, fidSize, perfilOmr.fiducialQuietZone);
-        dibujarFiducialOmr(page, xFidRight, yFidTop, fidSize, perfilOmr.fiducialQuietZone);
-        dibujarFiducialOmr(page, xFidRight, yFidBottom, fidSize, perfilOmr.fiducialQuietZone);
-
-        const cajasQuietFiduciales = [
-          { x: xFid - halfFid - perfilOmr.fiducialQuietZone, y: yFidTop - halfFid - perfilOmr.fiducialQuietZone, width: fidSize + perfilOmr.fiducialQuietZone * 2, height: fidSize + perfilOmr.fiducialQuietZone * 2 },
-          { x: xFid - halfFid - perfilOmr.fiducialQuietZone, y: yFidBottom - halfFid - perfilOmr.fiducialQuietZone, width: fidSize + perfilOmr.fiducialQuietZone * 2, height: fidSize + perfilOmr.fiducialQuietZone * 2 },
-          { x: xFidRight - halfFid - perfilOmr.fiducialQuietZone, y: yFidTop - halfFid - perfilOmr.fiducialQuietZone, width: fidSize + perfilOmr.fiducialQuietZone * 2, height: fidSize + perfilOmr.fiducialQuietZone * 2 },
-          { x: xFidRight - halfFid - perfilOmr.fiducialQuietZone, y: yFidBottom - halfFid - perfilOmr.fiducialQuietZone, width: fidSize + perfilOmr.fiducialQuietZone * 2, height: fidSize + perfilOmr.fiducialQuietZone * 2 }
-        ];
-        if (perfilNumeroOmrExterior) {
-          const sizeNumeroPanel = 5;
-          const anchoNumeroPanel = fuenteBold.widthOfTextAtSize(String(numero), sizeNumeroPanel);
-          const xNumeroPanel = xPanel - anchoNumeroPanel - 8;
-          const yNumeroPanel = yPrimeraBurbuja - sizeNumeroPanel / 2;
-          const cajaNumeroPanel: RectBox = {
-            x: xNumeroPanel,
-            y: yNumeroPanel,
-            width: anchoNumeroPanel,
-            height: sizeNumeroPanel
-          };
-          assertRectDentroPagina(cajaNumeroPanel, `numero de pregunta OMR ${numero}`);
-          if (cajaNumeroPanel.x + cajaNumeroPanel.width >= panelRect.x) {
-            throw new Error(`Layout invalido: el numero ${numero} invade el panel OMR`);
-          }
-          if (textRunsPregunta.some((run) => rectInterseca(run.bbox, cajaNumeroPanel))) {
-            throw new Error(`Layout invalido: el numero ${numero} invade el texto de su pregunta`);
-          }
-          for (const [indiceFid, cajaFid] of cajasQuietFiduciales.entries()) {
-            if (rectInterseca(cajaNumeroPanel, cajaFid)) {
-              throw new Error(`Layout invalido: el numero ${numero} invade la quiet zone del fiducial ${indiceFid + 1}`);
-            }
-          }
-          if (cajasBurbujas.some((cajaBurbuja) => rectInterseca(cajaNumeroPanel, cajaBurbuja))) {
-            throw new Error(`Layout invalido: el numero ${numero} invade una burbuja OMR`);
-          }
-          page.drawText(String(numero), {
-            x: xNumeroPanel,
-            y: yNumeroPanel,
-            size: sizeNumeroPanel,
-            font: fuenteBold,
-            color: colorPrimario
-          });
-          omrQuestionNumberBoxes.push({ id: `numero-omr-${numero}`, numeroPregunta: numero, ...cajaNumeroPanel });
-        }
-        for (const [indiceFid, cajaFid] of cajasQuietFiduciales.entries()) {
-          assertRectContenida(cajaFid, panelRect, `quiet zone fiducial ${indiceFid + 1} de la pregunta ${numero}`);
-          if (rectInterseca(cajaNumeroOmr, cajaFid)) {
-            throw new Error(`Layout invalido: la insignia numerica invade la quiet zone del fiducial ${indiceFid + 1} de la pregunta ${numero}`);
-          }
-          if (cajasBurbujas.some((cajaBurbuja) => rectInterseca(cajaBurbuja, cajaFid))) {
-            throw new Error(`Layout invalido: una burbuja invade la quiet zone de un fiducial en la pregunta ${numero}`);
-          }
-        }
-
-        if (imagenPregunta) {
-          assertRectDentroPagina(imagenPregunta, `imagen de pregunta ${numero}`);
-          for (const run of textRunsPregunta) {
-            if (rectInterseca(run.bbox, imagenPregunta)) {
-              collisionBoxes.push({ pagina: numeroPagina, a: `texto-${numero}`, b: `imagen-${numero}` });
-            }
-          }
-        }
-        for (const run of textRunsPregunta) {
-          if (rectInterseca(run.bbox, panelRect)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: `texto-${numero}`, b: `omr-${numero}` });
-          }
-        }
-        for (const run of textRunsPregunta) {
-          if (!textRunsEnunciado.includes(run) && rectInterseca(run.bbox, cajaPregunta)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: `respuestas-${numero}`, b: `caja-pregunta-${numero}` });
-          }
-        }
-        if (rectInterseca(cajaPregunta, panelOuterRect)) {
-          collisionBoxes.push({ pagina: numeroPagina, a: `caja-pregunta-${numero}`, b: `omr-${numero}` });
-        }
-        if (rectInterseca(fondoPregunta, panelOuterRect)) {
-          collisionBoxes.push({ pagina: numeroPagina, a: `fondo-pregunta-${numero}`, b: `omr-${numero}` });
-        }
-        if (rectInterseca(fondoRespuestas, panelOuterRect)) {
-          collisionBoxes.push({ pagina: numeroPagina, a: `fondo-respuestas-${numero}`, b: `omr-${numero}` });
-        }
-        for (const previo of omrPanelBoxes) {
-          if (omrEsquemaHorizontal && previo.id !== `omr-${numero}` && rectInterseca(previo, panelOuterRect)) {
-            collisionBoxes.push({ pagina: numeroPagina, a: previo.id, b: `omr-${numero}` });
-          }
-        }
-        questionTextInkBoxes.push(...textRunsPregunta.map((run, index) => ({ id: `texto-${numero}-${index + 1}`, ...run.bbox })));
-        if (imagenPregunta) questionTextInkBoxes.push({ id: `imagen-${numero}`, ...imagenPregunta });
-        if (collisionBoxes.length > 0) {
-          const detalle = collisionBoxes.map((colision) => `${colision.a}<->${colision.b}`).join(', ');
-          throw new Error(`Layout invalido: colisiones en la pregunta ${numero} de la pagina ${numeroPagina}: ${detalle}`);
-        }
-        fiducialesOmrPregunta = {
-          leftTop: { x: xFid, y: yFidTop },
-          leftBottom: { x: xFid, y: yFidBottom },
-          rightTop: { x: xFidRight, y: yFidTop },
-          rightBottom: { x: xFidRight, y: yFidBottom }
-        };
-        }
-        // El planificador reserva el mÃ¡ximo entre el flujo de texto y el panel
-        // OMR. Reusar la altura planificada mantiene ambos carriles en la
-        // misma retÃ­cula y evita que la altura menor del texto acumule deriva.
-        const separacionPreguntaActual = obtenerSeparacionPregunta(pregunta) + (examen.totalPreguntas > 20 ? 0 : 1);
-        const alturaPlanificadaActual = planPagina[mapaPagina.length]?.altura;
-        if (!Number.isFinite(alturaPlanificadaActual) || alturaPlanificadaActual <= 0) {
-          throw new Error(`Layout invalido: falta altura planificada para el reactivo ${numero}`);
-        }
-        cursorY = yPreguntaTop - alturaPlanificadaActual;
-        page.drawLine({
-          // La regla queda debajo de la siguiente lÃ­nea base; con una
-          // separaciÃ³n compacta no debe atravesar los ascendentes del prÃ³ximo
-          // enunciado.
-          start: { x: xTextoPreguntaRender, y: cursorY - 3.2 },
-          end: { x: limiteDerechoPregunta, y: cursorY - 3.2 },
-          color: estiloPregunta.acento,
-          thickness: 0.55
-        });
-        const yFinPregunta = cursorY + separacionPreguntaActual;
-
-        indicePregunta += 1;
-        const bboxPregunta = {
-          x: xNumeroPregunta,
-          y: yFinPregunta,
-          width: xColRespuesta + anchoColRespuesta - xNumeroPregunta,
-          height: Math.max(1, yPreguntaTop - yFinPregunta)
-        };
-        questionBlockBoxes.push({ id: `pregunta-${numero}`, ...bboxPregunta });
-        questionBackgroundBoxes.push({ id: `fondo-pregunta-${numero}`, ...fondoPregunta });
-
-        mapaPagina.push({
-          numeroPregunta: numero,
-          idPregunta: pregunta.id,
-          bboxPregunta,
-          opciones: opcionesOmr,
-          textRuns: textRunsPregunta,
-          imagen: imagenPregunta,
-          imagenDisposicion: imagenPregunta
-            ? (layoutImagen?.lateral ? 'lateral' : 'inferior')
-            : undefined,
-          imageRenderStatus: estadoImagenPregunta.get(pregunta.id),
-          cajaOmr: cajaOmrPregunta,
-          perfilOmr: {
-            radio: omrRadio,
-            pasoY: omrPasoY,
-            pasoX: omrPasoX || pasoBurbujaX,
-            cajaAncho: cajaOmrPregunta.width,
-            orientacion: perfilOmr.orientacion,
-            etiquetaBordeInferiorGap: etiquetaBordeInferiorGapOmr,
-            ubicacion: omrEnLinea ? 'junto-a-opcion' : 'panel-separado'
-          },
-          fiduciales: fiducialesOmrPregunta
-        });
-      }
-
-      if (mapaPagina.length !== planPagina.length) {
-        throw new Error(
-          `Layout invalido: el plan de la pagina ${numeroPagina} reserva ${planPagina.length} reactivos ` +
-            `pero el renderer dibujo ${mapaPagina.length}`
-        );
-      }
-      const violacionesTipograficasPagina = lineHeightViolations.filter((violacion) => violacion.pagina === numeroPagina);
-      if (violacionesTipograficasPagina.length > 0) {
-        throw new Error(`Layout invalido: el reactivo no conserva la altura tipografica minima en la pagina ${numeroPagina}`);
-      }
-
-      const alturasPlanificadasRenderizadas = mapaPagina.map((preguntaRenderizada, indice) => {
-        const preguntaPlanificada = planPagina[indice];
-        const preguntaBasePlanificada = preguntaPlanificada
-          ? preguntasOrdenadas[preguntaPlanificada.indice]
-          : undefined;
-        const alturaPlanificada = preguntaPlanificada?.altura ?? 0;
-        const alturaRenderizada = preguntaRenderizada.bboxPregunta?.height ?? 0;
-        if (
-          !Number.isFinite(alturaPlanificada)
-          || alturaPlanificada <= 0
-          || !Number.isFinite(alturaRenderizada)
-          || alturaRenderizada <= 0
-          || alturaRenderizada > alturaPlanificada + GRID_STEP + 0.05
-        ) {
-          throw new Error(
-            `Layout invalido: el reactivo ${preguntaRenderizada.numeroPregunta} de la pagina ${numeroPagina} ` +
-              `excede su reserva previa (${alturaRenderizada.toFixed(2)} pt dibujados, ` +
-              `${alturaPlanificada.toFixed(2)} pt planeados)`
-          );
-        }
-        if ((preguntaRenderizada.bboxPregunta?.y ?? 0) < alturaDisponibleMin - 0.01) {
-          throw new Error(
-            `Layout invalido: el reactivo ${preguntaRenderizada.numeroPregunta} invade el margen inferior seguro ` +
-              `de la pagina ${numeroPagina}`
-          );
-        }
-        return {
-          questionId: preguntaRenderizada.idPregunta,
-          plannedHeightPt: Number(alturaPlanificada.toFixed(3)),
-          renderedHeightPt: Number(alturaRenderizada.toFixed(3)),
-          contentCharacters: preguntaBasePlanificada ? contarCaracteresPregunta(preguntaBasePlanificada) : 0,
-          interQuestionGapPt: preguntaBasePlanificada
-            ? Number(obtenerSeparacionPregunta(preguntaBasePlanificada).toFixed(3))
-            : 0
-        };
-      });
-
-      if (mapaPagina.length === 0 && indicePregunta < totalPreguntas) {
-        throw new Error(
-          `Layout invalido: el reactivo ${String(indicePregunta + 1)} no cabe en una pagina ` +
-            `con el tamano de letra minimo legible (${fontScale.toFixed(2)}x).`
-        );
-      }
-
-      // El QR debe describir la pagina fisica ya renderizada, no todo el
-      // examen. Codificar todas las preguntas aumentaba la version del QR,
-      // reducia los pixeles por modulo y hacia mas fragil la lectura movil.
-      // Se redibuja sobre la reserva ya calculada para conservar el layout.
-      const questionIdsPagina = mapaPagina.map((pregunta) => pregunta.idPregunta);
-      const qrTextoPaginaFinal = examen.generarTextoQrPagina(numeroPaginaPdf, questionIdsPagina);
-      qrTextoPagina = qrTextoPaginaFinal;
-      qrInfo = await agregarQr(pdfDoc, page, qrTextoPagina, margen, perfilOmr);
-
-      // Dibujar la leyenda despuÃ©s de la actualizaciÃ³n final del QR. En una
-      // pÃ¡gina densa el QR se regenera con sus preguntas reales; hacerlo antes
-      // dejarÃ­a la leyenda cubierta por la segunda tarjeta blanca.
-      {
-        const altoFranjaLeyendaQr = 12;
-        const anchoReservaQr = cardW;
-        const leyendaQr = `${folioQr} Â· P${numeroPaginaPdf}`;
-        const anchoLeyendaDisponible = Math.max(24, anchoReservaQr - 4);
-        let sizeLeyendaQr = 5.4;
-        while (
-          sizeLeyendaQr > 6 &&
-          fuenteBold.widthOfTextAtSize(leyendaQr, sizeLeyendaQr) > anchoLeyendaDisponible
-        ) {
-          sizeLeyendaQr = Math.max(6, sizeLeyendaQr - 0.2);
-        }
-        const anchoLeyendaQr = fuenteBold.widthOfTextAtSize(leyendaQr, sizeLeyendaQr);
-        if (anchoLeyendaQr > anchoLeyendaDisponible) {
-          throw new Error(`Layout invalido: el identificador compuesto no cabe bajo el QR de pagina ${numeroPagina}`);
-        }
-        const xLeyendaQr = cardX + Math.max(4, (cardW - anchoLeyendaQr) / 2);
-        page.drawRectangle({
-          x: cardX + 1,
-          y: cardY + 0.5,
-          width: Math.max(1, cardW - 2),
-          height: altoFranjaLeyendaQr - 1,
-          color: rgb(0.96, 0.98, 1),
-          opacity: 0.96
-        });
-        page.drawText(leyendaQr, {
-          x: xLeyendaQr,
-          y: cardY + (altoFranjaLeyendaQr - sizeLeyendaQr) / 2,
-          size: sizeLeyendaQr,
-          font: fuenteBold,
-          color: colorPrimario
-        });
-      }
-
-      // Una sola grapa sostiene el paquete. La reserva y la corona quedan
-      // verticales, paralelas al borde izquierdo; la etiqueta tambiÃ©n se
-      // compone en vertical y se separa de la lÃ­nea para conservar legibilidad.
-      if (esPrimera) {
-        const stapleWidth = mmAPuntos(8);
-        const stapleHeight = mmAPuntos(20);
-        const slotLogoIzquierdo = headerSlotBoxes.find((slot) => slot.id === 'logo-izquierdo');
-        const stapleXPreferido = mmAPuntos(4.5);
-        const stapleXMinimo = mmAPuntos(4.5);
-        // Mantener la guÃ­a en el margen izquierdo; desplazarla solo lo
-        // necesario para conservar 1 mm de separaciÃ³n del slot institucional.
-        const stapleXMaximo = slotLogoIzquierdo
-          ? slotLogoIzquierdo.x - stapleWidth
-          : stapleXPreferido;
-        if (stapleXMaximo < stapleXMinimo) {
-          throw new Error('Layout invalido: no hay espacio imprimible seguro para la grapa');
-        }
-        const stapleX = Math.min(stapleXPreferido, stapleXMaximo);
-        stapleZone = {
-          x: stapleX,
-          // Se baja 1 mm para conservar el despeje adicional al reflejar la
-          // reserva dÃºplex hacia el fiducial de la esquina opuesta.
-          y: ALTO_CARTA - mmAPuntos(43),
-          width: stapleWidth,
-          height: stapleHeight
-        };
-        zonaEngrapadoFisica = stapleZone;
-        stapleKeepOutZone = stapleZone;
-        assertRectDentroPagina(stapleZone, 'zona de engrapado');
-        const rectQrExpandido: RectBox = {
-          x: rectQr.x - mmAPuntos(1),
-          y: rectQr.y - mmAPuntos(1),
-          width: rectQr.width + mmAPuntos(2),
-          height: rectQr.height + mmAPuntos(2)
-        };
-        const bloquesNoGrapables = [
-          ...headerSlotBoxes,
-          ...headerTextBlocks,
-          ...headerIconBoxes,
-          ...headerFieldBoxes,
-          ...questionPromptBoxes,
-          ...questionTextInkBoxes,
-          ...omrPanelBoxes
-        ];
-        const qrInvadido = rectInterseca(stapleKeepOutZone, rectQrExpandido);
-        const contenidoInvadido = bloquesNoGrapables.filter((caja) => rectInterseca(stapleKeepOutZone!, caja)).map(({ id }) => id);
-        if (qrInvadido || contenidoInvadido.length > 0) {
-          throw new Error(`Layout invalido: reserva de engrapado invade qr=${qrInvadido}, contenido=${contenidoInvadido.join(',')}`);
-        }
-        // Calado blanco sin cobertura de tinta: evita que el marco y el
-        // ornamento preexistentes atraviesen la marca de engrapado.
-        page.drawRectangle({ ...stapleZone, color: rgb(1, 1, 1) });
-        const pasoPuntosGrapa = 4.2;
-        const puntoIzquierdo = stapleZone.x + 1;
-        const puntoDerecho = stapleZone.x + stapleZone.width - 1;
-        for (let y = stapleZone.y + 2; y <= stapleZone.y + stapleZone.height - 2; y += pasoPuntosGrapa) {
-          page.drawCircle({ x: puntoIzquierdo, y, size: 0.28, color: colorAcento, opacity: 0.12 });
-          page.drawCircle({ x: puntoDerecho, y, size: 0.28, color: colorAcento, opacity: 0.12 });
-        }
-        for (let x = stapleZone.x + 2; x <= stapleZone.x + stapleZone.width - 2; x += pasoPuntosGrapa) {
-          page.drawCircle({ x, y: stapleZone.y + 1, size: 0.28, color: colorAcento, opacity: 0.12 });
-          page.drawCircle({ x, y: stapleZone.y + stapleZone.height - 1, size: 0.28, color: colorAcento, opacity: 0.12 });
-        }
-        const centroGrapa = {
-          x: stapleZone.x + stapleZone.width / 2,
-          y: stapleZone.y + stapleZone.height / 2
-        };
-        const mediaCorona = mmAPuntos(6.4);
-        const extensionPata = mmAPuntos(3);
-        for (const signo of [-1, 1] as const) {
-          const extremo = { x: centroGrapa.x, y: centroGrapa.y + signo * mediaCorona };
-          page.drawLine({
-            start: extremo,
-            end: { x: extremo.x + extensionPata, y: extremo.y },
-            color: colorPrimario,
-            thickness: 0.5
-          });
-        }
-        page.drawLine({
-          start: { x: centroGrapa.x, y: centroGrapa.y - mediaCorona },
-          end: { x: centroGrapa.x, y: centroGrapa.y + mediaCorona },
-          color: colorPrimario,
-          thickness: 0.5
-        });
-        const etiquetaGrapa = 'GRAPA';
-        const etiquetaGrapaSize = 4.2;
-        const etiquetaGrapaWidth = fuente.widthOfTextAtSize(etiquetaGrapa, etiquetaGrapaSize);
-        const etiquetaGrapaFontHeight = fuenteBold.heightAtSize(etiquetaGrapaSize);
-        const etiquetaGrapaX = stapleZone.x + mmAPuntos(1.2);
-        const etiquetaGrapaY = stapleZone.y + (stapleZone.height - etiquetaGrapaWidth) / 2;
-        stapleLabelZone = {
-          x: etiquetaGrapaX,
-          y: etiquetaGrapaY,
-          width: etiquetaGrapaFontHeight,
-          height: etiquetaGrapaWidth,
-          rotation: 270
-        };
-        page.drawText(etiquetaGrapa, {
-          x: etiquetaGrapaX,
-          y: etiquetaGrapaY + etiquetaGrapaWidth,
-          size: etiquetaGrapaSize,
-          font: fuenteBold,
-          color: colorPrimario,
-          rotate: degrees(270)
-        });
-      }
-
-      if (stapleKeepOutZone) {
-        if (!esPrimera) {
-          const cajasContenidoEnReserva = [
-            { id: 'qr', ...rectQr },
-            ...headerSlotBoxes,
-            ...headerTextBlocks,
-            ...headerIconBoxes,
-            ...headerFieldBoxes,
-            ...questionPromptBoxes,
-            ...omrPanelBoxes,
-            ...continuationTextBlocks
-          ];
-          const colisionesReserva = cajasContenidoEnReserva
-            .filter((caja) => rectInterseca(stapleKeepOutZone!, caja))
-            .map(({ id }) => id);
-          if (colisionesReserva.length > 0) {
-            throw new Error(`Layout invalido: la reserva de engrapado invade ${colisionesReserva.join(', ')} en la pagina ${numeroPagina}`);
-          }
-          page.drawRectangle({ ...stapleKeepOutZone, color: rgb(1, 1, 1) });
-        }
-        for (const pregunta of mapaPagina) {
-          for (const opcion of pregunta.opciones) {
-            const puntoX = Math.max(stapleKeepOutZone.x, Math.min(opcion.x, stapleKeepOutZone.x + stapleKeepOutZone.width));
-            const puntoY = Math.max(stapleKeepOutZone.y, Math.min(opcion.y, stapleKeepOutZone.y + stapleKeepOutZone.height));
-            if (Math.hypot(opcion.x - puntoX, opcion.y - puntoY) < perfilOmr.burbujaRadio) {
-              throw new Error(`Layout invalido: una burbuja OMR invade la reserva fisica de engrapado en la pagina ${numeroPagina}`);
-            }
-          }
-        }
-      }
-
-      const alturaUtil = Math.max(1, cursorYInicio - alturaDisponibleMin);
-      const alturaRestante = Math.max(0, cursorY - alturaDisponibleMin);
-      const fraccionVacia = Math.max(0, Math.min(1, alturaRestante / alturaUtil));
-      metricasPaginas.push({ numero: numeroPaginaPdf, fraccionVacia, preguntas: mapaPagina.length });
-
-      if (mapaPagina.length === 0 && (preguntasDel !== 0 || preguntasAl !== 0)) {
-        throw new Error(`Layout invalido: rangos inconsistentes en pagina ${numeroPagina}`);
-      }
-      if (mapaPagina.length > 0) {
-        const esperadoDel = mapaPagina[0]?.numeroPregunta ?? 0;
-        const esperadoAl = mapaPagina[mapaPagina.length - 1]?.numeroPregunta ?? 0;
-        if (preguntasDel !== esperadoDel || preguntasAl !== esperadoAl) {
-          throw new Error(
-            `Layout invalido: pagina ${numeroPagina} calculada ${preguntasDel}-${preguntasAl} pero render ${esperadoDel}-${esperadoAl}`
-          );
-        }
-      }
-
-      paginasMeta.push({ numero: numeroPaginaPdf, qrTexto: qrTextoPagina, preguntasDel, preguntasAl, tipoPagina: 'examen' });
-      paginasOmr.push({
-        numeroPagina: numeroPaginaPdf,
-        tipoPagina: 'examen',
-        duplex: {
-          hoja: Math.ceil(numeroPaginaPdf / 2),
-          lado: numeroPaginaPdf % 2 === 1 ? 'frente' : 'reverso',
-          indiceEnHoja: numeroPaginaPdf % 2 === 1 ? 1 : 2
-        },
-        templateVersion: perfilOmr.version,
-        templateId: perfilOmr.templateId,
-        markerSpec,
-        engineHints,
-        qr: {
-          texto: qrTextoPagina,
-          x: xQr,
-          y: yQr,
-          size: qrSize,
-          padding: qrPadding,
-          errorCorrectionLevel: qrInfo.errorCorrectionLevel,
-          marginModules: qrInfo.marginModules,
-          matrixModules: qrInfo.matrixModules,
-          moduleSize: qrInfo.moduleSize
-        },
-        marcasPagina,
-        preguntas: mapaPagina,
-        layoutDebug: {
-          layoutTemplateVersion: TEMPLATE_VERSION_CANONICA,
-          header: { x: rectHeader.x, y: rectHeader.y, width: rectHeader.width, height: rectHeader.height },
-          bindingZone: stapleZone,
-          bindingKeepOutZone: stapleKeepOutZone,
-          bindingLabel: stapleLabelZone,
-          continuationTextBlocks,
-          qr: { x: rectQr.x, y: rectQr.y, width: rectQr.width, height: rectQr.height },
-          instructions: rectIndicaciones,
-          headerSlots: headerSlotBoxes,
-          headerIconBoxes,
-          headerTextBlocks,
-          headerFieldBoxes,
-          plannedQuestionHeights: alturasPlanificadasRenderizadas,
-          lineHeightViolations: lineHeightViolations
-            .filter((v) => v.pagina === numeroPagina)
-            .map((v) => ({ preguntaId: v.preguntaId, lineHeight: v.lineHeight, min: v.min })),
-          contentStartY: cursorYInicio,
-          contentEndY: cursorY,
-          questionBlockBoxes,
-          questionBackgroundBoxes,
-          questionPromptBoxes,
-          omrPanelBoxes,
-          omrQuestionNumberBoxes,
-          collisionBoxes
-        }
-      });
-
-      if (reversoEnBlanco) {
-        // La candidata integrada mantiene sus burbujas en una sola cara de
-        // cada hoja: el reverso vacÃ­o evita que la tinta impresa atraviese el
-        // papel y cambie el umbral de lectura en fotos mÃ³viles.
-        pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
-        const numeroReversoPdf = pdfDoc.getPageCount();
-        paginasMeta.push({
-          numero: numeroReversoPdf,
-          qrTexto: '',
-          preguntasDel: 0,
-          preguntasAl: 0,
-          tipoPagina: 'reverso-vacio'
-        });
-        metricasPaginas.push({ numero: numeroReversoPdf, fraccionVacia: 1, preguntas: 0 });
-        paginasOmr.push({
-          numeroPagina: numeroReversoPdf,
-          tipoPagina: 'reverso-vacio',
-          duplex: {
-            hoja: Math.ceil(numeroReversoPdf / 2),
-            lado: 'reverso',
-            indiceEnHoja: 2
-          },
-          templateVersion: perfilOmr.version,
-          templateId: perfilOmr.templateId,
-          preguntas: []
-        });
-      }
-
-      numeroPagina += 1;
-    }
-
-    const paginasExamen = paginasMeta.filter((pagina) => pagina.tipoPagina === 'examen');
-    const posicionesPie = [ANCHO_CARTA * 0.1, ANCHO_CARTA * 0.52];
-    const anchoZonaPie = ANCHO_CARTA * 0.38;
-    const pieSizePreferido = 9.5;
-    const pieSizeReducido = 8.5;
-    const pieY = margen + 2.5;
-    const piePanel: RectBox = {
-      x: posicionesPie[0]!,
-      y: margen + pieOffsetY,
-      width: ANCHO_CARTA * 0.8,
-      height: pieAltura
-    };
-    for (const [indicePagina, paginaMeta] of paginasExamen.entries()) {
-      const page = pdfDoc.getPages()[paginaMeta.numero - 1];
-      if (!page) throw new Error(`Layout invalido: no existe la pagina ${paginaMeta.numero} para dibujar el pie`);
-      const paginaOmr = paginasOmr.find((pagina) => pagina.numeroPagina === paginaMeta.numero);
-      const marcasFooter = paginaOmr?.marcasPagina;
-      if (!marcasFooter) throw new Error(`Layout invalido: faltan fiduciales para el pie de pagina ${paginaMeta.numero}`);
-      const quietZonesFooter: RectBox[] = (['tl', 'tr', 'bl', 'br'] as const).map((esquina) => {
-        const marca = marcasFooter[esquina];
-        const izquierda = esquina.endsWith('l');
-        const superior = esquina.startsWith('t');
-        const extension = marcasFooter.quietZone + mmAPuntos(2);
-        return {
-          x: (izquierda ? marca.x : marca.x - marcasFooter.size) - extension,
-          y: (superior ? marca.y - marcasFooter.size : marca.y) - extension,
-          width: marcasFooter.size + extension * 2,
-          height: marcasFooter.size + extension * 2
-        };
-      });
-      const cajasContenidoPie = [
-        ...(paginaOmr.layoutDebug?.qr ? [paginaOmr.layoutDebug.qr] : []),
-        ...(paginaOmr.layoutDebug?.questionBlockBoxes ?? []),
-        ...(paginaOmr.layoutDebug?.questionPromptBoxes ?? []),
-        ...(paginaOmr.layoutDebug?.omrPanelBoxes ?? []),
-        ...paginaOmr.preguntas.flatMap((pregunta) => (pregunta.textRuns ?? []).map((run) => run.bbox))
-      ];
-      const colisionesPie = cajasContenidoPie.filter((caja) => rectInterseca(piePanel, caja));
-      if (colisionesPie.length > 0) {
-        const diagnostico = colisionesPie.map((caja) =>
-          `${'id' in caja ? caja.id : 'bloque'}(${caja.x.toFixed(1)},${caja.y.toFixed(1)},${caja.width.toFixed(1)},${caja.height.toFixed(1)})`
-        );
-        throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
-      }
-      const numeroPaginaExamen = indicePagina + 1;
-      const pieTexto = `FOLIO ${examen.folioNormalizado} Â· P${numeroPaginaExamen}`;
-      let pieSize = pieSizePreferido;
-      let pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
-      if (pieWidth > anchoZonaPie) {
-        pieSize = pieSizeReducido;
-        pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
-      }
-      if (pieWidth > anchoZonaPie) {
-        throw new Error(`Layout invalido: la referencia OCR de la pagina ${numeroPaginaExamen} excede el ancho permitido a ${pieSize} pt`);
-      }
-      const posicionesTexto: RectBox[] = [];
-      page.drawRectangle({
-        ...piePanel,
-        color: rgb(1, 1, 1),
-        borderColor: colorLinea,
-        borderWidth: 0.45,
-        borderOpacity: 0.7
-      });
-      page.drawLine({
-        start: { x: ANCHO_CARTA * 0.5, y: piePanel.y + 1.5 },
-        end: { x: ANCHO_CARTA * 0.5, y: piePanel.y + piePanel.height - 1.5 },
-        color: colorLinea,
-        thickness: 0.45,
-        opacity: 0.75
-      });
-      for (const [indice, pieX] of posicionesPie.entries()) {
-        const x = pieX + (anchoZonaPie - pieWidth) / 2;
-        const bbox = { x, y: pieY - 1, width: pieWidth, height: pieSize + 2 };
-        assertRectDentroPagina(bbox, `referencia OCR ${indice + 1} de pagina ${numeroPaginaExamen}`);
-        if (quietZonesFooter.some((quietZone) => rectInterseca(bbox, quietZone))) {
-          throw new Error(`Layout invalido: referencia OCR ${indice + 1} invade un fiducial en la pagina ${numeroPaginaExamen}`);
-        }
-        posicionesTexto.push(bbox);
-        page.drawText(pieTexto, { x, y: pieY, size: pieSize, font: fuenteOcr, color: colorPrimario });
-      }
-      if (paginaOmr?.layoutDebug) {
-        paginaOmr.layoutDebug.footerReferences = posicionesTexto.map((bbox) => ({
-          text: pieTexto,
-          fontFamily: StandardFonts.HelveticaBold,
-          size: pieSize,
-          bbox
-        }));
-      }
-    }
-
-    // Los reversos del candidato integrado son blancos; la plantilla canÃ³nica
-    // conserva su paginaciÃ³n histÃ³rica sin insertar caras adicionales.
-    if (paginasOmr.length !== paginasMeta.length || metricasPaginas.length !== paginasMeta.length) {
-      throw new Error('Layout invalido: la salida PDF no conserva correspondencia entre paginas, mapa OMR y metricas');
-    }
-
-    const pdfBytes = Buffer.from(await pdfDoc.save());
-    const preguntasRestantes = Math.max(0, totalPreguntas - indicePregunta);
-
-    return {
-      pdfBytes,
-      layoutEngine: 'pdf-lib-canonical',
-      layoutTemplateVersion: TEMPLATE_VERSION_CANONICA,
-      paginas: paginasMeta,
-      metricasPaginas,
-      metricasLayout: {
-        minLineHeightApplied: Number.isFinite(minLineHeightApplied) ? minLineHeightApplied : lineaOpcion,
-        fontSizePregunta: sizePregunta,
-        fontSizeOpcion: sizeOpcion,
-        fontSizeIndicaciones: 8 * fontScaleCabecera,
-        lineHeightPregunta: lineaPregunta,
-        lineHeightOpcion: lineaOpcion,
-        preguntasConFormatoRico: preguntasOrdenadas.length,
-        imagenesIntentadas,
-        imagenesRenderizadas,
-        imagenesFallidas,
-        logosOmitidos
-      },
-      mapaOmr: {
-        margenMm,
-        templateVersion: perfilOmr.version,
-        templateId: perfilOmr.templateId,
-        markerSpec,
-        blockSpec,
-        engineHints,
-        impresion: {
-          modo: 'duplex',
-          volteo: 'borde-largo',
-          paginasPorHoja: 2,
-          toleranciaRegistroMm: (() => {
-            const valor = Number.parseFloat(process.env.EXAMEN_OMR_TOLERANCIA_REGISTRO_DUPLEX_MM ?? '3');
-            return Number.isFinite(valor) ? Math.min(10, Math.max(0, valor)) : 3;
-          })()
-        },
-        perfilLayout: {
-          gridStepPt: this.perfilLayout.gridStepPt,
-          headerHeightFirst: this.perfilLayout.headerHeightFirst,
-          headerHeightOther: this.perfilLayout.headerHeightOther,
-          bottomSafePt: this.perfilLayout.bottomSafePt,
-          usarRellenosDecorativos: this.perfilLayout.usarRellenosDecorativos,
-          usarEtiquetaOmrSolida: this.perfilLayout.usarEtiquetaOmrSolida
-        },
-        perfil: {
-          qrSize: perfilOmr.qrSize,
-          qrPadding: perfilOmr.qrPadding,
-          qrMarginModulos: perfilOmr.qrMarginModulos,
-          marcasEsquina: perfilOmr.marcasEsquina,
-          marcaCuadradoSize: perfilOmr.marcaCuadradoSize,
-          marcaCuadradoQuietZone: perfilOmr.marcaCuadradoQuietZone,
-          burbujaRadio: perfilOmr.burbujaRadio,
-          burbujaPasoY: perfilOmr.burbujaPasoY,
-          burbujaPasoX: perfilOmr.burbujaPasoX,
-          orientacion: perfilOmr.orientacion,
-          cajaOmrAncho: perfilOmr.cajaOmrAncho,
-          fiducialSize: perfilOmr.fiducialSize,
-          bubbleStrokePt: perfilOmr.bubbleStrokePt,
-          labelToBubbleMm: perfilOmr.labelToBubbleMm,
-          preguntasPorBloque: perfilOmr.preguntasPorBloque,
-          opcionesPorPregunta: perfilOmr.opcionesPorPregunta
-        },
-        paginas: paginasOmr
-      },
-      preguntasRestantes
-    };
-  }
-}
+YªçŠx³¬uç%j·Â+ar‰ì¶ë•ë_¢ºŞjË"‚v›•ëÚ®&›•ëÊŠ‚ˆ
+ˆ’Ú]™[™\™\‚ˆ
+‚ˆ
+ˆ™\ÜÛœØXš[YYˆ[Ù[È[\››È[Ú\İ[XK‚ˆ
+ˆ[Z]\ÎˆX[[™\ˆÛÛ˜]ÈHÛÛ\Ü[ZY[ÈØœÙ\˜X›H[[Ù[Ë‚ˆ
+‹Âš[\ÜœÈœ›ÛH	Û›ÙN™œËÜ›ÛZ\Ù\ÉÎÂš[\Ü]œ›ÛH	Û›ÙNœ]	ÎÂš[\Ü›ÛÚ]œ›ÛH	Ğ‹[X‹Ù›ÛÚ]	ÎÂš[\ÜÂˆ[™PØ\İ[Kˆ‘Øİ[Y[ˆİ[™\™›ÛËˆ^™[™\š[™Ó[ÙKˆÛ^ZËˆYÜ™Y\ËˆÜÜ˜\XÜÔİ]Kˆ\ÚÜ˜\XÜÔİ]Kˆ™Ø‹ˆÙ][™UÚYˆÙ]İ›ÚÚ[™ĞÛÛÜ‹ˆÙ]^™[™\š[™Ó[ÙKˆ\H‘›Ûˆ\H’[XYÙKˆ\H”YÙBŸHœ›ÛH	Ü‹[X‰ÎÂš[\ÜTÛÙHœ›ÛH	Ü\˜ÛÙIÎÃBš[\ÜÚ\œœ›ÛH	ÜÚ\œ	ÎÃBš[\Ü\HÈ^[Y[”ˆHœ›ÛH	Ë‹‹ÙÛXZ[‹Ù^[Y[”‹šœÉÎÂš[\ÜÃBˆS×ĞĞT•KBˆSÒ×ĞĞT•KBˆSWĞWÔS•ÔËBˆ\H›ØÚÔÜXÓÛ\‹Bˆ\H[™Ú[™R[ÓÛ\‹Bˆ\HX\šÙ\”ÜXÓÛ\‹Bˆ\HYÚ[˜SÛ\‹Bˆ\H\™š[^[İ][\™\Ú[Û‹Bˆ\H\™š[[[SÛ\‹Bˆ\H™\İ[YÑÙ[™\˜XÚ[Û”ƒBŸHœ›ÛH	Ë‹‹ÜÚ\™Yİ\ÜÔ‹šœÉÎÂš[\ÜÈT‘’SÓÓT—ĞĞS“Ó’PÓËT‘’SÓÓT—ÒS“S‘WÑVSHHœ›ÛH	Ë‹‹ÙÛXZ[‹Û^[İ]^[Y[‹šœÉÎÂš[\ÜÈSTUWÕ‘T”ÒSÓ—ĞĞS“Ó’PĞHHœ›ÛH	Ë‹‹ÙÛXZ[‹İ[\]PØ[›ÛšXÛËšœÉÎÂš[\ÜÈ—Õ’TÕPSĞTÑSS‘WÔ‘ĞˆHœ›ÛH	Ë‹Ü•š\İX[˜\Ù[[™KšœÉÎÂš[\ÜÂˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜T‹ˆ›Ü›X[^˜\‘[[˜ÚXYĞ˜[˜ÛÂŸHœ›ÛH	Ë‹‹Ë‹‹Û[Ù[×Ø˜[˜Û×Ü™Yİ[\ËÚ[™^šœÉÎÂ‚\H\™š[[[T™[™\ˆH\™š[[[SÛ\ˆ	ˆÂˆ™\œÚ[ÛˆÂˆ\”˜\İ\”ØØ[Nˆ[X™\Âˆ\˜Z˜Tİ›ÚÙNˆ[X™\ÃBˆ\˜Z˜SÙ™œÙ]ˆ[X™\ÃBˆÛ\’XY\‘Ø\ˆ[X™\ÃBˆÛ\•YÕÚYˆ[X™\ÃBˆÛ\•YÒZYÚˆ[X™\ÃBˆÛ\•YÑ›ÛÚ^™Nˆ[X™\ÃBˆÛ\“X™[›ÛÚ^™Nˆ[X™\ÃBˆÛ\›Ş›Ü™\•ÚYˆ[X™\ÃBˆÛ\”[™[Y[™Îˆ[X™\ÃBˆšYXÚX[X\™Ú[ˆ[X™\ÃBˆšYXÚX[]ZY]›Û™Nˆ[X™\ÃBŸNÃBƒB\HÙÛÑ[X™YHÃBˆ[XYÙNˆ’[XYÙNÃBˆÚYˆ[X™\ÃBˆZYÚˆ[X™\ÃBŸNÃBƒB\HÙYÛY[Õ^ÈHÂˆ^Îˆİš[™ÎÂˆ›Ûˆ‘›ÛÂˆÚ^™Nˆ[X™\Âˆ\ĞÛÙYÛÏÎˆ›ÛÛX[ÂˆÊŠˆ]š]HÙ\\˜\ˆ[˜H›Ü›][H[™H˜\ÙKÜ\˜YÜˆHİX‹Üİ\\š[™XÙKˆ
+‹Âˆ›ÕÜ˜\Îˆ›ÛÛX[ÂˆİXœ˜^XYÏÎˆ›ÛÛX[ÂˆÙ™œÙ]OÎˆ[X™\Âˆ\ÜXÚ[Ğ[\ÏÎˆ›ÛÛX[Âˆ\ÜXÚ[Ñ\ÜY\ÏÎˆ›ÛÛX[ÂŸNÂ\H[™XTÙYÛY[ÜÈHÈÙYÛY[ÜÎˆÙYÛY[Õ^Ö×NÈ[™RZYÚˆ[X™\ˆNÃB\H™Xİ›ŞHÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆNÃB\HÛÛÜˆH™]\›•\O\[Ùˆ™Øˆ™]\›•\O\[ÙˆÛ^ZÏÂ\H\İ[Õ^ÈH	Ü™Yİ[\‰È	Ø›Û	È	Ú][XÉÎÃB\H^[‘XYÈHÂˆ\Îˆ	İ^ÉÈ	ØÛÙYÛÉÎÃBˆY[Nˆİš[™ÎÃBˆÚ^™Nˆ[X™\ÃBˆ[™RZYÚˆ[X™\ÃBˆ˜›Şˆ™Xİ›ŞÃBŸNÃBƒB˜ÛÛœİT‘’SÓÓT—ĞĞS“Ó’PÓ×Ô‘S‘Tˆ\™š[[[T™[™\ˆHÂˆ‹‹”T‘’SÓÓT—ĞĞS“Ó’PÓËˆ™\œÚ[ÛˆˆËÈ\ØØ[H[\˜H[NˆÛÛœÙ\˜H›Ü™\È°ë]YÜÈ[ˆ[š]X\[X™XšYÈ[\ÂˆËÈH]YH[š]™\ˆ\ÛÛˆÈ˜\İ\šXÙH[[Xpì[È°ë\ÚXÛÈ[ğë[X›ÛË‚ˆ\”˜\İ\”ØØ[Nˆˆ\˜Z˜Tİ›ÚÙNˆKˆ\˜Z˜SÙ™œÙ]ˆˆÛ\’XY\‘Ø\ˆBˆËÈH[œÚYÛšXH[pê\šXØH]YYH[ˆH˜[™Hİ\\š[Ü‹Ù\\˜YH™\XØ[Y[BˆËÈHHš[Y\˜H\˜Z˜KˆİH[Xpì[ÈÛÛ\XİÈ]š]H]YHÙH[\œ™]HÛÛ[ÂˆËÈ[H™XÚ[˜H[›È[“ÒHÓTˆ[˜\İ\š^˜\‹‚ˆËÈH]\]Y]H]YYHpè\È[HHYÚX›K\›ÈÚYİYHÚY[™È[˜HÙpìX[ˆËÈ]^[X\ˆY\˜HHH™[[˜HÚ\˜İ[\ˆH™\ÜY\İKˆ[[Xpì[È\›Z]BˆËÈY[YšXØ\ˆ[™XXİ]›È[Xšpê[ˆ\Üpê\ÈH›İÙÜ˜YšX\ˆHÚ˜K‚ˆÛ\•YÕÚYˆM‹ˆËÈHØZ˜H™YXÚYHÛÛœÙ\˜H[[Y\›È[ˆHX™\˜HKŒˆš\ÚX›\ÂˆËÈ[\ÈHHš[Y\˜H\˜Z˜KÚ[ˆ][Y[\ˆH[\˜H[[™[‚ˆÛ\•YÒZYÚˆËˆÛ\•YÑ›ÛÚ^™NˆˆÛ\“X™[›ÛÚ^™NˆK‹ˆÛ\›Ş›Ü™\•ÚYˆKBˆËÈ\È]ZY]›Û™\ÈXH›Ü›X[ˆ\H[[™[È›ÈpìXY\ˆ[ˆ[È›[˜ÛÂˆËÈ^\š[Üˆ]YHYÜ˜[™H[™Xİ0è[™İ[Èš\ÚX›HÚ[ˆ\Ü\ˆÙpìX[ÓT‹‚ˆÛ\”[™[Y[™ÎˆˆšYXÚX[X\™Ú[ˆKˆšYXÚX[]ZY]›Û™NˆT‘’SÓÓT—ĞĞS“Ó’PÓË™šYXÚX[]ZY]›Û™HÏÈˆ
+ˆSWĞWÔS•ÔËˆX˜›Tİ›ÚÙTˆKŸNÂ‚˜ÛÛœİ•QS•WÑPÓÑ“Ó•ĞTÒU“ÈH	ÙXÛÙ›Ûİ™\˜WÜØ[œ×Ü™Yİ[\‹‰ÎÂ˜ÛÛœİ•QS•WÑPÓÑ“Ó•ÑSRSPHH	ÑXÛÙ›Û™\˜HØ[œÉÎÂ˜ÛÛœİT—ÔÕTWĞÓPTSÑWÓSHHLNÂƒB™[˜İ[Ûˆ[PT[ÜÊ[Nˆ[X™\ŠHÃBˆ™]\›ˆ[H
+ˆSWĞWÔS•ÔÎÃBŸCBƒB‹ËÈÛÛ\Ú[ÛˆPPˆ\˜H™]™[š\ˆÛÛ\\ÈH›Ü]Y\È[ˆH[[Hš[˜[ƒB™[˜İ[Ûˆ™Xİ[\œÙXØJNˆ™Xİ›Şˆ™Xİ›Ş
+Nˆ›ÛÛX[ˆÃBˆËÈ]š]H]YH[˜HY™\™[˜ÚXH›İ[HİX˜Ù[0ê\Ú[XHÛÛšY\HÜÈ›Ü™\ÂˆËÈ\ÙpìXYÜÈ\˜HØØ\œÙH[ˆ[ˆ˜[ÛÈÛÛ\HH[\™\ÚpìÛ‹‚ˆÛÛœİ\Ú[Û”HŒNÂˆ™]\›ˆK‹
+È‹ÚYH\Ú[Û”ˆ	‰ˆK
+ÈKÚYˆ‹
+È\Ú[Û”ˆ	‰ˆKH‹H
+È‹šZYÚH\Ú[Û”ˆ	‰ˆKH
+ÈKšZYÚˆ‹H
+È\Ú[Û”ÂŸCBƒB‹ËÈ˜[H[\˜[›ÈÚH[ˆ›Ü]YHÜš]XÛÈØ[H[\™XH[\š[ZX›KƒB™[˜İ[Ûˆ\ÜÙ\™Xİ[›ÔYÚ[˜J™Xİˆ™Xİ›Ş›ÛXœ™Nˆİš[™ÊHÂˆYˆ
+™Xİ™XİH™Xİ
+È™XİÚYˆSÒ×ĞĞT•H™XİH
+È™XİšZYÚˆS×ĞĞT•JHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ	Û›ÛXœ™_HY\˜HHHYÚ[˜X
+NÂˆBŸB‚‹ËÈÜÈ[[Y[ÜÈHY[YY›ÈÛÛÈX™[ˆ\İ\ˆ[›ÈHHÚ˜NˆX™[‚‹ËÈ\İ\ˆÛÛ[šYÜÈ[ˆH™\Ù\˜H]YHÜÈÛØšY\›˜KˆHÛ\˜[˜ÚXH\›Z]B‹ËÈXœÛÜ˜™\ˆ[™YÛ™[ÈH[ÜÈÚ[ˆØİ[\ˆ[ˆÛÛ\H™X[‚™[˜İ[Ûˆ\ÜÙ\™XİÛÛ[šYJ™Xİˆ™Xİ›ŞÛÛ[™YÜˆ™Xİ›Ş›ÛXœ™Nˆİš[™ËÛ\˜[˜ÚXHHŒJHÂˆYˆ
+ˆ™XİÛÛ[™YÜ‹HÛ\˜[˜ÚXHˆ™XİHÛÛ[™YÜ‹HHÛ\˜[˜ÚXHˆ™Xİ
+È™XİÚYˆÛÛ[™YÜ‹
+ÈÛÛ[™YÜ‹ÚY
+ÈÛ\˜[˜ÚXHˆ™XİH
+È™XİšZYÚˆÛÛ[™YÜ‹H
+ÈÛÛ[™YÜ‹šZYÚ
+ÈÛ\˜[˜ÚXBˆ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ	Û›ÛXœ™_HY\˜HHİH™\Ù\˜X
+NÂˆBŸBƒB™[˜İ[Ûˆ›Ü›X[^˜\‘\ÜXÚ[ÜÊ˜[Üˆİš[™ÊHÂˆ™]\›ˆ˜[Ü‹œ™\XÙJ×ÊËÙË	È	ÊKš[J
+NÂŸB‚™[˜İ[Ûˆ]Z]\”™YšZ›Ô™XXİ]›Ê^Îˆİš[™Ë[Y\›Îˆ[X™\ŠHÂˆÛÛœİ^Ó›Ü›X[^˜YÈH›Ü›X[^˜\‘[[˜ÚXYĞ˜[˜ÛÊ^ÊNÂˆÛÛœİ[Y\›Ñ\Ü\˜YÈHİš[™Ê[Y\›ÊKœ™\XÙJÖËŠŠÏ×‰ßJ
+_×WKÙË	×		‰ÊNÂˆÛÛœİ™YšZ›Ñ]\]Y]YÈH™]È™YÑ^
+ˆ—Ê
+ØK^—V×ËWJŠJÎ—Ö×—JŠOÏ—Ê”™XXİ]›×ÊÉÛ[Y\›Ñ\Ü\˜YßWÊ–ËŠWWO×Ê×O—Ê–ËŠWWO×Ê˜ˆ	ÚIÂˆ
+NÂˆÛÛœİ™YšZ›Ô[›ÈH™]È™YÑ^
+—Ê”™XXİ]›×ÊÉÛ[Y\›Ñ\Ü\˜YßWÊ–ËŠWWO×Ê˜	ÚIÊNÂˆ™]\›ˆ^Ó›Ü›X[^˜YËœ™\XÙJ™YšZ›Ñ]\]Y]YË	ÉÊKœ™\XÙJ™YšZ›Ô[›Ë	ÉÊNÂŸBƒB™[˜İ[ÛˆØ[š]^˜\•^ÔŠ˜[Üˆİš[™ÊHÂˆ™]\›ˆİš[™Ê˜[ÜˆÏÈ	ÉÊBˆœ™\XÙJ×LŒNL‹ÙË	ËO‰ÊCBˆœ™\XÙJ×LŒNLÙË	ÏIÊCBˆœ™\XÙJ×LŒNLKÙË	×‰ÊCBˆœ™\XÙJ×LŒNLËÙË	İ‰ÊCBˆœ™\XÙJ×LŒY‹ÙË	ÏO‰ÊCBˆœ™\XÙJ×LŒYÙË	ÏIÊCBˆœ™\XÙJ×LŒKÙË	ÏIÊBˆœ™\XÙJ×LŒÙË	ÏIÊBˆœ™\XÙJ×LŒŒÙË	ÈOIÊBˆœ™\XÙJ×LËÙË	ËIÊBˆœ™\XÙJ×LŒŒ‹ÙË	ËIÊBˆœ™\XÙJ×LXÙ‹ÙË	ÓÉÊBˆœ™\XÙJ×LYÙË	ÓÉÊBˆœ™\XÙJ×LÌMËÙË	Ş	ÊBˆœ™\XÙJ×LÌLËÙË	İ‰ÊBˆœ™\XÙJ×LŒMÙË	ËIÊBˆœ™\XÙJ×LŒLËÙË	ËIÊCBˆœ™\XÙJ×LŒXßLŒYÙË	È‰ÊCBˆœ™\XÙJ×LŒNLŒNKÙË‰ÈŠNÂŸB‚‹ËÈ[İ[›ÜÈY]Ü™\È[™YØ[ˆİX‹Üİ\\š[™XÙ\ÈÛÛ[ÈØ\˜Xİ\™\È[šXÛÙH[ˆ™^‚‹ËÈHSˆÛÛ™\\›ÜÈÛÛÈ[ˆ›Ü]Y\ÈH^È]š]H]YH[˜HY[HˆÚ[‚‹ËÈ\ÛÜÈÛY›ÜÈ›Ù^˜ØHİXY˜YÜËÚ[ˆ[\˜\ˆ›Ü]Y\ÈHÛÙYÛÈ[Û›Ù\ÜXÚXYË‚™[˜İ[Ûˆ›Ü›X[^˜\’[™XÙ\Õ[šXÛÙJ^Îˆİš[™ÊHÂˆÛÛœİİXš[™XÙ\Îˆ™XÛÜ™İš[™Ëİš[™ÏˆHÂˆ	ø  	Îˆ	Ì	Ë	ø  IÎˆ	ÌIË	ø  ‰Îˆ	Ì‰Ë	ø  ÉÎˆ	ÌÉË	ø ¡	Îˆ	Í	Ë	ø ¡IÎˆ	ÍIË	ø ¡‰Îˆ	Í‰Ë	ø ¡ÉÎˆ	ÍÉË	ø ¢	Îˆ	Î	Ë	ø ¢IÎˆ	ÎIËˆ	ø ¢‰Îˆ	ÊÉË	ø ¢ÉÎˆ	ËIË	ø £	Îˆ	ÏIË	ø £IÎˆ	Ê	Ë	ø £‰Îˆ	ÊIË	ø ¤	Îˆ	ØIË	ø ¤IÎˆ	ÙIË	ø ¥IÎˆ	Ú	Ë	ømh‰Îˆ	ÚIË	ø¬o	Îˆ	Ú‰Ëˆ	ø ¥‰Îˆ	ÚÉË	ø ¥ÉÎˆ	Û	Ë	ø ¦	Îˆ	ÛIË	ø ¦IÎˆ	Û‰Ë	ø ¤‰Îˆ	ÛÉË	ø ¦‰Îˆ	Ü	Ë	ømhÉÎˆ	Ü‰Ë	ø ¦ÉÎˆ	ÜÉË	ø §	Îˆ	İ	Ë	ømi	Îˆ	İIËˆ	ømiIÎˆ	İ‰Ë	ø ¤ÉÎˆ	Ş	ÂˆNÂˆÛÛœİİ\\š[™XÙ\Îˆ™XÛÜ™İš[™Ëİš[™ÏˆHÂˆ	ø l	Îˆ	Ì	Ë	ğ®IÎˆ	ÌIË	ğ¬‰Îˆ	Ì‰Ë	ğ¬ÉÎˆ	ÌÉË	ø m	Îˆ	Í	Ë	ø mIÎˆ	ÍIË	ø m‰Îˆ	Í‰Ë	ø mÉÎˆ	ÍÉË	ø n	Îˆ	Î	Ë	ø nIÎˆ	ÎIËˆ	ø n‰Îˆ	ÊÉË	ø nÉÎˆ	ËIË	ø o	Îˆ	ÏIË	ø oIÎˆ	Ê	Ë	ø o‰Îˆ	ÊIË	ø oÉÎˆ	Û‰Ë	ø lIÎˆ	ÚIÂˆNÂˆÛÛœİÛÛ™\\ˆH
+˜[Üˆİš[™ËX›Nˆ™XÛÜ™İš[™Ëİš[™Ï‹]\]Y]Nˆ	ÜİX‰È	Üİ\	ÊHO‚ˆ	Ù]\]Y]_O‰İX›Vİ˜[Ü—HÏÈ˜[ÜŸOÉÙ]\]Y]_O˜Âˆ™]\›ˆİš[™Ê^ÈÏÈ	ÉÊBˆœ™\XÙJÖø  8  x  ¸  ø ¡8 ¡x ¡¸ ¡ø ¢8 ¢x ¢¸ ¢ø £8 £x £¸ ¤8 ¤x ¥xmh¸¬o8 ¥¸ ¥ø ¦8 ¦x ¤¸ ¦¸mhø ¦ø §8mi8mix ¤×KÙË
+˜[ÜŠHOˆÛÛ™\\Š˜[Ü‹İXš[™XÙ\Ë	ÜİX‰ÊJBˆœ™\XÙJÖø l0®p¬°¬ø m8 mx m¸ mø n8 nx n¸ nø o8 ox o¸ oø lWKÙË
+˜[ÜŠHOˆÛÛ™\\Š˜[Ü‹İ\\š[™XÙ\Ë	Üİ\	ÊJNÂŸBƒB™[˜İ[Ûˆ\\ÛÙYÛÑ[“[™X\Ê^Îˆİš[™ÊHÃBˆ™]\›ˆİš[™Ê^ÈÏÈ	ÉÊCBˆœ™\XÙJ×—ËÙË	×‰ÊCBˆœÜ]
+	×‰ÊCBˆ›X\
+
+[™XJHOˆ[™XKœ™\XÙJ×ÙË	È	ÊJNÃBŸCBƒB‹ËÈ]XİH›Ü]Y\È™[˜ÙYÛÙH
+‹‹˜
+H\˜H™[™\ˆ[Û›Ù\ÜXÚXYËƒB™[˜İ[Ûˆ\\›Ü]Y\ĞÛÙYÛÊ^Îˆİš[™ÊHÃBˆÛÛœİÜ˜ÈHİš[™Ê^ÈÏÈ	ÉÊNÃBˆÛÛœİ›Ü]Y\Îˆ\œ˜^OÈ\Îˆ	İ^ÉÈ	ØÛÙYÛÉÎÈÛÛ[šYÎˆİš[™ÈOˆH×NÃBˆ][™XÙHHÃBƒBˆÚ[H
+[™XÙHÜ˜Ë›[™İ
+HÃBˆÛÛœİ[šXÚ[ÈHÜ˜Ëš[™^ÙŠ	Ø	Ë[™XÙJNÃBˆYˆ
+[šXÚ[ÈOOHLJHÃBˆ›Ü]Y\Ëœ\Ú
+È\Îˆ	İ^ÉËÛÛ[šYÎˆÜ˜ËœÛXÙJ[™XÙJHJNÃBˆœ™XZÎÃBˆCBƒBˆYˆ
+[šXÚ[Èˆ[™XÙJH›Ü]Y\Ëœ\Ú
+È\Îˆ	İ^ÉËÛÛ[šYÎˆÜ˜ËœÛXÙJ[™XÙK[šXÚ[ÊHJNÃBƒBˆÛÛœİš[ˆHÜ˜Ëš[™^ÙŠ	Ø	Ë[šXÚ[È
+ÈÊNÃBˆYˆ
+š[ˆOOHLJHÃBˆ›Ü]Y\Ëœ\Ú
+È\Îˆ	İ^ÉËÛÛ[šYÎˆÜ˜ËœÛXÙJ[šXÚ[ÊHJNÃBˆœ™XZÎÃBˆCBƒBˆÛÛœİİY\œÈHÜ˜ËœÛXÙJ[šXÚ[È
+ÈËš[ŠNÃBˆÛÛœİ[™X\ÈH\\ÛÙYÛÑ[“[™X\ÊİY\œÊNÃBˆÛÛœİš[Y\˜HH[™X\ÖÌHÏÈ	ÉÎÃBˆÛÛœİ™\İÈH[™X\ËœÛXÙJJNÃBˆÛÛœİ\™XÙS[™İXZ™HHš[Y\˜Kš[J
+K›[™İˆ	‰ˆ™\İË›[™İˆÃBˆ›Ü]Y\Ëœ\Ú
+È\Îˆ	ØÛÙYÛÉËÛÛ[šYÎˆ
+\™XÙS[™İXZ™HÈ™\İÈˆ[™X\ÊKš›Ú[Š	×‰ÊHJNÃBˆ[™XÙHHš[ˆ
+ÈÎÃBˆCBƒBˆ™]\›ˆ›Ü]Y\ÎÃBŸCBƒB‹ËÈÚÙ[š^˜HÛÙYÛÈ[›[™HÛÛˆ˜XÚİXÚÜÈ\˜H\İ[ÈY™\™[˜ÚXYËƒB™[˜İ[Ûˆ\\’[›[™PÛÙYÛÊ^Îˆİš[™ÊHÃBˆÛÛœİÜ˜ÈHİš[™Ê^ÈÏÈ	ÉÊNÃBˆÛÛœİØ[YNˆ\œ˜^OÈ\Îˆ	İ^ÉÈ	ØÛÙYÛÉÎÈÛÛ[šYÎˆİš[™ÈOˆH×NÃBˆ]XİX[H	ÉÎÃBˆ][ÛÙYÛÈH˜[ÙNÃBƒBˆ›Üˆ
+][™XÙHHÈ[™XÙHÜ˜Ë›[™İÈ[™XÙH
+ÏHJHÃBˆÛÛœİØ\˜Xİ\ˆHÜ˜ÖÚ[™XÙWNÃBˆYˆ
+Ø\˜Xİ\ˆOOH	Ø	ÊHÃBˆØ[YKœ\Ú
+È\Îˆ[ÛÙYÛÈÈ	ØÛÙYÛÉÈˆ	İ^ÉËÛÛ[šYÎˆXİX[JNÃBˆXİX[H	ÉÎÃBˆ[ÛÙYÛÈHY[ÛÙYÛÎÃBˆÛÛ[YNÃBˆCBˆXİX[
+ÏHØ\˜Xİ\ÃBˆCBƒBˆØ[YKœ\Ú
+È\Îˆ[ÛÙYÛÈÈ	ØÛÙYÛÉÈˆ	İ^ÉËÛÛ[šYÎˆXİX[JNÃBˆ™]\›ˆØ[YNÃBŸCBƒB™[˜İ[Ûˆ\\’[›[™Q\İ[ÜÓX\šÙİÛŠ^Îˆİš[™ÊHÂˆÛÛœİÜ˜ÈHİš[™Ê^ÈÏÈ	ÉÊNÂˆÛÛœİØ[YNˆ\œ˜^OÂˆ^Îˆİš[™ÎÂˆ\İ[Îˆ\İ[Õ^ÎÂˆİXœ˜^XYÎˆ›ÛÛX[Âˆ›ÕÜ˜\Îˆ›ÛÛX[Âˆ\ØØ[OÎˆ[X™\ÂˆÙ™œÙ]OÎˆ[X™\Âˆ\ÜXÚ[Ğ[\ÏÎˆ›ÛÛX[Âˆ\ÜXÚ[Ñ\ÜY\ÏÎˆ›ÛÛX[ÂˆOˆH×NÂˆ]XİX[H	ÉÎÂˆ]™YÜš]HH˜[ÙNÂˆ]İ\œÚ]˜HH˜[ÙNÂˆ]İXœ˜^XYÈH˜[ÙNÂƒBˆÛÛœİ\İ[ĞXİX[H
+
+Nˆ\İ[Õ^ÈOˆÃBˆYˆ
+™YÜš]JH™]\›ˆ	Ø›Û	ÎÃBˆYˆ
+İ\œÚ]˜JH™]\›ˆ	Ú][XÉÎÃBˆ™]\›ˆ	Ü™Yİ[\‰ÎÃBˆNÃBƒBˆÛÛœİ\ÚXİX[H
+
+HOˆÂˆYˆ
+XXİX[
+H™]\›ÂˆØ[YKœ\Ú
+Âˆ^ÎˆXİX[ˆ\İ[Îˆ\İ[ĞXİX[
+
+KˆİXœ˜^XYËˆ\ÜXÚ[Ğ[\Îˆ×—ËË\İ
+XİX[
+Kˆ\ÜXÚ[Ñ\ÜY\Îˆ×ÉË\İ
+XİX[
+BˆJNÂˆXİX[H	ÉÎÂˆNÂ‚ˆ]HHÂˆÚ[H
+HÜ˜Ë›[™İ
+HÂˆYˆ
+Ü˜ËœÛXÙJJK›X]Ú
+×O‹ÚJJHÂˆ\ÚXİX[
+
+NÂˆİXœ˜^XYÈHYNÂˆH
+ÏHÎÂˆÛÛ[YNÂˆBˆYˆ
+Ü˜ËœÛXÙJJK›X]Ú
+×İO‹ÚJJHÂˆ\ÚXİX[
+
+NÂˆİXœ˜^XYÈH˜[ÙNÂˆH
+ÏHÂˆÛÛ[YNÂˆBˆYˆ
+Ü˜ÖÚWHOOH	×ÉÈ	‰ˆÜ˜ÖÚH
+ÈWHOOH	×ÉÊHÂˆ\ÚXİX[
+
+NÂˆİXœ˜^XYÈH\İXœ˜^XYÎÂˆH
+ÏHÂˆÛÛ[YNÂˆBˆYˆ
+Ü˜ÖÚWHOOH	Ê‰È	‰ˆÜ˜ÖÚH
+ÈWHOOH	Ê‰ÊHÂˆ\ÚXİX[
+
+NÃBˆ™YÜš]HH[™YÜš]NÃBˆH
+ÏHÃBˆÛÛ[YNÃBˆCBˆYˆ
+Ü˜ÖÚWHOOH	Ê‰ÊHÃBˆ\ÚXİX[
+
+NÃBˆİ\œÚ]˜HHXİ\œÚ]˜NÃBˆH
+ÏHNÃBˆÛÛ[YNÃBˆCBˆXİX[
+ÏHÜ˜ÖÚWNÃBˆH
+ÏHNÃBˆCBˆ\ÚXİX[
+
+NÃBˆ™]\›ˆØ[YNÂŸB‚™^Ü[˜İ[ÛˆXÛÙYšXØ\‘[YY\ÔŠ^Îˆİš[™ÊHÂˆÛÛœİ[YY\Îˆ™XÛÜ™İš[™Ëİš[™ÏˆHÂˆ	É›˜œÜÉÎˆ	È	Ë	É˜[\ÉÎˆ	É‰Ë	É›ÉÎˆ	Ï	Ë	É™İÉÎˆ	Ï‰Ë	Éœ][İÉÎˆ	È‰Ë	ÉˆÌÎNÉÎˆ‰È‹	É˜\ÜÎÉÎˆ‰È‚ˆNÂˆ™]\›ˆİš[™Ê^ÈÏÈ	ÉÊKœ™\XÙJÉŠÎ›˜œÜ[\İ][İÌÎ_\ÜÊNËÙÚK
+[YY
+HOˆ[YY\ÖÙ[YYÓİÙ\Ø\ÙJ
+WHÏÈ[YY
+NÂŸB‚™[˜İ[Ûˆ\ØØ\\’[^ÔŠ^Îˆİš[™ÊHÂˆ™]\›ˆİš[™Ê^ÈÏÈ	ÉÊBˆœ™\XÙJÉ‹ÙË	É˜[\ÉÊBˆœ™\XÙJÏÙË	É›ÉÊBˆœ™\XÙJÏ‹ÙË	É™İÉÊBˆœ™\XÙJÈ‹ÙË	Éœ][İÉÊNÂŸB‚‹ËÈÛÛ™\œÛÜˆ[›[™H[X™\˜Y[Y[HXÛİYÎˆİXœ™HH›İXÚpìÛˆXš]X[B‹ËÈ™XXİ]›ÜÈHH˜[œÙ›Ü›XH[ˆS\ÙÜ°èYšXÛÈ]YH[™[™\™\ˆXHØX™HYY\‹‚‹ËÈ›È[[HZ™Xİ]\ˆVšHZ˜H]YH[ÛÛ[šYÈÙH[\œ™]HÛÛ[ÈS‚™[˜İ[ÛˆÛÛ™\\“]^R[
+^Îˆİš[™ÊHÂˆÛÛœİY[HHXÛÙYšXØ\‘[YY\ÔŠİš[™Ê^ÈÏÈ	ÉÊJBˆš[J
+Bˆœ™\XÙJ×—
+
+IÙË	ÉÊBˆœ™\XÙJ×—ßIÙË	ÉÊBˆœ™\XÙJ×—			ÙË	ÉÊBˆš[J
+NÂˆÛÛœİÛÛX[™ÜÎˆ™XÛÜ™İš[™Ëİš[™ÏˆHÂˆËÈHY[HH[\™\ÚpìÛˆ˜\ÙH›ÈÛÛY[™HÙÜÈÜÈÛY›ÜÈÜšYYÛÜÎÂˆËÈ\Ø\ˆ›ÛXœ™\ÈTĞÒRH]š]HİXY˜YÜÈ˜Xğë[ÜÈHX[Y[™HH°ìÜ›][HYÚX›BˆËÈ[˜Û\ÛÈİX[™È›ÈÙH\ÜÛ™HH[˜HY[HX][pè]XØHYXØYK‚ˆ[Nˆ	Ø[IË™]Nˆ	Ø™]IËØ[[XNˆ	ÙØ[[XIË[Nˆ	Ù[IË\Ú[Ûˆ	Ù\Ú[Û‰Ë]Nˆ	İ]IËˆ[X™Nˆ	Û[X™IË]Nˆ	Û]IËNˆ	óà	ËÚYÛXNˆ	ÜÚYÛXIËNˆ	ÜIËÛYYØNˆ	ÛÛYYØIËˆØ[[XNˆ	ÑØ[[XIË[Nˆ	Ñ[IË]Nˆ	Õ]IË[X™Nˆ	Ó[X™IËNˆ	ÔIËÚYÛXNˆ	ÔÚYÛXIËˆNˆ	ÔIËÛYYØNˆ	ÓÛYYØIËNˆ	ÊËËIË[Y\Îˆ	Ş	ËÙİˆ	Ê‰ËNˆ	ÏIË\Nˆ	ÏIËˆÙNˆ	ÏIËÙ\Nˆ	ÏIË™\Nˆ	ÈOIË\›Şˆ	ß‰Ë[™Nˆ	Ú[™š[š]IËÎˆ	ËO‰ËˆšYÚ\œ›İÎˆ	ËO‰ËY\œ›İÎˆ	ÏIË\X[ˆ	ø¢ ‰Ë[ˆ	ø¢*ÉËİ[Nˆ	ø¢$IÂˆNÂ‚ˆ[˜İ[ÛˆÜ\Ê[™XÙNˆ[X™\ŠNˆÈ[ˆİš[™ÎÈ[™XÙNˆ[X™\ˆHÂˆYˆ
+Y[VÚ[™XÙWHOOH	ŞÉÊH™]\›ˆÈ[ˆ	ÉË[™XÙHNÂˆ™]\›ˆœ˜YÛY[Ê[™XÙH
+ÈJNÂˆB‚ˆ[˜İ[Ûˆ]ÛJ[™XÙNˆ[X™\ŠNˆÈ[ˆİš[™ÎÈ[™XÙNˆ[X™\ˆHÂˆYˆ
+Y[VÚ[™XÙWHOOH	ŞÉÊH™]\›ˆÜ\Ê[™XÙJNÂˆYˆ
+Y[VÚ[™XÙWHOOH	×	ÊH™]\›ˆÛÛX[™Ê[™XÙJNÂˆ™]\›ˆÈ[ˆ\ØØ\\’[^ÔŠY[VÚ[™XÙWHÏÈ	ÉÊK[™XÙNˆ[™XÙH
+ÈHNÂˆB‚ˆ[˜İ[ÛˆÛÛX[™Ê[™XÙNˆ[X™\ŠNˆÈ[ˆİš[™ÎÈ[™XÙNˆ[X™\ˆHÂˆÛÛœİX]ÚH×ŠĞKV˜K^—JßŠKË™^XÊY[KœÛXÙJ[™XÙH
+ÈJJNÂˆYˆ
+[X]Ú
+H™]\›ˆÈ[ˆ	ÉË[™XÙNˆ[™XÙH
+ÈHNÂˆÛÛœİ›ÛXœ™HHX]ÚÌWHÏÈ	ÉÎÂˆ]ÚYİZY[HH[™XÙH
+ÈH
+È›ÛXœ™K›[™İÂˆYˆ
+›ÛXœ™HOOH	Ùœ˜XÉÊHÂˆÛÛœİ[Y\˜YÜˆHÜ\ÊÚYİZY[JNÂˆÛÛœİ[›ÛZ[˜YÜˆHÜ\Ê[Y\˜YÜ‹š[™XÙJNÂˆ™]\›ˆÈ[ˆ
+	Û[Y\˜YÜ‹š[JKÊ	Ù[›ÛZ[˜YÜ‹š[JX[™XÙNˆ[›ÛZ[˜YÜ‹š[™XÙHNÂˆBˆYˆ
+›ÛXœ™HOOH	ÜÜ\	ÊHÂˆYˆ
+Y[VÜÚYİZY[WHOOH	ÖÉÊHÂˆÛÛœİÚY\œ™HHY[Kš[™^ÙŠ	×IËÚYİZY[H
+ÈJNÂˆÚYİZY[HHÚY\œ™HOOHLHÈÚYİZY[HˆÚY\œ™H
+ÈNÂˆBˆÛÛœİ˜YXØ[™ÈHÜ\ÊÚYİZY[JNÂˆËÈXÛÙ›Û™\˜HØ[œÈÛÛY[™H[˜YXØ[È\Ø\›È]š]HH[Xœ˜BˆËÈœÜ\ˆYØYH[˜YXØ[™ÈHÛÛœÙ\˜HHÙ[pè[XØHX][pè]XØH[‚ˆËÈ[˜HÚ˜H[\™\ØHH[Xpì[È™YXÚYË‚ˆ™]\›ˆÈ[ˆ8¢&Š	Ü˜YXØ[™Ëš[JX[™XÙNˆ˜YXØ[™Ëš[™XÙHNÂˆBˆYˆ
+›ÛXœ™HOOH	İ^	È›ÛXœ™HOOH	ÛX]›IÈ›ÛXœ™HOOH	ÛX]]	ÊHÂˆÛÛœİÛÛ[šYÈHÜ\ÊÚYİZY[JNÂˆ™]\›ˆÈ[ˆÛÛ[šYËš[[™XÙNˆÛÛ[šYËš[™XÙHNÂˆBˆYˆ
+›ÛXœ™HOOH	ÛX]™‰ÊHÂˆÛÛœİÛÛ[šYÈHÜ\ÊÚYİZY[JNÂˆ™]\›ˆÈ[ˆİ›Û™Ï‰ØÛÛ[šYËš[OÜİ›Û™Ï˜[™XÙNˆÛÛ[šYËš[™XÙHNÂˆBˆYˆ
+›ÛXœ™HOOH	ÛY	È›ÛXœ™HOOH	ÜšYÚ	È›ÛXœ™HOOH	Ù\Ü^\İ[IÈ›ÛXœ™HOOH	ÜØÜš\İ[IÊHÂˆ™]\›ˆÈ[ˆ	ÉË[™XÙNˆÚYİZY[HNÂˆBˆYˆ
+›ÛXœ™HOOH	Ë	È›ÛXœ™HOOH	ÎÉÈ›ÛXœ™HOOH	Î‰È›ÛXœ™HOOH	ÈIÊHÂˆ™]\›ˆÈ[ˆ›ÛXœ™HOOH	ÈIÈÈ	ÉÈˆ	È	Ë[™XÙNˆÚYİZY[HNÂˆBˆYˆ
+›ÛXœ™HOOH	È	È›ÛXœ™HOOH	×	ÊH™]\›ˆÈ[ˆ›ÛXœ™HOOH	×	ÈÈ	Ïœ‰Èˆ	È	Ë[™XÙNˆÚYİZY[HNÂˆYˆ
+›ÛXœ™HOOH	ÉIÈ›ÛXœ™HOOH	×ÉÈ›ÛXœ™HOOH	ŞÉÈ›ÛXœ™HOOH	ßIÊHÂˆ™]\›ˆÈ[ˆ\ØØ\\’[^ÔŠ›ÛXœ™JK[™XÙNˆÚYİZY[HNÂˆBˆ™]\›ˆÈ[ˆ\ØØ\\’[^ÔŠÛÛX[™ÜÖÛ›ÛXœ™WHÏÈ›ÛXœ™JK[™XÙNˆÚYİZY[HNÂˆB‚ˆ[˜İ[Ûˆœ˜YÛY[Ê[™XÙR[šXÚX[ˆ[X™\ŠNˆÈ[ˆİš[™ÎÈ[™XÙNˆ[X™\ˆHÂˆ][™XÙHH[™XÙR[šXÚX[Âˆ][H	ÉÎÂˆÚ[H
+[™XÙHY[K›[™İ	‰ˆY[VÚ[™XÙWHOOH	ßIÊHÂˆÛÛœİØ\˜Xİ\ˆHY[VÚ[™XÙWNÂˆYˆ
+Ø\˜Xİ\ˆOOH	×‰ÈØ\˜Xİ\ˆOOH	×ÉÊHÂˆÛÛœİÚYİZY[HH]ÛJ[™XÙH
+ÈJNÂˆÛÛœİ]\]Y]HHØ\˜Xİ\ˆOOH	×‰ÈÈ	Üİ\	Èˆ	ÜİX‰ÎÂˆ[
+ÏH	Ù]\]Y]_O‰ÜÚYİZY[Kš[OÉÙ]\]Y]_O˜Âˆ[™XÙHHÚYİZY[Kš[™XÙNÂˆÛÛ[YNÂˆBˆÛÛœİÚYİZY[HHØ\˜Xİ\ˆOOH	×	ÈÈÛÛX[™Ê[™XÙJHˆ]ÛJ[™XÙJNÂˆ[
+ÏHÚYİZY[Kš[Âˆ[™XÙHHÚYİZY[Kš[™XÙNÂˆBˆ™]\›ˆÈ[[™XÙNˆY[VÚ[™XÙWHOOH	ßIÈÈ[™XÙH
+ÈHˆ[™XÙHNÂˆB‚ˆ™]\›ˆœ˜YÛY[Ê
+Kš[ÂŸB‚™[˜İ[Ûˆ™Y[\^˜\‘›Ü›][\Ó]^
+^Îˆİš[™ÊHÂˆ™]\›ˆİš[™Ê^ÈÏÈ	ÉÊKœ™\XÙJˆÏÜ[—–×—J—™]K[]^ÊWÊŠÎˆŠ×ˆ—JŠHŸ	Ê×‰×JŠIÊV×—J–×××JÏÜÜ[‹ÙÚKˆ
+ØÛÚ[˜ÚY[˜ÚXKØ›Nˆİš[™È[™Yš[™YÚ[\Nˆİš[™È[™Yš[™Y
+HO‚ˆX]‰ØÛÛ™\\“]^R[
+Ø›HÏÈÚ[\HÏÈ	ÉÊ_OÛX]˜ˆ
+NÂŸB‚™[˜İ[Ûˆ\\’[›[™Q\İ[ÜÒ[
+^Îˆİš[™ÊHÂˆÛÛœİØ[YNˆ\œ˜^OÂˆ^Îˆİš[™ÎÂˆ\İ[Îˆ\İ[Õ^ÎÂˆİXœ˜^XYÎˆ›ÛÛX[Âˆ›ÕÜ˜\ˆ›ÛÛX[Âˆ\ØØ[OÎˆ[X™\ÂˆÙ™œÙ]OÎˆ[X™\Âˆ\ÜXÚ[Ğ[\ÏÎˆ›ÛÛX[Âˆ\ÜXÚ[Ñ\ÜY\ÏÎˆ›ÛÛX[ÂˆOˆH×NÂˆÛÛœİ[Nˆ\œ˜^OÈ]\]Y]Nˆİš[™ÎÈ™YÜš]Nˆ›ÛÛX[Èİ\œÚ]˜Nˆ›ÛÛX[ÈİXœ˜^XYÎˆ›ÛÛX[È›ÕÜ˜\ˆ›ÛÛX[È\ØØ[Nˆ[X™\ÈÙ™œÙ]Nˆ[X™\ˆOˆH×NÂˆ]™YÜš]HH˜[ÙNÂˆ]İ\œÚ]˜HH˜[ÙNÂˆ]İXœ˜^XYÈH˜[ÙNÂˆ]›ÕÜ˜\H˜[ÙNÂˆ]\ØØ[HHNÂˆ]Ù™œÙ]HHÂˆÛÛœİYÜ™YØ\ˆH
+˜[Üˆİš[™ÊHOˆÂˆÛÛœİÛÛ[šYÈHXÛÙYšXØ\‘[YY\ÔŠ˜[ÜŠNÂˆYˆ
+ÛÛ[šYÊHØ[YKœ\Ú
+Âˆ^ÎˆÛÛ[šYËˆ\İ[Îˆ™YÜš]HÈ	Ø›Û	Èˆİ\œÚ]˜HÈ	Ú][XÉÈˆ	Ü™Yİ[\‰ËˆİXœ˜^XYËˆ›ÕÜ˜\ˆ\ØØ[KˆÙ™œÙ]Kˆ\ÜXÚ[Ğ[\Îˆ×—ËË\İ
+ÛÛ[šYÊKˆ\ÜXÚ[Ñ\ÜY\Îˆ×ÉË\İ
+ÛÛ[šYÊBˆJNÂˆNÂˆÛÛœİÚÙ[œÈH™Y[\^˜\‘›Ü›][\Ó]^
+İš[™Ê^ÈÏÈ	ÉÊJKœ™\XÙJÏœ—Ê—ÏÏ‹ÙÚK	×‰ÊKœÜ]
+Ê×—JÏŠKÙÊNÂˆ›Üˆ
+ÛÛœİÚÙ[ˆÙˆÚÙ[œÊHÂˆYˆ
+]ÚÙ[ŠHÛÛ[YNÂˆÛÛœİ[šXÚ[ÈH×ÊŠØK^ŒNWJÊJÎ—Ö×—JŠOÏ‰ÚK™^XÊÚÙ[ŠNÂˆÛÛœİÚY\œ™HH×Ê—×ÊŠØK^ŒNWJÊWÊ‰ÚK™^XÊÚÙ[ŠNÂˆYˆ
+Z[šXÚ[È	‰ˆXÚY\œ™JHÂˆYÜ™YØ\ŠÚÙ[ŠNÂˆÛÛ[YNÂˆBˆÛÛœİ]\]Y]HH
+[šXÚ[ÏË–ÌWHÏÈÚY\œ™OË–ÌWHÏÈ	ÉÊKÓİÙ\Ø\ÙJ
+NÂˆYˆ
+ÚY\œ™JHÂˆÛÛœİ[\š[ÜˆH[KœÜ
+
+NÂˆYˆ
+[\š[ÜŠH
+È™YÜš]Kİ\œÚ]˜KİXœ˜^XYË›ÕÜ˜\\ØØ[KÙ™œÙ]HHH[\š[ÜŠNÂˆÛÛ[YNÂˆBˆ[Kœ\Ú
+È]\]Y]K™YÜš]Kİ\œÚ]˜KİXœ˜^XYË›ÕÜ˜\\ØØ[KÙ™œÙ]HJNÂˆYˆ
+]\]Y]HOOH	Üİ›Û™ÉÈ]\]Y]HOOH	Ø‰ÊH™YÜš]HHYNÂˆ[ÙHYˆ
+]\]Y]HOOH	Ù[IÈ]\]Y]HOOH	ÚIÊHİ\œÚ]˜HHYNÂˆ[ÙHYˆ
+]\]Y]HOOH	İIÊHİXœ˜^XYÈHYNÂˆ[ÙHYˆ
+]\]Y]HOOH	ÛX]	ÊH›ÕÜ˜\HYNÂˆ[ÙHYˆ
+]\]Y]HOOH	ÜİX‰ÊHÈ\ØØ[HHÌÈÙ™œÙ]HHL‹ŒÎÈBˆ[ÙHYˆ
+]\]Y]HOOH	Üİ\	ÊHÈ\ØØ[HHÌÈÙ™œÙ]HHËÈBˆBˆ™]\›ˆØ[YNÂŸBƒB™[˜İ[Ûˆ›Ü›X[^˜\‘\ÜXÚ[ÜÔİX]™\Ê^Îˆİš[™ÊHÃBˆ™]\›ˆİš[™Ê^ÈÏÈ	ÉÊCBˆœ™\XÙJ×ÙË	È	ÊCBˆœ™\XÙJÖÈ^Ì‹KÙË	È	ÊCBˆš[J
+NÃBŸCBƒB™[˜İ[ÛˆÚYÙYÊÙYÛY[ÎˆÙYÛY[Õ^ÊHÃBˆ™]\›ˆÙYÛY[Ë™›ÛÚYÙ•^]Ú^™JÙYÛY[Ë^ËÙYÛY[ËœÚ^™JNÃBŸCBƒB‹ËÈÛÜ™]Ü˜\ÜˆÙYÛY[ÜÈ™\Ù\˜[™È\İ[È
+^ËØÛÙYÛÊHHÛÜ\ÈÙYİ\›ÜËƒB™[˜İ[Ûˆ[›Û™\”ÙYÛY[ÜÊÃBˆÙYÛY[ÜËBˆX^ÚYBˆ™\Ù\˜\‘\ÜXÚ[ÜÒ[šXÚX[\ÃBŸNˆÃBˆÙYÛY[ÜÎˆÙYÛY[Õ^Ö×NÃBˆX^ÚYˆ[X™\ÃBˆ™\Ù\˜\‘\ÜXÚ[ÜÒ[šXÚX[\ÏÎˆ›ÛÛX[ÃBŸJHÃBˆÛÛœİ[™X\ÎˆÙYÛY[Õ^Ö×V×HH×NÃBˆ]XİX[ˆÙYÛY[Õ^Ö×HH×NÃBˆ][˜ÚĞXİX[HÃBƒBˆÛÛœİ\Ú[™XHH
+
+HOˆÃBˆ[™X\Ëœ\Ú
+XİX[
+NÃBˆXİX[H×NÃBˆ[˜ÚĞXİX[HÃBˆNÃBƒBˆ][™XÙTÙYÛY[ÈHÂˆÚ[H
+[™XÙTÙYÛY[ÈÙYÛY[ÜË›[™İ
+HÂˆÛÛœİÙYÛY[ÈHÙYÛY[ÜÖÚ[™XÙTÙYÛY[×NÂˆÛÛœİ^ÈHİš[™ÊÙYÛY[Ë^ÈÏÈ	ÉÊNÂˆYˆ
+]^ÊHÂˆ[™XÙTÙYÛY[È
+ÏHNÂˆÛÛ[YNÂˆB‚ˆËÈ[˜H›Ü›][HÙHÛÛ\Û™HH˜\š[ÜÈÙYÛY[ÜÈ
+˜\ÙKİXš[™XÙHBˆËÈİ\\š[™XÙJKˆYÜ\\›ÜÈ\˜[H[Z\İHH[™XH]š]H]YH[‚ˆËÈ^Û™[H]YYHZ\ÛYÈ[ˆ[™[™ÛÛˆÚYİZY[K‚ˆYˆ
+ÙYÛY[Ë››ÕÜ˜\
+HÂˆÛÛœİÜ\ÎˆÙYÛY[Õ^Ö×HH×NÂˆ][˜ÚÑÜ\ÈHÂˆ]š[‘Ü\ÈH[™XÙTÙYÛY[ÎÂˆÚ[H
+š[‘Ü\ÈÙYÛY[ÜË›[™İ	‰ˆÙYÛY[ÜÖÙš[‘Ü\×OË››ÕÜ˜\
+HÂˆÛÛœİZY[Xœ›ÈHÙYÛY[ÜÖÙš[‘Ü\×NÂˆYˆ
+ZY[Xœ›ÏË^ÊHÂˆÜ\Ëœ\Ú
+ZY[Xœ›ÊNÂˆ[˜ÚÑÜ\È
+ÏHÚYÙYÊZY[Xœ›ÊNÂˆBˆš[‘Ü\È
+ÏHNÂˆB‚ˆÛÛœİÜ\Ñ\Ñ\ÜXÚ[ÈHÜ\Ë›[™İˆ	‰ˆÜ\Ë™]™\J
+ZY[Xœ›ÊHOˆ×—ÊÉË\İ
+ZY[Xœ›Ë^ÊJNÂˆYˆ
+\™\Ù\˜\‘\ÜXÚ[ÜÒ[šXÚX[\È	‰ˆXİX[›[™İOOH	‰ˆÜ\Ñ\Ñ\ÜXÚ[ÊHÂˆ[™XÙTÙYÛY[ÈHš[‘Ü\ÎÂˆÛÛ[YNÂˆB‚ˆYˆ
+[˜ÚÑÜ\ÈHX^ÚY
+HÂˆYˆ
+[˜ÚĞXİX[ˆ	‰ˆ[˜ÚĞXİX[
+È[˜ÚÑÜ\ÈˆX^ÚY
+H\Ú[™XJ
+NÂˆXİX[œ\Ú
+‹‹™Ü\ÊNÂˆ[˜ÚĞXİX[
+ÏH[˜ÚÑÜ\ÎÂˆ[™XÙTÙYÛY[ÈHš[‘Ü\ÎÂˆÛÛ[YNÂˆB‚ˆËÈ˜[˜XÚÈY™[œÚ]›È\˜H[˜H›Ü›][H^Ù\Ú[Û˜[Y[H\™ØNˆÙBˆËÈ\›Z]H\\›K\›ÈÛÛÈ\Üpê\ÈH[[\ˆÛÛœÙ\˜\›HÛÛ\]K‚ˆ›Üˆ
+ÛÛœİZY[Xœ›ÈÙˆÜ\ÊHÂˆÛÛœİ[˜ÚÓZY[Xœ›ÈHÚYÙYÊZY[Xœ›ÊNÂˆYˆ
+[˜ÚÓZY[Xœ›ÈHX^ÚY
+HÂˆYˆ
+[˜ÚĞXİX[ˆ	‰ˆ[˜ÚĞXİX[
+È[˜ÚÓZY[Xœ›ÈˆX^ÚY
+H\Ú[™XJ
+NÂˆXİX[œ\Ú
+È‹‹›ZY[Xœ›Ë›ÕÜ˜\ˆ˜[ÙHJNÂˆ[˜ÚĞXİX[
+ÏH[˜ÚÓZY[Xœ›ÎÂˆÛÛ[YNÂˆBˆ›Üˆ
+ÛÛœİØ\˜Xİ\ˆÙˆZY[Xœ›Ë^ÊHÂˆÛÛœİØ\˜Xİ\”ÙYÈHÈ‹‹›ZY[Xœ›Ë^ÎˆØ\˜Xİ\‹›ÕÜ˜\ˆ˜[ÙHNÂˆÛÛœİ[˜ÚĞØ\˜Xİ\ˆHÚYÙYÊØ\˜Xİ\”ÙYÊNÂˆYˆ
+[˜ÚĞXİX[ˆ	‰ˆ[˜ÚĞXİX[
+È[˜ÚĞØ\˜Xİ\ˆˆX^ÚY
+H\Ú[™XJ
+NÂˆXİX[œ\Ú
+Ø\˜Xİ\”ÙYÊNÂˆ[˜ÚĞXİX[
+ÏH[˜ÚĞØ\˜Xİ\ÂˆBˆBˆ[™XÙTÙYÛY[ÈHš[‘Ü\ÎÂˆÛÛ[YNÂˆB‚ˆÛÛœİÚÙ[œÈHÙYÛY[Ë™\ĞÛÙYÛÈÙYÛY[Ë››ÕÜ˜\ˆÈİ^×Bˆˆ^ËœÜ]
+ÊÊÊKÊK™š[\Š
+\JHOˆ\K›[™İˆ
+NÂƒBˆ›Üˆ
+ÛÛœİÚÙ[ˆÙˆÚÙ[œÊHÃBˆÛÛœİ\Ñ\ÜXÚ[ÈH×—ÊÉË\İ
+ÚÙ[ŠNÃBˆYˆ
+\™\Ù\˜\‘\ÜXÚ[ÜÒ[šXÚX[\È	‰ˆXİX[›[™İOOH	‰ˆ\Ñ\ÜXÚ[ÊHÛÛ[YNÃBƒBˆÛÛœİÚÙ[”ÙYÈHÈ‹‹œÙYÛY[Ë^ÎˆÚÙ[ˆNÃBˆÛÛœİ[˜ÚÈHÚYÙYÊÚÙ[”ÙYÊNÃBˆYˆ
+[˜ÚĞXİX[
+È[˜ÚÈHX^ÚY
+HÃBˆXİX[œ\Ú
+ÚÙ[”ÙYÊNÃBˆ[˜ÚĞXİX[
+ÏH[˜ÚÎÃBˆÛÛ[YNÃBˆCBƒBˆYˆ
+XİX[›[™İˆ
+HÃBˆ\Ú[™XJ
+NÃBˆYˆ
+\™\Ù\˜\‘\ÜXÚ[ÜÒ[šXÚX[\È	‰ˆ\Ñ\ÜXÚ[ÊHÛÛ[YNÃBˆCBƒBˆYˆ
+[˜ÚÈˆX^ÚY	‰ˆ\ÙYÛY[Ë››ÕÜ˜\
+HÂˆ]Ú[šÈH	ÉÎÃBˆ›Üˆ
+ÛÛœİØ\˜Xİ\ˆÙˆÚÙ[ŠHÃBˆÛÛœİÚYİZY[HHÚ[šÈ
+ÈØ\˜Xİ\ÃBˆÛÛœİ[˜ÚÔÚYİZY[HHÙYÛY[Ë™›ÛÚYÙ•^]Ú^™JÚYİZY[KÙYÛY[ËœÚ^™JNÃBˆYˆ
+[˜ÚÔÚYİZY[HHX^ÚY
+HÃBˆÚ[šÈHÚYİZY[NÃBˆÛÛ[YNÃBˆCBˆYˆ
+Ú[šÊHÃBˆXİX[œ\Ú
+È‹‹œÙYÛY[Ë^ÎˆÚ[šÈJNÃBˆ\Ú[™XJ
+NÃBˆCBˆÚ[šÈHØ\˜Xİ\ÃBˆCBˆYˆ
+Ú[šÊHÃBˆXİX[œ\Ú
+È‹‹œÙYÛY[Ë^ÎˆÚ[šÈJNÃBˆ[˜ÚĞXİX[HÚYÙYÊÈ‹‹œÙYÛY[Ë^ÎˆÚ[šÈJNÃBˆCBˆÛÛ[YNÃBˆCBƒBˆXİX[œ\Ú
+ÚÙ[”ÙYÊNÂˆ[˜ÚĞXİX[H[˜ÚÎÂˆBˆ[™XÙTÙYÛY[È
+ÏHNÂˆBƒBˆYˆ
+XİX[›[™İˆ
+H[™X\Ëœ\Ú
+XİX[
+NÃBˆ™]\›ˆ[™X\Ë›[™İˆÈ[™X\ÈˆÖ×WNÃBŸCBƒB‹ËÈ[›Û\˜HH^È[œš\]YXÚYÈÛÛˆÛÜÜHH™[˜ÙYXÛÙHH[›[™KXÛÙKƒB™[˜İ[Ûˆ[›Û™\•^ÓZ^ÊÃBˆ^ËBˆX^ÚYBˆY[KBˆY[P›ÛBˆY[R][XØKBˆY[S[Û›ËBˆÚ^™U^ËBˆÚ^™PÛÙYÛÒ[›[™KBˆÚ^™PÛÙYÛĞ›Ü]YKBˆ[™RZYÚ^ËBˆ[™RZYÚÛÙYÛÃBŸNˆÃBˆ^Îˆİš[™ÎÃBˆX^ÚYˆ[X™\ÃBˆY[Nˆ‘›ÛÃBˆY[P›Ûˆ‘›ÛÃBˆY[R][XØNˆ‘›ÛÃBˆY[S[Û›Îˆ‘›ÛÃBˆÚ^™U^Îˆ[X™\ÃBˆÚ^™PÛÙYÛÒ[›[™Nˆ[X™\ÃBˆÚ^™PÛÙYÛĞ›Ü]YNˆ[X™\ÃBˆ[™RZYÚ^Îˆ[X™\ÃBˆ[™RZYÚÛÙYÛÎˆ[X™\ÃBŸJHÃBˆÛÛœİ›Ü]Y\ÈH\\›Ü]Y\ĞÛÙYÛÊØ[š]^˜\•^ÔŠ^ÊJNÃBˆÛÛœİ[™X\Îˆ[™XTÙYÛY[ÜÖ×HH×NÃBƒBˆ›Üˆ
+ÛÛœİ›Ü]YHÙˆ›Ü]Y\ÊHÃBˆYˆ
+›Ü]YK\ÈOOH	ØÛÙYÛÉÊHÃBˆÛÛœİ[™X\ĞÛÙYÛÈH\\ÛÙYÛÑ[“[™X\Ê›Ü]YK˜ÛÛ[šYÊNÃBˆ›Üˆ
+ÛÛœİ[™XHÙˆ[™X\ĞÛÙYÛÊHÃBˆÛÛœİÙYÎˆÙYÛY[Õ^ÈHÈ^Îˆİš[™Ê[™XHÏÈ	ÉÊK›ÛˆY[S[Û›ËÚ^™NˆÚ^™PÛÙYÛĞ›Ü]YK\ĞÛÙYÛÎˆYHNÃBˆÛÛœİ[ˆH[›Û™\”ÙYÛY[ÜÊÈÙYÛY[ÜÎˆÜÙY×KX^ÚY™\Ù\˜\‘\ÜXÚ[ÜÒ[šXÚX[\ÎˆYHJNÃBˆ›Üˆ
+ÛÛœİ[™XQ[Y[HÙˆ[ŠHÃBˆ[™X\Ëœ\Ú
+ÃBˆÙYÛY[ÜÎˆ[™XQ[Y[K›[™İˆÈ[™XQ[Y[HˆŞÈ‹‹œÙYË^Îˆ	ÉÈWKBˆ[™RZYÚˆ[™RZYÚÛÙYÛÃBˆJNÃBˆCBˆCBˆÛÛ[YNÃBˆCBƒBˆÛÛœİ[™X\Õ^ÈH›Ü›X[^˜\’[™XÙ\Õ[šXÛÙJİš[™Ê›Ü]YK˜ÛÛ[šYÈÏÈ	ÉÊJKœ™\XÙJ×—ËÙË	×‰ÊKœÜ]
+	×‰ÊNÂˆ›Üˆ
+ÛÛœİ[™XSÜšYÚ[˜[Ùˆ[™X\Õ^ÊHÃBˆÛÛœİX]Ú\İHH×ŠÊŠÎ–ËJ—_
+ÖËŠWJJWÊËË™^XÊ[™XSÜšYÚ[˜[
+NÃBˆÛÛœİ™YšZ›Ó\İHHX]Ú\İHÈ	ÛX]Ú\İVÌWKš[J
+_Hˆ	ÉÎÃBˆÛÛœİİY\œÓ[™XHHX]Ú\İHÈ[™XSÜšYÚ[˜[œÛXÙJX]Ú\İVÌK›[™İ
+Hˆ[™XSÜšYÚ[˜[ÃBƒBˆÛÛœİ[›[™HH\\’[›[™PÛÙYÛÊİY\œÓ[™XJNÃBˆÛÛœİÙYÛY[ÜÎˆÙYÛY[Õ^Ö×HH×NÃBˆYˆ
+™YšZ›Ó\İJHÃBˆÙYÛY[ÜËœ\Ú
+È^Îˆ™YšZ›Ó\İK›ÛˆY[P›ÛÚ^™NˆÚ^™U^Ë\ĞÛÙYÛÎˆ˜[ÙHJNÃBˆCBƒBˆ›Üˆ
+ÛÛœİÙYÛY[ÈÙˆ[›[™JHÃBˆYˆ
+\ÙYÛY[Ë˜ÛÛ[šYÊHÛÛ[YNÃBˆYˆ
+ÙYÛY[Ë\ÈOOH	ØÛÙYÛÉÊHÃBˆÛÛœİ^ĞÛÙYÛÈH›Ü›X[^˜\‘\ÜXÚ[ÜÔİX]™\Êİš[™ÊÙYÛY[Ë˜ÛÛ[šYÊJNÃBˆYˆ
+]^ĞÛÙYÛÊHÛÛ[YNÃBˆÙYÛY[ÜËœ\Ú
+È^Îˆ^ĞÛÙYÛË›ÛˆY[S[Û›ËÚ^™NˆÚ^™PÛÙYÛÒ[›[™K\ĞÛÙYÛÎˆYHJNÃBˆÛÛ[YNÃBˆCBƒBˆÛÛœİ›Ş›ÜÈHÏÏÊÎœİ›Û™ßŸ[___İXŸİ\Ü[ŸœŠW‹ÚK\İ
+İš[™ÊÙYÛY[Ë˜ÛÛ[šYÊJBˆÈ\\’[›[™Q\İ[ÜÒ[
+İš[™ÊÙYÛY[Ë˜ÛÛ[šYÊJBˆˆ\\’[›[™Q\İ[ÜÓX\šÙİÛŠİš[™ÊÙYÛY[Ë˜ÛÛ[šYÊJNÂˆ›Üˆ
+ÛÛœİ›Ş›ÈÙˆ›Ş›ÜÊHÂˆÛÛœİ^Ô[›ÈH›Ü›X[^˜\‘\ÜXÚ[ÜÔİX]™\Ê›Ş›Ë^ÊNÂˆYˆ
+]^Ô[›ÊHÛÛ[YNÂˆÛÛœİ›ÛH›Ş›Ë™\İ[ÈOOH	Ø›Û	ÈÈY[P›Ûˆ›Ş›Ë™\İ[ÈOOH	Ú][XÉÈÈY[R][XØHˆY[NÂˆÙYÛY[ÜËœ\Ú
+Âˆ^Îˆ^Ô[›Ëˆ›ÛˆÚ^™NˆÚ^™U^È
+ˆ
+›Ş›Ë™\ØØ[HÏÈJKˆ\ĞÛÙYÛÎˆ˜[ÙKˆ›ÕÜ˜\ˆ›Ş›Ë››ÕÜ˜\ˆİXœ˜^XYÎˆ›Ş›ËœİXœ˜^XYËˆÙ™œÙ]Nˆ›Ş›Ë›Ù™œÙ]Kˆ\ÜXÚ[Ğ[\Îˆ›Ş›Ë™\ÜXÚ[Ğ[\Ëˆ\ÜXÚ[Ñ\ÜY\Îˆ›Ş›Ë™\ÜXÚ[Ñ\ÜY\ÂˆJNÂˆCBˆCBƒBˆYˆ
+ÙYÛY[ÜË›[™İOOH
+HÃBˆ[™X\Ëœ\Ú
+ÈÙYÛY[ÜÎˆŞÈ^Îˆ	ÉË›ÛˆY[KÚ^™NˆÚ^™U^ÈWK[™RZYÚˆ[™RZYÚ^ÈJNÃBˆÛÛ[YNÃBˆCBƒBˆÛÛœİÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜÎˆÙYÛY[Õ^Ö×HH×NÃBˆ›Üˆ
+ÛÛœİÙYÛY[ÈÙˆÙYÛY[ÜÊHÂˆYˆ
+ÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜË›[™İˆ
+HÂˆÛÛœİ™]š[ÈHÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜÖÜÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜË›[™İHWNÂˆÛÛœİÙ\\˜XÚ[Û‘\ØÜš]HH›ÛÛX[Š™]š[Ë™\ÜXÚ[Ñ\ÜY\ÈÙYÛY[Ë™\ÜXÚ[Ğ[\ÊNÂˆÛÛœİÚ[“Y]Y]ÜÑTÙ\\˜XÚ[ÛˆH™]š[Ë™\ÜXÚ[Ñ\ÜY\ÈOOH[™Yš[™Y	‰ˆÙYÛY[Ë™\ÜXÚ[Ğ[\ÈOOH[™Yš[™YÂˆYˆ
+ˆ
+Ù\\˜XÚ[Û‘\ØÜš]HÚ[“Y]Y]ÜÑTÙ\\˜XÚ[ÛŠH	‰‚ˆK×ÉË\İ
+™]š[Ë^ÊH	‰‚ˆK×—ËË\İ
+ÙYÛY[Ë^ÊBˆ
+HÂˆÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜËœ\Ú
+È^Îˆ	È	Ë›ÛˆY[KÚ^™NˆÚ^™U^Ë\ĞÛÙYÛÎˆ˜[ÙHJNÂˆBˆCBˆÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜËœ\Ú
+ÙYÛY[ÊNÃBˆCBƒBˆÛÛœİ[ˆH[›Û™\”ÙYÛY[ÜÊÈÙYÛY[ÜÎˆÙYÛY[ÜĞÛÛ‘\ÜXÚ[ÜËX^ÚYJNÃBˆ›Üˆ
+ÛÛœİ[™XHÙˆ[ŠHÃBˆ[™X\Ëœ\Ú
+ÃBˆÙYÛY[ÜÎˆ[™XK›[™İˆÈ[™XHˆŞÈ^Îˆ	ÉË›ÛˆY[KÚ^™NˆÚ^™U^ÈWKBˆ[™RZYÚˆ[™RZYÚ^ÃBˆJNÃBˆCBˆCBˆCBƒBˆ™]\›ˆ[™X\Ë›[™İˆBˆÈ[™X\ÃBˆˆŞÈÙYÛY[ÜÎˆŞÈ^Îˆ	ÉË›ÛˆY[KÚ^™NˆÚ^™U^ÈWK[™RZYÚˆ[™RZYÚ^ÈWNÃBŸCBƒB™[˜İ[ÛˆXZ˜\•^ĞÛÛ”\ÛÕš\İX[
+ˆYÙNˆ”YÙKˆ^Îˆİš[™ËˆÜÚ[Û™\ÎˆÈˆ[X™\ÈNˆ[X™\ÈÚ^™Nˆ[X™\È›Ûˆ‘›ÛÈÛÛÜÎˆÛÛÜˆKˆ™Y›Ü˜\”\ÛÎˆ›ÛÛX[‚ŠHÂˆYˆ
+\™Y›Ü˜\”\ÛÊHÂˆYÙK™˜]Õ^
+^ËÜÚ[Û™\ÊNÂˆ™]\›ÂˆB‚ˆËÈXÛÙ›ÛÛÛÈ\ÜÛ™HH[˜HY[H™Yİ[\‹ˆš[[™İ][™H™YY\˜H[ˆËÈ˜^›È[›È[Z\Û[ÈÜ\˜YÜˆH^ÎˆX[Y[™HH^˜XØÚpìÛˆˆBˆËÈ]š]H\XØ\ˆš\İX[Y[H[ÛÛ[šYÈÈ[\˜\ˆ[[˜ÚÈ\ÙÜ°èYšXÛË‚ˆYÙKœ\ÚÜ\˜]ÜœÊˆ\ÚÜ˜\XÜÔİ]J
+KˆÙ]^™[™\š[™Ó[ÙJ^™[™\š[™Ó[ÙK‘š[[™İ][™JKˆÙ][™UÚY
+X]›X^
+Œ‹ÜÚ[Û™\ËœÚ^™H
+ˆŒÌŠJKˆÙ]İ›ÚÚ[™ĞÛÛÜŠÜÚ[Û™\Ë˜ÛÛÜˆÏÈ™ØŠ
+JBˆ
+NÂˆYÙK™˜]Õ^
+^ËÜÚ[Û™\ÊNÂˆYÙKœ\ÚÜ\˜]ÜœÊÜÜ˜\XÜÔİ]J
+JNÂŸB‚‹ËÈXZ˜H[™X\ÈZ^\È™\Ü][™È[\ÜXÚXYÈØ[İ[YÈ[ˆH[›Û\˜K‚™[˜İ[ÛˆXZ˜\“[™X\ÓZ^\ÊÂˆYÙKBˆ[™X\ËBˆˆKˆÛÛÜ•^Ëˆ™Y›Ü˜\”\ÛÈH˜[ÙKˆ™YÚ\İ˜\”[œÂŸNˆÂˆYÙNˆ”YÙNÂˆ[™X\Îˆ[™XTÙYÛY[ÜÖ×NÂˆˆ[X™\ÂˆNˆ[X™\ÂˆÛÛÜ•^ÏÎˆÛÛÜÂˆ™Y›Ü˜\”\ÛÏÎˆ›ÛÛX[Âˆ™YÚ\İ˜\”[œÏÎˆ
+[ˆ^[‘XYÊHOˆ›ÚYÂŸJHÂˆ]İ\œÛÜ–HHNÃBˆ›Üˆ
+ÛÛœİ[™XHÙˆ[™X\ÊHÃBˆ]İ\œÛÜ–HÃBˆ›Üˆ
+ÛÛœİÙYÛY[ÈÙˆ[™XKœÙYÛY[ÜÊHÃBˆÛÛœİ^ÈHİš[™ÊÙYÛY[Ë^ÈÏÈ	ÉÊNÂˆYˆ
+]^ÊHÛÛ[YNÂˆXZ˜\•^ĞÛÛ”\ÛÕš\İX[
+YÙK^ËÂˆˆİ\œÛÜ–ˆNˆİ\œÛÜ–H
+È
+ÙYÛY[Ë›Ù™œÙ]HÏÈ
+KˆÚ^™NˆÙYÛY[ËœÚ^™Kˆ›ÛˆÙYÛY[Ë™›ÛˆÛÛÜˆÛÛÜ•^ÂˆK™Y›Ü˜\”\ÛÊNÂˆÛÛœİÚYHÙYÛY[Ë™›ÛÚYÙ•^]Ú^™J^ËÙYÛY[ËœÚ^™JNÂˆYˆ
+ÙYÛY[ËœİXœ˜^XYÊHÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆİ\œÛÜ–Nˆİ\œÛÜ–HHKŒˆKˆ[™ˆÈˆİ\œÛÜ–
+ÈÚYNˆİ\œÛÜ–HHKŒˆKˆÛÛÜˆÛÛÜ•^ÈÏÈ™ØŠ
+KˆXÚÛ™\ÜÎˆX]›X^
+KÙYÛY[ËœÚ^™H
+ˆŒJBˆJNÂˆBˆYˆ
+™YÚ\İ˜\”[œÊHÃBˆ™YÚ\İ˜\”[œÊÂˆ\ÎˆÙYÛY[Ë™\ĞÛÙYÛÈÈ	ØÛÙYÛÉÈˆ	İ^ÉËˆY[Nˆ•QS•WÑPÓÑ“Ó•ÑSRSPKˆÚ^™NˆÙYÛY[ËœÚ^™KBˆ[™RZYÚˆ[™XK›[™RZYÚBˆ˜›ŞˆÃBˆˆİ\œÛÜ–BˆNˆİ\œÛÜ–KBˆÚYBˆZYÚˆX]›X^
+[™XK›[™RZYÚÙYÛY[ËœÚ^™H
+ÈJCBˆCBˆJNÃBˆCBˆİ\œÛÜ–
+ÏHÚYÃBˆCBˆİ\œÛÜ–HOH[™XK›[™RZYÚÃBˆCBˆ™]\›ˆİ\œÛÜ–NÃBŸCBƒB™[˜İ[Ûˆ\\‘[“[™X\ÊÃBˆ^ËBˆX^ÚYBˆ›ÛBˆÚ^™CBŸNˆÃBˆ^Îˆİš[™ÎÃBˆX^ÚYˆ[X™\ÃBˆ›Ûˆ‘›ÛÃBˆÚ^™Nˆ[X™\ÃBŸJHÃBˆÛÛœİ[\[ÈH›Ü›X[^˜\‘\ÜXÚ[ÜÊØ[š]^˜\•^ÔŠİš[™Ê^ÈÏÈ	ÉÊJJNÃBˆYˆ
+[[\[ÊH™]\›ˆÉÉ×NÃBƒBˆÛÛœİ[Xœ˜\ÈH[\[ËœÜ]
+	È	ÊNÃBˆÛÛœİ[™X\Îˆİš[™Ö×HH×NÃBˆ]XİX[H	ÉÎÃBƒBˆÛÛœİØX™HH
+˜[Üˆİš[™ÊHOˆ›ÛÚYÙ•^]Ú^™J˜[Ü‹Ú^™JHHX^ÚYÃBƒBˆ›Üˆ
+ÛÛœİ[Xœ˜HÙˆ[Xœ˜\ÊHÃBˆÛÛœİØ[™Y]ÈHXİX[È	ØXİX[H	Ü[Xœ˜_Xˆ[Xœ˜NÃBˆYˆ
+ØX™JØ[™Y]ÊJHÃBˆXİX[HØ[™Y]ÎÃBˆÛÛ[YNÃBˆCBƒBˆYˆ
+XİX[
+H[™X\Ëœ\Ú
+XİX[
+NÃBˆYˆ
+XØX™J[Xœ˜JJHÃBˆ]Ú[šÈH	ÉÎÃBˆ›Üˆ
+ÛÛœİØ\˜Xİ\ˆÙˆ[Xœ˜JHÃBˆÛÛœİÚYİZY[HHÚ[šÈ
+ÈØ\˜Xİ\ÃBˆYˆ
+ØX™JÚYİZY[JJHÃBˆÚ[šÈHÚYİZY[NÃBˆH[ÙHÃBˆYˆ
+Ú[šÊH[™X\Ëœ\Ú
+Ú[šÊNÃBˆÚ[šÈHØ\˜Xİ\ÃBˆCBˆCBˆXİX[HÚ[šÎÃBˆH[ÙHÃBˆXİX[H[Xœ˜NÃBˆCBˆCBƒBˆYˆ
+XİX[
+H[™X\Ëœ\Ú
+XİX[
+NÃBˆ™]\›ˆ[™X\Ë›[™İˆÈ[™X\ÈˆÉÉ×NÃBŸCBƒB™[˜İ[Ûˆ™\ÛÛ™\”\™š[™[™\Šˆ[\]U™\œÚ[Ûˆˆ\™š[˜\ÙNˆ\™š[[[SÛ\‚ŠNˆ\™š[[[T™[™\ˆÂˆYˆ
+[\]U™\œÚ[ÛˆOOHSTUWÕ‘T”ÒSÓ—ĞĞS“Ó’PĞJHÂˆ›İÈ™]È\œ›ÜŠ[\]H™\œÚ[Ûˆ	Ôİš[™Ê[\]U™\œÚ[ÛŠ_H›ÈÛÛ\]X›H\˜H™[™\™\ˆÓTˆØ[°ìÛšXÛØ
+NÂˆBˆÛÛœİ\Ò[›[™HH\™š[˜\ÙKXšXØXÚ[ÛˆOOH	Ú[ËXK[ÜÚ[Û‰ÎÂˆÛÛœİ˜\ÙHH\Ò[›[™BˆÈÈ‹‹”T‘’SÓÓT—ĞĞS“Ó’PÓ×Ô‘S‘T‹‹‹”T‘’SÓÓT—ÒS“S‘WÑVSHBˆˆT‘’SÓÓT—ĞĞS“Ó’PÓ×Ô‘S‘TÂˆ™]\›ˆÂˆ‹‹˜˜\ÙKˆ™\œÚ[ÛˆSTUWÕ‘T”ÒSÓ—ĞĞS“Ó’PĞKˆ\”Ú^™Nˆ\™š[˜\ÙKœ\”Ú^™KBˆ\”Y[™Îˆ\™š[˜\ÙKœ\”Y[™ËBˆ\“X\™Ú[“[Ù[ÜÎˆ\™š[˜\ÙKœ\“X\™Ú[“[Ù[ÜËˆX\˜Ø\Ñ\Ü]Z[˜Nˆ\™š[˜\ÙK›X\˜Ø\Ñ\Ü]Z[˜KBˆX\˜ØPİXY˜YÔÚ^™Nˆ\™š[˜\ÙK›X\˜ØPİXY˜YÔÚ^™KBˆX\˜ØPİXY˜YÔ]ZY]›Û™Nˆ\™š[˜\ÙK›X\˜ØPİXY˜YÔ]ZY]›Û™KˆšYXÚX[ÜšY[XÚ[Ûˆ\™š[˜\ÙK™šYXÚX[ÜšY[XÚ[ÛˆÏÈ˜\ÙK™šYXÚX[ÜšY[XÚ[Û‹ˆËÈHÙ[ÛY]°ëXHÓTˆ›È\[™HH[ˆ[ÙÈH[œÚYYšHH[ˆ˜[˜XÚÎ‚ˆËÈH[[HØ[°ìÛšXØHÚY[\™H[\š[YHÚ[˜ÛÈ\˜Z˜\ÈÜš^›Û[\Ë‚ˆËÈ[pè[Y]›ÈH‹[HH[\ÛÈHˆ™YY\˜[ˆHÙpìX[HYÜ™YØ[‚ˆËÈÙ\\˜XÚpìÛˆ\˜H›\‹ÛÛXœ˜KÛÛ\™\ÚpìÛˆH^[œÚpìÛˆH[H[ˆ\[‚ˆ\˜Z˜T˜Y[Îˆ\Ò[›[™HÈT‘’SÓÓT—ÒS“S‘WÑVSK˜\˜Z˜T˜Y[Èˆ
+‹
+ˆSWĞWÔS•ÔÊHÈ‹ˆ\˜Z˜T\ÛÖNˆ\Ò[›[™HÈT‘’SÓÓT—ÒS“S‘WÑVSK˜\˜Z˜T\ÛÖHˆˆ\˜Z˜T\ÛÖˆ\Ò[›[™HÈˆ‹ˆÜšY[XÚ[Ûˆ\Ò[›[™HÈ	İ™\XØ[	Èˆ	ÚÜš^›Û[	ËˆXšXØXÚ[Ûˆ\Ò[›[™HÈ	Ú[ËXK[ÜÚ[Û‰Èˆ	Ü[™[\Ù\\˜YÉËˆØZ˜SÛ\[˜ÚÎˆMËˆšYXÚX[Ú^™Nˆ\™š[˜\ÙK™šYXÚX[Ú^™KˆšYXÚX[X\™Ú[ˆ\™š[˜\ÙK™šYXÚX[X\™Ú[ˆÏÈ˜\ÙK™šYXÚX[X\™Ú[‹ˆšYXÚX[]ZY]›Û™Nˆ\™š[˜\ÙK™šYXÚX[]ZY]›Û™HÏÈ˜\ÙK™šYXÚX[]ZY]›Û™KˆX˜›Tİ›ÚÙTˆ\™š[˜\ÙK˜X˜›Tİ›ÚÙTÏÈ˜\ÙK˜X˜›Tİ›ÚÙTBˆX™[ĞX˜›S[Nˆ\™š[˜\ÙK›X™[ĞX˜›S[HÏÈ˜\ÙK›X™[ĞX˜›S[KBˆ™Yİ[\ÔÜ›Ü]YNˆ\™š[˜\ÙKœ™Yİ[\ÔÜ›Ü]YHÏÈ˜\ÙKœ™Yİ[\ÔÜ›Ü]YKBˆÜÚ[Û™\ÔÜ”™Yİ[Nˆ\™š[˜\ÙK›ÜÚ[Û™\ÔÜ”™Yİ[HÏÈ˜\ÙK›ÜÚ[Û™\ÔÜ”™Yİ[CBˆNÃBŸCBƒB™[˜İ[ÛˆYÜ™YØ\“X\˜Ø\Ô™YÚ\İ›ÊYÙNˆ”YÙKX\™Ù[ˆ[X™\‹\™š[ˆ\™š[[[T™[™\ŠHÂˆÛÛœİ]ZY]H\™š[›X\˜ØPİXY˜YÔ]ZY]›Û™NÂˆÛÛœİ[HH\™š[›X\˜ØPİXY˜YÔÚ^™NÂˆÛÛœİ\Ü]Z[˜\ÈHÂˆÈˆX\™Ù[‹NˆS×ĞĞT•HHX\™Ù[ˆKBˆÈˆSÒ×ĞĞT•HHX\™Ù[‹NˆS×ĞĞT•HHX\™Ù[ˆKBˆÈˆX\™Ù[‹NˆX\™Ù[ˆKBˆÈˆSÒ×ĞĞT•HHX\™Ù[‹NˆX\™Ù[ˆCBˆNÂ‚ˆ›Üˆ
+ÛÛœİ\Ü]Z[˜HÙˆ\Ü]Z[˜\ÊHÂˆËÈ\ÈX\˜Ø\ÈH™YÚ\İ›È]YY[ˆÛÛ\][Y[H[›ÈHHÚ˜Kˆ[\ÂˆËÈÙHXœšX[ˆXÚXHY\˜HH[›Ü™H[\[\È™XÛÜX˜H[[\š[Z\‹‚ˆYˆ
+\™š[›X\˜Ø\Ñ\Ü]Z[˜HOOH	ØİXY˜YÜÉÊHÂˆÛÛœİH\Ü]Z[˜KOOHX\™Ù[ˆÈ\Ü]Z[˜Kˆ\Ü]Z[˜KH[NÂˆÛÛœİHH\Ü]Z[˜KHOOHS×ĞĞT•HHX\™Ù[ˆÈ\Ü]Z[˜KHH[Hˆ\Ü]Z[˜KNÂˆÛÛœİZ[ˆHX]›X^
+H]ZY]
+NÂˆÛÛœİSZ[ˆHX]›X^
+HH]ZY]
+NÂˆÛÛœİX^HX]›Z[ŠSÒ×ĞĞT•K
+È[H
+È]ZY]
+NÂˆÛÛœİSX^HX]›Z[ŠS×ĞĞT•KH
+È[H
+È]ZY]
+NÂˆYÙK™˜]Ô™Xİ[™ÛJÈˆZ[‹NˆSZ[‹ÚYˆX^HZ[‹ZYÚˆSX^HSZ[‹ÛÛÜˆ™ØŠKKJHJNÂˆYÙK™˜]Ô™Xİ[™ÛJÈKÚYˆ[KZYÚˆ[KÛÛÜˆ™ØŠ
+HJNÂˆYˆ
+\™š[™šYXÚX[ÜšY[XÚ[ÛË\ÈOOH	ØÙ[›×İ˜XÚ[ÉÈ	‰ˆ\Ü]Z[˜KOOHX\™Ù[ˆ	‰ˆ\Ü]Z[˜KHOOHS×ĞĞT•HHX\™Ù[ŠHÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ
+È[HÈ‹ˆNˆH
+È[HÈ‹ˆÚ^™Nˆ\™š[™šYXÚX[ÜšY[XÚ[Û‹œ˜Y[ËˆÛÛÜˆ™ØŠKKJBˆJNÂˆBˆÛÛ[YNÂˆB‚ˆÛÛœİÜ›ÜÛÜˆHX]›X^
+X]›Z[ŠK[H
+ˆŒJJNÂˆÛÛœİ\Ò^œ]ZY\™HH\Ü]Z[˜KOOHX\™Ù[ÂˆÛÛœİ\Ôİ\\š[ÜˆH\Ü]Z[˜KHOOHS×ĞĞT•HHX\™Ù[ÂˆÛÛœİÜš^›Û[H\Ò^œ]ZY\™HÈ\Ü]Z[˜Kˆ\Ü]Z[˜KH[NÂˆÛÛœİRÜš^›Û[H\Ôİ\\š[ÜˆÈ\Ü]Z[˜KHHÜ›ÜÛÜˆˆ\Ü]Z[˜KNÂˆÛÛœİ™\XØ[H\Ò^œ]ZY\™HÈ\Ü]Z[˜Kˆ\Ü]Z[˜KHÜ›ÜÛÜÂˆÛÛœİU™\XØ[H\Ôİ\\š[ÜˆÈ\Ü]Z[˜KHH[Hˆ\Ü]Z[˜KNÂ‚ˆÛÛœİZ[ˆHX]›X^
+X]›Z[ŠÜš^›Û[™\XØ[
+HH]ZY]
+NÂˆÛÛœİSZ[ˆHX]›X^
+X]›Z[ŠRÜš^›Û[U™\XØ[
+HH]ZY]
+NÂˆÛÛœİX^HX]›Z[ŠSÒ×ĞĞT•KX]›X^
+Üš^›Û[
+È[K™\XØ[
+ÈÜ›ÜÛÜŠH
+È]ZY]
+NÂˆÛÛœİSX^HX]›Z[ŠS×ĞĞT•KX]›X^
+RÜš^›Û[
+ÈÜ›ÜÛÜ‹U™\XØ[
+È[JH
+È]ZY]
+NÂˆYÙK™˜]Ô™Xİ[™ÛJÈˆZ[‹NˆSZ[‹ÚYˆX^HZ[‹ZYÚˆSX^HSZ[‹ÛÛÜˆ™ØŠKKJHJNÂ‚ˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆÜš^›Û[ˆNˆRÜš^›Û[ˆÚYˆ[KˆZYÚˆÜ›ÜÛÜ‹ˆÛÛÜˆ™ØŠ
+BˆJNÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆ™\XØ[ˆNˆU™\XØ[ˆÚYˆÜ›ÜÛÜ‹ˆZYÚˆ[KˆÛÛÜˆ™ØŠ
+BˆJNÂˆBŸB‚™[˜İ[ÛˆXZ˜\‘šYXÚX[Û\ŠYÙNˆ”YÙKˆ[X™\‹Nˆ[X™\‹Ú^™Nˆ[X™\‹]ZY]›Û™Nˆ[X™\ŠHÂˆYˆ
+]ZY]›Û™Hˆ
+HÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆHÚ^™HÈˆH]ZY]›Û™KˆNˆHHÚ^™HÈˆH]ZY]›Û™KˆÚYˆÚ^™H
+È]ZY]›Û™H
+ˆ‹ˆZYÚˆÚ^™H
+È]ZY]›Û™H
+ˆ‹ˆÛÛÜˆ™ØŠKKJBˆJNÂˆBˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆHÚ^™HÈ‹ˆNˆHHÚ^™HÈ‹ˆÚYˆÚ^™KˆZYÚˆÚ^™KˆÛÛÜˆ™ØŠ
+BˆJNÂŸB‚\Hš]™[ÛÜœ™XØÚ[Û”\ˆH	Ó	È	ÓIÈ	ÔIÈ	Ò	ÎÂ‚˜ÛÛœİÜ™X\”Ú[X›ÛÔ\ˆH
+\•^Îˆİš[™Ë\œ›ÜÛÜœ™Xİ[Û“]™[ˆš]™[ÛÜœ™XØÚ[Û”\ŠHOˆ
+TÛÙH\È[šÛ›İÛˆ\ÈÂˆÜ™X]Nˆ
+^Îˆİš[™ËÜÚ[Û™\ÎˆÈ\œ›ÜÛÜœ™Xİ[Û“]™[ˆš]™[ÛÜœ™XØÚ[Û”\ˆJHOˆÈ[Ù[\ÎˆÈÚ^™Nˆ[X™\È]NˆZ[\œ˜^HHNÂˆJK˜Ü™X]J\•^ËÈ\œ›ÜÛÜœ™Xİ[Û“]™[JNÂ‚™^Ü[˜İ[Ûˆ™\ÛÛ™\“š]™[ÛÜœ™XØÚ[Û”\Š\•^Îˆİš[™ÊNˆš]™[ÛÜœ™XØÚ[Û”\ˆÂˆÛÛœİÚ[X›ÛÒHÜ™X\”Ú[X›ÛÔ\Š\•^Ë	Ò	ÊNÂˆËÈ\ÈHÛ0ë]XØH™Y™\šYKˆÚHHØ\™ØH]\˜HÜ™XÙHHY\˜H[˜HX]š^‚ˆËÈ[œØKÙH˜Z˜HÛÛÈH™Y[™[˜ÚXH™XÙ\Ø\šXH\˜HÛÛœÙ\˜\ˆ[Y[›ÜÂˆËÈHpìÙ[ÜÎˆ[ˆ›İÙÜ˜Y°ëXHpìİš[[][Y[ÈH[Xpì[ÈÜˆpìÙ[È\Èpè\ÂˆËÈ˜[[ÜÛÈ]YHX[[™\ˆ[ˆ[ˆğë[X›ÛÈ]YHXH›ÈÙHYYH]Y\İ™X\ˆšY[‹‚ˆYˆ
+Ú[X›ÛÒ›[Ù[\ËœÚ^™HHJH™]\›ˆ	Ò	ÎÂˆ›Üˆ
+ÛÛœİ\œ›ÜÛÜœ™Xİ[Û“]™[ÙˆÉÔIË	ÓIË	Ó	×H\ÈÛÛœİ
+HÂˆÛÛœİÚ[X›ÛÈHÜ™X\”Ú[X›ÛÔ\Š\•^Ë\œ›ÜÛÜœ™Xİ[Û“]™[
+NÂˆYˆ
+Ú[X›ÛË›[Ù[\ËœÚ^™HHJH™]\›ˆ\œ›ÜÛÜœ™Xİ[Û“]™[ÂˆBˆ™]\›ˆ	Ò	ÎÂŸB‚™[˜İ[ÛˆÜ™X\”Ú[X›ÛÔ\”™\Ú[Y[J\•^Îˆİš[™ÊHÂˆÛÛœİ\œ›ÜÛÜœ™Xİ[Û“]™[H™\ÛÛ™\“š]™[ÛÜœ™XØÚ[Û”\Š\•^ÊNÂˆ™]\›ˆÂˆÚ[X›ÛÎˆÜ™X\”Ú[X›ÛÔ\Š\•^Ë\œ›ÜÛÜœ™Xİ[Û“]™[
+Kˆ\œ›ÜÛÜœ™Xİ[Û“]™[ˆNÂŸB‚˜\Ş[˜È[˜İ[ÛˆYÜ™YØ\”\Šˆ‘ØÎˆ‘Øİ[Y[ˆYÙNˆ”YÙKˆ\•^Îˆİš[™ËˆX\™Ù[ˆ[X™\‹ˆ\™š[ˆ\™š[[[T™[™\‹ˆXZ˜\ˆHYBŠHÂˆËÈœÔTˆ]Y[™H\È\Ü]Z[˜\ÈHHX]š^‹›È\ÈHH[XYÙ[ˆÛÛ\]HÛÛ‚ˆËÈ]ZY]›Û™Kˆ\œÚ\İ[[ÜÈ[X˜\È[Y[œÚ[Û™\È\˜H]YH[]XİÜˆYYBˆËÈ™XÛÛœİZ\ˆH™Y™\™[˜ÚXHš\ÚXØH^XİH[Ú[X›ÛË‚ˆÛÛœİÈÚ[X›ÛÎˆ\”Ş[X›Û\œ›ÜÛÜœ™Xİ[Û“]™[HHÜ™X\”Ú[X›ÛÔ\”™\Ú[Y[J\•^ÊNÂƒBˆÛÛœİ\”Ú^™HH\™š[œ\”Ú^™NÃBˆÛÛœİY[™ÈH\™š[œ\”Y[™ÎÃBˆËÈHÛ]™HÛÛ\Y\İHY[™H[˜Hœ˜[š˜H›ÜXHX˜Z›È[TÈ[ğè[İ[ÈHXˆËÈÛÛœÙ\˜HHÜÚXÚpìÛˆ°ë\ÚXØH[ğë[X›ÛÈ][œ]YHH\š™]HÜ™^˜ØHXÚXHX˜Z›Ë‚ˆÛÛœİØ\[Û’ZYÚHLÂˆÛÛœİØ\™ÈH\”Ú^™H
+ÈY[™È
+ˆÂˆÛÛœİØ\™H\”Ú^™H
+ÈY[™È
+ˆˆ
+ÈØ\[Û’ZYÚÂƒBˆËÈHØZ˜H^\š[ÜˆÛÛ\]K[˜ÛZYÈİH]ZY]›Û™K]YYH[›ÈHBˆËÈØX™XÙ\˜HH[[™XYHÛÛˆ[›Ü™H[\š[ZX›Kˆ[\È[Ø[İ[È\ØX˜HÛÛÂˆËÈ[š]X\HZ˜X˜H[X\˜ÛÈ[TˆY\˜H[[˜ØX™^˜YË‚ˆËÈ\Ü^˜\ˆH\š™]HHH^œ]ZY\™HHH]ZY]›Û™H[šYXÚX[İ\\š[Ü‚ˆËÈ\™XÚÈ\›Z]H[[™X\ˆİH›Ü™Hİ\\š[ÜˆÛÛˆ[X\™Ù[ˆ[\š[ZX›HBˆËÈ™Xİ\\˜\ˆH[\˜H]YH[\ÈÙH\™0ëXHX[[šY[™È[˜HÙ\\˜XÚpìÛˆ™\XØ[‚ˆÛÛœİ\’Üš^›Û[[œÙ]H\™š[›X\˜ØPİXY˜YÔÚ^™H
+È\™š[›X\˜ØPİXY˜YÔ]ZY]›Û™H
+È[PT[ÜÊT—ÔÕTWĞÓPTSÑWÓSJNÂˆÛÛœİ›Ü™Q\™XÚÔ™\Ù\˜HHSÒ×ĞĞT•HHX\™Ù[ˆHÂˆÛÛœİ›Ü™Tİ\\š[Ü”™\Ù\˜HHS×ĞĞT•HHX\™Ù[ÂˆÛÛœİØ\™H›Ü™Q\™XÚÔ™\Ù\˜HH\’Üš^›Û[[œÙ]HØ\™ÎÂˆÛÛœİØ\™HH›Ü™Tİ\\š[Ü”™\Ù\˜HHØ\™ÂˆÛÛœİHØ\™
+ÈY[™ÎÂˆÛÛœİHHØ\™H
+ÈØ\[Û’ZYÚ
+ÈY[™ÎÂˆÛÛœİX]š^[Ù[\ÈH\”Ş[X›Û›[Ù[\ËœÚ^™NÂˆÛÛœİX\™Ú[“[Ù[\ÈHX]›X^
+X]œ›İ[™
+\™š[œ\“X\™Ú[“[Ù[ÜÊJNÂˆÛÛœİİ[[Ù[\ÈHX]š^[Ù[\È
+ÈX\™Ú[“[Ù[\È
+ˆÂˆÛÛœİ[Ù[TÚ^™HH\”Ú^™HÈX]›X^
+Kİ[[Ù[\ÊNÂ‚ˆYˆ
+YXZ˜\ŠHÂˆ™]\›ˆÂˆ\”Ú^™KˆˆKˆY[™Ëˆ\œ›ÜÛÜœ™Xİ[Û“]™[ˆX\™Ú[“[Ù[\Îˆ\™š[œ\“X\™Ú[“[Ù[ÜËˆX]š^[Ù[\Ëˆ[Ù[TÚ^™KˆØ\™ˆØ\™KˆØ\™ËˆØ\™ˆNÂˆB‚ˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆØ\™ˆNˆØ\™KˆÚYˆØ\™ËˆZYÚˆØ\™ˆÛÛÜˆ™ØŠKKJKˆ›Ü™\•ÚYˆKˆ›Ü™\ÛÛÜˆ™ØŠÍKÎK
+BˆJNÂ‚ˆËÈXZ˜\ˆ[Ú[X›ÛÈÛÛ[È[Ù[ÜÈ™XİÜšX[\È]š]H]YH[ˆ‘ÈH[BˆËÈ™\ÛÛXÚ[ÛˆÙXH™[]Y\İ™XYÈ[[Xpì[Èš\ÚXÛÈ[‹ˆ\ÙH™[]Y\İ™[ÂˆËÈ[›ÙXÙH›Ü™\ÈÜš\Ù\ÈH[Ù[ÜÈH[˜ÚÈœ˜XØÚ[Û˜\š[Îˆ[‘ÈÜšYÚ[˜[ˆËÈÙHXÛÙYšXØK\›ÈHYÚ[˜H˜\İ\š^˜YHÜˆ[\™\ÛÜ˜KØØ[X\˜HYYH›Ë‚ˆËÈÙHÛÛœÙ\˜HHZ\ÛXHÙ[ÛY]šXH\œÚ\İYNˆØXÛÛˆH\Ü]Z[˜HHBˆËÈ[XYÙ[ˆÛÛ\]K[˜ÛZYHH]ZY]›Û™KH\”Ú^™X\ÈİH[Xpì[Èİ[‚ˆYÙK™˜]Ô™Xİ[™ÛJÂˆBˆKBˆÚYˆ\”Ú^™KBˆZYÚˆ\”Ú^™KˆÛÛÜˆ™ØŠKKJBˆJNÂˆÛÛœİ[Ù[Q]HH\”Ş[X›Û›[Ù[\Ë™]NÂˆ›Üˆ
+]›İÈHÈ›İÈX]š^[Ù[\ÎÈ›İÈ
+ÏHJHÂˆ][”İ\HLNÂˆ›Üˆ
+]ÛÛ[[ˆHÈÛÛ[[ˆHX]š^[Ù[\ÎÈÛÛ[[ˆ
+ÏHJHÂˆÛÛœİÜØİ\›ÈHÛÛ[[ˆX]š^[Ù[\È	‰ˆ[Ù[Q]VÜ›İÈ
+ˆX]š^[Ù[\È
+ÈÛÛ[[—HOOHNÂˆYˆ
+ÜØİ\›È	‰ˆ[”İ\
+H[”İ\HÛÛ[[ÂˆYˆ
+
+[ÜØİ\›ÈÛÛ[[ˆOOHX]š^[Ù[\ÊH	‰ˆ[”İ\H
+HÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆ
+È
+X\™Ú[“[Ù[\È
+È[”İ\
+H
+ˆ[Ù[TÚ^™KˆËÈHX]š^ˆTˆ[[Y\˜Hš[\È\ÙH\œšX˜NÈˆ[[Y\˜HX\ÙBˆËÈX˜Z›Ëˆ[™\\ˆÛÛÈ[Z™H™\XØ[ÛÛœÙ\˜HHÜšY[XÚ[Ûˆ[ˆËÈÚ[X›ÛÈHZ˜HÜÈ]›Û™\ÈH\Ü]YYH[ˆİ\È™\È\Ü]Z[˜\Ë‚ˆNˆH
+È
+X\™Ú[“[Ù[\È
+È
+X]š^[Ù[\ÈHHH›İÊJH
+ˆ[Ù[TÚ^™KˆÚYˆ
+ÛÛ[[ˆH[”İ\
+H
+ˆ[Ù[TÚ^™KˆZYÚˆ[Ù[TÚ^™KˆÛÛÜˆ™ØŠ
+BˆJNÂˆ[”İ\HLNÂˆBˆBˆB‚ˆ™]\›ˆÂˆ\”Ú^™KˆˆKˆY[™Ëˆ\œ›ÜÛÜœ™Xİ[Û“]™[ˆX\™Ú[“[Ù[\Îˆ\™š[œ\“X\™Ú[“[Ù[ÜËˆX]š^[Ù[\Îˆ\”Ş[X›Û›[Ù[\ËœÚ^™Kˆ[Ù[TÚ^™KˆØ\™ˆØ\™KˆØ\™ËˆØ\™ˆNÂŸB‚˜\Ş[˜È[˜İ[Ûˆ[[\‘[X™Y[XYÙ[Š‘ØÎˆ‘Øİ[Y[Ü˜ÏÎˆİš[™ÊNˆ›ÛZ\ÙOÙÛÑ[X™Y[™Yš[™YˆÂˆÛÛœİ]HHİš[™ÊÜ˜ÈÏÈ	ÉÊKš[J
+NÂˆYˆ
+\]JH™]\›ˆ[™Yš[™YÂ‚ˆHÂˆÛÛœİ[X™X™\Y™™\ˆH\Ş[˜È
+Y™™\ˆY™™\‹›Ü›X]Îˆİš[™ÊHOˆÂˆÛÛœİ›Ü›X]Ó›Ü›X[^˜YÈH›Ü›X]ËÓİÙ\Ø\ÙJ
+NÂˆYˆ
+›Ü›X]Ó›Ü›X[^˜YÈOOH	Ü™ÉÊHÂˆÛÛœİ[XYÙHH]ØZ]‘ØË™[X™Y™ÊY™™\ŠNÂˆ™]\›ˆÈ[XYÙKÚYˆ[XYÙKÚYZYÚˆ[XYÙKšZYÚNÂˆBˆYˆ
+›Ü›X]Ó›Ü›X[^˜YÈOOH	ÚœÉÈ›Ü›X]Ó›Ü›X[^˜YÈOOH	ÚœYÉÊHÂˆÛÛœİ[XYÙHH]ØZ]‘ØË™[X™YœÊY™™\ŠNÂˆ™]\›ˆÈ[XYÙKÚYˆ[XYÙKÚYZYÚˆ[XYÙKšZYÚNÂˆB‚ˆËÈ›Ü›X]ÜÈ›È˜]]›ÜÈH‹[XˆÛÛ™\\ˆH›Ü›XHÙYİ\˜HH‘È[ˆY[[ÜšXK‚ˆÛÛœİÛÛ™\YÔ™ÈH]ØZ]Ú\œ
+Y™™\‹È[š[X]YˆYHJKœ™Ê
+KĞY™™\Š
+NÂˆÛÛœİ[XYÙHH]ØZ]‘ØË™[X™Y™ÊÛÛ™\YÔ™ÊNÂˆ™]\›ˆÈ[XYÙKÚYˆ[XYÙKÚYZYÚˆ[XYÙKšZYÚNÂˆNÂ‚ˆÛÛœİ]U\›X]ÚH×™]Nš[XYÙWÊØK^KVŒNKŠËWJÊNØ˜\ÙM
+ŠÊIÚK™^XÊ]JNÂˆYˆ
+]U\›X]Ú
+HÂˆÛÛœİ›Ü›X]ÈH
+]U\›X]ÚÌWH	ÉÊKÓİÙ\Ø\ÙJ
+NÂˆÛÛœİ˜\ÙMH]U\›X]ÚÌ—HÏÈ	ÉÎÂˆÛÛœİY™™\ˆHY™™\‹™œ›ÛJ˜\ÙM	Ø˜\ÙM	ÊNÂˆ™]\›ˆ]ØZ][X™X™\Y™™\ŠY™™\‹›Ü›X]ÊNÂˆB‚ˆÛÛœİØ[™Y]ÜÈH
+
+
+HOˆÂˆYˆ
+]š\ĞXœÛÛ]J]JJH™]\›ˆÜ]WNÂˆÛÛœİİÙH›ØÙ\ÜË˜İÙ
+
+NÂˆ™]\›ˆÂˆ]œ™\ÛÛ™JİÙ]JKˆ]œ™\ÛÛ™JİÙ	Ë‹‰Ë]JKˆ]œ™\ÛÛ™JİÙ	Ë‹‰Ë	Ë‹‰Ë]JKˆ]œ™\ÛÛ™JİÙ	Ë‹‰Ë	Ë‹‰Ë	Ë‹‰Ë]JBˆNÂˆJJ
+NÂ‚ˆ][˜ÛÛ˜YNˆİš[™È[™Yš[™YÂˆ›Üˆ
+ÛÛœİØ[™Y]ÈÙˆØ[™Y]ÜÊHÂˆHÂˆ]ØZ]œË˜XØÙ\ÜÊØ[™Y]ÊNÂˆ[˜ÛÛ˜YHHØ[™Y]ÎÂˆœ™XZÎÂˆHØ]ÚÂˆËÈÛÛ[°î˜H°îœÜ]YYBˆBˆB‚ˆÛÛœİØš™]]›ÈH[˜ÛÛ˜YHÏÈ
+]š\ĞXœÛÛ]J]JHÈ]Hˆ]œ™\ÛÛ™J›ØÙ\ÜË˜İÙ
+
+K]JJNÂˆÛÛœİY™™\ˆH]ØZ]œËœ™XYš[JØš™]]›ÊNÂˆÛÛœİ^H]™^˜[YJØš™]]›ÊKÓİÙ\Ø\ÙJ
+Kœ™\XÙJ	Ë‰Ë	ÉÊNÂˆ™]\›ˆ]ØZ][X™X™\Y™™\ŠY™™\‹^	Ü™ÉÊNÂˆHØ]ÚÂˆ™]\›ˆ[™Yš[™YÂˆBŸB‚™[˜İ[ÛˆXZ˜\”]›Û”[XYÑ[˜ØX™^˜YÊˆYÙNˆ”YÙKˆ™Xİˆ™Xİ›ŞˆÛÛÜˆÛÛÜ‹ˆÛÛÜ”ÙXİ[™\š[ÎˆÛÛÜ‚ŠHÂˆËÈHX[H˜XÙ]YHHÜÈ›ÜÙ]Û™\ÈÛYÛÛ˜[\È™YY\˜[ˆHY[YYˆËÈ[œİ]XÚ[Û˜[Ú[ˆØØ\ˆ\È›Û˜\È›[˜Ø\ÈHT‹Ø\\˜HÈXİ\˜K‚ˆÛÛœİX\™Ù[–HX]›Z[ŠL™XİÚY
+ˆŒ
+NÂˆÛÛœİX\™Ù[–HHX]›Z[ŠL™XİšZYÚ
+ˆŒ
+NÂˆÛÛœİZ[ˆH™Xİ
+ÈX\™Ù[–ÂˆÛÛœİX^H™Xİ
+È™XİÚYHX\™Ù[–ÂˆÛÛœİSZ[ˆH™XİH
+ÈX\™Ù[–NÂˆÛÛœİSX^H™XİH
+È™XİšZYÚHX\™Ù[–NÂˆÛÛœİ[˜ÚÈHX]›X^
+KX^HZ[ŠNÂˆÛÛœİ[ÈHX]›X^
+KSX^HSZ[ŠNÂˆÛÛœİÛÛ[[˜\ÈHX]›X^
+KX]˜ÙZ[
+[˜ÚÈÈÍ
+JNÂˆÛÛœİš[\ÈHX]›X^
+ËX]˜ÙZ[
+[ÈÈÌ
+JNÂˆÛÛœİ›ÙÜÎˆ\œ˜^O\œ˜^OÈˆ[X™\ÈNˆ[X™\ˆOˆH×NÂ‚ˆ›Üˆ
+]š[HHÈš[Hš[\ÎÈš[H
+ÏHJHÂˆÛÛœİÙ™œÙ]Hš[H	HˆOOHÈˆNÂˆÛÛœİ[šXÚ[ÖHZ[ˆ
+ÈÙ™œÙ]
+ˆ
+[˜ÚÈÈ
+ÛÛ[[˜\ÈHJJNÂˆÛÛœİš[–HX^H
+š[H	HˆOOHÈˆ[˜ÚÈÈ
+ÛÛ[[˜\ÈHJH
+ˆJNÂˆÛÛœİ\ÛÖH
+š[–H[šXÚ[Ö
+HÈ
+ÛÛ[[˜\ÈHJNÂˆÛÛœİHHSZ[ˆ
+È
+[È
+ˆš[JHÈ
+š[\ÈHJNÂˆ›ÙÜËœ\Ú
+\œ˜^K™œ›ÛJÈ[™İˆÛÛ[[˜\ÈK
+ËÛÛ[[˜JHOˆ
+Âˆˆ[šXÚ[Ö
+È\ÛÖ
+ˆÛÛ[[˜KˆBˆJJJNÂˆB‚ˆËÈX[H˜XÙ]YNˆXYÛÛ˜[\È™XÚ[˜\ÈHXYÛÛ˜[\È\™Ø\È[\›˜Y\ÈÜ™X[‚ˆËÈÜÈÜXÙ\È\Ú[pê]šXÛÜÈš\ÚX›\È[ˆ[]°ìÛˆÜšYÚ[˜[ÛÛˆØÛÜÈ˜^›ÜË‚ˆ›Üˆ
+]š[HHÈš[Hš[\ÈHNÈš[H
+ÏHJHÂˆ›Üˆ
+]ÛÛ[[˜HHÈÛÛ[[˜HÛÛ[[˜\ÎÈÛÛ[[˜H
+ÏHJHÂˆÛÛœİ›ÙÈH›ÙÜÖÙš[WHVØÛÛ[[˜WHNÂˆÛÛœİÚYİZY[Qš[HH›ÙÜÖÙš[H
+ÈWHNÂˆÛÛœİ™XÚ[›ÑXYÛÛ˜[HÛÛ[[˜H
+È
+
+š[H
+ÈÛÛ[[˜JH	HˆOOHÈHˆLJNÂˆÛÛœİ™XÚ[›ÜÈHÜÚYİZY[Qš[VØÛÛ[[˜WKÚYİZY[Qš[Vİ™XÚ[›ÑXYÛÛ˜[WNÂˆ›Üˆ
+ÛÛœİ™XÚ[›ÈÙˆ™XÚ[›ÜÊHÂˆYˆ
+™XÚ[›ÊHYÙK™˜]Ó[™JÈİ\ˆ›ÙË[™ˆ™XÚ[›ËÛÛÜ‹XÚÛ™\ÜÎˆKÜXÚ]NˆŒLˆJNÂˆBˆYˆ
+
+š[H
+ÈÛÛ[[˜JH	HOOH	‰ˆÚYİZY[Qš[VØÛÛ[[˜H
+È—JHÂˆYÙK™˜]Ó[™JÈİ\ˆ›ÙË[™ˆÚYİZY[Qš[VØÛÛ[[˜H
+È—HKÛÛÜ‹XÚÛ™\ÜÎˆ‹ÜXÚ]NˆŒHJNÂˆBˆBˆB‚ˆËÈ˜^›ÜÈ^[™YÜÈ[›^˜[ˆ˜\š[ÜÈpìÙ[ÜÈ\˜H]š]\ˆ[\ÜXİÈH[‚ˆËÈ[ÜØZXÛÈZ\ÛYÈH™\›ÙXÙ[ˆH™YXYÛÛ˜[[\XHHHØX™XÙ\˜K‚ˆÛÛœİXYÛÛ˜[\Ó\™Ø\ÈHÂˆÛ›ÙÜÖÌHVÌHK›ÙÜÖÓX]™›ÛÜŠ
+š[\ÈHJHÈŠWHVÓX]™›ÛÜŠÛÛ[[˜\È
+ˆÌŠWHWKˆÛ›ÙÜÖÓX]™›ÛÜŠ
+š[\ÈHJHÈŠWHVÌHK›ÙÜÖÙš[\ÈHWHVÓX]™›ÛÜŠÛÛ[[˜\È
+ˆŠWHWKˆÛ›ÙÜÖÙš[\ÈHWHVÓX]™›ÛÜŠÛÛ[[˜\È
+ˆŒM
+WHK›ÙÜÖÓX]™›ÛÜŠ
+š[\ÈHJHÈŠWHVØÛÛ[[˜\ÈHWHWKˆÛ›ÙÜÖÌHVÓX]™›ÛÜŠÛÛ[[˜\È
+ˆŒÊWHK›ÙÜÖÙš[\ÈHWHVØÛÛ[[˜\ÈHWHWBˆNÂˆ›Üˆ
+ÛÛœİÚ[šXÚ[Ëš[—HÙˆXYÛÛ˜[\Ó\™Ø\ÊHÂˆYÙK™˜]Ó[™JÈİ\ˆ[šXÚ[Ë[™ˆš[‹ÛÛÜ‹XÚÛ™\ÜÎˆNÜXÚ]NˆŒHJNÂˆB‚ˆËÈ›ÛX›ÜÈXšY\ÜÈ[ˆÙÜÈÜÈ›ÙÜÎÈ[İ[›ÜÈ™XÚX™[ˆ[ˆÙYİ[™ÈÛÛÜ››ÂˆËÈš[›È\˜H™Xİ\\˜\ˆ[][H[]°ìÛˆÚ[ˆpìXY\ˆ[ˆ[X›[XHÙ[˜[‚ˆ›Üˆ
+]š[HHÈš[Hš[\ÎÈš[H
+ÏHJHÂˆ›Üˆ
+]ÛÛ[[˜HHÈÛÛ[[˜HÛÛ[[˜\ÎÈÛÛ[[˜H
+ÏHJHÂˆÛÛœİÙ[›ÈH›ÙÜÖÙš[WHVØÛÛ[[˜WHNÂˆÛÛœİ\İXØYÈH
+š[H
+ˆˆ
+ÈÛÛ[[˜JH	HHOOHÂˆÛÛœİ˜Y[ÖH\İXØYÈÈˆˆKÂˆÛÛœİ˜Y[ÖHH\İXØYÈÈËŒˆˆÂˆÛÛœİ™\XÙ\ÈHÂˆÈˆÙ[›ËNˆÙ[›ËH
+È˜Y[ÖHKˆÈˆÙ[›Ë
+È˜Y[ÖNˆÙ[›ËHKˆÈˆÙ[›ËNˆÙ[›ËHH˜Y[ÖHKˆÈˆÙ[›ËH˜Y[ÖNˆÙ[›ËHBˆNÂˆ›Üˆ
+]YÈHÈYÈ™\XÙ\Ë›[™İÈYÈ
+ÏHJHÂˆYÙK™˜]Ó[™JÂˆİ\ˆ™\XÙ\ÖÛY×HKˆ[™ˆ™\XÙ\ÖÊYÈ
+ÈJH	H™\XÙ\Ë›[™İHKˆÛÛÜ‹ˆXÚÛ™\ÜÎˆ\İXØYÈÈMHˆˆÜXÚ]Nˆ\İXØYÈÈŒŒˆˆŒMBˆJNÂˆBˆYˆ
+\İXØYÊHÂˆÛÛœİ˜Y[Ò[\š[ÜˆH‹ÂˆÛÛœİ[\š[ÜˆHÂˆÈˆÙ[›ËNˆÙ[›ËH
+È˜Y[Ò[\š[ÜˆKˆÈˆÙ[›Ë
+È˜Y[Ò[\š[Ü‹NˆÙ[›ËHKˆÈˆÙ[›ËNˆÙ[›ËHH˜Y[Ò[\š[ÜˆKˆÈˆÙ[›ËH˜Y[Ò[\š[Ü‹NˆÙ[›ËHBˆNÂˆ›Üˆ
+]YÈHÈYÈ[\š[Ü‹›[™İÈYÈ
+ÏHJHÂˆYÙK™˜]Ó[™JÂˆİ\ˆ[\š[Ü–ÛY×HKˆ[™ˆ[\š[Ü–ÊYÈ
+ÈJH	H[\š[Ü‹›[™İHKˆÛÛÜ‹ˆXÚÛ™\ÜÎˆŒÍKˆÜXÚ]NˆŒM‚ˆJNÂˆBˆBˆYÙK™˜]ĞÚ\˜ÛJÈˆÙ[›ËNˆÙ[›ËKÚ^™Nˆ\İXØYÈÈKŒMHˆÌ‹ÛÛÜ‹ÜXÚ]NˆŒˆJNÂ‚ˆËÈ›ÜÙ]0ìÛˆHØÚÈ0ê][ÜÈÛØœ™H[˜H\HHÜÈ›ÙÜÎˆ\È[\ÂˆËÈ]YY[ˆXšY\\È\˜HÛÛœÙ\˜\ˆ[ˆ˜^›ÈYÙ\›È[ˆ[›Û™È[\™\ÛË‚ˆYˆ
+
+š[H
+ÈÛÛ[[˜H
+ˆŠH	HHOOH	‰ˆ™XİÚYHL	‰ˆ™XİšZYÚH
+HÂˆÛÛœİ˜Y[Ò[\š[ÜˆH‹ŒNÂˆÛÛœİ˜Y[ÓYY[ÈHKŒÎÂˆÛÛœİ˜Y[Ñ^\š[ÜˆHŒNÂˆ›Üˆ
+]][ÈHÈ][ÈÈ][È
+ÏHJHÂˆÛÛœİ[™İ[ÈH
+X]”H
+ˆˆ
+ˆ][ÊHÈÂˆÛÛœİ[™İ[ÓYY[ÈH[™İ[È
+ÈX]”HÈÂˆÛÛœİ[\š[ÜˆHÈˆÙ[›Ë
+ÈX]˜ÛÜÊ[™İ[ÊH
+ˆ˜Y[Ò[\š[Ü‹NˆÙ[›ËH
+ÈX]œÚ[Š[™İ[ÊH
+ˆ˜Y[Ò[\š[ÜˆNÂˆÛÛœİ[HHÈˆÙ[›Ë
+ÈX]˜ÛÜÊ[™İ[ÊH
+ˆ˜Y[Ñ^\š[Ü‹NˆÙ[›ËH
+ÈX]œÚ[Š[™İ[ÊH
+ˆ˜Y[Ñ^\š[ÜˆNÂˆÛÛœİ][ÓYY[ÈHÈˆÙ[›Ë
+ÈX]˜ÛÜÊ[™İ[ÓYY[ÊH
+ˆ˜Y[ÓYY[ËNˆÙ[›ËH
+ÈX]œÚ[Š[™İ[ÓYY[ÊH
+ˆ˜Y[ÓYY[ÈNÂˆÛÛœİÚYİZY[T[P[™İ[ÈH[™İ[È
+ÈX]”HÈÂˆÛÛœİÚYİZY[T[HHÈˆÙ[›Ë
+ÈX]˜ÛÜÊÚYİZY[T[P[™İ[ÊH
+ˆ˜Y[Ñ^\š[Ü‹NˆÙ[›ËH
+ÈX]œÚ[ŠÚYİZY[T[P[™İ[ÊH
+ˆ˜Y[Ñ^\š[ÜˆNÂˆYÙK™˜]Ó[™JÈİ\ˆ[\š[Ü‹[™ˆ][ÓYY[ËÛÛÜˆÛÛÜ”ÙXİ[™\š[ËXÚÛ™\ÜÎˆ‹ÜXÚ]NˆŒMˆJNÂˆYÙK™˜]Ó[™JÈİ\ˆ][ÓYY[Ë[™ˆ[KÛÛÜˆÛÛÜ”ÙXİ[™\š[ËXÚÛ™\ÜÎˆ‹ÜXÚ]NˆŒMˆJNÂˆYÙK™˜]Ó[™JÈİ\ˆ[K[™ˆÚYİZY[T[KÛÛÜ‹XÚÛ™\ÜÎˆ‹ÜXÚ]NˆŒLˆJNÂˆBˆBˆBˆBŸB‚™[˜İ[ÛˆXZ˜\”]›Û›Ü]YPØ\\˜JˆYÙNˆ”YÙKˆ™Xİˆ™Xİ›ŞˆÛÛÜˆÛÛÜ‹ˆ^Û\Ú[Û™\Îˆ™Xİ›Ş×BŠHÂˆËÈ[›Ü]YHÛÛ\]È™XÚX™H0î›šXØ[Y[H[˜H™]0ëXİ[HH[ÜÈ[YKˆ\ÂˆËÈ0ë[™X\ÈHØ\\˜HÙH^Û^Y[ˆÜˆÛÛ\]È\˜H™\Ù\˜\ˆ[˜Hİ\\™šXÚYBˆËÈ[\XHÛ™HÙH\ØÜšX™HHX[›ÎÈÜÈ]›Û™\ÈÙ[Ûpê]šXÛÜÈÛÛ\Z›ÜÈ]YY[‚ˆËÈ™\Ù\˜YÜÈ\˜HHØX™XÙ\˜H[œİ]XÚ[Û˜[‚ˆÛÛœİX\™Ù[ˆHÂˆÛÛœİZ[ˆH™Xİ
+ÈX\™Ù[ÂˆÛÛœİX^H™Xİ
+È™XİÚYHX\™Ù[ÂˆÛÛœİSZ[ˆH™XİH
+ÈX\™Ù[ÂˆÛÛœİSX^H™XİH
+È™XİšZYÚHX\™Ù[ÂˆÛÛœİ[›ÈH
+ØZ˜Nˆ™Xİ›Ş
+HO‚ˆØZ˜KHZ[ˆ	‰ˆØZ˜KHHSZ[ˆ	‰ˆØZ˜K
+ÈØZ˜KÚYHX^	‰ˆØZ˜KH
+ÈØZ˜KšZYÚHSX^ÂˆÛÛœİXœ™HH
+ØZ˜Nˆ™Xİ›Ş
+HOˆ[›ÊØZ˜JH	‰ˆ^Û\Ú[Û™\Ë™]™\J
+^Û\Ú[ÛŠHOˆ\™Xİ[\œÙXØJØZ˜K^Û\Ú[ÛŠJNÂˆÛÛœİÛÛÜ”ÙXİ[™\š[ÈH™ØŠŒL‹ŒÎN
+NÂˆÛÛœİXZ˜\”[ÈH
+ˆ[X™\‹Nˆ[X™\‹˜Y[Îˆ[X™\‹Û›ÎˆÛÛÜŠHOˆÂˆÛÛœİØZ˜HHÈˆH˜Y[ËNˆHH˜Y[ËÚYˆ˜Y[È
+ˆ‹ZYÚˆ˜Y[È
+ˆˆNÂˆYˆ
+[Xœ™JØZ˜JJH™]\›ÂˆYÙK™˜]ĞÚ\˜ÛJÈKÚ^™Nˆ˜Y[ËÛÛÜˆÛ›ËÜXÚ]NˆŒMHJNÂˆNÂ‚ˆËÈX[Hš[˜HÛÛ[XHH]^HÛ\˜NˆX[Y[™H›Ù[™YYš\İX[[ˆÙÈ[ˆËÈ›Ü]YHÚ[ˆÜ™X\ˆ›Ü™\È˜[ÛÜÈšHÛÛ\]\ˆÛÛˆ[^Ë‚ˆ›Üˆ
+]š[HHHHSZ[ˆ
+ÈÈHHSX^HÈš[H
+ÏHKH
+ÏHJHÂˆÛÛœİ\Ü^˜[ZY[ÈHš[H	HˆOOHÈˆNÂˆ›Üˆ
+]HZ[ˆ
+È
+È\Ü^˜[ZY[ÎÈHX^HÈ
+ÏHJHÂˆXZ˜\”[ÊKŒËš[H	HÈOOHÈÛÛÜ”ÙXİ[™\š[ÈˆÛÛÜŠNÂˆBˆBŸB‚™[˜İ[ÛˆXZ˜\”]›Û”[XYÔ™XXİ]›ÊˆYÙNˆ”YÙKˆ™Xİˆ™Xİ›ŞˆÛÛÜˆÛÛÜ‚ŠHÂˆËÈÛÛœÙ\˜HH^\˜HY]ÜšX[ÛÛˆY[›ÜÈX\˜Ø\È™XİÜšX[\ÈÜˆ0è\™XK‚ˆËÈ[\ÛÈHNŒÍÍH™YXÙHŒÍˆ	HÜÈ[ÜÈœ™[HHMÈÚ[ˆØ[XšX\‚ˆËÈİH˜Y[ËÛ›ÈšHÜXÚYYÈH™\˜\œ]pëXHHHÙ[ÛY]°ëXH[˜Ú[Û˜[\›X[™XÙ[‹‚ˆÛÛœİ[œÙ]H‹ÂˆÛÛœİZ[ˆH™Xİ
+È[œÙ]ÂˆÛÛœİX^H™Xİ
+È™XİÚYH[œÙ]ÂˆÛÛœİSZ[ˆH™XİH
+È[œÙ]ÂˆÛÛœİSX^H™XİH
+È™XİšZYÚH[œÙ]ÂˆÛÛœİ\ÛÈHNŒÍÍNÂˆ›Üˆ
+]š[HHHHSZ[ÈHHSX^Èš[H
+ÏHKH
+ÏH\ÛÊHÂˆÛÛœİ\Ü^˜[ZY[ÈHš[H	HˆOOHÈˆ\ÛÈÈÂˆ›Üˆ
+]HZ[ˆ
+È\Ü^˜[ZY[ÎÈHX^È
+ÏH\ÛÊHÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆKˆÚ^™NˆŒÍˆÛÛÜ‹ˆÜXÚ]NˆŒMBˆJNÂˆBˆBŸB‚™[˜İ[ÛˆXZ˜\“Ü›˜[Y[Ô[XYĞİY\œÊˆYÙNˆ”YÙKˆ™Xİˆ™Xİ›ŞˆÛÛÜˆÛÛÜ‚ŠHÂˆËÈYÜ››ÈH]^H˜Z˜HÛØ™\\˜H[ˆ\È\Ü]Z[˜\È[İY\œËˆ\ÜBˆËÈÛÛ[ZYYš\İX[Ú[ˆÛ™\ˆ[HX˜Z›ÈH™Yİ[\Ë™\ÜY\İ\ÈšBˆËÈ[™[\ÈÓT‹ˆÜÈ[ÜÈÙHXZ˜[ˆ[\ÈHÜÈ[[Y[ÜÈ[˜Ú[Û˜[\Ë‚ˆÛÛœİX\™Ù[ˆHÂˆÛÛœİ[ÜÈHÂˆÈˆ™Xİ
+ÈX\™Ù[‹Nˆ™XİH
+ÈX\™Ù[ˆKˆÈˆ™Xİ
+ÈX\™Ù[ˆ
+ÈKNˆ™XİH
+ÈX\™Ù[ˆKˆÈˆ™Xİ
+ÈX\™Ù[‹Nˆ™XİH
+ÈX\™Ù[ˆ
+ÈHKˆÈˆ™Xİ
+È™XİÚYHX\™Ù[‹Nˆ™XİH
+È™XİšZYÚHX\™Ù[ˆKˆÈˆ™Xİ
+È™XİÚYHX\™Ù[ˆHKNˆ™XİH
+È™XİšZYÚHX\™Ù[ˆKˆÈˆ™Xİ
+È™XİÚYHX\™Ù[‹Nˆ™XİH
+È™XİšZYÚHX\™Ù[ˆHHBˆNÂˆ›Üˆ
+ÛÛœİ[ÈÙˆ[ÜÊHÂˆYÙK™˜]ĞÚ\˜ÛJÈˆ[ËNˆ[ËKÚ^™Nˆ‹ÛÛÜ‹ÜXÚ]NˆŒJNÂˆBŸB‚‹ËÈXÛÛ›ÜÈHØX™XÙ\˜H[[™XYÜÈÛÛˆ[Ú\İ[XHÕ‘È^\İ[H[‚‹ËÈ\ËÙœ›Û[™ÜÜ˜ËİZKÚXÛÛ›ÜËŞˆÙH™]][^˜[ˆİ\È˜^›ÜÈH›ÜÜ˜Ú[Û™\Â‹ËÈYYX[H˜]Ôİ™Ô]\˜H]YHHXÛÛ›ÙÜ˜YšXHHH\XØXÚ[ÛˆH[ˆÙXB‹ËÈÛÛœÚ\İ[K°ë]YHH\İX›H[[\š[Z\ˆ[ˆ\ØØ[HHÜš\Ù\Ë‚˜ÛÛœİÕ‘×ÒPÓÓ“×ĞSSS“×ÒÓP”“ÔÈH	ÓMKHŒXM‹H‹HHLÈ	ÎÂ˜ÛÛœİÕ‘×ÒPÓÓ“×ĞSSS“Ô×ÒÓP”“ÈH	ÓLMˆŒ]‹L˜MMM˜MMŒ‰ÎÂ˜ÛÛœİÕ‘×ÒPÓÓ“×ĞSSS“Ô×ÑT‘PÒHH	ÓLŒˆŒ]‹L˜MLËLËÉÎÂ˜ÛÛœİÕ‘×ÒPÓÓ“×ĞSSS“Ô×ĞTÓÈH	ÓLMˆËŒLØMHËÍIÎÂ˜ÛÛœİÕ‘×ÒPÓÓ“×ÑĞÑS•WÑÓÔ”“ÈH	ÓLŒˆL“LˆLLMHLKLL^‰ÎÂ˜ÛÛœİÕ‘×ÒPÓÓ“×ÑĞÑS•WĞS‘HH	ÓMˆLXÌÈÈHÈLˆ‹MIÎÂ˜ÛÛœİÕ‘×ÒPÓÓ“×ÒS‘“ÈH	ÓLLˆM‹M	ÎÂ‚˜ÛÛœİTĞĞSWÒPÓÓ“×ĞĞP‘PÑTHHÂ˜ÛÛœİÔ“ÔÓÔ—ÒPÓÓ“×ĞĞP‘PÑTHHKŒNÂ˜ÛÛœİS×ÒPÓÓ“×ĞĞP‘PÑTHHLKÂ‚™[˜İ[ÛˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JˆYÙNˆ”YÙKˆ]ˆİš[™Ëˆˆ[X™\‹ˆNˆ[X™\‹ˆÛÛÜˆÛÛÜ‚ŠHÂˆYÙK™˜]Ôİ™Ô]
+]ÂˆˆNˆH
+ÈS×ÒPÓÓ“×ĞĞP‘PÑTKˆØØ[NˆTĞĞSWÒPÓÓ“×ĞĞP‘PÑTKˆ›Ü™\ÛÛÜˆÛÛÜ‹ˆ›Ü™\•ÚYˆÔ“ÔÓÔ—ÒPÓÓ“×ĞĞP‘PÑTKˆÜXÚ]NˆM‚ˆJNÂŸB‚™[˜İ[ÛˆXZ˜\’XÛÛ›Ô\œÛÛ˜JYÙNˆ”YÙKˆ[X™\‹Nˆ[X™\‹ÛÛÜˆÛÛÜŠNˆ™Xİ›ŞÂˆÛÛœİ\ØØ[HHTĞĞSWÒPÓÓ“×ĞĞP‘PÑTNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ĞSSS“×ÒÓP”“ÔËKÛÛÜŠNÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ
+ÈLˆ
+ˆ\ØØ[KˆNˆH
+ÈS×ÒPÓÓ“×ĞĞP‘PÑTHHÈ
+ˆ\ØØ[KˆÚ^™Nˆ
+ˆ\ØØ[Kˆ›Ü™\ÛÛÜˆÛÛÜ‹ˆ›Ü™\•ÚYˆÔ“ÔÓÔ—ÒPÓÓ“×ĞĞP‘PÑTBˆJNÂˆ™]\›ˆÈKÚYˆL‹ZYÚˆS×ÒPÓÓ“×ĞĞP‘PÑTHNÂŸB‚™[˜İ[ÛˆXZ˜\’XÛÛ›ÑÜ\ÊYÙNˆ”YÙKˆ[X™\‹Nˆ[X™\‹ÛÛÜˆÛÛÜŠNˆ™Xİ›ŞÂˆÛÛœİ\ØØ[HHTĞĞSWÒPÓÓ“×ĞĞP‘PÑTNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ĞSSS“Ô×ÒÓP”“ËKÛÛÜŠNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ĞSSS“Ô×ÑT‘PÒKKÛÛÜŠNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ĞSSS“Ô×ĞTÓËKÛÛÜŠNÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ
+ÈH
+ˆ\ØØ[KˆNˆH
+ÈS×ÒPÓÓ“×ĞĞP‘PÑTHHÈ
+ˆ\ØØ[KˆÚ^™Nˆ
+ˆ\ØØ[Kˆ›Ü™\ÛÛÜˆÛÛÜ‹ˆ›Ü™\•ÚYˆÔ“ÔÓÔ—ÒPÓÓ“×ĞĞP‘PÑTBˆJNÂˆ™]\›ˆÈKÚYˆL‹ZYÚˆS×ÒPÓÓ“×ĞĞP‘PÑTHNÂŸB‚™[˜İ[ÛˆXZ˜\’XÛÛ›ÑØÙ[JYÙNˆ”YÙKˆ[X™\‹Nˆ[X™\‹ÛÛÜˆÛÛÜŠNˆ™Xİ›ŞÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ÑĞÑS•WÑÓÔ”“ËKÛÛÜŠNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ÑĞÑS•WĞS‘KKÛÛÜŠNÂˆËÈ[š\œ™]HØİ\HY[›ÜÈ[\˜H]YHÜÈXÛÛ›ÜÈHØ\\˜NÈÛÛœÙ\˜\ˆ[˜BˆËÈØZ˜HZ\İYH]š]H]YH[XÛÛ›ÈÜ]YHH[™XHHX]\šXHİ\\š[Ü‹‚ˆ™]\›ˆÈKÚYˆL‹ZYÚˆKˆNÂŸB‚™[˜İ[ÛˆXZ˜\’XÛÛ›Ò[™XØXÚ[Û™\ÊYÙNˆ”YÙKˆ[X™\‹Nˆ[X™\‹ÛÛÜˆÛÛÜŠNˆ™Xİ›ŞÂˆÛÛœİ\ØØ[HHTĞĞSWÒPÓÓ“×ĞĞP‘PÑTNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙK	ÓLLˆØNHHHHNNHHHHLN	ËKÛÛÜŠNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙKÕ‘×ÒPÓÓ“×ÒS‘“ËKÛÛÜŠNÂˆXZ˜\”]XÛÛ›ĞØX™XÙ\˜JYÙK	ÓLLˆŒIËKÛÛÜŠNÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ
+ÈLˆ
+ˆ\ØØ[KˆNˆH
+ÈS×ÒPÓÓ“×ĞĞP‘PÑTHH
+ˆ\ØØ[KˆÚ^™NˆKŒÍH
+ˆ\ØØ[KˆÛÛÜ‚ˆJNÂˆ™]\›ˆÈKÚYˆL‹ZYÚˆS×ÒPÓÓ“×ĞĞP‘PÑTHNÂŸB‚™[˜İ[ÛˆXZ˜\‘Z™[\ÜÓX\˜ØJˆYÙNˆ”YÙKˆˆ[X™\‹ˆNˆ[X™\‹ˆY[Nˆ‘›ÛˆÚ^™Nˆ[X™\‚ŠNˆ™Xİ›ŞÂˆÛÛœİ˜Y[ÈHËŒNÂˆÛÛœİÙ[›ÖHHH
+ÈŒÎÂˆÛÛœİÛÜœ™XİHH
+È˜Y[ÎÂˆÛÛœİ[˜ÛÜœ™XİHH
+ÈLÈ
+È˜Y[ÎÂˆÛÛœİÛÛÜÛÜœ™XİÈH™ØŠŒ‹ŒÍ
+NÂˆÛÛœİÛÛÜ’[˜ÛÜœ™XİÈH™ØŠNŒ‹ŒN
+NÂ‚ˆËÈÛÜœ™XİNˆHX\˜ØH]YYHÙ[˜YHHÙ\\˜YH[›Ü™K‚ˆYÙK™˜]ĞÚ\˜ÛJÂˆˆÛÜœ™XİKˆNˆÙ[›ÖKˆÚ^™Nˆ˜Y[Ëˆ›Ü™\ÛÛÜˆÛÛÜÛÜœ™XİËˆ›Ü™\•ÚYˆÂˆJNÂˆYÙK™˜]ĞÚ\˜ÛJÈˆÛÜœ™XİKNˆÙ[›ÖKÚ^™NˆKŒKÛÛÜˆÛÛÜÛÜœ™XİÈJNÂˆYÙK™˜]Õ^
+	ĞÛÜœ™XİIËÈˆ
+ÈKÚ^™K›ÛˆY[KÛÛÜˆÛÛÜÛÜœ™XİÈJNÂ‚ˆËÈ[˜ÛÜœ™XİNˆHX\˜ØHØØH[›Ü™HHÙHXÚHİX]™[Y[H\˜H]YH[ˆËÈZ™[\È›ÈÙHÛÛ™[™HÛÛˆ[˜H™\ÜY\İH°è[YH[^[Y[‹‚ˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ[˜ÛÜœ™XİKˆNˆÙ[›ÖKˆÚ^™Nˆ˜Y[Ëˆ›Ü™\ÛÛÜˆÛÛÜ’[˜ÛÜœ™XİËˆ›Ü™\•ÚYˆÂˆJNÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ[˜ÛÜœ™XİH
+È˜Y[È
+ˆˆNˆÙ[›ÖKˆÚ^™NˆKŒKˆÛÛÜˆÛÛÜ’[˜ÛÜœ™XİÂˆJNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ[˜ÛÜœ™XİHH˜Y[ÈHKŒKNˆÙ[›ÖHH˜Y[ÈHHKˆ[™ˆÈˆ[˜ÛÜœ™XİH
+È˜Y[È
+ÈKŒKNˆÙ[›ÖH
+È˜Y[È
+ÈHKˆÛÛÜˆÛÛÜ’[˜ÛÜœ™XİËˆXÚÛ™\ÜÎˆKˆÜXÚ]Nˆ‚ˆJNÂˆYÙK™˜]Õ^
+	Ò[˜ÛÜœ™XİIËÈˆ
+ÈŒKKÚ^™K›ÛˆY[KÛÛÜˆÛÛÜ’[˜ÛÜœ™XİÈJNÂ‚ˆ™]\›ˆÈKÚYˆX]›X^
+L‹ŒH
+ÈY[KÚYÙ•^]Ú^™J	Ò[˜ÛÜœ™XİIËÚ^™JJKZYÚˆÚ^™H
+ÈˆNÂŸB‚™[˜İ[ÛˆXZ˜\›Ü™TYÚ[˜JˆYÙNˆ”YÙKˆX\™Ù[ˆ[X™\‹ˆÛÛÜˆÛÛÜ‹ˆXÙ[ÎˆÛÛÜ‹ˆÚX[ˆÛÛÜ‹ˆXYÙ[NˆÛÛÜ‹ˆ[X˜\ˆÛÛÜ‚ŠHÂˆÛÛœİ[œÙ]HX\™Ù[ˆ
+ÈËNÂˆÛÛœİZ[ˆH[œÙ]ÂˆÛÛœİX^HSÒ×ĞĞT•HH[œÙ]ÂˆÛÛœİSZ[ˆH[œÙ]ÂˆÛÛœİSX^HS×ĞĞT•HH[œÙ]ÂˆÛÛœİÚY›[ˆHNÂˆÛÛœİ™\XÙ\ÈHÂˆÈˆZ[ˆ
+ÈÚY›[‹NˆSZ[ˆKˆÈˆX^HÚY›[‹NˆSZ[ˆKˆÈˆX^NˆSZ[ˆ
+ÈÚY›[ˆKˆÈˆX^NˆSX^HÚY›[ˆKˆÈˆX^HÚY›[‹NˆSX^KˆÈˆZ[ˆ
+ÈÚY›[‹NˆSX^KˆÈˆZ[‹NˆSX^HÚY›[ˆKˆÈˆZ[‹NˆSZ[ˆ
+ÈÚY›[ˆBˆNÂˆ›Üˆ
+][™XÙHHÈ[™XÙH™\XÙ\Ë›[™İÈ[™XÙH
+ÏHJHÂˆYÙK™˜]Ó[™JÂˆİ\ˆ™\XÙ\ÖÚ[™XÙWHKˆ[™ˆ™\XÙ\ÖÊ[™XÙH
+ÈJH	H™\XÙ\Ë›[™İHKˆÛÛÜ‹ˆXÚÛ™\ÜÎˆÌ‹ˆÜXÚ]Nˆˆ[™PØ\ˆ[™PØ\İ[K”›İ[™ˆJNÂˆB‚ˆËÈÜÈXÙ[ÜÈHÚ\˜İZ]È[ˆHY^˜ÛHŞX™\œ[šËÙY]ÜšX[ˆÙHX[Y[™[‚ˆËÈ[ˆ[Ø\œš[^\š[ÜˆHY\˜HHÜÈÌ™\Ù\˜YÜÈ[ÈHšYXÚX[\ÎÂˆËÈYÜ™YØ\“X\˜Ø\Ô™YÚ\İ›ÈY[™HH›[œ]YX\ˆ\È]ZY]›Û™\È\Üpê\È[X\˜ÛË‚ˆÛÛœİÙ\\˜XÚ[Û‘\Ü]Z[˜HHÌÂˆÛÛœİÙYÛY[ÜÈHÂˆÈİ\ˆÈˆZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜KNˆSX^K[™ˆÈˆZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜H
+ÈÍ‹NˆSX^KÛÛÜˆÚX[ˆKˆÈİ\ˆÈˆX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HHÍ‹NˆSX^K[™ˆÈˆX^HÙ\\˜XÚ[Û‘\Ü]Z[˜KNˆSX^KÛÛÜˆXYÙ[HKˆÈİ\ˆÈˆZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜KNˆSZ[ˆK[™ˆÈˆZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜H
+ÈÍ‹NˆSZ[ˆKÛÛÜˆ[X˜\ˆKˆÈİ\ˆÈˆX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HHÍ‹NˆSZ[ˆK[™ˆÈˆX^HÙ\\˜XÚ[Û‘\Ü]Z[˜KNˆSZ[ˆKÛÛÜˆÚX[ˆKˆÈİ\ˆÈˆZ[‹NˆSZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜HK[™ˆÈˆZ[‹NˆSZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜H
+ÈKÛÛÜˆÚX[ˆKˆÈİ\ˆÈˆZ[‹NˆSX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HHK[™ˆÈˆZ[‹NˆSX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HKÛÛÜˆ[X˜\ˆKˆÈİ\ˆÈˆX^NˆSZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜HK[™ˆÈˆX^NˆSZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜H
+ÈKÛÛÜˆXYÙ[HKˆÈİ\ˆÈˆX^NˆSX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HHK[™ˆÈˆX^NˆSX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HKÛÛÜˆÚX[ˆBˆH\ÈÛÛœİÂˆ›Üˆ
+ÛÛœİÙYÛY[ÈÙˆÙYÛY[ÜÊHÂˆYÙK™˜]Ó[™JÂˆ‹‹œÙYÛY[ËˆXÚÛ™\ÜÎˆKŒKˆÜXÚ]NˆKˆ[™PØ\ˆ[™PØ\İ[K”›İ[™ˆJNÂˆB‚ˆËÈ\]Ypì[ÜÈ›ÙÜÈHÛÜ\ÈØ›Xİ[ÜÈÛÛšY\[ˆ\È\Ü]Z[˜\ÈXœ™\È[‚ˆËÈ\›Z[˜[\ÈHÚ\˜İZ]ËÚ[ˆXZ˜\ˆÛØœ™H\ÈX\˜Ø\ÈH™YÚ\İ›Ë‚ˆÛÛœİ›ÙÜÈHÂˆÈˆZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜H
+È‹NˆSX^ÛÛÜˆXÙ[ÈKˆÈˆX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HH‹NˆSZ[‹ÛÛÜˆXÙ[ÈKˆÈˆZ[‹NˆSZ[ˆ
+ÈÙ\\˜XÚ[Û‘\Ü]Z[˜H
+ÈÍÛÛÜˆXYÙ[HKˆÈˆX^NˆSX^HÙ\\˜XÚ[Û‘\Ü]Z[˜HHÍÛÛÜˆÚX[ˆBˆNÂˆ›Üˆ
+ÛÛœİ›ÙÈÙˆ›ÙÜÊHÂˆYÙK™˜]ĞÚ\˜ÛJÈ‹‹››ÙËÚ^™NˆKŒHJNÂˆBŸB‚™[˜İ[ÛˆXZ˜\“[™XT[XYJˆYÙNˆ”YÙKˆ[šXÚ[ÎˆÈˆ[X™\ÈNˆ[X™\ˆKˆš[ˆÈˆ[X™\ÈNˆ[X™\ˆKˆÛÛÜˆÛÛÜ‹ˆÜ›ÜÛÜˆHMKˆÜXÚYYHŒ‚ŠHÂˆÛÛœİHš[‹H[šXÚ[ËÂˆÛÛœİHHš[‹HH[šXÚ[ËNÂˆÛÛœİÛ™Ú]YHX]š\İ
+JNÂˆYˆ
+Û™Ú]YH
+H™]\›ÂˆÛÛœİ^HÈÛ™Ú]YÂˆÛÛœİ^HHHÈÛ™Ú]YÂˆÛÛœİİZ[ÛˆHÎÂˆÛÛœİÙ\\˜XÚ[ÛˆHÂˆ›Üˆ
+]™XÛÜœšYÈHÈ™XÛÜœšYÈÛ™Ú]YÈ™XÛÜœšYÈ
+ÏHİZ[Ûˆ
+ÈÙ\\˜XÚ[ÛŠHÂˆÛÛœİ˜[[ÈHX]›Z[ŠİZ[Û‹Û™Ú]YH™XÛÜœšYÊNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ[šXÚ[Ë
+È^
+ˆ™XÛÜœšYËNˆ[šXÚ[ËH
+È^H
+ˆ™XÛÜœšYÈKˆ[™ˆÈˆ[šXÚ[Ë
+È^
+ˆ
+™XÛÜœšYÈ
+È˜[[ÊKNˆ[šXÚ[ËH
+È^H
+ˆ
+™XÛÜœšYÈ
+È˜[[ÊHKˆÛÛÜ‹ˆXÚÛ™\ÜÎˆÜ›ÜÛÜ‹ˆÜXÚ]NˆÜXÚYYˆJNÂˆBŸB‚™[˜İ[ÛˆXZ˜\ØZ˜T[XYJˆYÙNˆ”YÙKˆØZ˜Nˆ™Xİ›ŞˆÛÛÜˆÛÛÜ‹ˆ[˜ÛZ\›Ü™Tİ\\š[ÜˆHYBŠHÂˆÛÛœİˆHØZ˜K
+ÈØZ˜KÚYÂˆÛÛœİLˆHØZ˜KH
+ÈØZ˜KšZYÚÂˆYˆ
+[˜ÛZ\›Ü™Tİ\\š[ÜŠHÂˆXZ˜\“[™XT[XYJYÙKÈˆØZ˜KNˆLˆKÈˆ‹NˆLˆKÛÛÜŠNÂˆBˆXZ˜\“[™XT[XYJYÙKÈˆ‹NˆLˆKÈˆ‹NˆØZ˜KHKÛÛÜŠNÂˆXZ˜\“[™XT[XYJYÙKÈˆ‹NˆØZ˜KHKÈˆØZ˜KNˆØZ˜KHKÛÛÜŠNÂˆXZ˜\“[™XT[XYJYÙKÈˆØZ˜KNˆØZ˜KHKÈˆØZ˜KNˆLˆKÛÛÜŠNÂŸB‚˜\Ş[˜È[˜İ[Ûˆ[X™YY[QXÛÙ›Û
+‘ØÎˆ‘Øİ[Y[
+Nˆ›ÛZ\ÙO‘›ÛˆÂˆÛÛœİÛÛ™šYİ\˜YHHİš[™Ê›ØÙ\ÜË™[‹‘VSQS—Ñ“Ó•ÑPÓÑ“Ó•ÔUÏÈ	ÉÊKš[J
+NÂˆÛÛœİİÙH›ØÙ\ÜË˜İÙ
+
+NÂˆÛÛœİØ[™Y]ÜÈHÂˆ‹‹ŠÛÛ™šYİ\˜YHÈØÛÛ™šYİ\˜YWHˆ×JKˆ]œ™\ÛÛ™JİÙ	Ø\ÉË	Ø˜XÚÙ[™	Ë	Ø\ÜÙ]ÉË	Ù›ÛÉË•QS•WÑPÓÑ“Ó•ĞTÒU“ÊKˆ]œ™\ÛÛ™JİÙ	Ø\ÜÙ]ÉË	Ù›ÛÉË•QS•WÑPÓÑ“Ó•ĞTÒU“ÊKˆ]œ™\ÛÛ™JİÙ	Ë‹‰Ë	Ø\ÜÙ]ÉË	Ù›ÛÉË•QS•WÑPÓÑ“Ó•ĞTÒU“ÊKˆ]œ™\ÛÛ™JİÙ	Ë‹‰Ë	Ø\ÉË	Ø˜XÚÙ[™	Ë	Ø\ÜÙ]ÉË	Ù›ÛÉË•QS•WÑPÓÑ“Ó•ĞTÒU“ÊKˆ]œ™\ÛÛ™JİÙ	Ë‹‰Ë	Ë‹‰Ë	Ø\ÉË	Ø˜XÚÙ[™	Ë	Ø\ÜÙ]ÉË	Ù›ÛÉË•QS•WÑPÓÑ“Ó•ĞTÒU“ÊBˆNÂ‚ˆ›Üˆ
+ÛÛœİØ[™Y]ÈÙˆØ[™Y]ÜÊHÂˆHÂˆÛÛœİY™™\ˆH]ØZ]œËœ™XYš[JØ[™Y]ÊNÂˆ™]\›ˆ]ØZ]‘ØË™[X™Y›Û
+Y™™\‹ÈİXœÙ]ˆYHJNÂˆHØ]ÚÂˆËÈHØ[YHÚYİYHÚY[™È[˜Ú[Û˜[ÚH[˜H[œİ[XÚpìÛˆ›È˜YH[\ÜÙ]‚ˆBˆBˆ›İÈ™]È\œ›ÜŠ›ÈÙHYÈØ\™Ø\ˆHY[HØ›YØ]ÜšXH	Ñ•QS•WÑPÓÑ“Ó•ĞTÒU“ßX
+NÂŸBƒB™[˜İ[ÛˆX\X\”™Yİ[\ÓÜ™[˜Y\Ê^[Y[ˆ^[Y[”ŠHÃBˆÛÛœİX\HH™]ÈX\
+^[Y[‹œ™Yİ[\Ë›X\
+
+™Yİ[JHOˆÜ™Yİ[KšY™Yİ[WJJNÃBˆ™]\›ˆ^[Y[‹›X\U˜\šX[K›Ü™[”™Yİ[\ÃBˆ›X\
+
+Y™Yİ[JHOˆX\K™Ù]
+Y™Yİ[JJCBˆ™š[\Š
+™Yİ[JNˆ™Yİ[H\È^[Y[”–ÉÜ™Yİ[\É×VÛ[X™\—HOˆ›ÛÛX[Š™Yİ[JJNÃBŸCBƒB™^ÜÛ\ÜÈ’Ú]™[™\™\ˆÃBˆÛÛœİXİÜŠBˆš]˜]H™XYÛ›H\™š[Û\ˆ\™š[[[SÛ\‹Bˆš]˜]H™XYÛ›H\™š[^[İ]ˆ\™š[^[İ][\™\Ú[ÛƒBˆ
+HßCBƒBˆ\Ş[˜ÈÙ[™\˜\”Š^[Y[ˆ^[Y[”ŠNˆ›ÛZ\ÙO™\İ[YÑÙ[™\˜XÚ[Û”ˆÂˆÛÛœİ‘ØÈH]ØZ]‘Øİ[Y[˜Ü™X]J
+NÂˆ‘ØËœ™YÚ\İ\‘›ÛÚ]
+›ÛÚ]
+NÂˆËÈ[^ÈYÚX›HÜˆ\œÛÛ˜\ÈÛÛœÙ\˜HXÛÙ›Ûˆ[™]XØH›ÛÙH™\Ù\˜BˆËÈ\˜H\ÈÜÈ™Y™\™[˜ÚX\ÈYXğè[šXØ\È]YHYH[ĞÔˆ[YK‚ˆÛÛœİY[HH]ØZ][X™YY[QXÛÙ›Û
+‘ØÊNÂˆÛÛœİY[P›ÛHY[NÂˆÛÛœİY[R][XØHHY[NÂˆÛÛœİY[S[Û›ÈHY[NÂˆÛÛœİY[SØÜˆH]ØZ]‘ØË™[X™Y›Û
+İ[™\™›ÛË’[™]XØP›Û
+NÂƒBˆ›ÚY^[Y[‹\Ñ^[Y[ÃBƒBˆÛÛœİ[\]U™\œÚ[ÛˆH^[Y[‹›^[İ][\]U™\œÚ[ÛÂˆYˆ
+[\]U™\œÚ[ÛˆOOHSTUWÕ‘T”ÒSÓ—ĞĞS“Ó’PĞJHÂˆ›İÈ™]È\œ›ÜŠ[\]H™\œÚ[Ûˆ	Ôİš[™Ê[\]U™\œÚ[ÛŠ_H›ÈÛÛ\]X›H\˜H™[™\™\ˆÓTˆØ[°ìÛšXÛØ
+NÂˆBˆÛÛœİ\™š[Û\ˆH™\ÛÛ™\”\™š[™[™\Š[\]U™\œÚ[Û‹\Ëœ\™š[Û\ŠNÂˆÛÛœİÛ\‘[“[™XHH\™š[Û\‹XšXØXÚ[ÛˆOOH	Ú[ËXK[ÜÚ[Û‰ÎÂˆÛÛœİÛ\”˜Y[ÈH\™š[Û\‹˜\˜Z˜T˜Y[ÎÂˆÛÛœİX\™Ù[“[HH^[Y[‹›^[İ]›X\™Ù[“[NÃBˆÛÛœİX\™Ù[ˆH[PT[ÜÊX\™Ù[“[JNÃBˆÛÛœİYÚ[˜\ÓØš™]]›ÈH[X™\‹š\Ñš[š]J^[Y[‹›^[İ]İ[YÚ[˜\ÊBˆÈX]›X^
+KX]™›ÛÜŠ^[Y[‹›^[İ]İ[YÚ[˜\ÊJBˆˆNÂƒBˆËÈ^È[X[›Îˆ›ØÙ\ÛÈÓVH\]Z[Xœ˜YÈÛÛˆØ\ÚH˜YHHËˆ[™YÜ›È\›ÂˆËÈ]YYH™\Ù\˜YÈ\˜H™Y™\™[˜ÚX\ÈĞÔˆHÙpìX[\ÈÓT‹ÔT‹‚ˆÛÛœİÛÛÜ”š[X\š[ÈHÛ^ZÊÌ‹ÌËŒŠNÂˆËÈ[[[˜ÚXYÈÛÛœÙ\˜H[Z\Û[È\ÛÈ\ÙÜ°èYšXÛÈ]YH\ÈÜÚ[Û™\ÈHÙBˆËÈ\İ[™İYHÛÛÈÜˆ[ˆ[˜Ü™[Y[ÈÜ›Ûpè]XÛÈ]^H]™K‚ˆÛÛœİÛÛÜ‘[[˜ÚXYÈHÛ^ZÊÍKÌËÌŒŠNÂˆÛÛœİÛÛÜ‘Üš\ÈHÛ^ZÊŒ‹ŒNŒJNÂˆÛÛœİÛÛÜ“[™XHH™ØŠ‹‹”—Õ’TÕPSĞTÑSS‘WÔ‘Ğ‹›[™JNÂˆÛÛœİÛÛÜXÙ[ÈH™ØŠ‹‹”—Õ’TÕPSĞTÑSS‘WÔ‘Ğ‹˜XØÙ[
+NÂˆÛÛœİÛÛÜXÙ[ÔİX]™HH™ØŠ‹‹”—Õ’TÕPSĞTÑSS‘WÔ‘Ğ‹˜XØÙ[ÛÙ
+NÂˆÛÛœİÛÛÜ“™[ÛÚX[ˆHÛ^ZÊKŒ‹
+NÂˆÛÛœİÛÛÜ“™[Û“XYÙ[HHÛ^ZÊKŒMK
+NÂˆÛÛœİÛÛÜ“™[Û[X˜\ˆHÛ^ZÊŒNMK
+NÂˆÛÛœİÛÛÜ”ÙXØÚ[ÛˆH™ØŠ‹‹”—Õ’TÕPSĞTÑSS‘WÔ‘Ğ‹œÙXİ[ÛŠNÂˆÛÛœİÛÛÜ‘›Û™ÔYÚ[˜HH™ØŠKKJNÂˆÛÛœİÛÛÜ•[HHÛÛÜ”š[X\š[ÎÂˆËÈ™YÜ›ÈH[˜HÛÛHXØH\˜H™\Ù\˜\ˆÛÛ˜\İHH\ÈÙpìX[\ÈH]š]\‚ˆËÈ]YH‘Ğˆ™YÜ›ÈÙHÛÛšY\H[ˆ[˜HY^˜ÛHÓVRÈ\İ[HÙYğî›ˆ[š]™\‹‚ˆÛÛœİÛÛÜ“™YÜ›ÓXİ\˜HHÛ^ZÊJNÂˆËÈ[0è\™XHHXİ\˜H\›X[™XÙH›[˜ØNˆÜÈÛÛÜ™\ÈXÛÜ˜]]›ÜÈÙH]YY[‚ˆËÈY\˜H[“ÒH\˜H]YHHÛÛ™\œÚpìÛˆH\ØØ[HHÜš\Ù\È›È˜Xœš\]YH[K‚ˆÛÛœİÛÛÜ”[™[Û\ˆH™ØŠKKJNÂˆÛÛœİÛÛÜ›Ü™SÛ\ˆH™ØŠNËÌÊNÂˆËÈÛÛÜ™\È[˜Ú[Û˜[\ÈY™\™[˜ÚXYÜÎˆÛÛœÙ\˜[ˆÛÛ˜\İH[[\š[Z\ˆ[‚ˆËÈÛÛÜˆHÚYİY[ˆÚY[™È\İ[™İZX›\ÈÜˆ[Z[˜[˜ÚXH[ˆ\ØØ[HHÜš\Ù\Ë‚ˆÛÛœİÛÛÜ’XÛÛ›Ğ[[[›ÈH™ØŠŒËÌŠNÂˆÛÛœİÛÛÜ’XÛÛ›ÑÜ\ÈH™ØŠŒKLŒÎ
+NÂˆÛÛœİÛÛÜ’XÛÛ›ÑØÙ[HH™ØŠŒŒÍMŠNÂˆÛÛœİÛÛÜ’XÛÛ›Ò[™XØXÚ[Û™\ÈH™ØŠ‹ŒKÌ
+NÂˆÛÛœİÛÛÜ™\Ô™Yİ[HHÂˆÈ›Û™Îˆ™ØŠKMMKNJKXÙ[Îˆ™ØŠŒKŠHKˆÈ›Û™Îˆ™ØŠMLËNJKXÙ[Îˆ™ØŠŒŒŒËŒŠHKˆÈ›Û™Îˆ™ØŠKMËM
+KXÙ[Îˆ™ØŠŒŒÍ
+HKˆÈ›Û™Îˆ™ØŠNMKMKŠKXÙ[Îˆ™ØŠ‹ŒÍŒÊHBˆNÂˆËÈ[[H˜\ÙH[ˆ[ÜÈ
+\H\HÌ™JH\˜HÜÚXÚ[Û˜[ZY[È\İX›KƒBˆÛÛœİS•SWÔHØš™Xİ™œ™Y^™JÃBˆXY\”YÜˆËˆXY\”Y›İÛNˆËˆ]QØ\ˆKŒ‹ˆ[XQØ\ˆKˆY]QØ\ÜˆKˆËÈ[XÛÛ›ÈHØÙ[HÙH[[™XHHH^œ]ZY\™HHİHY]Y]ÎÈ\İBˆËÈÛİ\˜Hpë[š[XH]š]H]YHİHØZ˜H[˜YHH0ë[™XHHX]\šXK‚ˆY]S[™NˆL‹ˆËÈ\İÜÈ˜[Ü™\ÈÛÛˆÙ\\˜XÚ[Û™\È[™HØZ˜\È\ÙÜ˜YšXØ\Ë›È\İ[˜ÚX\ÂˆËÈH[™XH˜\ÙNÈ\ÚHÙH]š]H]YH[^ÈH[˜Hš[H[˜YHHİ˜K‚ˆËÈH˜[™HHØ\\˜H™XÙ\Ú]HZ\™H›Ü[ÎˆÛÛˆ™\È[ÜÈ[[[[ÂˆËÈY]Y]È]YYX˜Hš\İX[Y[HYØYÈHH™YÛHİ\\š[ÜˆH›ÛXœ™K‚ˆËÈÛİ\˜Hpë[š[XH[™H[0î›[[ÈY]Y]ÈHHš[HHØ\\˜NÈBˆËÈ[\˜H™X[H\ÈØZ˜\ÈÙH˜[YHÜˆÙ\\˜YÈÛÛ˜HÛÛ\Ú[Û™\Ë‚ˆØ[\ÜÑØ\Üˆ‹ˆØ[\Ô›İÑØ\ˆˆËÈH[™XH[Ø[\È]YYHÛ\˜[Y[HX˜Z›È[ÛY›Ë›ÈYØYHHBˆËÈ]\]Y]HšHÛÛ™[™YHÛÛˆ[˜H™YÛHH›Û™È[˜\İ\š^˜\‹ˆ[‚ˆËÈ\ØÙ[œÛÈYXÚ[Û˜[]š]H]YHÜÈ\ØÙ[™[\ÈHXÛÙ›Û\™^˜Ø[‚ˆËÈ]˜]™\ØYÜÈÜˆH™YÛH[ˆ›İÙÜ˜Y°ëX\ÈH˜Z˜H™\ÛÛXÚpìÛ‹‚ˆØ[\Ó[™SÙ™œÙ]NˆMBˆJNÃBƒBˆËÈHÛÛ™šYİ\˜XÚpìÛˆH[œÚYYÛÛÈÛÛ\XİH[İY\œÈ[^[Y[‹ˆBˆËÈØX™XÙ\˜H[œİ]XÚ[Û˜[\ØH[˜H\ØØ[H›ÜXHH\İX›H\˜H]YHÜÂˆËÈØ[Xš[ÜÈHYÚ[˜XÚpìÛˆ›È[\™[ˆİ\ÈØ[\ÜÈÓT‹‚ˆÛÛœİ›ÛØØ[HHX]›Z[ŠKŒËX]›X^
+ÍK[X™\Š^[Y[‹›^[İ]™›ÛØØ[HÏÈJHJJNÂˆÛÛœİ[™TÜXÚ[™ÈHX]›Z[ŠK‹X]›X^
+ÍK[X™\Š^[Y[‹›^[İ]›[™TÜXÚ[™ÈÏÈJHJJNÂˆÛÛœİ\™š[ÛÛ\XİĞ[Q[œÚYYH^[Y[‹›^[İ]™[œÚ]S[ÙHOOH	ØÛÛ\Xİ	Âˆ	‰ˆ^[Y[‹İ[™Yİ[\ÈHÍ‚ˆ	‰ˆ\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÎÂˆÛÛœİ\™š[ÛÛ\XİĞØ\XÚYY[HH\™š[ÛÛ\XİĞ[Q[œÚYY	‰ˆ^[Y[‹İ[™Yİ[\ÈHÎÂˆÛÛœİ\™š[Û\ÛÛ\XİÑ[œÛÈH\™š[ÛÛ\XİĞ[Q[œÚYY
+^[Y[‹›^[İ]™[œÚ]S[ÙHOOH	ØÛÛ\Xİ	È	‰ˆ^[Y[‹İ[™Yİ[\ÈOOHÍ	‰ˆ\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÊNÂˆÛÛœİ\™š[ÛÛ\XİÌÍHH^[Y[‹›^[İ]™[œÚ]S[ÙHOOH	ØÛÛ\Xİ	Âˆ	‰ˆ^[Y[‹İ[™Yİ[\ÈOOHÍBˆ	‰ˆ\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÎÂˆÛÛœİ\™š[[Y\›ÓÛ\‘^\š[ÜˆH\™š[Û\ÛÛ\XİÑ[œÛÈ\™š[ÛÛ\XİÌÍNÂˆÛÛœİš[Üš^˜\Ø\XÚYYÜØ\˜HH\™š[ÛÛ\XİĞØ\XÚYY[NÂˆÛÛœİ›ÛØØ[PØX™XÙ\˜HHNÂˆÛÛœİ[™TÜXÚ[™ĞØX™XÙ\˜HHNÂˆËÈH™]0ëXİ[HÊÌˆX™\˜HİYšXÚY[H[˜ÚÈ\˜HÛÛœÙ\˜\ˆ[˜H\ÙÜ˜Y°ëXBˆËÈYÚX›HZY[˜\ÈHØX™XÙ\˜H\ØH[˜H\ØØ[Hpè\ÈÛÛ[šYK‚ˆÛÛœİ\ØØ[T\™š[[œÛÈHNÂˆÛÛœİÚ^™U][ÈHMKH
+ˆ›ÛØØ[PØX™XÙ\˜NÂˆËÈ\ÙÜ˜Y°ëXHHXİ\˜H[X[˜KˆH\ØØ[H[[˜ØX™^˜YÈ\È[X™\˜Y[Y[BˆËÈ[™\[™Y[HHÜÈZ\İ\È]]Ûpè]XÛÜÈ[İY\œÈH[ÓT‹‚ˆÛÛœİÚ^™SY]HHˆ
+ˆ›ÛØØ[PØX™XÙ\˜NÂˆÛÛœİÚ^™T™Yİ[HHL
+ˆ›ÛØØ[H
+ˆ\ØØ[T\™š[[œÛÎÂˆÛÛœİÚ^™SÜÚ[ÛˆH
+ˆ›ÛØØ[H
+ˆ\ØØ[T\™š[[œÛÎÂˆÛÛœİÚ^™PÛÙYÛÒ[›[™HH
+ˆ›ÛØØ[H
+ˆ\ØØ[T\™š[[œÛÎÂˆÛÛœİÚ^™PÛÙYÛĞ›Ü]YHHŒÈ
+ˆ›ÛØØ[H
+ˆ\ØØ[T\™š[[œÛÎÂ‚ˆÛÛœİ[™XT™Yİ[HHX]›X^
+ˆ
+\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÈÈLˆLËŒŠH
+ˆ›ÛØØ[KˆÚ^™T™Yİ[H
+ˆKŒNˆ
+H
+ˆ[™TÜXÚ[™ÎÂˆÛÛœİ[™XSÜÚ[ÛˆHX]›X^
+ˆ
+\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÈÈˆLK
+H
+ˆ›ÛØØ[KˆÚ^™SÜÚ[Ûˆ
+ˆKŒNˆ
+H
+ˆ[™TÜXÚ[™ÎÂˆÛÛœİ[™XPÛÙYÛĞ›Ü]YHHX]›X^
+ˆ
+\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÈÈˆˆL
+H
+ˆ›ÛØØ[KˆÚ^™PÛÙYÛĞ›Ü]YH
+ˆKŒNˆ
+H
+ˆ[™TÜXÚ[™ÎÂˆËÈ[\ÜXÚ[È[™H™XXİ]›ÜÈ\[™HHHØ[YYH^È[[[˜ÚXYÂˆËÈHİ\È™\ÜY\İ\ËˆH™YÛHš\ÚX›HH[›Ü]YH[Y\˜YÈÛÛœÙ\˜[ˆBˆËÈÙ\\˜XÚpìÛˆpë[š[XHHˆÈÜÈ™XXİ]›ÜÈpè\È[œÛÜÈ™XÚX™[ˆpè\ÈZ\™K‚ˆÛÛœİÛÛ\Ø\˜Xİ\™\Ô™Yİ[HH
+™Yİ[Nˆ^[Y[”–ÉÜ™Yİ[\É×VÛ[X™\—JHO‚ˆ\œ˜^K™œ›ÛJÂˆ™Yİ[K™[[˜ÚXYËˆ‹‹œ™Yİ[K›ÜÚ[Û™\Ë›X\
+
+ÜÚ[ÛŠHOˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠÜÚ[Û‹^ÊJBˆKš›Ú[Š	È	ÊKœ™\XÙJ×ÊËÙË	È	ÊKš[J
+JK›[™İÂˆÛÛœİØ[™\”Ù\\˜XÚ[Û”™Yİ[HH
+™Yİ[Nˆ^[Y[”–ÉÜ™Yİ[\É×VÛ[X™\—JHOˆÂˆÛÛœİØ\˜Xİ\™\ÈHÛÛ\Ø\˜Xİ\™\Ô™Yİ[J™Yİ[JNÂˆÛÛœİÙ\\˜XÚ[Û˜\ÙHHØ\˜Xİ\™\ÈHˆÈ
+\™š[ÛÛ\XİĞ[Q[œÚYYÈHˆŠBˆˆØ\˜Xİ\™\ÈHÈÈˆÂˆ™]\›ˆ\™š[ÛÛ\XİĞ[Q[œÚYY	‰ˆØ\˜Xİ\™\ÈHˆÈX]›X^
+KÙ\\˜XÚ[Û˜\ÙH
+ˆ[™TÜXÚ[™ÊBˆˆÙ\\˜XÚ[Û˜\ÙH
+ˆ[™TÜXÚ[™ÎÂˆNÂˆËÈÙ\\˜XÚpìÛˆ\ÙÜ°èYšXØHš\ÚX›H[™HH™YÛH[XYH[[[˜ÚXYÈBˆËÈ[[šXÚ[ÈH\È™\ÜY\İ\ËˆH™\Ù\˜HÙHÛÛ\\HÛÛˆ[[šYšXØYÜ‚ˆËÈ\˜H]YH[Z\™Hš\ÚX›H›ÈØ]\ÙH\Ø›Ü™\ÈšH0èYÚ[˜\ÈYXÚ[Û˜[\Ë‚ˆÛÛœİÙ\\˜XÚ[Û‘[[˜ÚXYÓÜÚ[Û™\ÈHÛ\‘[“[™XHÈÛ\”˜Y[È
+ÈÚ^™SÜÚ[Ûˆ
+ÈˆˆÂˆËÈ[›Û™È[™XXİ]›ÈÙH^Y[™H[˜H0ë[™XHÜˆ[˜Ú[XHHİHØZ˜BˆËÈ\ÙÜ°èYšXØKˆ[ˆX\™Ù[ˆ[™™\š[ÜˆÛÜÈÛÛœÙ\˜HHÙ\\˜XÚpìÛˆ[\š[ZX›BˆËÈH[™YØH[™\İÈ[YXÛÈ\™Xİ[Y[H[0è\™XHH™XXİ]›ÜË‚ˆÛÛœİÙ\\˜XÚ[ÛØX™XÙ\˜PÛÛ[šYÈH\™š[ÛÛ\XİĞ[Q[œÚYYˆÈX]›X^
+K[™XT™Yİ[HHË
+BˆˆX]›X^
+K[™XT™Yİ[HHËJNÂˆËÈÛİ\˜HÛÛ\\YHÜˆ[[šYšXØYÜˆH[™[™\™\ˆ[™H\š™]\ÈBˆËÈÜÚ[Û™\ËˆX[[™\ˆ[ˆ[šXÛÈ˜[Üˆ]š]H]YH[[ˆ™\Ù\™HY[›ÜÈ[ÂˆËÈ[]YHš[˜[Y[HÛÛœİ[YH[˜HÜÚ[ÛˆH˜\šX\È[™X\Ë‚ˆËÈH™]0ëXİ[HÊÌˆÛÛœÙ\˜HÛÛÈ[˜HÛİ\˜HİXœ[È[™Hš[\ËˆH[\˜BˆËÈHØYHš[HX[Y[™H[˜H™\Ù\˜H\ÙÜ°èYšXØHpë[š[XH[™\[™Y[H\˜BˆËÈ]YH[ZÜœ›È›ÈXÙ\œ]YHÜÈÛY›ÜÈ[Ù\\˜YÜˆšH[›Û™ÈÚYİZY[K‚ˆÛÛœİÙ\\˜XÚ[Û•\š™]SÜÚ[ÛˆHÛ\‘[“[™XHÈˆ\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÈÈŒHˆÎÂˆÛÛœİ™[[›Õ™\XØ[ÜÚ[ÛˆHÂˆÛÛœİ[\˜SZ[š[XQš[SÜÚ[ÛˆHÚ^™SÜÚ[Ûˆ
+ÈÎÂˆÛÛœİÛ\•İ[]˜\ÈHNÂˆÛÛœİÛ\”\ÛÖHH\™š[Û\‹˜\˜Z˜T\ÛÖNÂˆÛÛœİÛ\‘\Ü]Y[XRÜš^›Û[H\™š[Û\‹›ÜšY[XÚ[ÛˆOOH	ÚÜš^›Û[	ÎÂˆÛÛœİÛ\”\ÛÖH\™š[Û\‹˜\˜Z˜T\ÛÖÏÈÂˆÛÛœİÛ\“X\™Ù[’Üš^›Û[HNÂˆÛÛœİÛ\‘]\]Y]QØ\HÂˆËÈ[[™[Üš^›Û[ÛÛœÙ\˜H[pè[Y]›ÈÓTˆØ[°ìÛšXÛÈHÛÛ˜Ù[˜HBˆËÈ™\Ù\˜H™\XØ[ÛÛÈ\˜HHØ\XÚYY^™[XH
+Î
+È™XXİ]›ÜÊKˆ[ˆËÈğë\˜İ[ÈÛÛœÙ\˜HKŒˆXœ™\È\œšX˜HHH]\]Y]HHX˜Z›ÎÈ\ÂˆËÈ\˜Z˜\È›ÈØ[XšX[ˆH[Xpì[Ë\ÛÈšHÙ[›È™[]]›Ë‚ˆÛÛœİÛ\“X\™Ù[”İ\\š[ÜˆHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈ
+\™š[ÛÛ\XİĞØ\XÚYY[HÈKŒˆˆ\™š[Û\ÛÛ\XİÑ[œÛÈÈˆ\™š[ÛÛ\XİÌÍHÈÈˆË
+BˆˆNÂˆËÈH]\]Y]HHØYH\˜Z˜HÛÛœÙ\˜H[˜H›Û˜H›[˜ØH›ÜXNÈH™\Ù\˜BˆËÈÙHÛÛÜ™[˜HÛÛˆ[\Ü^˜[ZY[È™X[H\È]˜\È˜Z›ÈÜÈğë\˜İ[ÜË‚ˆËÈH™\Ù\˜H[™™\š[ÜˆX™HÙ\ˆX^[Üˆ]YH[\Ü^˜[ZY[ÈHH]\]Y]N‚ˆËÈÚH[X›ÜÈ˜[Ü™\ÈÛÚ[˜ÚY[‹HØZ˜H\ÙÜ°èYšXØH\›Z[˜H^Xİ[Y[HÛØœ™BˆËÈ[›Ü™H[[™[H[˜\İ\ˆYYH[Üİ˜\ˆH]˜HØØ[™ÈH0ë[™XK‚ˆËÈH™\Ù\˜HYXÚ[Û˜[X[Y[™HHÙ\\˜XÚpìÛˆš\ÚX›HÚ[ˆ[\˜\ˆ[ˆËÈpè[Y]›Ë\ÛÈšHHÜÚXÚpìÛˆH\È\˜Z˜\Ë‚ˆÛÛœİÛ\“X\™Ù[’[™™\š[ÜˆHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈ\™š[ÛÛ\XİĞØ\XÚYY[HÈËˆË‚ˆˆKNÂˆËÈÙ\\˜XÚpìÛˆÜÚ]]˜KİXœ[ÈHš\ÚX›HHÌK[™H[™[\ÈÓT‚ˆËÈÛÛœÙXİ]]›ÜËˆ[˜[Üˆ]š]HÛÛXİÜÈÚ[ˆ\Ü\™XÚX\ˆH™\Ù\˜BˆËÈ[™™\š[ÜˆİX[™È[˜HÛÛ[XXÚpìÛˆ[\Y^˜HX˜Z›ÈHÜÈšYXÚX[\Ë‚ˆÛÛœİÙ\\˜XÚ[Û”[™[Û\ˆH\™š[ÛÛ\XİĞØ\XÚYY[HÈˆÛ\‘\Ü]Y[XRÜš^›Û[ÈHˆNÂˆËÈ[\™š[ÛÛ\XİÈÛÛØØH\ÈÚ[˜ÛÈÜÚ[Û™\È[ˆ[˜Hš[HÛÛ›ÛYK‚ˆËÈØYHğë\˜İ[ÈX[Y[™HÙ\\˜XÚpìÛˆ°ë\ÚXØHHİH™XÚ[›ÈH[[™[]YYBˆËÈZ\ÛYÈ[^È\˜H]YH[“ÒHÙXH[™\]pë]›ØÛÈ[ˆ[˜H›İÙÜ˜Y°ëXK‚ˆÛÛœİ[˜ÚĞÛÛ™\ÜY\İHHÛ\‘[“[™XHÈˆ\™š[Û\‹˜ØZ˜SÛ\[˜ÚÎÂˆÛÛœİšYXÚX[Ú^™SZ[š[[ÈH\™š[Û\‹™šYXÚX[Ú^™NÂˆÛÛœİšYXÚX[X\™Ú[“Z[š[[ÈHX]›X^
+KŒ‹\™š[Û\‹™šYXÚX[X\™Ú[ŠNÂˆÛÛœİšYXÚX[]ZY]›Û™SZ[š[XHH\™š[Û\‹™šYXÚX[]ZY]›Û™NÂˆÛÛœİÙ\\˜XÚ[Û\˜Z˜T]ZY]›Û™SZ[š[XHBˆˆ
+ˆ
+šYXÚX[Ú^™SZ[š[[ÈÈˆ
+ÈšYXÚX[]ZY]›Û™SZ[š[XJH
+ÈšYXÚX[X\™Ú[“Z[š[[ÎÂˆÛÛœİ[˜ÚÓÛ\“Z[š[[ÔÙYİ\›ÈBˆ
+Û\•İ[]˜\ÈHJH
+ˆÛ\”\ÛÖ
+Èˆ
+ˆ
+Û\”˜Y[È
+ÈÙ\\˜XÚ[Û\˜Z˜T]ZY]›Û™SZ[š[XJNÂˆYˆ
+[Û\‘[“[™XH	‰ˆ
+S[X™\‹š\Ñš[š]J[˜ÚĞÛÛ™\ÜY\İJH[˜ÚĞÛÛ™\ÜY\İH[˜ÚÓÛ\“Z[š[[ÔÙYİ\›ÊJHÂˆ›İÈ™]È\œ›ÜŠ\™š[ÓTˆØ[°ìÛšXÛÈ[°è[YÎˆ[˜ÚÈHØZ˜H	Ôİš[™Ê[˜ÚĞÛÛ™\ÜY\İJ_\
+NÂˆBˆËÈÜÈ\™š[\ÈÛÛˆ°î›Y\›È^\š[Üˆ[Xšpê[ˆX™[ˆ™\Ù\˜\ˆİH[˜Ú\˜BˆËÈ\˜[HHÛÛ\ÜÚXÚpìÛˆ[^Ë[\ÈHÛÛ\›Ø˜\ˆ\ÈÛÛ\Ú[Û™\Ë‚ˆÛÛœİ[˜ÚÑYÚ]Ñ^\š[ÜˆHX]›X^
+‹‹‰ÌLŒÍMÎIËœÜ]
+	ÉÊK›X\
+
+YÚ]ÊHOˆY[P›ÛÚYÙ•^]Ú^™JYÚ]ËJJJNÂˆÛÛœİ[˜ÚÓ[Y\›Ñ^\š[ÜˆH[˜ÚÑYÚ]Ñ^\š[Üˆ
+ˆİš[™Ê^[Y[‹İ[™Yİ[\ÊK›[™İÂˆÛÛœİİ]\”™\ÜY\İHHÛ\‘[“[™XHÈˆ\™š[[Y\›ÓÛ\‘^\š[ÜˆÈX]›X^
+‹[˜ÚÓ[Y\›Ñ^\š[Üˆ
+ÈJHˆÂˆËÈ[[™[HİH[È›[˜ÛÈX™[ˆ]YY\ˆ[›È[›Ü™H[\š[ZX›K‚ˆËÈ[[™X\›ÈÛÛˆH™\Ù\˜H\™XÚH[Tˆ™Xİ\\˜H\ÜXÚ[È\˜H[^ÂˆËÈÚ[ˆ\ŞX\›È[ˆ[›Ü™H°ë\ÚXÛÎˆÙHÛÛœÙ\˜[ˆ
+ŒK[JHY[pè\ÂˆËÈ[X\™Ù[ˆ›ÛZ[˜[ÛÛ™šYİ\˜YÈ\˜HH[[K‚ˆÛÛœİX\™Ù[‘^˜Q\™XÚÔ[™[HÂˆÛÛœİØY™TšYÚHSÒ×ĞĞT•HHX\™Ù[ˆHX\™Ù[‘^˜Q\™XÚÔ[™[ÂˆÛÛœİÛÛ™\ÜY\İHHØY™TšYÚH[˜ÚĞÛÛ™\ÜY\İNÂˆÛÛœİ\™XÚU^ÈHÛÛ™\ÜY\İHHİ]\”™\ÜY\İNÂ‚ˆYˆ
+Û\‘\Ü]Y[XRÜš^›Û[	‰ˆÛ\”\ÛÖH
+HÂˆ›İÈ™]È\œ›ÜŠ	Ô\™š[ÓTˆ[œÛÈ[˜[YÎˆ˜[H[\ÛÈÜš^›Û[H\È\˜Z˜\ÉÊNÂˆBƒBˆÛÛœİ[Y\›Ô™Yİ[HHX\™Ù[ÂˆËÈÛÛ\Xİ\ˆ0î›šXØ[Y[H[İ]\ˆ[™HH[œÚYÛšXHH[^ËˆÙBˆËÈÛÛœÙ\˜H[˜HÙ\\˜XÚpìÛˆ°ë\ÚXØHH‹H\˜H]š]\ˆÛÛXİÈš\İX[ˆËÈZY[˜\È[[˜ÚÈ™Xİ\\˜YÈ]YYH\ÜÛšX›H\˜H[™XXİ]›Ë‚ˆÛÛœİ[˜ÚÒ[œÚYÛšXT™Yİ[HHMÎÂˆÛÛœİ^Ô™Yİ[HHX\™Ù[ˆ
+ÈNKNÂˆÛÛœİØ[™\‘\Ü^˜[ZY[Õ^ÔÜ‘Ü˜\HH
+›Û˜OÎˆ™Xİ›Ş
+HOˆÂˆÛÛœİ[šXÚ[ĞØZ˜T™Yİ[HH^Ô™Yİ[HH‹NÂˆÛÛœİš[–›Û˜QÜ˜\HH›Û˜HÈ›Û˜K
+È›Û˜KÚYˆ[X™\‹“‘QĞUU‘WÒS‘’S’UNÂˆ™]\›ˆ›Û˜H	‰ˆ›Û˜KH[šXÚ[ĞØZ˜T™Yİ[H	‰ˆš[–›Û˜QÜ˜\Hˆ[šXÚ[ĞØZ˜T™Yİ[BˆÈš[–›Û˜QÜ˜\H
+ÈËHH^Ô™Yİ[BˆˆÂˆNÂˆÛÛœİ[˜ÚÕ^Ô™Yİ[HHX]›X^
+Œ\™XÚU^ÈH^Ô™Yİ[JNÃBƒBˆÛÛœİ[œİXØÚ[Û™\ÑY˜][Bˆ	ÓXHH˜^›Û™HØYH™XXİ]›ËˆX\œ]YH[ˆÛÛÈğë\˜İ[ÈÚ[ˆØØ\ˆ[›Ü™NÈÚHØ[XšXK›Üœ™HHX\˜ØH[\š[Ü‹‰ÎÂƒBˆÛÛœİY˜][[œİ]XÚ[ÛˆH	ĞÙ[›È[š]™\œÚ]\š[ÈY[İY[œÙIÎÃBˆÛÛœİY˜][[XHH	ÔØ\Y[XH\İ›Üİ˜H›Ü\ÉÎÂ‚ˆËÈÚH[^[Y[ˆ›ÜÜ˜Ú[Û˜H[˜HØX™XÙ\˜KHY[YY[œİ]XÚ[Û˜[\ÂˆËÈ\HHH[[HØ[°ìÛšXØHÜˆY™XİËˆÛÛÈÙHÛZ]HİX[™È[ˆËÈ[XYÜˆÈÛÛXÚ]H^0ëXÚ][Y[K]š][™È]YH[˜H]Y\İ˜HÂˆËÈÙ[™\˜XÚpìÛˆ™X[Y\™H\ØİY[K[İËX]\šXHHØÙ[HÜˆÛšY\ˆ[‚ˆËÈ›ÛÛX[›È]^[X\‹‚ˆÛÛœİ[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[H^[Y[‹™[˜ØX™^˜YÂˆÈ^[Y[‹™[˜ØX™^˜YË›[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[OOH˜[ÙBˆˆ˜[ÙNÂˆÛÛœİ[œİ]XÚ[ÛˆH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[ˆÈİš[™Ê^[Y[‹™[˜ØX™^˜YÏËš[œİ]XÚ[ÛˆÏÈ›ØÙ\ÜË™[‹‘VSQS—ÒS”ÕUPÒSÓˆÏÈY˜][[œİ]XÚ[ÛŠKš[J
+Bˆˆ	ÉÎÂˆÛÛœİ[XHH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[ˆÈİš[™Ê^[Y[‹™[˜ØX™^˜YÏË›[XHÏÈ›ØÙ\ÜË™[‹‘VSQS—ÓSPHÏÈY˜][[XJKš[J
+Bˆˆ	ÉÎÂˆÛÛœİX]\šXHH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[Èİš[™Ê^[Y[‹™[˜ØX™^˜YÏË›X]\šXHÏÈ	ÉÊKš[J
+Hˆ	ÉÎÂˆÛÛœİØÙ[HH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[Èİš[™Ê^[Y[‹™[˜ØX™^˜YÏË™ØÙ[HÏÈ	ÉÊKš[J
+Hˆ	ÉÎÂˆËÈH[[HØ[°ìÛšXØH[YÜ˜H0ë][ËY[YY[œİ]XÚ[Û˜[HY]Y]ÜÂˆËÈ\™Xİ[Y[HÛØœ™H[›Û™ÈÙ[Ûpê]šXÛÎÈ›ÈÜ™XH[˜HØZ˜HÙ[˜[[™\[™Y[K‚ˆÛÛœİ][ĞØX™XÙ\˜HH^[Y[‹][ÎÂˆÛÛœİ[Üİ˜\’[œİXØÚ[Û™\ÈH^[Y[‹™[˜ØX™^˜YÏË›[Üİ˜\’[œİXØÚ[Û™\ÈOOH˜[ÙNÃBˆÛÛœİ[œİXØÚ[Û™\ÈHİš[™Ê^[Y[‹™[˜ØX™^˜YÏËš[œİXØÚ[Û™\ÈÏÈ	ÉÊKš[J
+H[œİXØÚ[Û™\ÑY˜][ÃBˆËÈHØX™XÙ\˜HÙ[˜[Y[™H[ˆ[˜ÚÈš[š]È[™HÜÈÜÈÙÛÜÈH[T‹‚ˆËÈ\İ[X\ˆ\È[™X\È[\ÈHÜ™X\ˆ\ÈYÚ[˜\È\›Z]HXÙ\›HX\È[BˆËÈÛÛÈ\˜HÛÛ[šYÈ\™ÛËÚ[ˆ[˜[^˜\ˆH[œÚYYH^[Y[™\È›Ü›X[\Ë‚ˆÛÛœİ\’Üš^›Û[[œÙ]\İ[XYÈH\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™H
+È\™š[Û\‹›X\˜ØPİXY˜YÔ]ZY]›Û™H
+È[PT[ÜÊT—ÔÕTWĞÓPTSÑWÓSJNÂˆÛÛœİ\”™Xİ\İ[XYÈHSÒ×ĞĞT•HHX\™Ù[ˆHˆH\™š[Û\‹œ\”Ú^™HH\™š[Û\‹œ\”Y[™È
+ˆˆH\’Üš^›Û[[œÙ]\İ[XYÎÂˆÛÛœİÙ\\˜XÚ[Û”\›Ü™Tİ\\š[ÜˆHÂˆËÈÜÈÙÛİ\ÜÈHÛÛœÙ\˜[ˆ[Xpì[È°ë\ÚXÛÈİYšXÚY[H\˜H[\™\ÚpìÛ‚ˆËÈHX™\˜[ˆ[\˜H0î[[ˆHš[Y\˜H0èYÚ[˜KˆÚHHY[YY[œİ]XÚ[Û˜[ˆËÈ\İ0èH\ØXİ]˜YK›È™\Ù\˜\ˆİ\ÈÛİÎˆ[0ë][ÈHÜÈØ[\ÜÈ\›İ™XÚ[‚ˆËÈ\ØH˜[™HH[\ØÛÈÙHXZ˜[ˆÜÈÙÛÜÈÜˆXØÚY[K‚ˆÛÛœİÙÛÔÛİÚ^™HH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[ÈˆÂˆÛÛœİÙÛÑ\™XÚÖ\İ[XYÈH\”™Xİ\İ[XYÈHˆHÙÛÔÛİÚ^™HHÂˆÛÛœİ^ÒXY\‘\İ[XYÈHX\™Ù[ˆ
+ÈÙÛÔÛİÚ^™H
+ÈŒÎÂˆÛÛœİ[˜ÚÒXY\Ù[˜[\İ[XYÈHX]›X^
+ŒÙÛÑ\™XÚÖ\İ[XYÈHHHH^ÒXY\‘\İ[XYÊNÂˆÛÛœİ\İ[X\“[™X\ĞØX™XÙ\˜HH
+^Îˆİš[™Ë›Ûˆ‘›ÛÚ^™Nˆ[X™\ŠHO‚ˆ\\‘[“[™X\ÊÈ^ËX^ÚYˆ[˜ÚÒXY\Ù[˜[\İ[XYË›ÛÚ^™HJK›[™İÂˆÛÛœİY]PØ[\ÜÈHÂˆX]\šXHÈX]\šXNˆ	ÛX]\šX_Xˆ	ÉËˆØÙ[HÈØÙ[Nˆ	ÙØÙ[_Xˆ	ÉÂˆK™š[\Š›ÛÛX[ŠNÂˆÛÛœİ[™X\ÓY]Q\İ[XY\ÈHY]PØ[\ÜËœ™YXÙJˆ
+İ[Ø[\ÊHOˆİ[
+È\İ[X\“[™X\ĞØX™XÙ\˜JØ[\ËY[KÚ^™SY]JKˆˆ
+NÂˆÛÛœİ[™X\Ñ^˜PØX™XÙ\˜HHX]›X^
+ˆˆ\İ[X\“[™X\ĞØX™XÙ\˜J[œİ]XÚ[Û‹Y[P›ÛLËˆ
+ˆ›ÛØØ[PØX™XÙ\˜JHHBˆ
+H
+ÈX]›X^
+ˆˆ\İ[X\“[™X\ĞØX™XÙ\˜J][ĞØX™XÙ\˜KY[P›ÛÚ^™U][ÊHHBˆ
+H
+ÈX]›X^
+ˆˆ\İ[X\“[™X\ĞØX™XÙ\˜J[XKY[R][XØKKŒˆ
+ˆ›ÛØØ[PØX™XÙ\˜JHHBˆ
+H
+ÈX]›X^
+ˆˆ[™X\ÓY]Q\İ[XY\ÈHBˆ
+NÂˆËÈ\È[™XØXÚ[Û™\Èš]™[ˆ[ˆH˜[™H[˜Ú[Û˜[[™™\š[ÜˆHHØX™XÙ\˜K‚ˆËÈYY\›\ÈÛÛˆ[[˜ÚÈ™X[\ÜÛšX›H\›Z]H[\X\ˆ0î›šXØ[Y[H\ÂˆËÈØX™XÙ\˜\È^Ù\Ú[Û˜[\Ë]š][™È[È[™XÛÜHÛÛ˜H[TˆÛÛ[ÂˆËÈ™\Ù\˜\ˆ\ÜXÚ[È™\XØ[[›™XÙ\Ø\š[È[ˆ^0è[Y[™\È›Ü›X[\Ë‚ˆÛÛœİ[R[™XØXÚ[Û™\Ñ\İ[XYÈHX]›X^
+ËK‹
+ˆ›ÛØØ[PØX™XÙ\˜JNÂˆÛÛœİØZ˜Q\İ[XYÈHX\™Ù[ˆ
+ÈÂˆÛÛœİ[™XØXÚ[Û™\Ñ\İ[XYÈHØZ˜Q\İ[XYÈ
+ÈM
+ÈMÂˆÛÛœİ[Z]V›Û˜PØ[YšXØXÚ[Û‘\İ[XYÈHX]›X^
+ØZ˜Q\İ[XYÈ
+È\”™Xİ\İ[XYÈHŠNÂˆÛÛœİ\™XÚR[™XØXÚ[Û™\Ñ\İ[XYHHX]›Z[Š\”™Xİ\İ[XYÈHL‹[Z]V›Û˜PØ[YšXØXÚ[Û‘\İ[XYÈHŠNÂˆÛÛœİ[˜ÚÒ[™XØXÚ[Û™\Ñ\İ[XYÈHX]›X^
+ˆLˆ\™XÚR[™XØXÚ[Û™\Ñ\İ[XYBˆH[™XØXÚ[Û™\Ñ\İ[XYÂˆHY[P›ÛÚYÙ•^]Ú^™J	Ò[™XØXÚ[Û™\Î‰Ë[R[™XØXÚ[Û™\Ñ\İ[XYÊBˆHBˆ
+NÂˆÛÛœİ[™X\Ò[™XØXÚ[Û™\Ñ\İ[XY\ÈH[Üİ˜\’[œİXØÚ[Û™\ÂˆÈ\\‘[“[™X\ÊÂˆ^Îˆ[œİXØÚ[Û™\ËˆX^ÚYˆ[˜ÚÒ[™XØXÚ[Û™\Ñ\İ[XYËˆ›ÛˆY[KˆÚ^™Nˆ[R[™XØXÚ[Û™\Ñ\İ[XYÂˆJK›[™İˆˆÂˆËÈ™\Ù\˜\ˆ[˜Hš[H[™\[™Y[H\˜HÜÈZ™[\ÜÈ]š]H]YH[˜BˆËÈ[™XØXÚpìÛˆ\™ØHÛÛ\\H™[™Û0ìÛˆÛÛˆH^Y[™Hš\İX[‚ˆÛÛœİ\ÜXÚ[ÑZ™[\ÜÒ[™XØXÚ[Û™\ÈH[Üİ˜\’[œİXØÚ[Û™\ÈÈLˆÂˆËÈH™\Ù\˜HTˆ[˜Û^YHHœ˜[š˜H[™™\š[Üˆ\˜HHÛ]™HÛÛ\Y\İNÈ[ˆËÈğè[İ[ÈX™H[˜ÛZ\›H\˜H]YH[˜HØX™XÙ\˜HÛÛ\XİH›ÈH™XÛÜK‚ˆÛÛœİ[Ô\•\š™]Q\İ[XYÈH\™š[Û\‹œ\”Ú^™H
+È\™š[Û\‹œ\”Y[™È
+ˆˆ
+ÈLÂˆËÈHš[Y\˜HØX™XÙ\˜HX™H™\Ù\˜\ˆ[Xšpê[ˆ\ÈÜÈš[\ÈHH›Û˜HBˆËÈØ[YšXØXÚpìÛˆ˜Z›È[T‹ˆÚ[ˆ\İH™\Ù\˜K[˜HØX™XÙ\˜HÛÜHÙ0ëXBˆËÈXİ]˜\ˆ[›Ü]YHÛÛˆ[\˜H[œİYšXÚY[HHZ˜\ˆHÙYİ[™Hš[HY\˜BˆËÈ[X\˜ÛÈ[˜[Y\ˆ[^[İ]‚ˆËÈ[˜Û^YH[\ØÙ[œÛÈHH™YÛH[™™\š[ÜˆHİHÜ›ÜÛÜ‹›ÈÛÛÈ\ÂˆËÈ[\˜\È\ÙÜ°èYšXØ\ÈH\ÈÜÈ]\]Y]\Ë‚ˆÛÛœİÚ^™PØ[YšXØXÚ[Û‘\İ[XYÈHX]›X^
+‹‹
+ˆ›ÛØØ[PØX™XÙ\˜JNÂˆÛÛœİ[Ö›Û˜PØ[YšXØXÚ[Û‘\İ[XYÈHÚ^™PØ[YšXØXÚ[Û‘\İ[XYÂˆ
+È
+\™š[ÛÛ\XİĞ[Q[œÚYYÈLˆMŠNÂˆËÈ™YXÚ\ˆH™\Ù\˜H˜\ÙH™Xİ\\˜H\ÜXÚ[È\˜H[š[Y\ˆ™XXİ]›ÈÚ[‚ˆËÈØØ\ˆÙÛÜËTˆšHHÙ[ÛY]°ëXHÓT‹ˆH˜[XH\™ØHÛÛœÙ\˜HÛİ\˜BˆËÈYXÚ[Û˜[H[X˜\È]YY[ˆ›İYÚY\ÈÜˆ\È\Ù\˜Ú[Û™\ÈHÛÛ\ÚpìÛ‹‚ˆÛÛœİ˜\ÙQ[˜ØX™^˜YĞÛÛ\XİÈH[™X\Ñ^˜PØX™XÙ\˜HHˆ	‰ˆ[™X\Ò[™XØXÚ[Û™\Ñ\İ[XY\ÈHˆÈˆÌÂˆÛÛœİ[Ñ[˜ØX™^˜YÔš[Y\˜SZ[š[[ÈHX]›X^
+ˆËÈHš[H[™™\š[ÜˆYYHØİ\\ˆ˜\šX\È0ë[™X\ÎÈ™\Ù\˜\ˆ[[\›[™XYÂˆËÈY™Xİ]›Èpè\È[ˆÛÛÚ0ìÛˆ]š]H]YHH0î›[XH0ë[™XHØZYØHY\˜H[ˆËÈXY\ˆİX[™ÈH\ÙÜ˜Y°ëXHİX™HHËHÈ[^ÈÙH[Y[™K‚ˆ˜\ÙQ[˜ØX™^˜YĞÛÛ\XİÈ
+È[™X\Ñ^˜PØX™XÙ\˜H
+ˆMH
+È
+ˆ[™X\Ò[™XØXÚ[Û™\Ñ\İ[XY\ÈˆˆÈ
+[™X\Ò[™XØXÚ[Û™\Ñ\İ[XY\È
+ÈŠH
+ˆLˆ
+È\ÜXÚ[ÑZ™[\ÜÒ[™XØXÚ[Û™\Âˆˆˆ
+KˆËÈ[Tˆ]YYHÜš^›Û[Y[HHH^œ]ZY\™HHH]ZY]›Û™H[ˆËÈšYXÚX[İ\\š[Üˆ\™XÚÎÈÛÛÈÛÛœÙ\˜HHX\™Ù[ˆ[›Ü™K‚ˆËÈH™\Ù\˜H[™™\š[Üˆ\›X[™XÙH\˜H\ÈÜÈš[\ÈHØ[YšXØXÚpìÛ‹‚ˆ[Ô\•\š™]Q\İ[XYÈ
+ÈÙ\\˜XÚ[Û”\›Ü™Tİ\\š[Üˆ
+È[Ö›Û˜PØ[YšXØXÚ[Û‘\İ[XYÂˆ
+NÂˆÛÛœİÙÛÒ^œTÜ˜ÈHİš[™Ê^[Y[‹›^[İ]›ÙÛÜÏËš^œ]ZY\™T]ÏÈ	ÉÊKš[J
+Bˆİš[™Ê^[Y[‹™[˜ØX™^˜YÏË›ÙÛÜÏËš^œ]ZY\™T]ÏÈ	ÉÊKš[J
+Bˆİš[™Ê›ØÙ\ÜË™[‹‘VSQS—ÓÑÓ×ÒV”WÔUÏÈ	ÉÊKš[J
+Bˆ	ÛÙÛÜËÛÙÛ×ØİZœ™ÉÎÂˆÛÛœİÙÛÑ\”Ü˜ÈHİš[™Ê^[Y[‹›^[İ]›ÙÛÜÏË™\™XÚT]ÏÈ	ÉÊKš[J
+Bˆİš[™Ê^[Y[‹™[˜ØX™^˜YÏË›ÙÛÜÏË™\™XÚT]ÏÈ	ÉÊKš[J
+Bˆİš[™Ê›ØÙ\ÜË™[‹‘VSQS—ÓÑÓ×ÑT—ÔUÏÈ	ÉÊKš[J
+Bˆ	ÛÙÛÜËÛÙÛ×ÜŞ\Ëœ™ÉÎÂƒBˆÛÛœİÙÛÒ^œ]ZY\™HH]ØZ][[\‘[X™Y[XYÙ[Š‘ØËÙÛÒ^œTÜ˜ÊNÂˆÛÛœİÙÛÑ\™XÚHH]ØZ][[\‘[X™Y[XYÙ[Š‘ØËÙÛÑ\”Ü˜ÊNÂˆÛÛœİÙÛÜÓÛZ]YÜÎˆİš[™Ö×HH×NÂˆYˆ
+[ÙÛÒ^œ]ZY\™JHÙÛÜÓÛZ]YÜËœ\Ú
+	Ú^œ]ZY\™ÉÊNÂˆYˆ
+[ÙÛÑ\™XÚJHÙÛÜÓÛZ]YÜËœ\Ú
+	Ù\™XÚÉÊNÂƒBˆÛÛœİ™Yİ[\ÓÜ™[˜Y\ÈHX\X\”™Yİ[\ÓÜ™[˜Y\Ê^[Y[ŠNÃBˆÛÛœİİ[™Yİ[\ÈH™Yİ[\ÓÜ™[˜Y\Ë›[™İÃBƒBˆÛÛœİ[XYÙ[™\Ô™Yİ[HH™]ÈX\İš[™ËÙÛÑ[X™YŠ
+NÃBˆÛÛœİ\İYÒ[XYÙ[”™Yİ[HH™]ÈX\İš[™Ë	ÛÚÉÈ	Ù\œ›Ü‰ÏŠ
+NÃBˆ][XYÙ[™\Ò[[Y\ÈHÃBˆ][XYÙ[™\Ô™[™\š^˜Y\ÈHÃBˆ][XYÙ[™\Ñ˜[Y\ÈHÃBˆ›Üˆ
+ÛÛœİ™Yİ[HÙˆ™Yİ[\ÓÜ™[˜Y\ÊHÃBˆÛÛœİÜ˜ÈHİš[™Ê™Yİ[Kš[XYÙ[•\›ÏÈ	ÉÊKš[J
+NÃBˆYˆ
+\Ü˜ÊHÛÛ[YNÃBˆ[XYÙ[™\Ò[[Y\È
+ÏHNÃBˆÛÛœİ[XˆH]ØZ][[\‘[X™Y[XYÙ[Š‘ØËÜ˜ÊNÃBˆYˆ
+[XŠHÃBˆ[XYÙ[™\Ô™Yİ[KœÙ]
+™Yİ[KšY[XŠNÃBˆ\İYÒ[XYÙ[”™Yİ[KœÙ]
+™Yİ[KšY	ÛÚÉÊNÃBˆ[XYÙ[™\Ô™[™\š^˜Y\È
+ÏHNÃBˆH[ÙHÃBˆ\İYÒ[XYÙ[”™Yİ[KœÙ]
+™Yİ[KšY	Ù\œ›Ü‰ÊNÃBˆ[XYÙ[™\Ñ˜[Y\È
+ÏHNÃBˆCBˆCBƒBˆÛÛœİÔ’QÔÕTH\Ëœ\™š[^[İ]™ÜšYİ\ÃBˆËÈ[[™X\ˆ[[šXÚ[ÈH0èYÚ[˜H˜\İH\˜HX[[™\ˆ[^[İ]\İX›Kˆ›ÂˆËÈÙHY[™HHİX[^˜\ˆØYH™XXİ]›Îˆ[™YÛ™[ÈÜˆ›Ü]YHXİ[][X˜BˆËÈ\İH[ˆ\ÛÈH™]0ëXİ[HÜˆ™XXİ]›ÈH^[ØX˜HÛÛ[šYÈ]YHğëHØX™K‚ˆÛÛœİÛ˜\ÑÜšYH
+Nˆ[X™\ŠHOˆX]œ›İ[™
+HÈÔ’QÔÕT
+H
+ˆÔ’QÔÕTÂˆÛÛœİZ\İ\İ\œÛÜ”™[™\ˆH
+Nˆ[X™\ŠHOˆNÂ‚ˆÛÛœİX\šÙ\”ÜXÎˆX\šÙ\”ÜXÓÛ\ˆHÂˆ˜[Z[Nˆ	ÜÛÛYÜÜ]X\™WÍİŒIËˆÚ^™S[Nˆ[X™\Š
+\™š[Û\‹™šYXÚX[Ú^™HÈSWĞWÔS•ÔÊKÑš^Y
+ŠJKˆ]ZY]›Û™S[Nˆ[X™\Š
+\™š[Û\‹™šYXÚX[]ZY]›Û™HÈSWĞWÔS•ÔÊKÑš^Y
+ŠJBˆNÂˆÛÛœİ]˜\ÓÛ\ˆH\œ˜^K™œ›ÛJÈ[™İˆÛ\•İ[]˜\ÈK
+İ˜[Ü‹Y
+HOˆİš[™Ë™œ›ÛPÚ\ÛÙJH
+ÈY
+JNÂˆÛÛœİ]\]Y]P[˜ÚÓX^Û\ˆHX]›X^
+‹‹›]˜\ÓÛ\‹›X\
+
+]˜JHOˆY[KÚYÙ•^]Ú^™J]˜K‹
+JJNÂˆÛÛœİX[Y]›Ğ\˜Z˜SÛ\ˆHÛ\”˜Y[È
+ˆÂˆÛÛœİ\ÛĞ\˜Z˜VHÂˆÛÛœİ›ØÚÔÜXÎˆ›ØÚÔÜXÓÛ\ˆHÂˆ™Yİ[\ÔÜ›Ü]YNˆ\™š[Û\‹œ™Yİ[\ÔÜ›Ü]YHÏÈLˆÜÚ[Û™\ÔÜ”™Yİ[Nˆ\™š[Û\‹›ÜÚ[Û™\ÔÜ”™Yİ[HÏÈKˆX˜›QX[Y]\“[Nˆ[X™\Š
+X[Y]›Ğ\˜Z˜SÛ\ˆÈSWĞWÔS•ÔÊKÑš^Y
+ŠJKˆÜšY[][ÛˆÛ\‘\Ü]Y[XRÜš^›Û[È	ÚÜš^›Û[	Èˆ	İ™\XØ[	ËˆX˜›T]Ú[Nˆ[X™\Š
+Û\”\ÛÖÈSWĞWÔS•ÔÊKÑš^Y
+ŠJKˆX˜›T]Ú[[Nˆ[X™\Š
+Û\”\ÛÖHÈSWĞWÔS•ÔÊKÑš^Y
+ŠJKˆX™[ĞX˜›S[Nˆ[X™\Š
+\™š[Û\‹›X™[ĞX˜›S[HÏÈJKÑš^Y
+ŠJKBˆX˜›Tİ›ÚÙTˆ[X™\Š
+\™š[Û\‹˜X˜›Tİ›ÚÙTÏÈ\™š[Û\‹˜\˜Z˜Tİ›ÚÙJKÑš^Y
+ŠJCBˆNÃBˆÛÛœİ[™Ú[™R[Îˆ[™Ú[™R[ÓÛ\ˆHÂˆ™Y™\œ™Y[™Ú[™Nˆ	Øİ‰Ëˆ[˜X›PÛZNˆYKˆY\]™U™\ÚÛˆYKˆÛÛœÙ\˜]]™QXÚ\Ú[ÛˆYKˆËÈ[X\HÛÛœÙ\˜HÛÛÜ™[˜Y\È‹\›È[]XİÜˆX™HÙ\ˆ\Ø\ˆT‚ˆËÈHšYXÚX[\È\˜H™XİYšXØ\ˆ›İÙÜ˜Y°ëX\ÈÛÛˆ\œÜXİ]˜Kˆ›Ü˜\ˆ[˜BˆËÈ\ØØ[HÚ[\HYÜ˜YH™XÚ\Ø[Y[H\ÙHØ\ÛÈH\ÛË‚ˆ›Ü˜ÙTÚ[\TØØ[Nˆ˜[ÙKˆËÈH\ØØ[HÛØ˜[]YYHÛÛ[È™\Ü[È^0ëXÚ]ÈÚHHØ\\˜H›È\ÜBˆËÈ[˜HÙ[ÛY]°ëXHÛÛ™šXX›NÈ›ÈX™HÙ\ˆH]H›ÛZ[˜[HH[[K‚ˆ\ÙSX\ÛÛÜ™[˜]\ÔİšXİˆÛ\‘[“[™XBˆNÃBƒBˆÛÛœİYÚ[˜\ÓY]Nˆ™\İ[YÑÙ[™\˜XÚ[Û”–ÉÜYÚ[˜\É×HH×NÃBˆÛÛœİY]šXØ\ÔYÚ[˜\Îˆ™\İ[YÑÙ[™\˜XÚ[Û”–ÉÛY]šXØ\ÔYÚ[˜\É×HH×NÃBˆÛÛœİYÚ[˜\ÓÛ\ˆYÚ[˜SÛ\–×HH×NÃBˆÛÛœİ™]™\œÛÑ[›[˜ÛÈH\Ëœ\™š[Û\‹[\]RYOOH	ÛÛ\‹Z[›[™KY^[K]ŒIÎÂˆÛÛœİ[™RZYÚš[Û][ÛœÎˆ\œ˜^OÈYÚ[˜Nˆ[X™\È™Yİ[RYˆİš[™ÎÈ[™RZYÚˆ[X™\ÈZ[ˆ[X™\ˆOˆH×NÃBˆ]Z[“[™RZYÚ\YYH[X™\‹”ÔÒUU‘WÒS‘’S’UNÃBƒBˆËÈ\È[™XØXÚ[Û™\È›Ü›X[ˆ\H[[˜ØX™^˜YÈ[ˆH[[HÈ›ÂˆËÈ™\Ù\˜\ˆ[˜HØZ˜H[™\[™Y[H]YHÛÛœİ[XH[˜Hœ˜[š˜HÛÛ\]K‚ˆÛÛœİ[™XØXÚ[Û™\Ô[™Y[\ÈH˜[ÙNÂˆÛÛœİX^ÚY[™XØXÚ[Û™\ÈHX]›X^
+LŒ\™XÚU^ÈH
+X\™Ù[ˆ
+ÈL
+JNÂƒBˆÛÛœİXY\’ZYÚš\œİH\Ëœ\™š[^[İ]šXY\’ZYÚš\œİÃBˆÛÛœİXY\’ZYÚİ\ˆH\Ëœ\™š[^[İ]šXY\’ZYÚİ\ÃBƒBˆ][™XÙT™Yİ[HHÃBˆ][Y\›ÔYÚ[˜HHNÃBƒBˆËÈHØ[YYÛÛ™šYİ\˜YH\È[ˆØš™]]›ÈY]ÜšX[›È[ˆ[Z]H]YBˆËÈYYH›İ›ØØ\ˆ™XXİ]›ÜÈÛZ]YÜÈİX[™È[ÛÛ[šYÈ^YÙHX\È[Ë‚ˆËÈ[ÜHY™[œÚ]›È]š]HXÛ\È[™š[š]ÜÈÚH[ˆ™XXİ]›È\È[\ÜÚX›HBˆËÈXÛÛ[Ù\ˆÛÛˆH\ÙÜ˜YšXHZ[š[XHYÚX›K‚ˆÛÛœİX^YÚ[˜\ÔÙYİ\˜\ÈHX]›X^
+YÚ[˜\ÓØš™]]›Ëİ[™Yİ[\È
+ÈJNÂˆ]›Û˜Q[™Ü˜\YÑš\ÚXØNˆ™Xİ›Ş[™Yš[™YÂˆÚ[H
+[Y\›ÔYÚ[˜HHX^YÚ[˜\ÔÙYİ\˜\È	‰ˆ[™XÙT™Yİ[Hİ[™Yİ[\ÊHÂˆÛÛœİYÙHH‘ØË˜YYÙJĞSÒ×ĞĞT•KS×ĞĞT•WJNÂˆÛÛœİ[Y\›ÔYÚ[˜TˆH‘ØË™Ù]YÙPÛİ[
+
+NÂˆËÈ[›Û™ÈpìZYÈØİ\HÙHHÚ˜H\˜H[[Z[˜\ˆ›Û˜\È›[˜Ø\ÂˆËÈXØÚY[[\ÎÈ\È\š™]\ÈTˆHÓTˆÙH[[ˆ\Üpê\È[ˆ›[˜ÛÈ\˜BˆËÈÛÛœÙ\˜\ˆÛÛ˜\İHH›Ø\İ^ˆH]XØÚpìÛ‹‚ˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆˆNˆˆÚYˆSÒ×ĞĞT•KˆZYÚˆS×ĞĞT•KˆÛÛÜˆÛ\‘[“[™XHÈ™ØŠKKJHˆÛÛÜ‘›Û™ÔYÚ[˜BˆJNÂˆ]\•^ÔYÚ[˜HH^[Y[‹™Ù[™\˜\•^Ô\”YÚ[˜J[Y\›ÔYÚ[˜TŠNÂ‚ˆ]™Yİ[\Ñ[HÂˆ]™Yİ[\Ğ[HÂˆÛÛœİX\TYÚ[˜NˆYÚ[˜SÛ\–ÉÜ™Yİ[\É×HH×NÂˆÛÛœİXY\•^›ØÚÜÎˆ\œ˜^OÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ÈYˆİš[™ÈOˆH×NÂˆÛÛœİÛÛ[X][Û•^›ØÚÜÎˆ\œ˜^OÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ÈYˆİš[™ÈOˆH×NÂˆÛÛœİXY\”Ûİ›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİXY\’XÛÛ›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİXY\‘šY[›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİ]Y\İ[Û›ØÚĞ›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİ]Y\İ[Û•^[šĞ›Ş\Îˆ\œ˜^O™Xİ›Ş	ˆÈYˆİš[™ÈOˆH×NÂˆÛÛœİ]Y\İ[Û˜XÚÙÜ›İ[™›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİ]Y\İ[Û”›Û\›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİÛ\”[™[›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİÛ\”]Y\İ[Û“[X™\›Ş\Îˆ\œ˜^OÈYˆİš[™ÎÈ[Y\›Ô™Yİ[Nˆ[X™\Èˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆOˆH×NÂˆÛÛœİÛÛ\Ú[Û›Ş\Îˆ\œ˜^OÈYÚ[˜Nˆ[X™\ÈNˆİš[™ÎÈˆİš[™ÈOˆH×NÂˆ]™Xİ[™XØXÚ[Û™\Îˆ™Xİ›Ş[™Yš[™YÂˆ]İ\V›Û™Nˆ™Xİ›Ş[™Yš[™YÂˆ]İ\RÙY\İ]›Û™Nˆ™Xİ›Ş[™Yš[™YÂˆ]İ\SX™[›Û™Nˆ
+™Xİ›Ş	ˆÈ›İ][ÛÎˆLÌJH[™Yš[™YÂ‚ˆYˆ
+›Û˜Q[™Ü˜\YÑš\ÚXØJHÂˆÛÛœİX\™Ù[”ÙYİ\šYYÜ˜\HH[PT[ÜÊÊNÂˆİ\RÙY\İ]›Û™HHÂˆ‹‹›Û˜Q[™Ü˜\YÑš\ÚXØKˆˆ[Y\›ÔYÚ[˜Tˆ	HˆOOHˆÈSÒ×ĞĞT•HH›Û˜Q[™Ü˜\YÑš\ÚXØKH›Û˜Q[™Ü˜\YÑš\ÚXØKÚYˆˆ›Û˜Q[™Ü˜\YÑš\ÚXØKˆNÂˆİ\RÙY\İ]›Û™HHÂˆˆX]›X^
+İ\RÙY\İ]›Û™KHX\™Ù[”ÙYİ\šYYÜ˜\JKˆNˆX]›X^
+İ\RÙY\İ]›Û™KHHX\™Ù[”ÙYİ\šYYÜ˜\JKˆÚYˆX]›Z[ŠSÒ×ĞĞT•Kİ\RÙY\İ]›Û™K
+Èİ\RÙY\İ]›Û™KÚY
+ÈX\™Ù[”ÙYİ\šYYÜ˜\JHBˆX]›X^
+İ\RÙY\İ]›Û™KHX\™Ù[”ÙYİ\šYYÜ˜\JKˆZYÚˆX]›Z[ŠS×ĞĞT•Kİ\RÙY\İ]›Û™KH
+Èİ\RÙY\İ]›Û™KšZYÚ
+ÈX\™Ù[”ÙYİ\šYYÜ˜\JHBˆX]›X^
+İ\RÙY\İ]›Û™KHHX\™Ù[”ÙYİ\šYYÜ˜\JBˆNÂˆBˆÛÛœİ\Ü^˜[ZY[Õ^ÔÜ‘Ü˜\HHØ[™\‘\Ü^˜[ZY[Õ^ÔÜ‘Ü˜\Jİ\RÙY\İ]›Û™JNÂƒBˆÛÛœİUÜHS×ĞĞT•HHX\™Ù[ÂˆÛÛœİUÜÛÛ[XXÚ[Û”ÙYİ\›ÈHUÜˆH\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™BˆH\™š[Û\‹›X\˜ØPİXY˜YÔ]ZY]›Û™BˆHÂˆÛÛœİ\Ôš[Y\˜HH[Y\›ÔYÚ[˜HOOHNÃBˆÛÛœİ[Ñ[˜ØX™^˜YÈH\Ôš[Y\˜HÈX]›X^
+XY\’ZYÚš\œİ[Ñ[˜ØX™^˜YÔš[Y\˜SZ[š[[ÊHˆXY\’ZYÚİ\ÂˆÛÛœİØZ˜HHX\™Ù[ˆ
+ÈÂˆÛÛœİĞØZ˜HHSÒ×ĞĞT•HHˆ
+ˆX\™Ù[ˆHÂˆÛÛœİPØZ˜HHUÜH[Ñ[˜ØX™^˜YÎÂ‚ˆËÈ[İY\œÈÛÛœÙ\˜H[›Û™ÈÜ›Ûpè]XÛÈHİ\ÈYÜ››ÜË\›È[˜H™[Y\˜BˆËÈ›[˜ØH]^HYÙ\˜H™YXÙHHÛØ™\\˜HÛÛ[XHÛØœ™H[\[ˆBˆËÈØX™XÙ\˜HHHš[Y\˜H0èYÚ[˜H]YYHY\˜HH\İH›Û˜HH›ÈØ[XšXK‚ˆÛÛœİ™XİİY\œĞZÜœ›Îˆ™Xİ›ŞHÂˆˆØZ˜H
+ÈKˆNˆX\™Ù[ˆ
+ÈKˆÚYˆX]›X^
+KĞØZ˜HHŠKˆZYÚˆX]›X^
+K
+\Ôš[Y\˜HÈPØZ˜HHKŒˆˆUÜHKŒŠHH
+X\™Ù[ˆ
+ÈJJBˆNÂˆXZ˜\“Ü›˜[Y[Ô[XYĞİY\œÊYÙK™XİİY\œĞZÜœ›ËÛÛÜXÙ[ÊNÂ‚ˆËÈ[^ÈÙHXZ˜H\ÙHH[™XH˜\ÙHXÚXH\œšX˜NÈZ˜\ˆÛÛÈˆËÈ\ÜY\È[[˜ØX™^˜YÈ\›Z]H]YH[š[Y\ˆÛY›È[˜YHİH›Ü™K‚ˆ]Qš[’XY\”š[Y\˜HHPØZ˜HHÙ\\˜XÚ[ÛØX™XÙ\˜PÛÛ[šYÎÂˆYˆ
+\Ôš[Y\˜JHÂˆYˆ
+\Ëœ\™š[^[İ]\Ø\”™[[›ÜÑXÛÜ˜]]›ÜÊHÂˆYÙK™˜]Ô™Xİ[™ÛJÈˆØZ˜KNˆPØZ˜KÚYˆĞØZ˜KZYÚˆ[Ñ[˜ØX™^˜YËÛÛÜˆÛÛÜ”ÙXØÚ[ÛˆJNÂˆBˆËÈ›Ü™H˜\ÙHHHØX™XÙ\˜K[\ÈH\XØ\ˆİ\È›Û˜\ÈHY[YY‚ˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆØZ˜KˆNˆPØZ˜KˆÚYˆĞØZ˜KˆZYÚˆ[Ñ[˜ØX™^˜YËˆ›Ü™\•ÚYˆˆ›Ü™\ÛÛÜˆÛÛÜ“[™XKˆÛÛÜˆ\Ëœ\™š[^[İ]\Ø\”™[[›ÜÑXÛÜ˜]]›ÜÈÈÛÛÜXÙ[ÔİX]™Hˆ™ØŠKKJBˆJNÂ‚ˆXZ˜\”]›Û”[XYÑ[˜ØX™^˜YÊˆYÙKˆÈˆØZ˜H
+ÈKNˆPØZ˜H
+ÈKÚYˆĞØZ˜HH‹ZYÚˆ[Ñ[˜ØX™^˜YÈHˆKˆÛÛÜXÙ[ËˆÛÛÜ“™[Û“XYÙ[Bˆ
+NÂ‚ˆËÈ[˜H™YÛHİ\\š[Üˆ\ÜHY[YYÚ[ˆ]˜]™\Ø\ˆH\ÙÜ˜YšXKˆBˆËÈ˜[™H[\š[ÜˆØİ\X˜H\ÈZ\ÛX\ÈÛÛÜ™[˜Y\È]YH[œİ]XÚ[ÛˆBˆËÈ][ËÜˆÈ]YHÜÈÛY›ÜÈ]YYX˜[ˆÛÜYÜÈš\İX[Y[K‚ˆYˆ
+\Ëœ\™š[^[İ]\Ø\”™[[›ÜÑXÛÜ˜]]›ÜÊHÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆØZ˜H
+ÈKˆNˆUÜHËˆÚYˆĞØZ˜HH‹ˆZYÚˆËKˆÛÛÜˆÛÛÜ”š[X\š[ÂˆJNÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆØZ˜H
+ÈKˆNˆUÜHËˆÚYˆĞØZ˜HH‹ˆZYÚˆKŒKˆÛÛÜˆÛÛÜXÙ[ÂˆJNÂˆB‚ˆËÈ˜[™H[™™\š[ÜˆÛÛ˜Ù[˜HÜÈØ[\ÜÈ]YHH\œÛÛ˜HX™H[˜\ˆBˆËÈÛÛœÙ\˜H[Z\Û[È›Û™ÈÜ›Ûpè]XÛÈHÙHHØX™XÙ\˜Kˆ[›[˜ÛÂˆËÈÙ[Z]˜[œÜ\™[H[\š[ÜˆØİ[X˜H[]°ìÛˆHZ˜X˜H[˜H\ÛBˆËÈ›[˜ØHš\ÚX›HX˜Z›ÈH\È[™XØXÚ[Û™\Ë‚ˆXZ˜\“[™XT[XYJˆYÙKˆÈˆØZ˜H
+È‹NˆPØZ˜H
+ÈKˆÈˆØZ˜H
+È‹NˆPØZ˜H
+ÈKˆÛÛÜXÙ[ËˆKˆMBˆ
+NÂˆËÈXÙ[È[\š[ÜˆÙ\\˜Hš\İX[Y[HHY[YY[œİ]XÚ[Û˜[[ˆËÈÛÛ[šYÈÚ[ˆ™YXÚ\ˆ[\™XH][[[˜ØX™^˜YË‚ˆYˆ
+\Ëœ\™š[^[İ]\Ø\”™[[›ÜÑXÛÜ˜]]›ÜÊHÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆØZ˜H
+ÈKˆNˆPØZ˜H
+ÈˆÚYˆËKˆZYÚˆX]›X^
+[Ñ[˜ØX™^˜YÈHMŠKˆÛÛÜˆÛÛÜXÙ[ÂˆJNÂˆBƒBˆYÙK™˜]Ó[™JÃBˆİ\ˆÈˆØZ˜KNˆUÜHˆKBˆ[™ˆÈˆØZ˜H
+ÈĞØZ˜KNˆUÜHˆKBˆÛÛÜˆÛÛÜ“[™XKBˆXÚÛ™\ÜÎˆMCBˆJNÃBˆCBƒBˆËÈ[X\˜ÛÈXÛÜ˜]]›ÈX™H]YY\ˆX˜Z›ÈHÜÈšYXÚX[\ËˆXZ˜\›ÂˆËÈ\ÜY\ÈÙXH]˜]™\Ø\ˆİH]ZY]›Û™HHÛÛ™\\ˆ[›Ü™H[ˆ[˜BˆËÈ˜[ØH›ÛÛ™ØXÚ[Ûˆ[İXY˜YÈ\˜[HH™XİYšXØXÚ[ÛˆÕ‹‚ˆXZ˜\›Ü™TYÚ[˜JYÙKX\™Ù[‹ÛÛÜ“[™XKÛÛÜXÙ[ËÛÛÜ“™[ÛÚX[‹ÛÛÜ“™[Û“XYÙ[KÛÛÜ“™[Û[X˜\ŠNÂˆYÜ™YØ\“X\˜Ø\Ô™YÚ\İ›ÊYÙKX\™Ù[‹\™š[Û\ŠNÂˆ]\’[™›ÈH]ØZ]YÜ™YØ\”\Šˆ‘ØËˆYÙKˆ\•^ÔYÚ[˜KˆX\™Ù[‹ˆ\™š[Û\‹ˆ˜[ÙBˆ
+NÂˆÛÛœİÈˆ\‹NˆT\‹Y[™Îˆ\”Y[™Ë\”Ú^™KØ\™Ø\™KØ\™ËØ\™HH\’[™›ÎÂˆ]\Ø\–›Û˜PØ[YšXØXÚ[ÛˆH˜[ÙNÂˆËÈH›Û˜HHØ[YšXØXÚpìÛˆX™H]YY\ˆX˜Z›È[TˆHHH\™XÚHBˆËÈH0ë[™XHHÜ\ÎÈ[šXÚX\ˆÛÛÈˆ[\ÈHH\š™]H]š]H]YHİBˆËÈ]\]Y]HÙHÛÛ™[™HÛÛˆ[™[™Û0ìÛˆX[\ØÜš]Ë‚ˆÛÛœİ[Z]V›Û˜PØ[YšXØXÚ[ÛˆHX]›X^
+ØZ˜H
+ÈØ\™HŠNÂˆËÈHÙXØÚpìÛˆÛÛ\XİH™\]ZY\™HÛÛÈÜÈš[\È˜Z›È[T‹ˆ[[Xœ˜[ˆËÈ™YXÚYÈÛÛœÙ\˜H\ÙH›Ü]YH][ˆİX[™ÈHØX™XÙ\˜HÙHÛÛ\š[YK‚ˆÛÛœİš[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆH\™š[ÛÛ\XİĞ[Q[œÚYYÂˆÛÛœİ[ĞØZ˜PØ[YšXØXÚ[ÛÛÛ\XİHHÚ^™PØ[YšXØXÚ[Û‘\İ[XYÈ
+È
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈˆˆLŠNÂˆYˆ
+\Ôš[Y\˜H	‰ˆØ\™HHPØZ˜HHˆH
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈ[ĞØZ˜PØ[YšXØXÚ[ÛÛÛ\XİH
+ÈHˆŒÊJHÂˆËÈ[\ÜXÚ[ÈXœ™H˜Z›ÈH\š™]HTˆÙHÛÛšY\H[ˆ›Û˜HBˆËÈØ[YšXØXÚpìÛ‹ˆİXœš\ˆ[]°ìÛˆÛÛ\Z›È[\š[Üˆ]š]H]YH[ˆËÈX[™[HÙHÛÛ™[™HÛÛˆ^ÎÈ[˜Ú[XHÛÛÈÙHXZ˜H[˜H™]0ëXİ[BˆËÈH[ÜÈ[YKˆH\š™]HHİH]ZY]›Û™HÚYİY[ˆ›[˜Ø\Ë‚ˆÛÛœİ›Û˜PØ[YšXØXÚ[Û’[šXÚ[ÈHX]›X^
+ØZ˜H
+ÈK[Z]V›Û˜PØ[YšXØXÚ[ÛŠNÂˆÛÛœİ›Û˜PØ[YšXØXÚ[Ûˆ™Xİ›ŞHÂˆˆ›Û˜PØ[YšXØXÚ[Û’[šXÚ[ËˆNˆš[U[šXØV›Û˜PØ[YšXØXÚ[Û‚ˆÈØ\™HH[ĞØZ˜PØ[YšXØXÚ[ÛÛÛ\XİHHBˆˆPØZ˜H
+ÈKˆÚYˆX]›X^
+KØZ˜H
+ÈĞØZ˜HHHH›Û˜PØ[YšXØXÚ[Û’[šXÚ[ÊKˆZYÚˆš[U[šXØV›Û˜PØ[YšXØXÚ[Û‚ˆÈ[ĞØZ˜PØ[YšXØXÚ[ÛÛÛ\XİBˆˆØ\™HHPØZ˜HH‚ˆNÂˆ\Ø\–›Û˜PØ[YšXØXÚ[ÛˆHYNÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆ‹‹›Û˜PØ[YšXØXÚ[Û‹ˆÛÛÜˆ™ØŠKKJKˆ›Ü™\•ÚYˆKˆ›Ü™\ÛÛÜˆÛÛÜ“[™XBˆJNÂˆXZ˜\”]›Û›Ü]YPØ\\˜JYÙK›Û˜PØ[YšXØXÚ[Û‹ÛÛÜXÙ[Ë×JNÂˆBˆÛÛœİ™XİXY\ˆ™Xİ›ŞHÈˆØZ˜KNˆPØZ˜KÚYˆĞØZ˜KZYÚˆ[Ñ[˜ØX™^˜YÈNÂˆÛÛœİ™Xİ\ˆ™Xİ›ŞHÃBˆˆØ\™ˆNˆØ\™KˆÚYˆØ\™ËˆZYÚˆØ\™ˆNÃBˆ\ÜÙ\™Xİ[›ÔYÚ[˜J™XİXY\‹	Ù[˜ØX™^˜YÉÊNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜J™Xİ\‹	Ü\‰ÊNÂˆYˆ
+\Ôš[Y\˜JHÂˆ\ÜÙ\™XİÛÛ[šYJ™Xİ\‹™XİXY\‹	Ü™\Ù\˜HTˆHš[Y\˜HYÚ[˜IÊNÂˆBƒBˆÛÛœİX\˜Ø\ÔYÚ[˜NˆYÚ[˜SÛ\–ÉÛX\˜Ø\ÔYÚ[˜I×HHÂˆ\Îˆ\™š[Û\‹›X\˜Ø\Ñ\Ü]Z[˜KˆÚ^™Nˆ\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™Kˆ]ZY]›Û™Nˆ\™š[Û\‹›X\˜ØPİXY˜YÔ]ZY]›Û™KˆÜšY[XÚ[Ûˆ\™š[Û\‹™šYXÚX[ÜšY[XÚ[Û‹ˆËÈHÛÛÜ™[˜YH\œÚ\İYH\È[°ê\XÙH^\š[Üˆ[X\˜ØYÜ‹ˆ[ÂˆËÈ\È0ë[™X\ÈÛÛ[ÈÜÈİXY˜YÜÈXœ™[ˆXÚXH[[\š[ÜˆHHÚ˜K‚ˆˆÈˆX\™Ù[‹NˆS×ĞĞT•HHX\™Ù[ˆKˆˆÈˆSÒ×ĞĞT•HHX\™Ù[‹NˆS×ĞĞT•HHX\™Ù[ˆKˆ›ˆÈˆX\™Ù[‹NˆX\™Ù[ˆKˆœˆÈˆSÒ×ĞĞT•HHX\™Ù[‹NˆX\™Ù[ˆBˆNÂ‚ˆÛÛœİ›Û[Ô\ˆH^[Y[‹™›Û[Ó›Ü›X[^˜YÎÂ‚ˆËÈ›ÈÙHXZ˜H[˜HØZ˜HHÙ\\˜XÚpìÛˆ[ˆ0èYÚ[˜\ÈHÛÛ[XXÚpìÛ‹ˆBˆËÈY[YšXØXÚpìÛˆXH\İ0èH[ˆ[T‹Ù›Û[ÈH[[Z[˜\ˆH˜[™Hİ\\š[Ü‚ˆËÈ™Xİ\\˜H\ÜXÚ[È0î[Ú[ˆ[\˜\ˆH™\Ù\˜H°ë\ÚXØH[T‹‚ˆÛÛœİ[Z]PÛÛ[šYĞÛÛ[XXÚ[ÛˆH[X™\‹”ÔÒUU‘WÒS‘’S’UNÂ‚ˆÛÛœİX\™Ù[”ÙYİ\šYYšYXÚX[H[PT[ÜÊŠNÂˆÛÛœİ]ZY]›Û™\ÑšYXÚX[\Îˆ™Xİ›Ş×HH
+Éİ	Ë	İ‰Ë	Ø›	Ë	Øœ‰×H\ÈÛÛœİ
+K›X\
+
+\Ü]Z[˜JHOˆÂˆÛÛœİX\˜ØHHX\˜Ø\ÔYÚ[˜VÙ\Ü]Z[˜WNÂˆÛÛœİ^œ]ZY\™HH\Ü]Z[˜K™[™ÕÚ]
+	Û	ÊNÂˆÛÛœİİ\\š[ÜˆH\Ü]Z[˜Kœİ\ÕÚ]
+	İ	ÊNÂˆÛÛœİ^[œÚ[ÛˆH\™š[Û\‹›X\˜ØPİXY˜YÔ]ZY]›Û™H
+ÈX\™Ù[”ÙYİ\šYYšYXÚX[Âˆ™]\›ˆÂˆˆ
+^œ]ZY\™HÈX\˜ØKˆX\˜ØKH\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™JHH^[œÚ[Û‹ˆNˆ
+İ\\š[ÜˆÈX\˜ØKHH\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™HˆX\˜ØKJHH^[œÚ[Û‹ˆÚYˆ\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™H
+È^[œÚ[Ûˆ
+ˆ‹ˆZYÚˆ\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™H
+È^[œÚ[Ûˆ
+ˆ‚ˆNÂˆJNÂˆYˆ
+İ\RÙY\İ]›Û™JHÂˆËÈ\ÈÛÛ[XXÚ[Û™\ÈXH^[™[ˆ\İH™\Ù\˜HÈ[H[\ÜZ˜\›K‚ˆËÈHš[Y\˜H0èYÚ[˜HÛÛœÙ\˜HH›Û˜H°ë\ÚXØHH™XÙ\Ú]H\ØH^[œÚpìÛ‚ˆËÈ\]pëH\˜H]YHÙ\È\ÈØ\˜\ÈÙHÛÛ\\™[ˆÛÛˆ[Z\Û[ÈÜš]\š[Ë‚ˆÛÛœİX\™Ù[”ÙYİ\šYYÜ˜\HH[Y\›ÔYÚ[˜TˆOOHHÈ[PT[ÜÊÊHˆÂˆÛÛœİ›Û˜QÜ˜\Q^[™YNˆ™Xİ›ŞHÂˆˆİ\RÙY\İ]›Û™KHX\™Ù[”ÙYİ\šYYÜ˜\KˆNˆİ\RÙY\İ]›Û™KHHX\™Ù[”ÙYİ\šYYÜ˜\KˆÚYˆİ\RÙY\İ]›Û™KÚY
+ÈX\™Ù[”ÙYİ\šYYÜ˜\H
+ˆ‹ˆZYÚˆİ\RÙY\İ]›Û™KšZYÚ
+ÈX\™Ù[”ÙYİ\šYYÜ˜\H
+ˆ‚ˆNÂˆÛÛœİšYXÚX[\Ò[˜YYÜÈH]ZY]›Û™\ÑšYXÚX[\Âˆ›X\
+
+]ZY]›Û™K[™XÙJHOˆ™Xİ[\œÙXØJ›Û˜QÜ˜\Q^[™YK]ZY]›Û™JHÈ[™XÙH
+ÈHˆ[
+Bˆ™š[\Š
+[™XÙJNˆ[™XÙH\È[X™\ˆOˆ[™XÙHOOH[
+NÂˆYˆ
+šYXÚX[\Ò[˜YYÜË›[™İˆ
+HÂˆÛÛœİXYÛ›ÜİXÛÈHšYXÚX[\Ò[˜YYÜË›X\
+
+[™XÙJHOˆÂˆÛÛœİ]ZY]›Û™HH]ZY]›Û™\ÑšYXÚX[\ÖÚ[™XÙHHWHNÂˆ™]\›ˆ	Ú[™XÙ_N™Ü˜\J	Ş›Û˜QÜ˜\Q^[™YKÑš^Y
+J_K	Ş›Û˜QÜ˜\Q^[™YKKÑš^Y
+J_K	Ş›Û˜QÜ˜\Q^[™YKÚYÑš^Y
+J_K	Ş›Û˜QÜ˜\Q^[™YKšZYÚÑš^Y
+J_JKÜ]ZY]
+	Ü]ZY]›Û™KÑš^Y
+J_K	Ü]ZY]›Û™KKÑš^Y
+J_K	Ü]ZY]›Û™KÚYÑš^Y
+J_K	Ü]ZY]›Û™KšZYÚÑš^Y
+J_JXÂˆJNÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ™\Ù\˜HH[™Ü˜\YÈ[˜YH]ZY]›Û™\ÈHšYXÚX[\È	ÙXYÛ›ÜİXÛËš›Ú[Š	ÎÈ	Ê_H[ˆHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆBˆB‚ˆYˆ
+\Ôš[Y\˜JHÂˆÛÛœİXY\“YHØZ˜H
+ÈÂˆÛÛœİÙÛÔÛİYHXY\“Y
+ÈÂˆËÈÙÛİ\ÜÈYÙ\˜[Y[HX^[Ü™\ËX[[šY[™È[˜H™\Ù\˜H^0ëXÚ]BˆËÈ\˜H]YH[˜ØH[˜Y[ˆ[^ÈÙ[˜[šH[T‹‚ˆÛÛœİÙÛÔÛİÚYHÙÛÔÛİÚ^™NÂˆÛÛœİÙÛÔÛİZYÚHÙÛÔÛİÚ^™NÂˆÛÛœİ^ÒXY\ˆHÙÛÔÛİY
+ÈÙÛÔÛİÚY
+ÈÂˆÛÛœİ\”ÛİYH™Xİ\‹HÂˆÛÛœİÙÛÑ\™XÚÔÛİÚYHÙÛÔÛİÚYÂˆÛÛœİÙÛÑ\™XÚÔÛİH\”ÛİYHÙÛÑ\™XÚÔÛİÚYHÂˆÛÛœİX^[˜ÈHÙÛÑ\™XÚÔÛİHÂˆËÈ[[˜ÚÈ\ÙÜ˜YšXÛÈ›ÈX™HÛÛœİ[Z\ˆÙÈ[ÛİÙ[˜[ˆ[‚ˆËÈ[˜ØX™^˜YÈ\™ÛÈ™XÙ\Ú]HZ\™H[\È[ÙÛÈ\™XÚÈH[\È[ˆËÈ›Ü™H[[™[ˆ[[œÙ][XšY[ˆ]š]H]YH[˜\İ\š^˜YÜˆYØBˆËÈ\™XÙ\ˆ]YH[[[[ÈÛY›È[˜YHH™\Ù\˜H™XÚ[˜K‚ˆÛÛœİXY\•^[œÙ]HNÂˆÛÛœİ^ÒXY\’[›™\ˆH^ÒXY\ˆ
+ÈXY\•^[œÙ]ÂˆÛÛœİX^XY\’[›™\ˆHX^[˜ÈHXY\•^[œÙ]ÂˆËÈÜÈ]ÜÈ]YHX™H[˜\ˆH\œÛÛ˜HØİ\[ˆ[˜H˜[™H›ÜXHBˆËÈÛÛ[XKˆ[\È\İX˜[ˆÛÛ™š[˜YÜÈ[[™[Ù[˜[HZ˜X˜[ˆ[˜BˆËÈœ˜[š˜H˜XğëXH˜Z›È[ÙÛÈ^œ]ZY\™ÎÈY[pè\Ë[˜H]\]Y]H\™ØBˆËÈÙ0ëXH]YY\ˆ™XÛÜYH[Ø[İ[\ˆH0ë[™XH\ÙH^ÒXY\‹‚ˆÛÛœİ]ÜÓYHØZ˜H
+ÈMÂˆÛÛœİ]ÜÔšYÚH™Xİ\‹HLÂˆÛÛœİX^ÚY[˜ÈHX]›X^
+ŒX^XY\’[›™\ˆH^ÒXY\’[›™\ŠNÂˆÛÛœİÙ[›ÒXY\ˆH^ÒXY\’[›™\ˆ
+ÈX^ÚY[˜ÈÈÂˆÛÛœİ[›™\•ÜHUÜHS•SWÔšXY\”YÜÂˆÛÛœİ[›™\›İÛHHPØZ˜H
+ÈS•SWÔšXY\”Y›İÛNÂˆÛÛœİ^ĞÙ[˜YÈH
+^Îˆİš[™Ë›Ûˆ‘›ÛÚ^™Nˆ[X™\ŠHOˆÂˆÛÛœİ[˜ÚÈH›ÛÚYÙ•^]Ú^™J^ËÚ^™JNÂˆÛÛœİØš™]]›ÈHÙ[›ÒXY\ˆH[˜ÚÈÈÂˆ™]\›ˆX]›X^
+^ÒXY\’[›™\‹X]›Z[ŠX^XY\’[›™\ˆH[˜ÚËØš™]]›ÊJNÂˆNÂ‚ˆÛÛœİZ\İ\“[™X\ÈH
+^Îˆİš[™Ë›Ûˆ‘›ÛÚ^™Nˆ[X™\ŠHO‚ˆ\\‘[“[™X\ÊÈ^ËX^ÚYˆX^ÚY[˜Ë›ÛÚ^™HJNÂ‚ˆ]\ØØ[HHNÂˆ]S›ÛXœ™Nˆ[X™\Âˆ]QÜ\Îˆ[X™\Âˆ]Y]S[™X\Îˆİš[™Ö×NÂˆ][œİS[™X\Îˆİš[™Ö×NÂˆ]][™X\Îˆİš[™Ö×NÂˆ][S[™X\Îˆİš[™Ö×NÂˆ]Ú^™R[œİˆ[X™\Âˆ]Ú^™U]ˆ[X™\Âˆ]Ú^™S[Nˆ[X™\Âˆ]Ú^™SY]Q\ØÎˆ[X™\Âˆ]Ú^™PØ[\Îˆ[X™\Âˆ]Y]S[™QØ\ˆ[X™\Âˆ]R[œİNˆ[X™\Âˆ]U][Îˆ[X™\Âˆ]S[XNˆ[X™\Âˆ]SY]Nˆ[X™\Âˆ]SY]U[[XNˆ[X™\Â‚ˆ]]\˜XÚ[Û™\ĞZ\İHHÂˆÈÂˆÚ^™R[œİHLËˆ
+ˆ›ÛØØ[PØX™XÙ\˜H
+ˆ\ØØ[NÂˆÚ^™U]HÚ^™U][È
+ˆ\ØØ[NÂˆÚ^™S[HHKŒˆ
+ˆ›ÛØØ[PØX™XÙ\˜H
+ˆ\ØØ[NÂˆÚ^™SY]Q\ØÈHÚ^™SY]H
+ˆ\ØØ[NÂˆÚ^™PØ[\ÈHK
+ˆ›ÛØØ[PØX™XÙ\˜H
+ˆ\ØØ[NÂˆY]S[™QØ\HX]›X^
+S•SWÔ›Y]S[™H
+ˆ\ØØ[KÚ^™SY]Q\ØÈ
+ÈKŒŠNÂˆ[œİS[™X\ÈHZ\İ\“[™X\Ê[œİ]XÚ[Û‹Y[P›ÛÚ^™R[œİ
+NÂˆ][™X\ÈHZ\İ\“[™X\Ê^[Y[‹][ËY[P›ÛÚ^™U]
+NÂˆ[S[™X\ÈH[XHÈZ\İ\“[™X\Ê[XKY[R][XØKÚ^™S[JHˆ×NÂ‚ˆÛÛœİ[™QØ\[œİHÚ^™R[œİ
+ÈKŒÂˆÛÛœİ[™QØ\]HÚ^™U]
+ÈKŒÂˆÛÛœİ[™QØ\[HHÚ^™S[H
+ÈKŒNÂˆR[œİHH[›™\•ÜHÚ^™R[œİÂˆÛÛœİR[œİ[[XHHR[œİHHX]›X^
+[œİS[™X\Ë›[™İHJH
+ˆ[™QØ\[œİÂˆU][ÈHR[œİ[[XHH
+Ú^™U]
+ÈH
+ÈS•SWÔ]QØ\
+ˆ\ØØ[JNÂˆÛÛœİU][Õ[[XHHU][ÈHX]›X^
+][™X\Ë›[™İHJH
+ˆ[™QØ\]ÂˆS[XHH[S[™X\Ë›[™İˆˆÈU][Õ[[XHH
+Ú^™S[H
+ÈH
+ÈS•SWÔ›[XQØ\
+ˆ\ØØ[JBˆˆU][Õ[[XHHÂˆÛÛœİS[XU[[XHHS[XHHX]›X^
+[S[™X\Ë›[™İHJH
+ˆ[™QØ\[NÂˆSY]HHS[XU[[XHH
+Ú^™SY]Q\ØÈ
+ÈH
+ÈS•SWÔ›Y]QØ\Ü
+ˆ\ØØ[JNÂˆËÈØYHØ[\ÈÛÛœÙ\˜HİH]\]Y]HHØİ\HİH›ÜXH[™XKˆ[š\›ÜÂˆËÈ[ˆ[ˆÛÛÈ\œ˜Y›ÈXÚXH]YH[›ÛXœ™H[ØÙ[H]YY\˜BˆËÈÙ[˜YÈÛÛ[ÈÚHY\˜H[˜HÛÛ[XXÚ[ÛˆHHX]\šXK‚ˆY]S[™X\ÈHY]PØ[\ÜË™›]X\
+
+Ø[\ÊHOˆ\\‘[“[™X\ÊÂˆ^ÎˆØ[\ËˆX^ÚYˆX^ÚY[˜Ëˆ›ÛˆY[KˆÚ^™NˆÚ^™SY]Q\ØÂˆJJNÂˆÛÛœİSY]U[HSY]HH
+X]›X^
+KY]S[™X\Ë›[™İ
+HHJH
+ˆY]S[™QØ\ÂˆSY]U[[XHHSY]U[ÂˆÛÛœİS›ÛXœ™PØ[İ[YÈHSY]U[H
+Ú^™PØ[\È
+ÈH
+ÈS•SWÔ˜Ø[\ÜÑØ\Ü
+ˆ\ØØ[JNÂˆËÈÜÈØ[\ÜÈHØ\\˜HÛÛ\\[ˆ[˜HÛÛH0ë[™XNˆ[Ü\ÈÛÛœÙ\˜BˆËÈ[˜H™\Ù\˜HÛÜH\˜HİX]›È]˜\ÈX[\ØÜš]\ÈH[™\İÈ]YYBˆËÈ\ÜÛšX›H\˜H[›ÛXœ™H[[[[›Ë‚ˆËÈSY]U[XH\ÈH0ë[™XH˜\ÙH[0î›[[ÈY]Y]ËˆH™\œÚpìÛ‚ˆËÈ[\š[Üˆ›Û°ëXHH\ØÛÛ\ˆH[\˜H[Ø[\Èpè\ÈY[[HBˆËÈ[\Z˜X˜H›ÛXœ™KÙÜ\ÈXÚXHX˜Z›ËÜ™X[™È[˜Hœ˜[š˜H˜XğëXK‚ˆÛÛœİS[Z]Tİ\\š[ÜØ[\ÜÈHSY]U[HNÂˆËÈ[ˆHØX™XÙ\˜H[œİ]XÚ[Û˜[\È[™XØXÚ[Û™\ÈXHY[™[ˆ[˜BˆËÈ˜[™H›ÜXHX˜Z›ÈHÜÈØ[\ÜËˆ›È\Ü^˜\ˆ›ÛXœ™KÙÜ\ÂˆËÈXÚXH[›Ü™H[™™\š[Üˆ[][Y[\ˆ[^ÎˆH[\˜H^˜HBˆËÈHØX™XÙ\˜HX™HXœÛÜ˜™\ˆ\È0ë[™X\ÈYXÚ[Û˜[\ËˆH™\Ù\˜HÙBˆËÈÛÛœÙ\˜H\˜HH˜\šX[HÚ[ˆY[YY[œİ]XÚ[Û˜[Û™HBˆËÈ˜[™HH[™XØXÚ[Û™\ÈÛÛ\\H[[™[[˜Ú[Û˜[‚ˆÛÛœİ™\Ù\˜R[™XØXÚ[Û™\ĞØ[\ÜÈH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[ˆÈˆˆX]›X^
+[™X\Ò[™XØXÚ[Û™\Ñ\İ[XY\ÈHJBˆ
+ˆ
+X]›X^
+ËK‹ŒH
+ˆ›ÛØØ[PØX™XÙ\˜JH
+ÈKŒŠNÂˆS›ÛXœ™HHX]›Z[ŠˆS›ÛXœ™PØ[İ[YËˆS[Z]Tİ\\š[ÜØ[\ÜÈHÚ^™PØ[\ÈHHH™\Ù\˜R[™XØXÚ[Û™\ĞØ[\ÜÂˆ
+NÂˆQÜ\ÈHS›ÛXœ™NÂ‚ˆYˆ
+QÜ\ÈH[›™\›İÛH
+ÈJHÂˆœ™XZÎÂˆBˆ\ØØ[HHX]›X^
+Î\ØØ[HHŒŠNÂˆ]\˜XÚ[Û™\ĞZ\İH
+ÏHNÂˆHÚ[H
+]\˜XÚ[Û™\ĞZ\İH
+NÂ‚ˆËÈ[˜Û\ˆHš[HHØ\\˜HHH˜[™H[™™\š[ÜˆHHØX™XÙ\˜HZ˜BˆËÈXœ™HH›Û˜H[œİ]XÚ[Û˜[İ\\š[Ü‹ˆH™\Ù\˜H\ØH[°î›Y\›ÂˆËÈ\İ[XYÈH0ë[™X\ÈH[™XØXÚ[Û™\Ë‚ˆÛÛœİ[™QØ\[™XØXÚ[Û™\Ñ\İ[XYÈHX]›X^
+ËK‹
+ˆ›ÛØØ[PØX™XÙ\˜JH
+ÈKŒÂˆËÈHš[HH[œİXØÚ[Û™\È™XÙ\Ú]H[˜HÙ\\˜XÚpìÛˆÛÛ\]H][‚ˆËÈİX[™È›ÈÙHXZ˜HHY[YY[œİ]XÚ[Û˜[‚ˆËÈHš[HHØ\\˜H˜Z˜H[›ÈHHœ˜[š˜HXœ™Nˆ\ğëHÛÛœÙ\˜BˆËÈZ\™H™\ÜXİÈHÜÈÙÛİ\ÜÈH\›İ™XÚH[\ÜXÚ[È[\ÈH\ÂˆËÈ[™XØXÚ[Û™\ÈÚ[ˆ[˜Y\ˆİHš[Y\˜H0ë[™XHšHİ\ÈZ™[\ÜË‚ˆÛÛœİÙ\\˜XÚ[Û‘]ÜÒ[™XØXÚ[Û™\ÈHŒÂˆÛÛœİPØ[\ÜÒ[™™\š[ÜˆHPØZ˜Bˆ
+ÈBˆ
+ÈX]›X^
+[™X\Ò[™XØXÚ[Û™\Ñ\İ[XY\ÈHJH
+ˆ[™QØ\[™XØXÚ[Û™\Ñ\İ[XYÂˆ
+È\ÜXÚ[ÑZ™[\ÜÒ[™XØXÚ[Û™\Âˆ
+ÈÙ\\˜XÚ[Û‘]ÜÒ[™XØXÚ[Û™\ÎÂˆS›ÛXœ™HHX]›Z[ŠS›ÛXœ™KPØ[\ÜÒ[™™\š[ÜŠNÂˆQÜ\ÈHS›ÛXœ™NÂ‚ˆËÈ[ˆ\™š[\ÈÛÛˆ\ÙÜ˜Y°ëXH[\XYHYYH›È^\İ\ˆÙ\\˜XÚpìÛ‚ˆËÈ™\XØ[İYšXÚY[H[™HHš[HHØ\\˜HHH›Û˜H˜Z›È[T‹‚ˆËÈ[ˆ\ÙHØ\ÛÈÙH\ØH[™\Ü[ÈH[˜HÛÛHš[H\˜H›Èİ\\œÛ™\‚ˆËÈH]\]Y]HHØ[YšXØXÚpìÛˆÛÛˆH0ë[™XHHÜ\Ë‚ˆËÈÙ\\˜\ˆH™YÛH[™™\š[Üˆ[[™[Ù[˜[[[[[ÈY]Y]È]š]BˆËÈ]YH[^ÈHØÙ[H\™^˜ØH]˜]™\ØYÈ[˜\İ\š^˜\ˆHÌK‚ˆÛÛœİ[™[Ù[˜[›İÛHH[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[ÈSY]U[[XHHLˆPØZ˜H
+ÈLÂˆÛÛœİÙÛÖHH[›™\•ÜHÙÛÔÛİZYÚHÂˆËÈHY[YY[œİ]XÚ[Û˜[ÙHÛÛ\Û™H\™Xİ[Y[HÛØœ™H[›Û™ÂˆËÈÙ[Ûpê]šXÛËˆ›ÈXZ˜\ˆ[˜HØZ˜HÙ[˜[[™\[™Y[H]š]H]YH[ˆËÈ[˜ØX™^˜YÈY[˜HH\™XÙ\ˆœ˜YÛY[YÈÈÙ[™\™H›Ü™\È˜[ÛÜË‚ˆËÈHš[HH[™XØXÚ[Û™\ÈØİ\H[˜H0ë[™XH›ÜXHX˜Z›ÈHÜÈØ[\ÜÂˆËÈHØ\\˜H[œİ]XÚ[Û˜[\Ëˆ^[™\ˆH˜[™H[›ÜÈ[ÜÈ]š]BˆËÈ]YH[^È]YYH\YÈ[™H›Û™ÈHX\™Ù[ˆ[™™\š[Ü‹‚ˆÛÛœİšY[˜[™›İÛHHQÜ\ÈH
+[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[ÈMÈˆŠNÂˆÛÛœİšY[˜[™Ü˜\ÙHHX]›Z[Š[™[Ù[˜[›İÛHHKÙÛÖHHÊNÂˆÛÛœİ]\]Y]S›ÛXœ™HH	Ó›ÛXœ™H[[[[›Î‰ÎÂˆÛÛœİ]\]Y]QÜ\ÈH	ÑÜ\Î‰ÎÂˆÛÛœİ›ÛXœ™P[[[›ÈHİš[™Ê^[Y[‹™[˜ØX™^˜YÏË˜[[[›ÏË››ÛXœ™HÏÈ	ÉÊKš[J
+NÂˆÛÛœİš[Y\“›ÛXœ™P[[[›ÈHİš[™Ê^[Y[‹™[˜ØX™^˜YÏË˜[[[›ÏËœš[Y\“›ÛXœ™HÏÈ›ÛXœ™P[[[›ËœÜ]
+×ÊËÊVÌHÏÈ	ÉÊKš[J
+NÂˆÛÛœİ[šXÚX[\Ğ[[[›ÈHİš[™Ê^[Y[‹™[˜ØX™^˜YÏË˜[[[›ÏËš[šXÚX[\ÈÏÈ	ÉÊKš[J
+NÂˆÛÛœİ[šXÚX[\Ô™\İ[\Ğ[[[›ÈH[šXÚX[\Ğ[[[›ËœÛXÙJJNÂˆÛÛœİY[YY[[[›ÈHÜš[Y\“›ÛXœ™P[[[›Ë[šXÚX[\Ô™\İ[\Ğ[[[›×K™š[\Š›ÛÛX[ŠKš›Ú[Š	×ÉÊNÂˆÛÛœİ[˜ÚÑ]\]Y]S›ÛXœ™HHY[P›ÛÚYÙ•^]Ú^™J]\]Y]S›ÛXœ™KÚ^™PØ[\ÊNÂˆÛÛœİ[˜ÚÑ]\]Y]QÜ\ÈHY[P›ÛÚYÙ•^]Ú^™J]\]Y]QÜ\ËÚ^™PØ[\ÊNÂˆÛÛœİXÛÛ›ĞØ\\˜VH]ÜÓYÂˆÛÛœİ]\]Y]\ĞØ\\˜HH]ÜÓY
+ÈMÂˆÛÛœİ[™XS›ÛXœ™HH]\]Y]\ĞØ\\˜H
+È[˜ÚÑ]\]Y]S›ÛXœ™H
+ÈÂˆÛÛœİ[˜ÚĞØ[\ÑÜ\ÈHÂˆÛÛœİ[™XQÜ\Ñš[ˆH]ÜÔšYÚÂˆÛÛœİ[™XQÜ\ÈH[™XQÜ\Ñš[ˆH[˜ÚĞØ[\ÑÜ\ÎÂˆÛÛœİ]\]Y]\ÑÜ\ÈH[™XQÜ\ÈH[˜ÚÑ]\]Y]QÜ\ÈHÂˆÛÛœİXÛÛ›ÑÜ\ÈH]\]Y]\ÑÜ\ÈHMÂˆÛÛœİ]^[X\‘˜[˜XÚÈH[™XS›ÛXœ™H
+ÈÂˆËÈ[ˆH˜\šX[HÚ[ˆ\ÜXÚ[È˜Z›È[T‹H[™›Ü›XXÚpìÛˆ]^[X\‚ˆËÈÛÛ\\HHš[HÛÛ[È™\Ü[ÎÈÙHXÛÜHÛÛÈH0ë[™XHX[\ØÜš]BˆËÈ[›ÛXœ™H\˜H]YHÙÜÈÜÈØ[\ÜÈ\›X[™^˜Ø[ˆ[›È[X\˜ÛË‚ˆÛÛœİ[™XS›ÛXœ™Qš[ˆH\Ø\–›Û˜PØ[YšXØXÚ[Û‚ˆÈXÛÛ›ÑÜ\ÈHˆˆX]›Z[ŠXÛÛ›ÑÜ\ÈH]^[X\‘˜[˜XÚÈH
+NÂˆYˆ
+[™XS›ÛXœ™Qš[ˆH[™XS›ÛXœ™H
+ÈÌ
+HÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆ›È]YYH\ÜXÚ[ÈİYšXÚY[H\˜H[›ÛXœ™HH[Ü\È[ˆ[˜HÛÛH[™XIÊNÂˆBˆYˆ
+šY[˜[™Ü˜\ÙHˆšY[˜[™›İÛJHÂˆËÈ›È\Ø\ˆ[ˆ™[[›ÈÛÛ[[ÎˆH^\˜H[XYHÛÛœÙ\˜HBˆËÈ\İ0ê]XØHHHØX™XÙ\˜HH™YXÙH[H[ˆH›Û˜HX[\ØÜš]K‚ˆÛÛœİ™Xİ]›ÛØ\\˜Nˆ™Xİ›ŞHÂˆˆ]ÜÓYH‹ˆNˆšY[˜[™›İÛKˆÚYˆX]›X^
+LŒ]ÜÔšYÚH]ÜÓY
+ÈLŠKˆZYÚˆšY[˜[™Ü˜\ÙHHšY[˜[™›İÛBˆNÂˆÛÛœİ^Û\Ú[Û™\Ô]›ÛØ\\˜Nˆ™Xİ›Ş×HHÂˆËÈ\È]\]Y]\ÈYY[ˆÛÛš]š\ˆÛÛˆ[˜H^\˜H[YNÈ\ÂˆËÈ0ë[™X\ÈH\ØÜš]\˜H›Ëˆ\ğëH[›Ü]YHÛÛ\]ÈZ˜HH™\œÙBˆËÈ[›ÈÚ[ˆØXÜšYšXØ\ˆH›Û˜HÛ™HÙH\ØÜšX™HHX[›Ë‚ˆÂˆˆ[™XS›ÛXœ™HH‹ˆNˆS›ÛXœ™H
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HH‹‹ˆÚYˆ[™XS›ÛXœ™Qš[ˆH[™XS›ÛXœ™H
+ÈˆZYÚˆˆKˆÂˆˆ[™XQÜ\ÈH‹ˆNˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HH‹‹ˆÚYˆ[™XQÜ\Ñš[ˆH[™XQÜ\È
+ÈˆZYÚˆˆKˆNÂˆXZ˜\”]›Û›Ü]YPØ\\˜JYÙK™Xİ]›ÛØ\\˜KÛÛÜXÙ[Ë^Û\Ú[Û™\Ô]›ÛØ\\˜JNÂˆB‚ˆËÈHØX™XÙ\˜HZÜ˜H\ÈÛ\˜NÈX[[™\ˆH[œİ]XÚ[Ûˆ[ˆ›[˜ÛÈ\]ZBˆËÈHXÚXH˜XİXØ[Y[H[š\ÚX›H[[[Z[˜\ˆH˜[™HÜØİ\˜K‚ˆÛÛœİÛÛÜ’[œİ]XÚ[ÛˆHÛÛÜXÙ[ÎÂˆÛÛœİXZ˜\•^ĞØX™XÙ\˜S[\[ÈH
+ˆ^Îˆİš[™ËˆÜÚ[Û™\Îˆ›Û“[X›O\˜[Y]\œÏ\[ÙˆYÙK™˜]Õ^–ÌWO‚ˆ
+HOˆÂˆÛÛœİHÜÚ[Û™\ËÏÈÂˆÛÛœİHHÜÚ[Û™\ËHÏÈÂˆÛÛœİÚ^™HHÜÚ[Û™\ËœÚ^™HÏÈÂˆÛÛœİ›ÛHÜÚ[Û™\Ë™›ÛÏÈY[NÂˆÛÛœİ[˜ÚÈH›ÛÚYÙ•^]Ú^™J^ËÚ^™JNÂˆËÈHØZ˜H\ØH[Z\Û[ÈÛ›È]YH[›Û™È˜\ÙHH[\XHÛÛÈH0ë[™XBˆËÈĞÔ‹Z˜[™Èš\ÚX›HH˜[XH[ˆ[™\İÈ[[˜ØX™^˜YË‚ˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆHKˆNˆHHK‹ˆÚYˆ[˜ÚÈ
+ÈKˆZYÚˆÚ^™H
+ÈˆÛÛÜˆÛÛÜXÙ[ÔİX]™BˆJNÂˆYÙK™˜]Õ^
+^ËÜÚ[Û™\ÊNÂˆNÂˆÛÛœİXZ˜\“[™X\ĞØX™XÙ\˜HH
+ˆ[™X\Îˆİš[™Ö×KˆR[šXÚX[ˆ[X™\‹ˆ[™QØ\ˆ[X™\‹ˆ›Ûˆ‘›ÛˆÚ^™Nˆ[X™\‹ˆÛÛÜˆÛÛÜ‹ˆYˆİš[™Ëˆ™YÜš]HH˜[ÙKˆİ\œÚ]˜HH˜[ÙBˆ
+HOˆÂˆ[™X\Ë™›Ü‘XXÚ
+
+[™XK[™XÙJHOˆÂˆÛÛœİS[™XHHR[šXÚX[H[™XÙH
+ˆ[™QØ\ÂˆÛÛœİ[™XHH^ĞÙ[˜YÊ[™XK›ÛÚ^™JNÂˆÛÛœİ[˜Û[˜XÚ[ÛˆHİ\œÚ]˜HÈÈTÚÙ]ÎˆYÜ™Y\ÊL
+HHˆßNÂˆYˆ
+YOOH	İ][ÉÊHÂˆÛÛœİ[˜ÚÓ[™XHH›ÛÚYÙ•^]Ú^™J[™XKÚ^™JNÂˆÛÛœİÙ[›ÖHHS[™XH
+ÈÚ^™H
+ˆŒÎÂˆÛÛœİXZ˜\ÛÜHH
+ˆ[X™\‹ÛÛÜÛÜNˆÛÛÜŠHOˆYÙK™˜]Ó[™JÂˆİ\ˆÈNˆÙ[›ÖHHÚ^™H
+ˆŒKˆ[™ˆÈˆ
+ÈËŒ‹NˆÙ[›ÖH
+ÈÚ^™H
+ˆŒKˆÛÛÜˆÛÛÜÛÜKˆXÚÛ™\ÜÎˆKŒKˆÜXÚ]NˆMKˆ[™PØ\ˆ[™PØ\İ[K”›İ[™ˆJNÂˆËÈ[0ë][ÈÛÛœÙ\˜HXÛÙ›ÛÈ\È˜\œ˜\È]\˜[\È\Ü[‚ˆËÈ™\˜\œ]pëXHY]ÜšX[Ú[ˆİ\İ]Z\ˆH\ÙÜ˜Y°ëXH[Øİ[Y[Ë‚ˆYˆ
+[™XHH
+ØZ˜H
+ÈLŠHHL
+HÂˆXZ˜\ÛÜJ[™XHHLKÛÛÜ“™[ÛÚX[ŠNÂˆXZ˜\ÛÜJ[™XHH‹ÛÛÜ“™[Û“XYÙ[JNÂˆBˆYˆ
+ØZ˜H
+ÈĞØZ˜HHLˆH
+[™XH
+È[˜ÚÓ[™XJHHL
+HÂˆXZ˜\ÛÜJ[™XH
+È[˜ÚÓ[™XH
+ÈËÛÛÜ“™[Û“XYÙ[JNÂˆXZ˜\ÛÜJ[™XH
+È[˜ÚÓ[™XH
+ÈÛÛÜ“™[ÛÚX[ŠNÂˆBˆBˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê[™XKÈˆ[™XKNˆS[™XKÚ^™K›ÛÛÛÜ‹‹‹š[˜Û[˜XÚ[ÛˆJNÂˆYˆ
+™YÜš]JHÂˆËÈXÛÙ›ÛÛÛÈ\ÜÛ™HH™Yİ[\È[ÙYİ[™È˜^›È\Ü^˜YÂˆËÈ\ÜH\ÛÈš\İX[Ú[ˆ[›ÙXÚ\ˆİ˜H˜[Z[XH\ÙÜ°èYšXØK‚ˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê[™XKÈˆ[™XH
+ÈŒŒ‹NˆS[™XKÚ^™K›ÛÛÛÜ‹‹‹š[˜Û[˜XÚ[ÛˆJNÂˆBˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	ÚYKIÚ[™XÙH
+È_Xˆˆ[™XKˆNˆS[™XKˆÚYˆ›ÛÚYÙ•^]Ú^™J[™XKÚ^™JKˆZYÚˆÚ^™H
+ÈBˆJNÂˆJNÂˆNÂ‚ˆYˆ
+[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[
+HÂˆXZ˜\“[™X\ĞØX™XÙ\˜J[œİS[™X\ËR[œİKÚ^™R[œİ
+ÈKŒ‹Y[P›ÛÚ^™R[œİÛÛÜ’[œİ]XÚ[Û‹	Ú[œİ]XÚ[Û‰ËYJNÂˆXZ˜\“[™X\ĞØX™XÙ\˜J[S[™X\ËS[XKÚ^™S[H
+ÈKŒKY[R][XØKÚ^™S[KÛÛÜ”š[X\š[Ë	Û[XIË˜[ÙKYJNÂˆB‚ˆËÈ[0ë][ÈğëH\È[˜Ú[Û˜[\˜HY[YšXØ\ˆ[^[Y[‹\›È›ÂˆËÈ™Z[›ÙXÙHHY[YY[œİ]XÚ[Û˜[™]\˜YHHH[[K‚ˆXZ˜\“[™X\ĞØX™XÙ\˜J][™X\ËU][ËÚ^™U]
+ÈKŒ‹Y[P›ÛÚ^™U]ÛÛÜ”š[X\š[Ë	İ][ÉËYJNÂ‚ˆYˆ
+[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[
+HY]S[™X\Ë™›Ü‘XXÚ
+
+[™XK[™XÙJHOˆÂˆYˆ
+[[™XJH™]\›ÂˆÛÛœİS[™XHHSY]HH[™XÙH
+ˆY]S[™QØ\ÂˆÛÛœİ\ÓX]\šXHH[™XKœİ\ÕÚ]
+	ÓX]\šXN‰ÊNÂˆÛÛœİY[SY]HH\ÓX]\šXHÈY[P›ÛˆY[NÂˆÛÛœİY]HH^ĞÙ[˜YÊ[™XKY[SY]KÚ^™SY]Q\ØÊNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê[™XKÂˆˆY]KˆNˆS[™XKˆÚ^™NˆÚ^™SY]Q\ØËˆ›ÛˆY[SY]KˆÛÛÜˆÛÛÜ‘Üš\ÂˆJNÂˆYˆ
+\ÓX]\šXJHÂˆËÈXÛÙ›ÛÛÛÈÙH[X™X™H[ˆ™Yİ[\È\İHÙYİ[™È˜^›ÈÛÛ\XİÂˆËÈ\XØH™YÜš]Hš\İX[Ú[ˆØ[XšX\ˆH˜[Z[XH\ÙÜ°èYšXØK‚ˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê[™XKÂˆˆY]H
+ÈŒŒ‹ˆNˆS[™XKˆÚ^™NˆÚ^™SY]Q\ØËˆ›ÛˆY[SY]KˆÛÛÜˆÛÛÜ‘Üš\ÂˆJNÂˆBˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ[™XKœİ\ÕÚ]
+	ÑØÙ[N‰ÊHÈ	ÛY]KYØÙ[IÈˆY]KIÚ[™XÙH
+È_XˆˆY]KˆNˆS[™XKBˆÚYˆY[SY]KÚYÙ•^]Ú^™J[™XKÚ^™SY]Q\ØÊKˆZYÚˆÚ^™SY]Q\ØÈ
+ÈBˆJNÃBˆJNÂ‚ˆXY\’XÛÛ›Ş\Ëœ\Ú
+ÈYˆ	ÚXÛÛ›ËX[[[›ÉË‹‹™XZ˜\’XÛÛ›Ô\œÛÛ˜JYÙKXÛÛ›ĞØ\\˜VS›ÛXœ™H
+ÈÛÛÜ’XÛÛ›Ğ[[[›ÊHJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]S›ÛXœ™KÈˆ]\]Y]\ĞØ\\˜KNˆS›ÛXœ™KÚ^™NˆÚ^™PØ[\Ë›ÛˆY[P›ÛÛÛÜˆÛÛÜXÙ[ÈJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	Û›ÛXœ™KY]\]Y]IËˆˆ]\]Y]\ĞØ\\˜KˆNˆS›ÛXœ™KˆÚYˆY[P›ÛÚYÙ•^]Ú^™J]\]Y]S›ÛXœ™KÚ^™PØ[\ÊKBˆZYÚˆÚ^™PØ[\È
+ÈBˆJNÃBˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ[™XS›ÛXœ™KNˆS›ÛXœ™H
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HKˆ[™ˆÈˆ[™XS›ÛXœ™Qš[‹NˆS›ÛXœ™H
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HKˆÛÛÜˆÛÛÜ“[™XKˆXÚÛ™\ÜÎˆˆJNÂˆXY\‘šY[›Ş\Ëœ\Ú
+ÂˆYˆ	Û›ÛXœ™K[[™XIËˆˆ[™XS›ÛXœ™KˆNˆS›ÛXœ™H
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HHˆÚYˆX]›X^
+[™XS›ÛXœ™Qš[ˆH[™XS›ÛXœ™JKˆZYÚˆˆJNÂ‚ˆYˆ
+Y[YY[[[›ÊHÂˆÛÛœİÚ^™RY[YYHX]›X^
+K‹Œˆ
+ˆ›ÛØØ[PØX™XÙ\˜H
+ˆ\ØØ[JNÂˆÛÛœİ[˜ÚÒY[YYHY[R][XØKÚYÙ•^]Ú^™JY[YY[[[›ËÚ^™RY[YY
+NÂˆÛÛœİY[YYH]ÜÔšYÚH[˜ÚÒY[YYÂˆËÈHY[YšXØXÚ[ÛˆØİ\HHœ˜[š˜Hİ\\š[Üˆ\™XÚKÜˆ[˜Ú[XBˆËÈ[™[™ÛÛˆX[\ØÜš]ÈHY\˜HHİH[˜ÚÎÈ[İX\™HÛÛ\Ú[Û™\ÂˆËÈ˜[YH]YH[\ØÛÈ[˜YHØÙ[KY]Y]ÜÈšH[T‹‚ˆÛÛœİRY[YYHS›ÛXœ™H
+ÈÚ^™PØ[\È
+È‹NÂˆYˆ
+Y[YY]ÜÓYRY[YYHS›ÛXœ™H
+ÈÚ^™PØ[\È
+ÈJHÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆ›È^H\ÜXÚ[È\˜HHY[YYÛÜHY\˜H[Ø[\ÈX[\ØÜš]ÉÊNÂˆBˆXZ˜\•^ĞØX™XÙ\˜S[\[ÊY[YY[[[›ËÂˆˆY[YYˆNˆRY[YYˆÚ^™NˆÚ^™RY[YYˆ›ÛˆY[R][XØKˆÛÛÜˆÛÛÜXÙ[ÂˆJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	Ø[[[›ËZY[YY	ËˆˆY[YYˆNˆRY[YYˆÚYˆ[˜ÚÒY[YYˆZYÚˆÚ^™RY[YY
+ÈBˆJNÂˆB‚ˆXY\’XÛÛ›Ş\Ëœ\Ú
+ÈYˆ	ÚXÛÛ›ËYÜ\ÉË‹‹™XZ˜\’XÛÛ›ÑÜ\ÊYÙKXÛÛ›ÑÜ\ËQÜ\È
+ÈÛÛÜ’XÛÛ›ÑÜ\ÊHJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]QÜ\ËÈˆ]\]Y]\ÑÜ\ËNˆQÜ\ËÚ^™NˆÚ^™PØ[\Ë›ÛˆY[P›ÛÛÛÜˆÛÛÜXÙ[ÈJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	ÙÜ\ËY]\]Y]IËˆˆ]\]Y]\ÑÜ\ËˆNˆQÜ\ËˆÚYˆY[P›ÛÚYÙ•^]Ú^™J]\]Y]QÜ\ËÚ^™PØ[\ÊKˆZYÚˆÚ^™PØ[\È
+ÈBˆJNÃBˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ[™XQÜ\ËNˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HKˆ[™ˆÈˆ[™XQÜ\Ñš[‹NˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HKˆÛÛÜˆÛÛÜ“[™XKˆXÚÛ™\ÜÎˆˆJNÂˆXY\‘šY[›Ş\Ëœ\Ú
+ÂˆYˆ	ÙÜ\Ë[[™XIËˆˆ[™XQÜ\ËˆNˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HHˆÚYˆX]›X^
+[™XQÜ\Ñš[ˆH[™XQÜ\ÊKˆZYÚˆˆJNÂ‚ˆYˆ
+[Üİ˜\“X\˜ØR[œİ]XÚ[Û˜[	‰ˆØÙ[JHÂˆÛÛœİ[™XÙQØÙ[HHY]S[™X\Ë™š[™[™^
+
+[™XJHOˆ[™XKœİ\ÕÚ]
+	ÑØÙ[N‰ÊJNÂˆYˆ
+[™XÙQØÙ[HH
+HÂˆÛÛœİ[™XQØÙ[HHY]S[™X\ÖÚ[™XÙQØÙ[WHÏÈ	ÉÎÂˆÛÛœİØÙ[HH^ĞÙ[˜YÊ[™XQØÙ[KY[KÚ^™SY]Q\ØÊNÂˆXY\’XÛÛ›Ş\Ëœ\Ú
+ÂˆYˆ	ÚXÛÛ›ËYØÙ[IËˆ‹‹™XZ˜\’XÛÛ›ÑØÙ[JYÙKØÙ[HHM‹SY]HH[™XÙQØÙ[H
+ˆY]S[™QØ\
+ÈÛÛÜ’XÛÛ›ÑØÙ[JBˆJNÂˆBˆBˆYˆ
+\Ôš[Y\˜H	‰ˆØÙ[H	‰ˆZXY\•^›ØÚÜËœÛÛYJ
+›Ü]YJHOˆ›Ü]YKšYOOH	ÛY]KYØÙ[IÊJHÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆ[›ÛXœ™H[ØÙ[H›È\\™XÙH[ˆHØX™XÙ\˜IÊNÂˆB‚ˆËÈH›Û˜H˜Z›È[TˆÛÛ˜Ù[˜H[ÛÛ[ÈH™XXİ]›ÜÈHBˆËÈØ[YšXØXÚpìÛ‹ˆX[[™\›ÜÈ\]pëH[[Z[˜H[˜Hš[HØ]\˜YHHBˆËÈ^œ]ZY\™HH\›İ™XÚH[ˆ\ÜXÚ[È]YH[\ÈÛÛÈ[°ëXHXÛÜ˜XÚpìÛ‹‚ˆYˆ
+\Ø\–›Û˜PØ[YšXØXÚ[ÛŠHÂˆÛÛœİÚ^™PØ[\Ğ]^HX]›X^
+‹‹
+ˆ›ÛØØ[PØX™XÙ\˜JNÂˆÛÛœİ›Û˜PØ[YšXØXÚ[ÛˆH[Z]V›Û˜PØ[YšXØXÚ[ÛÂˆÛÛœİ›Û˜PØ[YšXØXÚ[Û‘š[ˆHØZ˜H
+ÈĞØZ˜HHÂˆËÈÜÈš[\ÈÛÛ\Xİ\ÈÛÛœÙ\˜[ˆ[X›ÜÈØ[\ÜÈ˜Z›È[TˆH™Xİ\\˜[‚ˆËÈ[\ÜXÚ[ÈÜš^›Û[]YH[\ÈÙH\Ü\™XÚXX˜H[›ÈHİH\š™]K‚ˆËÈ[˜Û\ˆ\ÈÜÈš[\ÈHH˜\ÙHHHØX™XÙ\˜HZ˜HXœ™HHœ˜[š˜BˆËÈİ\\š[Üˆ\˜H›ÛXœ™HHÜ\Ëˆ[X\˜ÛÈÛÛœÙ\˜HÙHH™\Ù\˜BˆËÈ™\XØ[˜Z›È[T‹\›È[ÛÛ[šYÈXH›È]YYH›İ[™ÈÙ\˜ØBˆËÈHİH›Ü™Hİ\\š[Ü‹‚ˆÛÛœİPØ[YšXØXÚ[Û–›Û˜HHš[U[šXØV›Û˜PØ[YšXØXÚ[Û‚ˆÈØ\™HHÚ^™PØ[\Ğ]^HÂˆˆPØZ˜H
+ÈKNÂˆÛÛœİT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[ÛˆHPØ[YšXØXÚ[Û–›Û˜H
+ÈLKNÂˆÛÛœİ]\]Y]T™XXİ]›ÜÈH	Ô™XXİ]›ÜÎ‰ÎÂˆÛÛœİ^ĞÛÛ[Ô™XXİ]›ÜÈHÈ	Ù^[Y[‹İ[™Yİ[\ßXÂˆÛÛœİ[˜ÚÑ]\]Y]T™XXİ]›ÜÈHY[P›ÛÚYÙ•^]Ú^™J]\]Y]T™XXİ]›ÜËÚ^™PØ[\Ğ]^
+NÂˆÛÛœİ[™XT™XXİ]›ÜÈH›Û˜PØ[YšXØXÚ[Ûˆ
+È[˜ÚÑ]\]Y]T™XXİ]›ÜÈ
+ÈÎÂˆÛÛœİ[˜ÚĞÛÛ[Ô™XXİ]›ÜÈHY[KÚYÙ•^]Ú^™J^ĞÛÛ[Ô™XXİ]›ÜËÚ^™PØ[\Ğ]^
+NÂˆÛÛœİÛÛ[Ô™XXİ]›ÜÈHX]›Z[Šˆ›Û˜PØ[YšXØXÚ[Û‘š[ˆH[˜ÚĞÛÛ[Ô™XXİ]›ÜËˆ[™XT™XXİ]›ÜÈ
+È
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈLÈˆŒÊBˆ
+NÂˆÛÛœİ[™XT™XXİ]›ÜÑš[ˆHÛÛ[Ô™XXİ]›ÜÈHÎÂˆÛÛœİ]\]Y]PØ[YšXØXÚ[ÛˆHš[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈ	ĞØ[Y‹ˆ
+MJN‰Èˆ	ĞØ[YšXØXÚpìÛˆ
+MJN‰ÎÂˆÛÛœİ[˜ÚÑ]\]Y]PØ[YšXØXÚ[ÛˆHY[P›ÛÚYÙ•^]Ú^™J]\]Y]PØ[YšXØXÚ[Û‹Ú^™PØ[\Ğ]^
+NÂˆËÈH™YÛHÛÛ[°î˜HHH\™XÚHHH]\]Y]KÛÛ[È[ˆØ[\ÈBˆËÈØ\\˜HÛÛ™[˜Ú[Û˜[È[\È]YYX˜HX˜Z›È[^ÈH\™XğëXBˆËÈXÚ\›È[˜\İ\š^˜\ˆHØX™XÙ\˜K‚ˆÛÛœİ]\]Y]PØ[YšXØXÚ[ÛˆHX]›X^
+ˆš[U[šXØV›Û˜PØ[YšXØXÚ[Û‚ˆÈÛÛ[Ô™XXİ]›ÜÈ
+È[˜ÚĞÛÛ[Ô™XXİ]›ÜÈ
+È‚ˆˆ›Û˜PØ[YšXØXÚ[Û‹ˆXÛÛ›ÑÜ\È
+ÈMˆ
+NÂˆÛÛœİ[™XPØ[YšXØXÚ[ÛˆH]\]Y]PØ[YšXØXÚ[Ûˆ
+È[˜ÚÑ]\]Y]PØ[YšXØXÚ[Ûˆ
+ÈÎÂˆÛÛœİ[™XPØ[YšXØXÚ[Û‘š[ˆH›Û˜PØ[YšXØXÚ[Û‘š[ÂˆYˆ
+ˆ[™XT™XXİ]›ÜÑš[ˆH[™XT™XXİ]›ÜÈ
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈLˆJBˆÛÛ[Ô™XXİ]›ÜÈ
+È[˜ÚĞÛÛ[Ô™XXİ]›ÜÈˆ›Û˜PØ[YšXØXÚ[Û‘š[‚ˆ[™XPØ[YšXØXÚ[Û‘š[ˆH[™XPØ[YšXØXÚ[Ûˆ
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈMHˆJBˆ
+HÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆH›Û˜HHØ[YšXØXÚ[Ûˆ›ÈY[™H\ÜXÚ[ÈİYšXÚY[IÊNÂˆBˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]T™XXİ]›ÜËÂˆˆ›Û˜PØ[YšXØXÚ[Û‹ˆNˆš[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[Û‹ˆÚ^™NˆÚ^™PØ[\Ğ]^ˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ”š[X\š[ÂˆJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	Ü™XXİ]›ÜËY]\]Y]IËˆˆ›Û˜PØ[YšXØXÚ[Û‹ˆNˆš[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[Û‹ˆÚYˆ[˜ÚÑ]\]Y]T™XXİ]›ÜËˆZYÚˆÚ^™PØ[\Ğ]^
+ÈBˆJNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ[™XT™XXİ]›ÜËNˆ
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[ÛŠHH‹Kˆ[™ˆÈˆ[™XT™XXİ]›ÜÑš[‹Nˆ
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[ÛŠHH‹KˆÛÛÜˆÛÛÜ“[™XKˆXÚÛ™\ÜÎˆˆJNÂˆXY\‘šY[›Ş\Ëœ\Ú
+ÂˆYˆ	Ü™XXİ]›ÜË[[™XIËˆˆ[™XT™XXİ]›ÜËˆNˆ
+š[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[ÛŠHHËŒ‹ˆÚYˆX]›X^
+[™XT™XXİ]›ÜÑš[ˆH[™XT™XXİ]›ÜÊKˆZYÚˆˆJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê^ĞÛÛ[Ô™XXİ]›ÜËÂˆˆÛÛ[Ô™XXİ]›ÜËˆNˆš[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[Û‹ˆÚ^™NˆÚ^™PØ[\Ğ]^ˆ›ÛˆY[KˆÛÛÜˆÛÛÜ‘Üš\ÂˆJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	ØÛÛ[Ë\™XXİ]›ÜÉËˆˆÛÛ[Ô™XXİ]›ÜËˆNˆš[U[šXØV›Û˜PØ[YšXØXÚ[ÛˆÈPØ[YšXØXÚ[Û–›Û˜HˆT™XXİ]›ÜÖ›Û˜PØ[YšXØXÚ[Û‹ˆÚYˆ[˜ÚĞÛÛ[Ô™XXİ]›ÜËˆZYÚˆÚ^™PØ[\Ğ]^
+ÈBˆJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]PØ[YšXØXÚ[Û‹Âˆˆ]\]Y]PØ[YšXØXÚ[Û‹ˆNˆPØ[YšXØXÚ[Û–›Û˜KˆÚ^™NˆÚ^™PØ[\Ğ]^ˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ”š[X\š[ÂˆJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	ØØ[YšXØXÚ[Û‹Y]\]Y]IËˆˆ]\]Y]PØ[YšXØXÚ[Û‹ˆNˆPØ[YšXØXÚ[Û–›Û˜KˆÚYˆ[˜ÚÑ]\]Y]PØ[YšXØXÚ[Û‹ˆZYÚˆÚ^™PØ[\Ğ]^
+ÈBˆJNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ[™XPØ[YšXØXÚ[Û‹NˆPØ[YšXØXÚ[Û–›Û˜HHËŒˆKˆ[™ˆÈˆ[™XPØ[YšXØXÚ[Û‘š[‹NˆPØ[YšXØXÚ[Û–›Û˜HHËŒˆKˆÛÛÜˆÛÛÜ“[™XKˆXÚÛ™\ÜÎˆˆJNÂˆXY\‘šY[›Ş\Ëœ\Ú
+ÂˆYˆ	ØØ[YšXØXÚ[Û‹[[™XIËˆˆ[™XPØ[YšXØXÚ[Û‹ˆNˆPØ[YšXØXÚ[Û–›Û˜HHËŒ‹ˆÚYˆX]›X^
+[™XPØ[YšXØXÚ[Û‘š[ˆH[™XPØ[YšXØXÚ[ÛŠKˆZYÚˆˆJNÂˆH[ÙHÂˆËÈØX™XÙ\˜\ÈÛÛ\Xİ\ÈÚ[ˆ\ÜXÚ[È˜Z›È[TˆÛÛœÙ\˜[ˆÜÈØ[\ÜÂˆËÈ[ˆHš[H^œ]ZY\™NÈ\ğëH[ÛÛ[šYÈÚYİYH\ÜÛšX›H[ˆÙÜÂˆËÈÜÈ\™š[\ÈÚ[ˆ›Ü˜\ˆ^ÈY\˜H[[˜ØX™^˜YË‚ˆÛÛœİÚ^™PØ[\Ğ]^H\™š[ÛÛ\XİĞ[Q[œÚYYÈ‹ˆX]›X^
+Œˆ
+ˆ›ÛØØ[PØX™XÙ\˜JNÂˆÛÛœİ]\]Y]T™XXİ]›ÜÈH	Ô™XXİ]›ÜÎ‰ÎÂˆÛÛœİ]\]Y]T™XXİ]›ÜÈH]^[X\‘˜[˜XÚÎÂˆÛÛœİ[˜ÚÑ]\]Y]T™XXİ]›ÜÈHY[P›ÛÚYÙ•^]Ú^™J]\]Y]T™XXİ]›ÜËÚ^™PØ[\Ğ]^
+NÂˆÛÛœİ[™XT™XXİ]›ÜÈH]\]Y]T™XXİ]›ÜÈ
+È[˜ÚÑ]\]Y]T™XXİ]›ÜÈ
+ÈÂˆÛÛœİ[™XT™XXİ]›ÜÑš[ˆHX]›Z[Š]ÜÔšYÚ[™XT™XXİ]›ÜÈ
+ÈLŠNÂˆÛÛœİ^ĞÛÛ[Ô™XXİ]›ÜÈHÈ	Ù^[Y[‹İ[™Yİ[\ßH™XXİ]›ÜØÂˆÛÛœİ[˜ÚÕ^ĞÛÛ[Ô™XXİ]›ÜÈHY[KÚYÙ•^]Ú^™J^ĞÛÛ[Ô™XXİ]›ÜËÚ^™PØ[\Ğ]^
+NÂˆÛÛœİÛÛ[Ô™XXİ]›ÜÈH[™XT™XXİ]›ÜÑš[ˆ
+ÈÂˆÛÛœİ]\]Y]PØ[YšXØXÚ[ÛˆHÛÛ[Ô™XXİ]›ÜÈ
+È[˜ÚÕ^ĞÛÛ[Ô™XXİ]›ÜÈ
+ÈNÂˆÛÛœİPØ[YšXØXÚ[Û‘˜[˜XÚÈHQÜ\ÎÂˆÛÛœİ]\]Y]PØ[YšXØXÚ[ÛˆH	ĞØ[Y‹‰ÎÂˆÛÛœİ[˜ÚÑ]\]Y]PØ[YšXØXÚ[ÛˆHY[P›ÛÚYÙ•^]Ú^™J]\]Y]PØ[YšXØXÚ[Û‹Ú^™PØ[\Ğ]^
+NÂˆÛÛœİ[™XPØ[YšXØXÚ[ÛˆH]\]Y]PØ[YšXØXÚ[Ûˆ
+È[˜ÚÑ]\]Y]PØ[YšXØXÚ[Ûˆ
+ÈÎÂˆÛÛœİ[™XPØ[YšXØXÚ[Û‘š[ˆH]ÜÔšYÚÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]T™XXİ]›ÜËÈˆ]\]Y]T™XXİ]›ÜËNˆQÜ\ËÚ^™NˆÚ^™PØ[\Ğ]^›ÛˆY[P›ÛÛÛÜˆÛÛÜ”š[X\š[ÈJNÂˆXY\•^›ØÚÜËœ\Ú
+ÈYˆ	Ü™XXİ]›ÜËY]\]Y]IËˆ]\]Y]T™XXİ]›ÜËNˆQÜ\ËÚYˆ[˜ÚÑ]\]Y]T™XXİ]›ÜËZYÚˆÚ^™PØ[\Ğ]^
+ÈHJNÂˆYÙK™˜]Ó[™JÈİ\ˆÈˆ[™XT™XXİ]›ÜËNˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HK[™ˆÈˆ[™XT™XXİ]›ÜÑš[‹NˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HKÛÛÜˆÛÛÜ“[™XKXÚÛ™\ÜÎˆJNÂˆXY\‘šY[›Ş\Ëœ\Ú
+ÈYˆ	Ü™XXİ]›ÜË[[™XIËˆ[™XT™XXİ]›ÜËNˆQÜ\È
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HHÚYˆX]›X^
+[™XT™XXİ]›ÜÑš[ˆH[™XT™XXİ]›ÜÊKZYÚˆJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê^ĞÛÛ[Ô™XXİ]›ÜËÈˆÛÛ[Ô™XXİ]›ÜËNˆQÜ\ËÚ^™NˆÚ^™PØ[\Ğ]^›ÛˆY[KÛÛÜˆÛÛÜ‘Üš\ÈJNÂˆXY\•^›ØÚÜËœ\Ú
+ÈYˆ	ØÛÛ[Ë\™XXİ]›ÜÉËˆÛÛ[Ô™XXİ]›ÜËNˆQÜ\ËÚYˆ[˜ÚÕ^ĞÛÛ[Ô™XXİ]›ÜËZYÚˆÚ^™PØ[\Ğ]^
+ÈHJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]PØ[YšXØXÚ[Û‹Èˆ]\]Y]PØ[YšXØXÚ[Û‹NˆPØ[YšXØXÚ[Û‘˜[˜XÚËÚ^™NˆÚ^™PØ[\Ğ]^›ÛˆY[P›ÛÛÛÜˆÛÛÜXÙ[ÈJNÂˆXY\•^›ØÚÜËœ\Ú
+ÈYˆ	ØØ[YšXØXÚ[Û‹Y]\]Y]IËˆ]\]Y]PØ[YšXØXÚ[Û‹NˆPØ[YšXØXÚ[Û‘˜[˜XÚËÚYˆ[˜ÚÑ]\]Y]PØ[YšXØXÚ[Û‹ZYÚˆÚ^™PØ[\Ğ]^
+ÈHJNÂˆYÙK™˜]Ó[™JÈİ\ˆÈˆ[™XPØ[YšXØXÚ[Û‹NˆPØ[YšXØXÚ[Û‘˜[˜XÚÈ
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HK[™ˆÈˆ[™XPØ[YšXØXÚ[Û‘š[‹NˆPØ[YšXØXÚ[Û‘˜[˜XÚÈ
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HKÛÛÜˆÛÛÜ“[™XKXÚÛ™\ÜÎˆJNÂˆXY\‘šY[›Ş\Ëœ\Ú
+ÈYˆ	ØØ[YšXØXÚ[Û‹[[™XIËˆ[™XPØ[YšXØXÚ[Û‹NˆPØ[YšXØXÚ[Û‘˜[˜XÚÈ
+ÈS•SWÔ˜Ø[\Ó[™SÙ™œÙ]HHÚYˆX]›X^
+[™XPØ[YšXØXÚ[Û‘š[ˆH[™XPØ[YšXØXÚ[ÛŠKZYÚˆJNÂˆBˆYˆ
+[Üİ˜\’[œİXØÚ[Û™\È	‰ˆ[œİXØÚ[Û™\Ë›[™İˆ
+HÂˆËÈH]\]Y]HH[^ÈÛÛ\\[ˆ[˜H˜[™HÜš^›Û[ˆ[^ÂˆËÈÙH[Y[™H\Ø[™È[[˜ÚÈ™\İ[H\Üpê\ÈHH]\]Y]NÈ[ˆËÈğè[İ[È[\š[ÜˆYY0ëXH[[˜ÚÈİ[HYYÛÈ™XÛÜX˜HHš[Y\˜BˆËÈ0ë[™XHÛÛ˜H[Tˆ[ˆØX™XÙ\˜\È\™Ø\Ë‚ˆÛÛœİ]\]Y]R[™XØXÚ[Û™\ÈH	Ò[™XØXÚ[Û™\Î‰ÎÂˆËÈHš[H[™™\š[ÜˆY[™H[˜ÚÈH[\˜H›Ü[ÜÈ\˜H[Üİ˜\ˆ\ÂˆËÈ[œİXØÚ[Û™\ÈÛÛ\]\È[Xšpê[ˆ[ˆHØX™XÙ\˜H[œİ]XÚ[Û˜[‚ˆËÈXH›ÈÙHİ\İ]^YH[^ÈÜˆ[˜H^Y[™Hœ™]™Nˆ[[[[›ÈX™BˆËÈ™XÚXš\ˆÙ\È\È™YÛ\ÈHX\˜ØYÈ[ˆHZ\ÛXHÚ˜K‚ˆÛÛœİ^Ò[™XØXÚ[Û™\ÒXY\ˆH[œİXØÚ[Û™\ÎÂˆÛÛœİ[™XØXÚ[Û™\Ğ˜\ÙHH]ÜÓYÂˆÛÛœİ[™XØXÚ[Û™\ÒXY\ˆH[™XØXÚ[Û™\Ğ˜\ÙH
+ÈMÂˆÛÛœİ[R[™XØXÚ[Û™\ÒXY\ˆHX]›X^
+ËK‹
+ˆ›ÛØØ[PØX™XÙ\˜JNÂˆÛÛœİ[˜ÚÑ]\]Y]R[™XØXÚ[Û™\ÈHY[P›ÛÚYÙ•^]Ú^™J]\]Y]R[™XØXÚ[Û™\Ë[R[™XØXÚ[Û™\ÒXY\ŠNÂˆÛÛœİ^Ò[™XØXÚ[Û™\ÒXY\ˆH[™XØXÚ[Û™\ÒXY\ˆ
+È[˜ÚÑ]\]Y]R[™XØXÚ[Û™\È
+ÈNÂˆÛÛœİ\™XÚR[™XØXÚ[Û™\ÈH\Ø\–›Û˜PØ[YšXØXÚ[Û‚ˆÈX]›Z[Š]ÜÔšYÚ[Z]V›Û˜PØ[YšXØXÚ[ÛˆHŠBˆˆ]ÜÔšYÚÂˆÛÛœİ[˜ÚÒ[™XØXÚ[Û™\ÒXY\ˆH\™XÚR[™XØXÚ[Û™\ÈH^Ò[™XØXÚ[Û™\ÒXY\ˆHÂˆYˆ
+[˜ÚÒ[™XØXÚ[Û™\ÒXY\ˆL
+HÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆHØX™XÙ\˜H›ÈY[™H[˜ÚÈİYšXÚY[H\˜H\È[™XØXÚ[Û™\ÉÊNÂˆBˆÛÛœİ[™QØ\[™XØXÚ[Û™\ÒXY\ˆH[R[™XØXÚ[Û™\ÒXY\ˆ
+ÈKŒÂˆÛÛœİ[™X\Ò[™XØXÚ[Û™\ÒXY\ˆH\\‘[“[™X\ÊÂˆ^Îˆ^Ò[™XØXÚ[Û™\ÒXY\‹ˆX^ÚYˆ[˜ÚÒ[™XØXÚ[Û™\ÒXY\‹ˆ›ÛˆY[KˆÚ^™Nˆ[R[™XØXÚ[Û™\ÒXY\‚ˆJNÂˆËÈ›Ü›X[^˜\ˆ\È0ë[™X\È°ë\ÚXØ\È[\ÈHÜÚXÚ[Û˜\›\È]š]H]YH[‚ˆËÈİX™[›Ûš[ZY[ÈH[˜H0ë[™XH\™ØHÙHXZ™HÛØœ™HHÚYİZY[K‚ˆÛÛœİ[™X\Ñš\ÚXØ\Ò[™XØXÚ[Û™\ÈH[™X\Ò[™XØXÚ[Û™\ÒXY\‹™›]X\
+
+[™XK[™XÙJHOˆÂˆÛÛœİ[™XR[™XØXÚ[Û™\ÈH[™XÙHOOHÈ^Ò[™XØXÚ[Û™\ÒXY\ˆˆ[™XØXÚ[Û™\ÒXY\ÂˆÛÛœİ[˜ÚÓ[™XQ\ÜÛšX›HH[™XÙHOOHˆÈ[˜ÚÒ[™XØXÚ[Û™\ÒXY\‚ˆˆ\™XÚR[™XØXÚ[Û™\ÈH[™XØXÚ[Û™\ÒXY\ˆHÂˆÛÛœİ[™X\Ñš\ÚXØ\ÈH[™XÙHOOHˆÈÛ[™XWBˆˆ\\‘[“[™X\ÊÂˆ^Îˆ[™XKˆX^ÚYˆ[˜ÚÓ[™XQ\ÜÛšX›Kˆ›ÛˆY[KˆÚ^™Nˆ[R[™XØXÚ[Û™\ÒXY\‚ˆJNÂˆ™]\›ˆ[™X\Ñš\ÚXØ\Ë›X\
+
+[™XQš\ÚXØKİX’[™XÙJHOˆ
+Âˆ^Îˆ[™XQš\ÚXØKˆˆİX’[™XÙHOOHÈ[™XR[™XØXÚ[Û™\Èˆ[™XØXÚ[Û™\ÒXY\‚ˆJJNÂˆJNÂˆËÈH0î›[XH0ë[™XH^X[]YYH[˜Ú[XHH[˜Hš[H›ÜXH\˜HBˆËÈ^Y[™KH\ØHš[HğëHÙH\ŞXH[ˆ[0ë[Z]H[™™\š[Üˆ[X\˜ÛË‚ˆÛÛœİR[™XØXÚ[Û™\ÒXY\ˆHPØZ˜Bˆ
+ÈBˆ
+È\ÜXÚ[ÑZ™[\ÜÒ[™XØXÚ[Û™\Âˆ
+ÈX]›X^
+[™X\Ñš\ÚXØ\Ò[™XØXÚ[Û™\Ë›[™İHJH
+ˆ[™QØ\[™XØXÚ[Û™\ÒXY\ÂˆXY\’XÛÛ›Ş\Ëœ\Ú
+ÂˆYˆ	ÚXÛÛ›ËZ[™XØXÚ[Û™\ÉËˆ‹‹™XZ˜\’XÛÛ›Ò[™XØXÚ[Û™\ÊYÙK[™XØXÚ[Û™\Ğ˜\ÙKR[™XØXÚ[Û™\ÒXY\ˆ
+ÈŒ‹ÛÛÜ’XÛÛ›Ò[™XØXÚ[Û™\ÊBˆJNÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê]\]Y]R[™XØXÚ[Û™\ËÂˆˆ[™XØXÚ[Û™\ÒXY\‹ˆNˆR[™XØXÚ[Û™\ÒXY\‹ˆÚ^™Nˆ[R[™XØXÚ[Û™\ÒXY\‹ˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ“™[ÛÚX[‚ˆJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	Ú[™XØXÚ[Û™\ËY]\]Y]IËˆˆ[™XØXÚ[Û™\ÒXY\‹ˆNˆR[™XØXÚ[Û™\ÒXY\‹ˆÚYˆ[˜ÚÑ]\]Y]R[™XØXÚ[Û™\ËˆZYÚˆ[R[™XØXÚ[Û™\ÒXY\ˆ
+ÈBˆJNÂˆ[™X\Ñš\ÚXØ\Ò[™XØXÚ[Û™\Ë™›Ü‘XXÚ
+
+È^ËK[™XÙJHOˆÂˆÛÛœİS[™XHHR[™XØXÚ[Û™\ÒXY\ˆH[™XÙH
+ˆ[™QØ\[™XØXÚ[Û™\ÒXY\ÂˆXZ˜\•^ĞØX™XÙ\˜S[\[Ê^ËÂˆˆNˆS[™XKˆÚ^™Nˆ[R[™XØXÚ[Û™\ÒXY\‹ˆ›ÛˆY[KˆÛÛÜˆÛÛÜ•[BˆJNÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ[™XØXÚ[Û™\ËIÚ[™XÙH
+È_XˆˆNˆS[™XKˆÚYˆY[KÚYÙ•^]Ú^™J^Ë[R[™XØXÚ[Û™\ÒXY\ŠKˆZYÚˆ[R[™XØXÚ[Û™\ÒXY\ˆ
+ÈBˆJNÂˆJNÂˆÛÛœİU[[XR[™XØXÚ[ÛˆHPØZ˜H
+ÈNÂˆÛÛœİ[˜ÚÑZ™[\ÜÓX\˜ØHHLÂˆÛÛœİZ™[\ÜÓX\˜ØHH\™XÚR[™XØXÚ[Û™\ÈH[˜ÚÑZ™[\ÜÓX\˜ØNÂˆÛÛœİ™XİZ™[\ÜÓX\˜ØHHXZ˜\‘Z™[\ÜÓX\˜ØJˆYÙKˆZ™[\ÜÓX\˜ØKˆU[[XR[™XØXÚ[Û‹ˆY[KˆKˆ
+NÂˆXY\•^›ØÚÜËœ\Ú
+ÂˆYˆ	ÙZ™[\ÜË[X\˜ØIËˆ‹‹œ™XİZ™[\ÜÓX\˜ØBˆJNÂˆB‚ˆÛÛœİÙÛÒ^œTÛİˆ™Xİ›ŞHÂˆˆÙÛÔÛİYˆNˆÙÛÖKˆÚYˆÙÛÔÛİÚYˆZYÚˆÙÛÔÛİZYÚˆNÂˆÛÛœİÙÛÑ\”Ûİˆ™Xİ›ŞHÂˆˆÙÛÑ\™XÚÔÛİˆNˆÙÛÖKˆÚYˆÙÛÑ\™XÚÔÛİÚYˆZYÚˆÙÛÔÛİZYÚˆNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜JÙÛÒ^œTÛİ	ÜÛİ[ÙÛËZ^œ]ZY\™ÉÊNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜JÙÛÑ\”Ûİ	ÜÛİ[ÙÛËY\™XÚÉÊNÂˆ\ÜÙ\™XİÛÛ[šYJÙÛÒ^œTÛİ™XİXY\‹	ÜÛİ[ÙÛËZ^œ]ZY\™ÉÊNÂˆ\ÜÙ\™XİÛÛ[šYJÙÛÑ\”Ûİ™XİXY\‹	ÜÛİ[ÙÛËY\™XÚÉÊNÂˆYˆ
+™Xİ[\œÙXØJÙÛÒ^œTÛİ™Xİ\ŠH™Xİ[\œÙXØJÙÛÑ\”Ûİ™Xİ\ŠJHÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆ[ˆÛİHÙÛÈ[˜YHH™\Ù\˜H[T‰ÊNÂˆBˆYˆ
+ÙÛÔÛİÚ^™Hˆ
+HÂˆXY\”Ûİ›Ş\Ëœ\Ú
+ˆÈYˆ	ÛÙÛËZ^œ]ZY\™ÉË‹‹›ÙÛÒ^œTÛİKˆÈYˆ	ÛÙÛËY\™XÚÉË‹‹›ÙÛÑ\”ÛİBˆ
+NÂˆBˆYˆ
+ÙÛÔÛİÚ^™Hˆ	‰ˆÙÛÒ^œ]ZY\™JHÂˆÛÛœİ\ØØ[HHX]›Z[ŠKÙÛÔÛİÚYÈX]›X^
+KÙÛÒ^œ]ZY\™KÚY
+KÙÛÔÛİZYÚÈX]›X^
+KÙÛÒ^œ]ZY\™KšZYÚ
+JNÂˆÛÛœİÈHÙÛÒ^œ]ZY\™KÚY
+ˆ\ØØ[NÃBˆÛÛœİHÙÛÒ^œ]ZY\™KšZYÚ
+ˆ\ØØ[NÃBˆÛÛœİÙÛÈHÙÛÔÛİY
+È
+ÙÛÔÛİÚYHÊHÈÃBˆÛÛœİSÙÛÈHÙÛÒ^œTÛİH
+È
+ÙÛÔÛİZYÚH
+HÈÂˆYÙK™˜]Ò[XYÙJÙÛÒ^œ]ZY\™Kš[XYÙKÈˆÙÛËNˆSÙÛËÚYˆËZYÚˆJNÂˆBƒBˆYˆ
+ÙÛÔÛİÚ^™Hˆ	‰ˆÙÛÑ\™XÚJHÂˆÛÛœİ\ØØ[HHX]›Z[ŠKÙÛÑ\™XÚÔÛİÚYÈX]›X^
+KÙÛÑ\™XÚKÚY
+KÙÛÔÛİZYÚÈX]›X^
+KÙÛÑ\™XÚKšZYÚ
+JNÃBˆÛÛœİÈHÙÛÑ\™XÚKÚY
+ˆ\ØØ[NÃBˆÛÛœİHÙÛÑ\™XÚKšZYÚ
+ˆ\ØØ[NÃBˆÛÛœİÙÛÈHÙÛÑ\™XÚÔÛİ
+È
+ÙÛÑ\™XÚÔÛİÚYHÊHÈÃBˆÛÛœİSÙÛÈHÙÛÑ\”ÛİH
+È
+ÙÛÔÛİZYÚH
+HÈÂˆYˆ
+ÙÛÈ
+ÈÈH™Xİ\‹H
+HÂˆYÙK™˜]Ò[XYÙJÙÛÑ\™XÚKš[XYÙKÈˆÙÛËNˆSÙÛËÚYˆËZYÚˆJNÂˆH[ÙHÂˆÙÛÜÓÛZ]YÜËœ\Ú
+	Ù\™XÚÉÊNÂˆBˆBƒBˆËÈHØZ˜H[Ü\ÈÛÛœÙ\˜H[ˆ™\Ü\›ÈÛ\›ÎÈHZ˜[ˆÙ\˜ØHBˆËÈÈ[H[\È[š[Y\ˆ™XXİ]›ÈH™Xİ\\˜[ˆ[\˜H0î[Ú[ˆ[İ™\ˆÜÂˆËÈØ[\ÜË[TˆšH\ÈX\˜Ø\ÈH™YÚ\İ›Ë‚ˆQš[’XY\”š[Y\˜HHX]›Z[ŠPØZ˜HHÙ\\˜XÚ[ÛØX™XÙ\˜PÛÛ[šYËQÜ\ÈHJNÂˆB‚ˆËÈH™\Ù\˜H[TˆHHY]Y]HÛÛˆ›Û˜\È[™\[™Y[\ÎˆİX[]ZY\‚ˆËÈ[\œÙXØÚ[Ûˆ\]ZH\È[ˆ\œ›ÜˆHÛÛ\ÜÚXÚ[Û‹›È[˜H™Y™\™[˜ÚXHš\İX[‚ˆ›Üˆ
+]HHÈHXY\•^›ØÚÜË›[™İÈH
+ÏHJHÂˆÛÛœİ›Ü]YHHXY\•^›ØÚÜÖÚWNÂˆ\ÜÙ\™XİÛÛ[šYJ›Ü]YK™XİXY\‹^È	Ø›Ü]YKšYHHHØX™XÙ\˜HHHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆYˆ
+™Xİ[\œÙXØJ›Ü]YK™Xİ\ŠJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ›Ü]YKšYˆ	Ü\‰ÈJNÂˆBˆ›Üˆ
+]ˆHH
+ÈNÈˆXY\•^›ØÚÜË›[™İÈˆ
+ÏHJHÂˆÛÛœİİ›ÈHXY\•^›ØÚÜÖÚ—NÂˆYˆ
+™Xİ[\œÙXØJ›Ü]YKİ›ÊJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ›Ü]YKšYˆİ›ËšYJNÂˆBˆBˆBˆ›Üˆ
+ÛÛœİšY[ÙˆXY\‘šY[›Ş\ÊHÂˆ\ÜÙ\™XİÛÛ[šYJšY[™XİXY\‹Ø[\È	ÙšY[šYHHHØX™XÙ\˜HHHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆYˆ
+™Xİ[\œÙXØJšY[™Xİ\ŠJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆšY[šYˆ	Ü\‰ÈJNÂˆBˆ›Üˆ
+ÛÛœİ^›ØÚÈÙˆXY\•^›ØÚÜÊHÂˆYˆ
+™Xİ[\œÙXØJšY[^›ØÚÊJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆšY[šYˆ^›ØÚËšYJNÂˆBˆBˆBˆ›Üˆ
+ÛÛœİXÛÛˆÙˆXY\’XÛÛ›Ş\ÊHÂˆ\ÜÙ\™XİÛÛ[šYJXÛÛ‹™XİXY\‹XÛÛ›È	ÚXÛÛ‹šYHHHØX™XÙ\˜HHHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆYˆ
+™Xİ[\œÙXØJXÛÛ‹™Xİ\ŠJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆXÛÛ‹šYˆ	Ü\‰ÈJNÂˆBˆ›Üˆ
+ÛÛœİİ\ˆÙˆXY\’XÛÛ›Ş\ÊHÂˆYˆ
+İ\‹šYOOHXÛÛ‹šY	‰ˆ™Xİ[\œÙXØJXÛÛ‹İ\ŠJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆXÛÛ‹šYˆİ\‹šYJNÂˆBˆBˆ›Üˆ
+ÛÛœİ^›ØÚÈÙˆXY\•^›ØÚÜÊHÂˆYˆ
+™Xİ[\œÙXØJXÛÛ‹^›ØÚÊJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆXÛÛ‹šYˆ^›ØÚËšYJNÂˆBˆBˆBˆYˆ
+ÛÛ\Ú[Û›Ş\Ë›[™İˆ
+HÂˆÛÛœİØ[™\ØZ˜HH
+Yˆİš[™ÊHOˆË‹‹šXY\’XÛÛ›Ş\Ë‹‹šXY\•^›ØÚÜË‹‹šXY\‘šY[›Ş\×Bˆ™š[™
+
+ØZ˜JHOˆØZ˜KšYOOHY
+NÂˆÛÛœİ][HHÛÛ\Ú[Û›Ş\Ë›X\
+
+ÛÛ\Ú[ÛŠHOˆÂˆÛÛœİHHØ[™\ØZ˜JÛÛ\Ú[Û‹˜JNÂˆÛÛœİˆHØ[™\ØZ˜JÛÛ\Ú[Û‹˜ŠNÂˆ™]\›ˆ	ØÛÛ\Ú[Û‹˜_OO‰ØÛÛ\Ú[Û‹˜ŸIØH	‰ˆˆÈ
+	ØKÑš^Y
+J_K	ØKKÑš^Y
+J_K	ØKÚYÑš^Y
+J_K	ØKšZYÚÑš^Y
+J_HœÈ	Ø‹Ñš^Y
+J_K	Ø‹KÑš^Y
+J_K	Ø‹ÚYÑš^Y
+J_K	Ø‹šZYÚÑš^Y
+J_JXˆ	ÉßXÂˆJKš›Ú[Š	Ë	ÊNÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆÛÛ\Ú[Û™\È[ˆØX™XÙ\˜HHHYÚ[˜H	Û[Y\›ÔYÚ[˜_Nˆ	Ù][_X
+NÂˆB‚ˆËÈ™\Ù\˜HÙ\\˜XÚ[Ûˆš\İX[Û\˜H[™H[˜ØX™^˜YÈHš[Y\˜H™Yİ[K‚ˆÛÛœİV›Û˜PÛÛ[šYĞ˜\ÙHH\Ôš[Y\˜BˆÈX]›Z[ŠQš[’XY\”š[Y\˜KPØZ˜HHÙ\\˜XÚ[ÛØX™XÙ\˜PÛÛ[šYÊBˆËÈHš[Y\˜H™Yİ[HH[˜HÛÛ[XXÚpìÛˆ\ØHH›Û˜H^œ]ZY\™H[ÂˆËÈ[T‹ˆİH[™[\›X[™XÙHX˜Z›È[T‹[ˆHÛÛ[[˜H\™XÚNÈ\ğëBˆËÈÙH\›İ™XÚHHœ˜[š˜Hİ\\š[ÜˆÚ[ˆİ\\œÛ™\ˆ™\Ù\˜\Ë‚ˆˆ[Û\‘\Ü]Y[XRÜš^›Û[ˆÈX]›Z[ŠUÜH™Xİ\‹H
+È[Z]PÛÛ[šYĞÛÛ[XXÚ[ÛŠBˆˆX]›Z[ŠUÜÛÛ[XXÚ[Û”ÙYİ\›Ë[Z]PÛÛ[šYĞÛÛ[XXÚ[ÛŠNÂˆËÈ[ˆÛÛ[XXÚ[Û‹[š[Y\ˆ™XXİ]›È\ØHH^œ]ZY\™H[TˆHİBˆËÈ[™[ÙH˜Z˜HÜˆÙ\\˜YÎÈ›È\È™XÙ\Ø\š[È\Ü\™XÚX\ˆÙHBˆËÈœ˜[š˜Hİ\\š[ÜˆÛÛÈÜˆH™\Ù\˜H\™XÚK‚ˆÛÛœİV›Û˜PÛÛ[šYÈH^[Y[‹›^[İ]™\İšXZ\‘[”YÚ[˜\ÓØš™]]›È	‰ˆY\Ôš[Y\˜H	‰ˆİ\RÙY\İ]›Û™BˆÈX]›Z[ŠV›Û˜PÛÛ[šYĞ˜\ÙKİ\RÙY\İ]›Û™KHH[PT[ÜÊŠJBˆˆV›Û˜PÛÛ[šYĞ˜\ÙNÂˆÛÛœİİ\œÛÜ–R[šXÚ[ÈHÛ˜\ÑÜšY
+V›Û˜PÛÛ[šYÊNÂˆYˆ
+\Ôš[Y\˜H	‰ˆİ\œÛÜ–R[šXÚ[ÈHPØZ˜JHÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆ[ÛÛ[šYÈ[˜YH[[˜ØX™^˜YÈHHš[Y\˜HYÚ[˜IÊNÂˆBˆ]İ\œÛÜ–HHİ\œÛÜ–R[šXÚ[ÎÂ‚ˆÛÛœİ[\˜Q\ÜÛšX›SZ[ˆHX\™Ù[ˆ
+È\Ëœ\™š[^[İ]˜›İÛTØY™TÂˆÛÛœİX^[XYÙ[”™Yİ[P[˜ÚÈHX]›Z[Š[˜ÚÕ^Ô™Yİ[H
+ˆ‹LÌ
+NÂˆÛÛœİX^[XYÙ[”™Yİ[P[ÈHÍÂˆËÈ\ÈØZ˜\ÈH^È\Ø[ˆ˜\Ù[[™H
+È[™RZYÚÈ™\Ù\˜\ˆ[˜H0ë[™XBˆËÈÛÛ\]H]š]H]YH[\ØÙ[™[HHJHˆÜ]YHÈ[˜YH[›Ü™BˆËÈ[™™\š[ÜˆHH[\İ˜XÚpìÛˆ[[\š[Z\‹‚ˆÛÛœİÙ\\˜XÚ[Û’[XYÙ[“ÜÚ[Û™\ÈHX]›X^
+[™XSÜÚ[Û‹[™XPÛÙYÛĞ›Ü]YJH
+ÈKNÂˆÛÛœİÙ\\˜XÚ[ÛÛÛ[[˜R[XYÙ[ˆHÂˆÛÛœİØ[İ[\“^[İ][XYÙ[ˆH
+[XˆÙÛÑ[X™Y[™Yš[™Y[˜ÚÑ\ÜÛšX›Nˆ[X™\ŠHOˆÂˆYˆ
+Y[XŠH™]\›ˆ[™Yš[™YÂˆÛÛœİX^ÈHX]›Z[ŠX^[XYÙ[”™Yİ[P[˜ÚË[˜ÚÑ\ÜÛšX›H
+ˆŠNÂˆÛÛœİ\ØØ[HHX]›Z[ŠKX^ÈÈ[X‹ÚYX^[XYÙ[”™Yİ[P[ÈÈ[X‹šZYÚ
+NÂˆÛÛœİÚYH[X‹ÚY
+ˆ\ØØ[NÂˆÛÛœİZYÚH[X‹šZYÚ
+ˆ\ØØ[NÂˆÛÛœİ[˜ÚÕ^ÈH[˜ÚÑ\ÜÛšX›HHÚYHÙ\\˜XÚ[ÛÛÛ[[˜R[XYÙ[ÂˆËÈHÛÛ[[˜H]\˜[ÛÛÈÙH\ØHÚHX[Y[™H[˜HYYYHHXİ\˜BˆËÈ˜^›Û˜X›NÈ[ˆ[˜ÚÜÈ\İ™XÚÜÈH[XYÙ[ˆY[™HX˜Z›È[^Ë‚ˆ™]\›ˆÂˆÚYˆZYÚˆ[˜ÚÕ^Ëˆ]\˜[ˆ[˜ÚÕ^ÈHX]›X^
+N[˜ÚÑ\ÜÛšX›H
+ˆ
+BˆNÂˆNÂ‚ˆÛÛœİ\™XÚU^ĞÛÛ[XXÚ[ÛˆHX]›X^
+ˆ^Ô™Yİ[H
+ÈŒˆX]›Z[Š\™XÚU^Ë™Xİ\‹HLÛÛ™\ÜY\İHHİ]\”™\ÜY\İJBˆ
+NÂˆÛÛœİØ[™\“^[İ]ÜÚ[Û™\ÈH
+ˆ™Yİ[Nˆ^[Y[”–ÉÜ™Yİ[\É×VÛ[X™\—Kˆ[Z]Q\™XÚÈH\™XÚU^Âˆ
+HOˆÂˆÛÛœİÜ™[“ÜÚ[Û™\ÈH^[Y[‹›X\U˜\šX[K›Ü™[“ÜÚ[Û™\ÔÜ”™Yİ[VÜ™Yİ[KšYHÏÈÌK‹ËNÂˆÛÛœİİ[ÜÚ[Û™\ÈHÜ™[“ÜÚ[Û™\Ë›[™İÂˆÛÛœİ[˜ÚÓÜÚ[Û™\Õİ[HX]›X^
+[Z]Q\™XÚÈH^Ô™Yİ[JNÂˆÛÛœİ™Yš^ÚYHY[P›ÛÚYÙ•^]Ú^™J	ÑJH	ËÚ^™SÜÚ[ÛŠH
+ÈÎÂˆYˆ
+Û\‘[“[™XJHÂˆÛÛœİ[˜ÚÓ[™XHHX]›X^
+Ì[˜ÚÓÜÚ[Û™\Õİ[H
+Û\”˜Y[È
+ˆˆ
+È[PT[ÜÊÊJHH™Yš^ÚY
+NÂˆÛÛœİš[\ÈHÜ™[“ÜÚ[Û™\Ë›X\
+
+[™XÙSÜÚ[ÛŠHOˆÂˆÛÛœİ[™X\ÈH[›Û™\•^ÓZ^ÊÂˆ^ÎˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÚ[™XÙSÜÚ[Û—OË^ÊKˆX^ÚYˆ[˜ÚÓ[™XKˆY[KˆY[P›ÛˆY[R][XØKˆY[S[Û›ËˆÚ^™U^ÎˆÚ^™SÜÚ[Û‹ˆÚ^™PÛÙYÛÒ[›[™NˆX]›Z[ŠÚ^™PÛÙYÛÒ[›[™KÚ^™SÜÚ[ÛŠKˆÚ^™PÛÙYÛĞ›Ü]YKˆ[™RZYÚ^Îˆ[™XSÜÚ[Û‹ˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YBˆJNÂˆÛÛœİ[Õ^ÈH[™X\Ëœ™YXÙJ
+İ[[™XJHOˆİ[
+È[™XK›[™RZYÚ
+NÂˆÛÛœİ[ÈHX]›X^
+LH
+ˆSWĞWÔS•ÔËÛ\”˜Y[È
+ˆ‹[Õ^È
+È™[[›Õ™\XØ[ÜÚ[ÛŠNÂˆ™]\›ˆÈ[™XÙSÜÚ[Û‹]˜Nˆİš[™Ë™œ›ÛPÚ\ÛÙJH
+ÈÜ™[“ÜÚ[Û™\Ëš[™^ÙŠ[™XÙSÜÚ[ÛŠJK[™X\Ë[ÈNÂˆJNÂˆ™]\›ˆÂˆÛÛ[[˜\ÎˆKˆÜÛÛ[[˜Nˆš[\Ë›[™İˆİ]\ÛÛÎˆˆÛÛÚYˆ[˜ÚÓÜÚ[Û™\Õİ[ˆ[\˜\Îˆš[\Ë›X\
+
+š[JHOˆš[K˜[ÊKˆ[\˜QÜšYˆš[\Ëœ™YXÙJ
+İ[š[JHOˆİ[
+Èš[K˜[Ë
+Kˆ[›[™T›İÜÎˆš[\ÂˆNÂˆBˆYˆ
+Û\‘\Ü]Y[XRÜš^›Û[	‰ˆİ[ÜÚ[Û™\ÈOOHJHÂˆÛÛœİ[™XÙTš[˜Ú\[HÜ™[“ÜÚ[Û™\Ëœ™YXÙJ
+YZ›Ü‹[™XÙSÜÚ[ÛŠHOˆÂˆÛÛœİXİX[HÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÚ[™XÙSÜÚ[Û—OË^ÊK›[™İÂˆÛÛœİ[\š[ÜˆHÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÛYZ›Ü—OË^ÊK›[™İÂˆ™]\›ˆXİX[ˆ[\š[ÜˆÈ[™XÙSÜÚ[ÛˆˆYZ›ÜÂˆKÜ™[“ÜÚ[Û™\ÖÌHÏÈ
+NÂˆÛÛœİÛ™Ú]Yš[˜Ú\[HÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÚ[™XÙTš[˜Ú\[OË^ÊK›[™İÂˆËÈX[[™\ˆ[Ü™[ˆ˜]\˜[KP‹PËQQH\˜HÜÚ[Û™\ÈšXØ\ËˆÛÛÈ[˜BˆËÈ™\ÜY\İH^Ù\Ú[Û˜[Y[H^[œØHY\™XÙHØİ\\ˆ[˜Hš[H›ÜXNÂˆËÈÛÛˆ^ÜÈ›Ü›X[\Ë›Û[İ™\ˆHÜÚpìÛˆpè\È\™ØH\ÛÜ™[˜HBˆËÈXİ\˜HHXÙH\™XÙ\ˆ]YHÜÈ›Û™ÜÈ\İ0è[ˆ\Ø[[™XYÜË‚ˆYˆ
+Û™Ú]Yš[˜Ú\[HL
+HÂˆÛÛœİ[™X\Ôš[˜Ú\[H[›Û™\•^ÓZ^ÊÂˆ^ÎˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÚ[™XÙTš[˜Ú\[OË^ÊKˆX^ÚYˆX]›X^
+[˜ÚÓÜÚ[Û™\Õİ[HˆH™Yš^ÚY
+KˆY[KˆY[P›ÛˆY[R][XØKˆY[S[Û›ËˆÚ^™U^ÎˆÚ^™SÜÚ[Û‹ˆÚ^™PÛÙYÛÒ[›[™NˆX]›Z[ŠÚ^™PÛÙYÛÒ[›[™KÚ^™SÜÚ[ÛŠKˆÚ^™PÛÙYÛĞ›Ü]YKˆ[™RZYÚ^Îˆ[™XSÜÚ[Û‹ˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YBˆJNÂˆÛÛœİ™\İ[\ÈHÜ™[“ÜÚ[Û™\Âˆ™š[\Š
+[™XÙSÜÚ[ÛŠHOˆ[™XÙSÜÚ[ÛˆOOH[™XÙTš[˜Ú\[
+Bˆ›X\
+
+[™XÙSÜÚ[Û‹[™XÙJHOˆ
+Âˆ[™XÙSÜÚ[Û‹ˆ]˜Nˆİš[™Ë™œ›ÛPÚ\ÛÙJH
+ÈÜ™[“ÜÚ[Û™\Ëš[™^ÙŠ[™XÙSÜÚ[ÛŠJKˆ[™XÙBˆJJNÂˆÛÛœİİ]\ˆHÂˆÛÛœİ[˜ÚÔ™\İ[HH
+[˜ÚÓÜÚ[Û™\Õİ[Hİ]\ˆ
+ˆÊHÈÂˆÛÛœİ[™X\Ô™\İ[\ÈH™\İ[\Ë›X\
+
+][JHOˆ[›Û™\•^ÓZ^ÊÂˆ^ÎˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÚ][Kš[™XÙSÜÚ[Û—OË^ÊKˆX^ÚYˆX]›X^
+Œ[˜ÚÔ™\İ[HH™Yš^ÚY
+KˆY[KˆY[P›ÛˆY[R][XØKˆY[S[Û›ËˆÚ^™U^ÎˆÚ^™SÜÚ[Û‹ˆÚ^™PÛÙYÛÒ[›[™NˆX]›Z[ŠÚ^™PÛÙYÛÒ[›[™KÚ^™SÜÚ[ÛŠKˆÚ^™PÛÙYÛĞ›Ü]YKˆ[™RZYÚ^Îˆ[™XSÜÚ[Û‹ˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YBˆJJNÂˆÛÛœİ[Ôš[˜Ú\[HX]›X^
+[\˜SZ[š[XQš[SÜÚ[Û‹[™X\Ôš[˜Ú\[œ™YXÙJ
+İ[[™XJHOˆİ[
+È[™XK›[™RZYÚ
+H
+È™[[›Õ™\XØ[ÜÚ[ÛŠNÂˆÛÛœİ[Ô™\İ[\ÈHX]›X^
+ˆ[\˜SZ[š[XQš[SÜÚ[Û‹ˆ‹‹›[™X\Ô™\İ[\Ë›X\
+
+[™X\ÊHOˆ[™X\Ëœ™YXÙJ
+İ[[™XJHOˆİ[
+È[™XK›[™RZYÚ
+H
+È™[[›Õ™\XØ[ÜÚ[ÛŠBˆ
+NÂˆ™]\›ˆÂˆÛÛ[[˜\ÎˆˆÜÛÛ[[˜NˆKˆİ]\ÛÛÎˆİ]\‹ˆÛÛÚYˆ[˜ÚÔ™\İ[Kˆ[\˜\ÎˆØ[Ô™\İ[\×Kˆ[\˜QÜšYˆ[Ôš[˜Ú\[
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[Ûˆ
+È[Ô™\İ[\È
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[Û‹ˆÜÚ[Û”š[˜Ú\[ˆÂˆ[™XÙSÜÚ[Ûˆ[™XÙTš[˜Ú\[ˆ]˜Nˆİš[™Ë™œ›ÛPÚ\ÛÙJH
+ÈÜ™[“ÜÚ[Û™\Ëš[™^ÙŠ[™XÙTš[˜Ú\[
+JKˆ[™X\Îˆ[™X\Ôš[˜Ú\[ˆ[Îˆ[Ôš[˜Ú\[ˆKˆÜÚ[Û™\Ô™\İ[\Îˆ™\İ[\Ë›X\
+
+][K[™XÙJHOˆ
+Âˆ‹‹š][Kˆ[™X\Îˆ[™X\Ô™\İ[\ÖÚ[™XÙWHÏÈ×Kˆ[Îˆ[Ô™\İ[\ÂˆJJBˆNÂˆBˆBˆËÈÚH\ÈÚ[˜ÛÈ™\ÜY\İ\ÈØX™[ˆ[ˆ[˜H[™XHÜˆÙ[K\Ø\ˆ[˜BˆËÈš[H™YXÙHH[\˜H[™XXİ]›ÈÚ[ˆ˜Z˜\ˆH\ÙÜ˜YšXKˆBˆËÈ™]Xİ[HÊÌˆÙHÛÛœÙ\˜HÛÛ[È˜[˜XÚÈ[HİX[]ZY\ˆÜ˜\È[˜ÚÂˆËÈ[œİYšXÚY[KH[Z\Û[È^[İ][[Y[H[[ˆH[™[™\‹‚ˆYˆ
+Û\‘\Ü]Y[XRÜš^›Û[	‰ˆİ[ÜÚ[Û™\ÈOOHJHÂˆÛÛœİÛÛ[[˜\ĞÛÛ\Xİ\ÈHNÂˆÛÛœİİ]\ÛÛ\XİÈHNÂˆÛÛœİ[˜ÚĞÛÛ[[˜PÛÛ\XİHBˆ
+[˜ÚÓÜÚ[Û™\Õİ[Hİ]\ÛÛ\XİÈ
+ˆ
+ÛÛ[[˜\ĞÛÛ\Xİ\ÈHJJHÈÛÛ[[˜\ĞÛÛ\Xİ\ÎÂˆÛÛœİ[˜ÚÕ^ĞÛÛ\XİÈH[˜ÚĞÛÛ[[˜PÛÛ\XİHH™Yš^ÚYÂˆYˆ
+[˜ÚÕ^ĞÛÛ\XİÈHL
+HÂˆÛÛœİ[™X\ĞÛÛ\Xİ\ÈHÜ™[“ÜÚ[Û™\Ë›X\
+
+[™XÙSÜÚ[ÛŠHOˆ[›Û™\•^ÓZ^ÊÂˆ^ÎˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠ™Yİ[K›ÜÚ[Û™\ÖÚ[™XÙSÜÚ[Û—OË^ÊKˆX^ÚYˆ[˜ÚÕ^ĞÛÛ\XİËˆY[KˆY[P›ÛˆY[R][XØKˆY[S[Û›ËˆÚ^™U^ÎˆÚ^™SÜÚ[Û‹ˆÚ^™PÛÙYÛÒ[›[™NˆX]›Z[ŠÚ^™PÛÙYÛÒ[›[™KÚ^™SÜÚ[ÛŠKˆÚ^™PÛÙYÛĞ›Ü]YKˆ[™RZYÚ^Îˆ[™XSÜÚ[Û‹ˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YBˆJJNÂˆYˆ
+[™X\ĞÛÛ\Xİ\Ë™]™\J
+[™X\ÊHOˆ[™X\Ë›[™İOOHJJHÂˆÛÛœİ[Ñš[PÛÛ\XİHHX]›X^
+ˆ[\˜SZ[š[XQš[SÜÚ[Û‹ˆ‹‹›[™X\ĞÛÛ\Xİ\Ë›X\
+
+[™X\ÊHO‚ˆ[™X\Ëœ™YXÙJ
+İ[[™XJHOˆİ[
+È[™XK›[™RZYÚ
+H
+È™[[›Õ™\XØ[ÜÚ[Û‚ˆ
+Bˆ
+NÂˆ™]\›ˆÂˆÛÛ[[˜\ÎˆÛÛ[[˜\ĞÛÛ\Xİ\ËˆÜÛÛ[[˜NˆKˆİ]\ÛÛÎˆİ]\ÛÛ\XİËˆÛÛÚYˆ[˜ÚĞÛÛ[[˜PÛÛ\XİKˆ[\˜\Îˆ[™X\ĞÛÛ\Xİ\Ë›X\
+
+
+HOˆ[Ñš[PÛÛ\XİH
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[ÛŠKˆ[\˜QÜšYˆ[Ñš[PÛÛ\XİH
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[Û‚ˆNÂˆBˆBˆB‚ˆËÈ\È™\ÜY\İ\È]YH›ÈØX™[ˆ[ˆÚ[˜ÛÈÙ[\ÈH[˜H[™XHÛÛœÙ\˜[‚ˆËÈH™]Xİ[HÊÌˆXH˜[YYH\˜H[\™š[Üš^›Û[‚ˆÛÛœİØ[™Y]ÜÈHİ[ÜÚ[Û™\ÈHBˆÈ
+Û\‘\Ü]Y[XRÜš^›Û[ÈÌ×HˆÌ—JBˆˆÌK—NÂˆ™]\›ˆØ[™Y]ÜÂˆ›X\
+
+ÛÛ[[˜\ÊHOˆÂˆËÈØYH™XXİ]›ÈÛÛœÙ\˜HÛÛ[Èpë[š[[ÈÜÈ\İ\È™\XØ[\ËˆÛÛ‚ˆËÈÚ[˜ÛÈÜÚ[Û™\ÈH™]0ëXİ[HÊÌˆXH\È›ÙXÙNÈÛÛˆY[›ÜÂˆËÈÜÚ[Û™\ÈÙH™\Ù\˜HHÙYİ[™H\İH\˜H]š]\ˆ›Ü]Y\ÂˆËÈÛÛ\š[ZYÜÈHX[[™\ˆ[ˆš][Èš\İX[\İX›K‚ˆÛÛœİÜÛÛ[[˜HHX]›X^
+‹X]˜ÙZ[
+İ[ÜÚ[Û™\ÈÈÛÛ[[˜\ÊJNÂˆÛÛœİİ]\ÛÛÈHÛÛ[[˜\ÈOOHÈÈˆˆÂˆÛÛœİÛÛÚYHİ[ÜÚ[Û™\ÈˆBˆÈ
+[˜ÚÓÜÚ[Û™\Õİ[Hİ]\ÛÛÈ
+ˆ
+ÛÛ[[˜\ÈHJJHÈÛÛ[[˜\Âˆˆ[˜ÚÓÜÚ[Û™\Õİ[ÂˆËÈ\İšXXÚpìÛˆÜˆš[\Ë›ÈÜˆÛÛ[[˜\ÎˆÛÛˆÚ[˜ÛÈÜÚ[Û™\ÈBˆËÈ™]0ëXİ[H]YYH_‹ßHHÙ[˜YKˆ\İÈ]š]H]YH[˜HÛÛ[[˜BˆËÈ\›Z[™HÜÈš[\È[\È]YHHİ˜HHÛÛœÙ\˜H[Ü™[ˆ˜]\˜[ˆËÈHXİ\˜K‚ˆÛÛœİÛÛÈH\œ˜^K™œ›ÛJÈ[™İˆÛÛ[[˜\ÈK
+
+HOˆ×H\È[X™\–×JNÂˆÜ™[“ÜÚ[Û™\Ë™›Ü‘XXÚ
+
+[™XÙSÜÚ[Û‹[™XÙJHOˆÂˆÛÛÖÚ[™XÙH	HÛÛ[[˜\×OËœ\Ú
+[™XÙSÜÚ[ÛŠNÂˆJNÂˆÛÛœİ[\˜\ÔÜÛÛ[[˜HHÛÛË›X\
+
+ÛÛ
+HOˆÛÛ›X\
+
+[™XÙSÜÚ[ÛŠHOˆÂˆÛÛœİÜÚ[ÛˆH™Yİ[K›ÜÚ[Û™\ÖÚ[™XÙSÜÚ[Û—NÂˆÛÛœİ[™X\ÈH[›Û™\•^ÓZ^ÊÂˆ^ÎˆÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠÜÚ[ÛË^ÊKˆX^ÚYˆX]›X^
+ÌÛÛÚYH™Yš^ÚY
+KˆY[KˆY[P›ÛˆY[R][XØKˆY[S[Û›ËˆÚ^™U^ÎˆÚ^™SÜÚ[Û‹ˆÚ^™PÛÙYÛÒ[›[™NˆX]›Z[ŠÚ^™PÛÙYÛÒ[›[™KÚ^™SÜÚ[ÛŠKˆÚ^™PÛÙYÛĞ›Ü]YKˆ[™RZYÚ^Îˆ[™XSÜÚ[Û‹ˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YBˆJNÂˆÛÛœİ[Õ^ÈH[™X\Ëœ™YXÙJ
+XØË[™XJHOˆXØÈ
+È[™XK›[™RZYÚ
+NÂˆ™]\›ˆX]›X^
+[\˜SZ[š[XQš[SÜÚ[Û‹[Õ^È
+È™[[›Õ™\XØ[ÜÚ[ÛŠNÂˆJJNÂˆÛÛœİ[\˜\ÈH[\˜\ÔÜÛÛ[[˜K›X\
+
+ÛÛ
+HOˆÛÛœ™YXÙJˆ
+İ[[Ñš[JHOˆİ[
+È[Ñš[H
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[Û‹ˆˆ
+JNÂˆËÈ[X˜\ÈÛÛ[[˜\ÈÛÛ\\[ˆHZ\ÛXH™]0ëXİ[HÜš^›Û[ˆ[[ÈBˆËÈØYH\İH\È[pè^[[ÈHİ\ÈÜÈÙ[\ÎÈ\ğëHÜÈ›Û™ÜÈHKQˆËÈ‹QK]Ëˆ\›Z[˜[ˆ^Xİ[Y[H[ˆ[Z\Û[ÈZ™K‚ˆÛÛœİ[\˜QÜšYH\œ˜^K™œ›ÛJÈ[™İˆÜÛÛ[[˜HK
+İ˜[Ü‹[™XÙQš[JHOˆX]›X^
+ˆ[\˜SZ[š[XQš[SÜÚ[Û‹ˆ‹‹˜[\˜\ÔÜÛÛ[[˜K›X\
+
+ÛÛ
+HOˆÛÛÚ[™XÙQš[WHÏÈ
+Bˆ
+JKœ™YXÙJ
+İ[[Ñš[JHOˆİ[
+È[Ñš[H
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[Û‹
+NÂ‚ˆ™]\›ˆÈÛÛ[[˜\ËÜÛÛ[[˜Kİ]\ÛÛËÛÛÚY[\˜\Ë[\˜QÜšYNÂˆJBˆœÛÜ
+
+KŠHOˆÂˆÛÛœİ[\˜PHHK˜[\˜QÜšYÂˆÛÛœİ[\˜PˆH‹˜[\˜QÜšYÂˆËÈÜÈÛÛ[[˜\ÈÙœ™XÙ[ˆX^[Üˆ[˜ÚÈHXİ\˜KˆÛÛÈÙHØ[XšXHBˆËÈ™\ÈİX[™ÈH™YXØÚ[Ûˆ™\XØ[\ÈX]\šX[ÜˆZ™[\È[‚ˆËÈÜÚ[Û™\È^[œØ\È]YHHİ›È[ÙÈ\Ü\˜\šX[ˆİ˜HYÚ[˜K‚ˆÛÛœİ˜][ĞPˆH[\˜PHÈX]›X^
+K[\˜PŠNÂˆÛÛœİ˜][ĞHH[\˜PˆÈX]›X^
+K[\˜PJNÂˆYˆ
+K˜ÛÛ[[˜\ÈOOHˆ	‰ˆ‹˜ÛÛ[[˜\ÈOOHÈ	‰ˆ˜][ĞPˆHKŒÍJH™]\›ˆLNÂˆYˆ
+K˜ÛÛ[[˜\ÈOOHÈ	‰ˆ‹˜ÛÛ[[˜\ÈOOHˆ	‰ˆ˜][ĞHHKŒÍJH™]\›ˆNÂˆ™]\›ˆ[\˜PHH[\˜PˆK˜ÛÛ[[˜\ÈH‹˜ÛÛ[[˜\ÎÂˆJVÌHNÂˆNÂ‚ˆÛÛœİØ[İ[\[\˜T™Yİ[HH
+ˆ™Yİ[Nˆ^[Y[”–ÉÜ™Yİ[\É×VÛ[X™\—Kˆ[Z]Q\™XÚÈH\™XÚU^Âˆ
+HOˆÂˆÛÛœİ[˜ÚÕ^Ô™Yİ[PXİX[HX]›X^
+Œ[Z]Q\™XÚÈH^Ô™Yİ[JNÂˆÛÛœİ[XˆH[XYÙ[™\Ô™Yİ[K™Ù]
+™Yİ[KšY
+NÂˆÛÛœİ^[İ][XYÙ[ˆHØ[İ[\“^[İ][XYÙ[Š[X‹[˜ÚÕ^Ô™Yİ[PXİX[
+NÂˆÛÛœİ[˜ÚÑ[[˜ÚXYÈH^[İ][XYÙ[Ë›]\˜[ˆÈ^[İ][XYÙ[‹˜[˜ÚÕ^Âˆˆ[˜ÚÕ^Ô™Yİ[PXİX[ÂˆÛÛœİ[™X\Ñ[[˜ÚXYÈH[›Û™\•^ÓZ^ÊÂˆ^Îˆ™Yİ[K™[[˜ÚXYËˆX^ÚYˆ[˜ÚÑ[[˜ÚXYËˆY[KˆY[P›ÛˆY[R][XØNˆY[R][XØKBˆY[S[Û›ËBˆÚ^™U^ÎˆÚ^™T™Yİ[KBˆÚ^™PÛÙYÛÒ[›[™KBˆÚ^™PÛÙYÛĞ›Ü]YKBˆ[™RZYÚ^Îˆ[™XT™Yİ[KBˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YCBˆJNÃBƒBˆ][ÈH[™X\Ñ[[˜ÚXYËœ™YXÙJ
+XØË[™XJHOˆXØÈ
+È[™XK›[™RZYÚ
+NÃBƒBˆYˆ
+[XŠHÂˆYˆ
+^[İ][XYÙ[Ë›]\˜[
+HÂˆ[ÈHX]›X^
+[Ë^[İ][XYÙ[‹šZYÚ
+H
+ÈÙ\\˜XÚ[Û’[XYÙ[“ÜÚ[Û™\ÎÂˆH[ÙHÂˆ[È
+ÏH
+^[İ][XYÙ[ËšZYÚÏÈX]›Z[ŠX^[XYÙ[”™Yİ[P[Ë[X‹šZYÚ
+JH
+ÈÙ\\˜XÚ[Û’[XYÙ[“ÜÚ[Û™\ÎÂˆBˆBƒBˆÛÛœİ^[İ]ÜÚ[Û™\ÈHØ[™\“^[İ]ÜÚ[Û™\Ê™Yİ[K[Z]Q\™XÚÊNÂˆËÈH™]0ëXİ[HÛÛ\\HH[\˜HHØYHš[H[™HÛÛ[[˜\Ëˆ\Ø\ˆBˆËÈÛÛ[[˜Hpè\È[HİX™\İ[XH[›Ü]YHİX[™È[˜HÜÚpìÛˆ™XÚ[˜HÙBˆËÈ[Y[™HHpè\È0ë[™X\ÈHZ˜H]YH[[ˆYšY\˜H[XZ›È™X[‚ˆÛÛœİ[ÓÜÚ[Û™\ÈH^[İ]ÜÚ[Û™\Ë˜[\˜QÜšYÂˆÛÛœİ[ÓÛ\“Z[ˆHÛ\‘[“[™XBˆÈˆˆÛ\‘\Ü]Y[XRÜš^›Û[ˆËÈ[ˆ[\Ü]Y[XHÜš^›Û[[[™[ÓTˆÙHÛÛØØH[ˆHZ\ÛXBˆËÈ˜[™H™\XØ[]YHH™Yİ[Kˆ™\Ù\˜\ˆY[pè\ÈÛ\’XY\‘Ø\ˆËÈH[X\™Ù[ˆHÙYİ\šYY[›Z›È\XØX˜H\HH\ØH˜[™BˆËÈH›İ›ØØX˜H[˜H0èYÚ[˜H^˜H[ˆ^0è[Y[™\ÈHH™XXİ]›ÜË‚ˆÈX]›X^
+Œ‹Û\”˜Y[È
+ˆˆ
+ÈÛ\“X\™Ù[”İ\\š[Üˆ
+ÈÛ\“X\™Ù[’[™™\š[ÜŠBˆˆ\™š[Û\‹›Û\’XY\‘Ø\
+ÈL
+È
+Û\•İ[]˜\ÈHJH
+ˆÛ\”\ÛÖH
+ÈÛ\”˜Y[È
+ÈÛ\“X\™Ù[’[™™\š[Üˆ
+ÈÂˆËÈ[ˆÛÛ[XXÚ[Û™\È[[™[HHš[Y\˜H™Yİ[Hš]™H[ˆBˆËÈÛÛ[[˜H\™XÚKX˜Z›È[T‹ˆYY\›ÈÛÛ[È[˜HÙYİ[™Hš[H˜Z›ÂˆËÈ\ÈÜÚ[Û™\È[™›X˜H\YšXÚX[Y[HH[\˜HHZ˜X˜H0èYÚ[˜\ÂˆËÈš[˜[\ÈİX][^˜Y\Ë‚ˆÛÛœİÙ\\˜XÚ[Û”™XXİ]›ÈHØ[™\”Ù\\˜XÚ[Û”™Yİ[J™Yİ[JH
+È
+^[Y[‹İ[™Yİ[\ÈˆŒÈˆJNÂˆYˆ
+Û\‘[“[™XJHÂˆ[È
+ÏH[ÓÜÚ[Û™\ÎÂˆH[ÙHYˆ
+Û\‘\Ü]Y[XRÜš^›Û[
+HÂˆËÈ^ËÛÜÚ[Û™\ÈH[™[ÓTˆ\Ø[ˆÛÛ[[˜\È\İ[\ÎˆØYH\İBˆËÈ™\Ù\˜HİH›Ü[È[\›[™XYÈH[™XXİ]›ÈØİ\HHX^[Ü‹‚ˆËÈİ[X\ˆ[Ù\\˜YÜˆ[^È[[È[[™[ÛØœ™\œ™\Ù\˜HØYBˆËÈ™XXİ]›ÈÛÜË][œ]YH[[™[XHÛÛœÙ\˜HİH\ÛÈpë[š[[È™X[‚ˆÛÛœİ[Ñ›Z›Õ^ÈH[È
+È[ÓÜÚ[Û™\È
+ÈÙ\\˜XÚ[Û‘[[˜ÚXYÓÜÚ[Û™\È
+ÈÙ\\˜XÚ[Û”™XXİ]›ÎÂˆÛÛœİ[Ñ›Z›ÓÛ\ˆH[ÓÛ\“Z[ˆ
+ÈÙ\\˜XÚ[Û”[™[Û\Âˆ™]\›ˆX]›X^
+[Ñ›Z›Õ^Ë[Ñ›Z›ÓÛ\ŠNÂˆH[ÙHÂˆËÈ[ˆ[\™š[™\XØ[[[™[ğëH]YYHX˜Z›ÈH\ÈÜÚ[Û™\ÎÂˆËÈÛÛœÙ\˜\ˆHİ[XH]š]H]YH\ÈÚ[˜ÛÈ\˜Z˜\ÈØ[Ø[ˆHHÚ˜K‚ˆ[È
+ÏHX]›X^
+[ÓÜÚ[Û™\Ë[ÓÛ\“Z[ŠNÂˆBˆËÈ[™[™\ˆZ\İH[İ\œÛÜˆHH™]0ëXİ[H\Üpê\ÈHØYH›Ü]YHBˆËÈÛÛœÙ\˜HH0ë[™XH]š\ÛÜšXKˆH™\Ù\˜HYXÚ[Û˜[İXœ™H\ÙHZ\İBˆËÈHHY™\™[˜ÚXH[™HH[\˜H\ÙÜ°èYšXØH\İ[XYHHHÜÚXÚpìÛ‚ˆËÈš[˜[H\ÈÜÚ[Û™\Ë]š][™È[šYšXØ\ˆÛÛ[šYÈ]YHYYÛÈ›ÂˆËÈ[Ø[˜H[X\™Ù[ˆ[™™\š[ÜˆÙYİ\›ËˆHÛİ\˜H]YYHXÛİYH\˜BˆËÈÛÛœÙ\˜\ˆY^ˆ™XXİ]›ÜÈYÚX›\È[ˆ[˜HÚ˜H]\ˆİX[™È[ˆËÈÛÛ[šYÈ\ÈÛÜÎÈ[Z\İHH™]0ëXİ[HXHİXœ™H[™YÛ™[Ë‚ˆËÈHÛÛ\ÜÚXÚpìÛˆšXØHXZ˜H\š™]\ÈHÜÚpìÛˆH[İ\œÛÜˆš[˜[ÙBˆËÈ™YÛ™XHHH™]0ëXİ[Kˆ\İH™\Ù\˜HYXÚ[Û˜[X[Y[™H\šYYˆËÈ[™H[[ˆH[™[™\ˆ™X[]š][™È]YH[˜HÚ˜Hš[˜[]YYBˆËÈÛÛˆ[ˆÛÛÈ™XXİ]›ÈÜˆXİ[][XÚpìÛˆH™YÛ™[ÜË‚ˆËÈHÜÚXÚpìÛˆš[˜[ÙHZ\İHH[˜H™]0ëXİ[HH[\™\ÚpìÛˆ\Üpê\ÈBˆËÈXZ˜\ˆ[›Ü]YKˆ[[šYšXØYÜˆ›ÈYÜ™YØH[˜HÛİ\˜HšXİXÚXN‚ˆËÈ[Ù\\˜YÜˆ™X[H\ÈÛÛ\›Ø˜XÚ[Û™\ÈÙ[Ûpê]šXØ\È[™[™\™\ˆÛÛ‚ˆËÈHİX\™HÛÛ˜HÛÛ\Ú[Û™\ÈH\›Z][ˆ\›İ™XÚ\ˆÙHH[\˜K‚ˆ™]\›ˆ[È
+ÈÙ\\˜XÚ[Û‘[[˜ÚXYÓÜÚ[Û™\È
+ÈÙ\\˜XÚ[Û”™XXİ]›ÎÂˆNÂ‚ˆYˆ
+\Ôš[Y\˜H	‰ˆ[™XØXÚ[Û™\Ô[™Y[\ÊHÂˆÛÛœİ[™HX\™Ù[ˆ
+ÈLÃBˆÛÛœİUÜ[™HPØZ˜HHÂˆÛÛœİÒ[™X^HX]›X^
+M\™XÚU^ÈH[™HŠNÃBˆÛÛœİÒ[™HX]›Z[ŠÒ[™X^X^ÚY[™XØXÚ[Û™\È
+ÈMŠNÃBƒBˆÛÛœİ\ÜÛšX›HHUÜ[™H
+[\˜Q\ÜÛšX›SZ[ˆ
+ÈŠNÂˆ]Z[ˆHÌÂˆÛÛœİX^HX]›X^
+Z[‹\ÜÛšX›JNÃBƒBˆ]Ú^™R[™XØXÚ[Û™\ÈH
+ˆ›ÛØØ[PØX™XÙ\˜NÂˆ][™XR[™XØXÚ[Û™\ÈHKˆ
+ˆ›ÛØØ[PØX™XÙ\˜H
+ˆ[™TÜXÚ[™ĞØX™XÙ\˜NÂˆËÈ™\Ù\˜\ˆ[˜Hœ˜[š˜H›ÜXH\˜H[›İ[È]š]H]YHHš[Y\˜BˆËÈ[™XHH[œİXØÚ[Û™\È[˜YH[][È[™[™\š^˜\ˆ[ˆ‹‚ˆÛÛœİÙ™œÙ]š[Y\˜S[™XHHÌNÂˆÛÛœİY[™Ò[™™\š[ÜˆHÂˆ][™X\Ò[™XØXÚ[Û™\ÈH\\‘[“[™X\ÊÃBˆ^Îˆ[œİXØÚ[Û™\ËBˆX^ÚYˆÒ[™HM‹Bˆ›ÛˆY[KBˆÚ^™NˆÚ^™R[™XØXÚ[Û™\ÃBˆJNÃBƒBˆ›Üˆ
+]HHÈHLÈH
+ÏHJHÃBˆÛÛœİ™XÙ\Ø\šXHHÙ™œÙ]š[Y\˜S[™XH
+È[™X\Ò[™XØXÚ[Û™\Ë›[™İ
+ˆ[™XR[™XØXÚ[Û™\È
+ÈY[™Ò[™™\š[ÜÂˆYˆ
+™XÙ\Ø\šXHHX^
+Hœ™XZÎÃBˆÚ^™R[™XØXÚ[Û™\ÈHX]›X^
+ËŒ‹Ú^™R[™XØXÚ[Û™\ÈHŒŠNÂˆ[™XR[™XØXÚ[Û™\ÈHX]›X^
+‹[™XR[™XØXÚ[Û™\ÈHŒŠNÂˆ[™X\Ò[™XØXÚ[Û™\ÈH\\‘[“[™X\ÊÃBˆ^Îˆ[œİXØÚ[Û™\ËBˆX^ÚYˆÒ[™HM‹Bˆ›ÛˆY[KBˆÚ^™NˆÚ^™R[™XØXÚ[Û™\ÃBˆJNÃBˆCBƒBˆÛÛœİ™XÙ\Ø\šXQš[˜[HÙ™œÙ]š[Y\˜S[™XH
+È[™X\Ò[™XØXÚ[Û™\Ë›[™İ
+ˆ[™XR[™XØXÚ[Û™\È
+ÈY[™Ò[™™\š[ÜÂˆZ[ˆHX]›X^
+Z[‹™XÙ\Ø\šXQš[˜[
+NÂˆÛÛœİØZ˜HHX]›X^
+Z[‹™XÙ\Ø\šXQš[˜[
+NÃBƒBˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆ[™ˆNˆUÜ[™HØZ˜KˆÚYˆÒ[™ˆZYÚˆØZ˜Kˆ›Ü™\•ÚYˆKBˆ›Ü™\ÛÛÜˆÛÛÜ“[™XKBˆÛÛÜˆ\Ëœ\™š[^[İ]\Ø\”™[[›ÜÑXÛÜ˜]]›ÜÈÈÛÛÜ”ÙXØÚ[Ûˆˆ™ØŠKKJBˆJNÂˆ™Xİ[™XØXÚ[Û™\ÈHÈˆ[™NˆUÜ[™HØZ˜KÚYˆÒ[™ZYÚˆØZ˜HNÂ‚ˆXZ˜\“[™XT[XYJˆYÙKˆÈˆ[™
+ÈKNˆUÜ[™HˆKˆÈˆ[™
+ÈÒ[™HKNˆUÜ[™HˆKˆÛÛÜ”š[X\š[ËˆKˆŒ‚ˆ
+NÂƒBˆYÙK™˜]Ó[™JÃBˆİ\ˆÈˆ[™
+ÈNˆUÜ[™HŒHKˆ[™ˆÈˆ[™
+ÈX]›Z[ŠÒ[™HLŠKNˆUÜ[™HŒHKˆÛÛÜˆÛÛÜ“[™XKBˆXÚÛ™\ÜÎˆBˆJNÃBƒBˆYÙK™˜]Õ^
+	Ò[™XØXÚ[Û™\ÉËÈˆ[™
+ÈNˆUÜ[™HM‹Ú^™NˆH
+ˆ›ÛØØ[PØX™XÙ\˜K›ÛˆY[P›ÛÛÛÜˆÛÛÜXÙ[ÈJNÂƒBˆ]S[™XHHUÜ[™HÙ™œÙ]š[Y\˜S[™XNÂˆÛÛœİSZ[•^ÈHUÜ[™HØZ˜H
+ÈÃBˆYˆ
+S[™XHSZ[•^ÊHS[™XHHSZ[•^ÎÃBƒBˆ›Üˆ
+ÛÛœİ[™XHÙˆ[™X\Ò[™XØXÚ[Û™\ÊHÃBˆYˆ
+S[™XHSZ[•^ÊHœ™XZÎÃBˆYÙK™˜]Õ^
+[™XKÈˆ[™
+ÈNˆS[™XKÚ^™NˆÚ^™R[™XØXÚ[Û™\Ë›ÛˆY[KÛÛÜˆÛÛÜ•[HJNÂˆS[™XHOH[™XR[™XØXÚ[Û™\ÎÃBˆCBƒBˆËÈH0ë[™XH˜\ÙH›È\È[0ë[Z]Hİ\\š[Üˆ[ÛY›Îˆ™\Ù\˜\ˆ\İBˆËÈ\ÜXÚ[È]š]H]YH\ØÙ[™[\ËÙ\ØÙ[™[\È[˜Y[ˆ[›Ü™HHBˆËÈØZ˜HH[™XØXÚ[Û™\È[ˆ[ˆ[\™\ÛË‚ˆËÈHÙ\\˜XÚpìÛˆY]ÜšX[\Üpê\ÈH\È[™XØXÚ[Û™\ÈX™HÛÛœÙ\˜\‚ˆËÈ[ˆÛÛÚ0ìÛˆ\ÙÜ°èYšXÛÈ™X[ˆH0ë[™XH˜\ÙH›ÈÛÚ[˜ÚYHÛÛˆ[›Ü™BˆËÈİ\\š[ÜˆHÜÈÛY›ÜÈ[š[Y\ˆ[[˜ÚXYË‚ˆİ\œÛÜ–HHÛ˜\ÑÜšY
+UÜ[™HØZ˜HHN
+NÂˆYˆ
+ØZ˜Hˆ\ÜÛšX›Hİ\œÛÜ–HH[\˜Q\ÜÛšX›SZ[ŠHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[›Ü]YHH[™XØXÚ[Û™\ÈZ˜HÚ[ˆ\ÜXÚ[ÈHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆCBˆCBƒBˆÛÛœİZ[”™Yİ[\ÔÜ”YÚ[˜HHX]›X^
+ˆKˆ[X™\‹œ\œÙR[
+İš[™Ê›ØÙ\ÜË™[‹‘VSQS—ÓRS—Ô‘QÕS•T×ÔÔ—ÔQÒSHÏÈ	ÌL	ÊKL
+HLˆ
+NÂˆËÈ›È[\Û™\ˆ[ˆÜHY]ÜšX[ÜˆØ\˜Nˆ[[šYšXØYÜˆÙH]Y[™HÜ‚ˆËÈH[\˜H\ÜÛšX›H[^ÈHÜˆHØ\XÚYY°ë\ÚXØHHÜÈ[™[\ÂˆËÈÓT‹ˆ\ğëH[˜[ˆÙÜÈÜÈ™XXİ]›ÜÈYÚX›\È]YHØX™[ˆ[ˆØYH0èYÚ[˜K‚ˆÛÛœİX^™Yİ[\ÔÜ”YÚ[˜HH[X™\‹“PVÔĞQ‘WÒS•QÑTÂˆËÈ[Øš™]]›ÈY]ÜšX[\ÈX^[Z^˜\ˆHØ\XÚYYHØYH0èYÚ[˜H[ˆËÈ\ˆ0îœ^ˆHØ\XÚYY°ë\ÚXØHXÚYH[ÛÜNÈİ[YÚ[˜\Ø›ÂˆËÈYYH›Ü˜\ˆ[ˆ™\\È\]Z[Xœ˜YÈ]YH^[ÙH™XXİ]›ÜÈH[˜HÚ˜BˆËÈYXÚ[Û˜[ˆÚH\ÈÜÈØ\˜\È›È˜\İ[‹[XÛHXœ™Hİ˜H0èYÚ[˜H™X[‚ˆËÈ[ˆÛÛ[XXÚ[Û™\Ë[š[Y\ˆ[™[ÓTˆ]YYHX˜Z›È[T‹›ÈHBˆËÈ[\˜H[š[Y\ˆ[[˜ÚXYËˆ[Z]\ˆÜˆH[\˜H[^ÈÛÛ[Y[BˆËÈÙ0ëXH[™X\ˆpè\È[™[\ÈHÜÈ]YHØX™[ˆ[ˆ\ØHÛÛ[[˜NÈ[Z\İBˆËÈš[˜[XÚXH\œšX˜H\›Z[˜X˜HÛÛ\[™ÈÜÈÜÈ0î›[[ÜÈ[™[\Ë‚ˆÛÛœİ[Ô[™[Û\“Z[ˆHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈX]›X^
+Œ‹Û\”˜Y[È
+ˆˆ
+ÈÛ\“X\™Ù[”İ\\š[Üˆ
+ÈÛ\“X\™Ù[’[™™\š[ÜŠBˆˆÂˆÛÛœİ™[[›Ô[™[Û\ˆHX]›X^
+\™š[Û\‹›Û\”[™[Y[™ÊNÂˆÛÛœİ\ÛÔ[™[Û\“Z[ˆH[Ô[™[Û\“Z[ˆ
+ÈÙ\\˜XÚ[Û”[™[Û\ˆ
+È™[[›Ô[™[Û\ˆ
+ˆÂˆÛÛœİÙ\\˜XÚ[Û”\”[™[Û\ÛÛ[XXÚ[ÛˆH\™š[ÛÛ\XİÌÍH\™š[ÛÛ\XİĞØ\XÚYY[HÈHˆÂˆÛÛœİ›Û™Ôš[Y\”[™[ÛÛ[XXÚ[ÛˆH™Xİ\‹HHÙ\\˜XÚ[Û”\”[™[Û\ÛÛ[XXÚ[ÛˆHÛ\”˜Y[È
+ˆˆHÛ\“X\™Ù[”İ\\š[ÜˆHÛ\“X\™Ù[’[™™\š[ÜÂˆÛÛœİØ\XÚYY[™[ÛÛ[XXÚ[ÛˆHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈX]›X^
+KX]™›ÛÜŠ
+›Û™Ôš[Y\”[™[ÛÛ[XXÚ[ÛˆH[\˜Q\ÜÛšX›SZ[ŠHÈ\ÛÔ[™[Û\“Z[ŠH
+ÈJBˆˆX^™Yİ[\ÔÜ”YÚ[˜NÂˆÛÛœİÜTYÚ[˜PXİX[HX]›Z[ŠˆX^™Yİ[\ÔÜ”YÚ[˜KˆY\Ôš[Y\˜HÈØ\XÚYY[™[ÛÛ[XXÚ[ÛˆˆX^™Yİ[\ÔÜ”YÚ[˜Bˆ
+NÂˆÛÛœİ™Yİ[\Ô™\İ[\Ô\˜Q\İšXZ\ˆHİ[™Yİ[\ÈH[™XÙT™Yİ[NÂˆÛÛœİYÚ[˜\ÓØš™]]›Ô™\İ[\ÈHYÚ[˜\ÓØš™]]›ÈH[Y\›ÔYÚ[˜H
+ÈNÂˆÛÛœİÜQ\İšXZYÈH^[Y[‹›^[İ]™\İšXZ\‘[”YÚ[˜\ÓØš™]]›È	‰ˆYÚ[˜\ÓØš™]]›Ô™\İ[\ÈˆˆÈX]˜ÙZ[
+™Yİ[\Ô™\İ[\Ô\˜Q\İšXZ\ˆÈYÚ[˜\ÓØš™]]›Ô™\İ[\ÊBˆˆÜTYÚ[˜PXİX[ÂˆÛÛœİÜT™Yİ[\Ô[”YÚ[˜HH^[Y[‹›^[İ]™\İšXZ\‘[”YÚ[˜\ÓØš™]]›ÂˆÈX]›Z[ŠÜTYÚ[˜PXİX[X]›X^
+KÜQ\İšXZYÊJBˆˆÜTYÚ[˜PXİX[ÂˆËÈHÙ\\˜XÚpìÛˆ[˜Ú[Û˜[XH\İ0èHÛÛ[šYH[ˆÙ\\˜XÚ[Û”™Yİ[XBˆËÈ[ˆH0ë[™XH]š\ÛÜšXKˆ›ÈÙH™Y\İšX^YH[ÛØœ˜[HHH0èYÚ[˜N‚ˆËÈXÙ\›È›ÙXğëXHYXÛÜÈÜ˜[™\È[™H™XXİ]›ÜË\ÜXÚX[Y[HİX[™ÂˆËÈH0î›[XH0èYÚ[˜H[°ëXHØÛÜÈ›Ü]Y\Ëˆ[[ˆH[™[™\ˆ\Ø[ˆÙ\›ÂˆËÈÙ\\˜XÚpìÛˆY]ÜšX[YXÚ[Û˜[ÛÛœÙ\˜[™È\ÈİX\™\È\ÙÜ°èYšXØ\Ë‚ˆÛÛœİ[”YÚ[˜Nˆ\œ˜^OÈ[™XÙNˆ[X™\È[\˜Nˆ[X™\ˆOˆH×NÂˆ]T[”YÚ[˜HHİ\œÛÜ–NÂˆÛÛœİ™XØ[İ[\”[”YÚ[˜HH
+
+HOˆÂˆ]P˜\ÙHHİ\œÛÜ–NÂˆ›Üˆ
+ÛÛœİ][HÙˆ[”YÚ[˜JHP˜\ÙHHZ\İ\İ\œÛÜ”™[™\ŠP˜\ÙHH][K˜[\˜JNÂˆÛÛœİÙ\\˜XÚ[Û‘^˜T[ˆHÂˆ]T™[™\ˆHİ\œÛÜ–NÂˆ›Üˆ
+][™XÙHHÈ[™XÙH[”YÚ[˜K›[™İÈ[™XÙH
+ÏHJHÂˆÛÛœİ][HH[”YÚ[˜VÚ[™XÙWHNÂˆT™[™\ˆHZ\İ\İ\œÛÜ”™[™\ŠT™[™\ˆH][K˜[\˜HH
+[™XÙH[”YÚ[˜K›[™İHHÈÙ\\˜XÚ[Û‘^˜T[ˆˆ
+JNÂˆBˆ™]\›ˆÈP˜\ÙKT™[™\ˆNÂˆNÂˆÚ[H
+[™XÙT™Yİ[H
+È[”YÚ[˜K›[™İ™Yİ[\ÓÜ™[˜Y\Ë›[™İ	‰ˆ[”YÚ[˜K›[™İÜT™Yİ[\Ô[”YÚ[˜JHÂˆÛÛœİ™Yİ[T[ˆH™Yİ[\ÓÜ™[˜Y\ÖÚ[™XÙT™Yİ[H
+È[”YÚ[˜K›[™İNÂˆYˆ
+\™Yİ[T[ŠHœ™XZÎÂˆÛÛœİ[Z]Q\™XÚÔ[ˆHY\Ôš[Y\˜H	‰ˆ[”YÚ[˜K›[™İOOHÈ\™XÚU^ĞÛÛ[XXÚ[Ûˆˆ\™XÚU^ÎÂˆÛÛœİ[\˜T[ˆHØ[İ[\[\˜T™Yİ[Jˆ™Yİ[T[‹ˆ[Z]Q\™XÚÔ[‚ˆ
+NÂˆYˆ
+T[”YÚ[˜HH[\˜T[ˆ[\˜Q\ÜÛšX›SZ[ŠHœ™XZÎÂˆ[”YÚ[˜Kœ\Ú
+È[™XÙNˆ[™XÙT™Yİ[H
+È[”YÚ[˜K›[™İ[\˜Nˆ[\˜T[ˆJNÂˆËÈ[™[™\™\ˆY[™HHZ\İ\ˆØYHİ\œÛÜˆHH™]0ëXİ[HH[\™\ÚpìÛÂˆËÈÚ[][\›È\˜[HH[šYšXØXÚpìÛˆ]š]HXİ[][\ˆœ˜XØÚ[Û™\È]YBˆËÈ\›Z][ˆ[™X\ˆ[ˆ™XXİ]›È]YH[™[™\ˆ™X[XH›ÈYYHXZ˜\‹‚ˆT[”YÚ[˜HHZ\İ\İ\œÛÜ”™[™\ŠT[”YÚ[˜HH[\˜T[ŠNÂˆBˆÚ[H
+[”YÚ[˜K›[™İˆ
+HÂˆÛÛœİÚ[][XÚ[ÛˆH™XØ[İ[\”[”YÚ[˜J
+NÂˆYˆ
+Ú[][XÚ[Û‹T™[™\ˆH[\˜Q\ÜÛšX›SZ[ŠHÂˆœ™XZÎÂˆBˆ[”YÚ[˜KœÜ
+
+NÂˆBˆËÈÚH[ÛÜH˜]\˜[Z˜H[˜H\XÚpìÛˆ]^H\ÚYİX[›Ø˜\ˆÛÛ\ÂˆËÈÜ™XÚY[\È[[ˆXİX[HZ[š[Z^˜\ˆ[\ÜXÚ[È™\XØ[Xœ™Kˆ[‚ˆËÈÛÛ\XİÜÈHÎ
+È™XXİ]›ÜÈÙHÛZ]Nˆ[˜\ˆØYHØ\˜H\İHİBˆËÈØ\XÚYY°ë\ÚXØH]š]H^[Ø\ˆÛÛ[šYÈH[˜H0èYÚ[˜HYXÚ[Û˜[‚ˆÛÛœİ™\İ[\ÔÚ[”™X˜[[˜ÙHH™Yİ[\ÓÜ™[˜Y\Ë›[™İH
+[™XÙT™Yİ[H
+È[”YÚ[˜K›[™İ
+NÂˆÛÛœİÛÛ[ÜÖXQ\]Z[Xœ˜YÜÈHX]˜XœÊ[”YÚ[˜K›[™İH™\İ[\ÔÚ[”™X˜[[˜ÙJHHNÂˆYˆ
+ˆ[”YÚ[˜K›[™İˆ‚ˆ	‰ˆ[Y\›ÔYÚ[˜HYÚ[˜\ÓØš™]]›Âˆ	‰ˆY^[Y[‹›^[İ]™\İšXZ\‘[”YÚ[˜\ÓØš™]]›Âˆ	‰ˆXÛÛ[ÜÖXQ\]Z[Xœ˜YÜÂˆ	‰ˆ\š[Üš^˜\Ø\XÚYYÜØ\˜Bˆ
+HÂˆÛÛœİ™\İ[\Õ˜\Ô[ˆH™Yİ[\ÓÜ™[˜Y\Ë›[™İH
+[™XÙT™Yİ[H
+È[”YÚ[˜K›[™İ
+NÂˆYˆ
+™\İ[\Õ˜\Ô[ˆˆ	‰ˆ™\İ[\Õ˜\Ô[ˆHX]›X^
+Z[”™Yİ[\ÔÜ”YÚ[˜K[”YÚ[˜K›[™İ
+JHÂˆÛÛœİR[šXÚ[ÓY]˜PÛÛ[XXÚ[ÛˆHÛ˜\ÑÜšY
+ˆÛ\‘\Ü]Y[XRÜš^›Û[ˆÈX]›Z[ŠUÜÛÛ[XXÚ[Û”ÙYİ\›Ë[Z]PÛÛ[šYĞÛÛ[XXÚ[ÛŠBˆˆX]›Z[ŠUÜH[Z]PÛÛ[šYĞÛÛ[XXÚ[ÛŠBˆ
+NÂˆÛÛœİX^™XXİ]›ÜÔ\˜S[İ™\ˆHX]›Z[Š[”YÚ[˜K›[™İH‹JNÂˆ][İš[ZY[Ñ[YÚYÈHÂˆ]YZ›Ü‘Y™\™[˜ÚXQ\ÜXÚ[ÓXœ™HH[X™\‹”ÔÒUU‘WÒS‘’S’UNÂˆÛÛœİØ\XÚYYYÚ[˜PXİX[HX]›X^
+İ\œÛÜ–HH[\˜Q\ÜÛšX›SZ[ŠNÂˆÛÛœİØ\XÚYYYÚ[˜TÚYİZY[HHX]›X^
+R[šXÚ[ÓY]˜PÛÛ[XXÚ[ÛˆH[\˜Q\ÜÛšX›SZ[ŠNÂˆ›Üˆ
+]™XXİ]›ÜĞS[İ™\ˆHÈ™XXİ]›ÜĞS[İ™\ˆHX^™XXİ]›ÜÔ\˜S[İ™\È™XXİ]›ÜĞS[İ™\ˆ
+ÏHJHÂˆÛÛœİ™XXİ]›ÜÔ™\İ[\ÔYÚ[˜PXİX[H[”YÚ[˜K›[™İH™XXİ]›ÜĞS[İ™\ÂˆÛÛœİ[\˜TYÚ[˜PXİX[H[”YÚ[˜BˆœÛXÙJ™XXİ]›ÜÔ™\İ[\ÔYÚ[˜PXİX[
+Bˆœ™YXÙJ
+İ[][JHOˆİ[
+È][K˜[\˜K
+NÂˆYˆ
+[\˜TYÚ[˜PXİX[ˆØ\XÚYYYÚ[˜PXİX[
+HÛÛ[YNÂ‚ˆÛÛœİİ[Y]˜TYÚ[˜HH™XXİ]›ÜĞS[İ™\ˆ
+È™\İ[\Õ˜\Ô[ÂˆËÈ\XØ\ˆ[Z\Û[ÈÜHH[™[\ÈÓTˆ]YH\Ø\°èHH0èYÚ[˜HBˆËÈÛÛ[XXÚpìÛ‹ˆYY\ˆÛÛÈ[^ÈÙ0ëXH[İ™\ˆ™XXİ]›ÜÈH[˜BˆËÈœ˜[š˜H]YH›È^\İHX˜Z›È[TˆHXœš\ˆ[˜HÚ˜H^˜K‚ˆYˆ
+İ[Y]˜TYÚ[˜HˆØ\XÚYY[™[ÛÛ[XXÚ[ÛŠHÛÛ[YNÂˆ]SY]˜TYÚ[˜HHR[šXÚ[ÓY]˜PÛÛ[XXÚ[ÛÂˆ]ØX™[‘[“Y]˜TYÚ[˜HHYNÂˆ›Üˆ
+]Ù™œÙ]HÈÙ™œÙ]İ[Y]˜TYÚ[˜NÈÙ™œÙ]
+ÏHJHÂˆÛÛœİ[™XÙT[ˆH[™XÙT™Yİ[H
+È[”YÚ[˜K›[™İH™XXİ]›ÜĞS[İ™\ˆ
+ÈÙ™œÙ]ÂˆÛÛœİ™Yİ[T[ˆH™Yİ[\ÓÜ™[˜Y\ÖÚ[™XÙT[—NÂˆYˆ
+\™Yİ[T[ŠHÂˆØX™[‘[“Y]˜TYÚ[˜HH˜[ÙNÂˆœ™XZÎÂˆBˆÛÛœİ[Z]Q\™XÚÔ[ˆHÙ™œÙ]OOHÈ\™XÚU^ĞÛÛ[XXÚ[Ûˆˆ\™XÚU^ÎÂˆÛÛœİ[\˜T[ˆHØ[İ[\[\˜T™Yİ[J™Yİ[T[‹[Z]Q\™XÚÔ[ŠNÂˆYˆ
+SY]˜TYÚ[˜HH[\˜T[ˆ[\˜Q\ÜÛšX›SZ[ŠHÂˆØX™[‘[“Y]˜TYÚ[˜HH˜[ÙNÂˆœ™XZÎÂˆBˆSY]˜TYÚ[˜HOH[\˜T[ÂˆBˆYˆ
+ØX™[‘[“Y]˜TYÚ[˜JHÂˆÛÛœİ\ÜXÚ[ÓXœ™PXİX[HØ\XÚYYYÚ[˜PXİX[H[\˜TYÚ[˜PXİX[ÂˆÛÛœİ\ÜXÚ[ÓXœ™TÚYİZY[HHØ\XÚYYYÚ[˜TÚYİZY[HH
+R[šXÚ[ÓY]˜PÛÛ[XXÚ[ÛˆHSY]˜TYÚ[˜JNÂˆÛÛœİY™\™[˜ÚXQ\ÜXÚ[ÓXœ™HHX]˜XœÊ\ÜXÚ[ÓXœ™PXİX[H\ÜXÚ[ÓXœ™TÚYİZY[JNÂˆYˆ
+Y™\™[˜ÚXQ\ÜXÚ[ÓXœ™HYZ›Ü‘Y™\™[˜ÚXQ\ÜXÚ[ÓXœ™HHŒJHÂˆYZ›Ü‘Y™\™[˜ÚXQ\ÜXÚ[ÓXœ™HHY™\™[˜ÚXQ\ÜXÚ[ÓXœ™NÂˆ[İš[ZY[Ñ[YÚYÈH™XXİ]›ÜĞS[İ™\ÂˆBˆBˆBˆYˆ
+[İš[ZY[Ñ[YÚYÈˆ
+HÂˆ›Üˆ
+][™XÙHHÈ[™XÙH[İš[ZY[Ñ[YÚYÎÈ[™XÙH
+ÏHJH[”YÚ[˜KœÜ
+
+NÂˆBˆBˆBˆËÈ[ÛØœ˜[HÙH™\\H[™H™XXİ]›ÜÈXH[šYšXØYÜËˆHÙ\\˜XÚpìÛ‚ˆËÈÙH[Z]HÜˆ[\˜[Ë›ÈÜˆ0èYÚ[˜HÛÛ\]Nˆ\ğëH[˜HÛÛ[XXÚpìÛ‚ˆËÈÛÜH›È]YYHÛÛ\š[ZYH\œšX˜K\›È[\ØÛÈÜ™XHYXÛÜÈY]ÜšX[\ÂˆËÈ^Ù\Ú]›ÜÈ[™H™Yİ[\Ë‚ˆËÈØ[İ[\[\˜T™Yİ[X[˜Û^YHÛİ\˜HY™[œÚ]˜H\˜H›È[šYšXØ\‚ˆËÈ›Ü]Y\È[[Z]Kˆ›ÈÙH™]][^˜HÛÛ[È\ÜXÚ[ÈXZ˜X›NˆXÙ\›ÂˆËÈYYH›İ›ØØ\ˆ[˜HÚ˜HYXÚ[Û˜[[ˆ˜[˜ÛÜÈ]YH\™XÙ[ˆÛÜÜÈ\›ÂˆËÈY[™[ˆÜÚ[Û™\ÈHÜÈ[™X\Ë‚ˆÚ[H
+[™XÙT™Yİ[H™Yİ[\ÓÜ™[˜Y\Ë›[™İ	‰ˆİ\œÛÜ–Hˆ[\˜Q\ÜÛšX›SZ[ŠHÂˆYˆ
+X\TYÚ[˜K›[™İH[”YÚ[˜K›[™İ
+Hœ™XZÎÂˆÛÛœİ™Yİ[HH™Yİ[\ÓÜ™[˜Y\ÖÚ[™XÙT™Yİ[WNÂˆÛÛœİ[Y\›ÈH[™XÙT™Yİ[H
+ÈNÂˆÛÛœİT™Yİ[UÜHİ\œÛÜ–NÂˆÛÛœİ^[œÔ™Yİ[Nˆ^[‘XYÖ×HH×NÂˆÛÛœİ^[œÑ[[˜ÚXYÎˆ^[‘XYÖ×HH×NÂˆ][XYÙ[”™Yİ[Nˆ™Xİ›Ş[™Yš[™YÂˆÛÛœİ\Ôš[Y\˜T™Yİ[PÛÛ[XXÚ[ÛˆHY\Ôš[Y\˜H	‰ˆX\TYÚ[˜K›[™İOOHÂˆÛÛœİ\Ü^˜[ZY[Õ^Ô™Yİ[HHY\Ôš[Y\˜HÈ\Ü^˜[ZY[Õ^ÔÜ‘Ü˜\HˆÂˆÛÛœİ^Ô™Yİ[T™[™\ˆH^Ô™Yİ[H
+È\Ü^˜[ZY[Õ^Ô™Yİ[NÂˆÛÛœİ[Z]Q\™XÚÔ™Yİ[HH
+\Ôš[Y\˜T™Yİ[PÛÛ[XXÚ[ÛˆÈ\™XÚU^ĞÛÛ[XXÚ[Ûˆˆ\™XÚU^ÊBˆH\Ü^˜[ZY[Õ^Ô™Yİ[NÂˆÛÛœİ[˜ÚÕ^Ô™Yİ[PXİX[HX]›X^
+Œ[Z]Q\™XÚÔ™Yİ[HH^Ô™Yİ[JNÂ‚ˆÛÛœİ[\˜S™XÙ\Ø\šXHHØ[İ[\[\˜T™Yİ[Jˆ™Yİ[Kˆ[Z]Q\™XÚÔ™Yİ[Bˆ
+NÂˆYˆ
+İ\œÛÜ–HH[\˜S™XÙ\Ø\šXH[\˜Q\ÜÛšX›SZ[ŠHœ™XZÎÂ‚ˆYˆ
+\™Yİ[\Ñ[
+H™Yİ[\Ñ[H[Y\›ÎÂˆ™Yİ[\Ğ[H[Y\›ÎÂ‚ˆÛÛœİ\İ[Ô™Yİ[HHÛÛÜ™\Ô™Yİ[VÊ[Y\›ÈHJH	HÛÛÜ™\Ô™Yİ[K›[™İHNÂˆËÈ[™XXİ]›ÈÛÛ\]È\ÈH[šYYš\İX[ˆ[ˆ›Û™È[YH[\›˜YÂˆËÈÛÛY[™H[[˜ÚXYË[XYÙ[ˆH™\ÜY\İ\Ëˆ[ÓTˆ\›X[™XÙHY\˜HBˆËÈ\İH\š™]KÛÛˆ›Û™È›[˜ÛÈ\˜H›İYÙ\ˆİHXİ\˜K‚ˆËÈÜÈ˜›ŞH^È\[ˆHH0ë[™XH˜\ÙNÈ™\Ù\˜\ˆ[[\›[™XYÂˆËÈİ\\š[Üˆpè\È[˜HÛİ\˜HÛÜH]š]H]YH[š[]H[XYÈ]YYBˆËÈYØYÈHÜÈ\ØÙ[™[\È[š[Y\ˆ™[™Û0ìÛ‹‚ˆÛÛœİ™\Ù\˜Tİ\\š[Ü‘›Û™ÈHX]›X^
+‹[™XT™Yİ[H
+È‹JNÂˆÛÛœİ[Ñ›Û™Ô™Yİ[HHX]›X^
+ˆKˆ[\˜S™XÙ\Ø\šXHHØ[™\”Ù\\˜XÚ[Û”™Yİ[J™Yİ[JHH
+^[Y[‹İ[™Yİ[\ÈˆŒÈˆJBˆ
+NÂˆÛÛœİ›Û™Ô™Yİ[HHÂˆˆ^Ô™Yİ[T™[™\ˆHˆNˆT™Yİ[UÜH[Ñ›Û™Ô™Yİ[KˆÚYˆX]›X^
+Œ[Z]Q\™XÚÔ™Yİ[HH^Ô™Yİ[H
+È
+KˆZYÚˆ[Ñ›Û™Ô™Yİ[H
+È™\Ù\˜Tİ\\š[Ü‘›Û™ÂˆNÂˆËÈHØ[™Y]H[›[™H™\Ù\˜H›[˜ÛÈ[\™\ÛÈ]°è\È[Ø\œš[ÓT‚ˆËÈÜÈ[ÜÈH›Û™ÈYY[ˆ˜[œÜ\™[\œÙH\ÙH[™]™\œÛÈHØY\‚ˆËÈ[›ÈHHXİ\˜HH[˜H\˜Z˜H][ˆİX[™È[[™[ØØ[ÙXH›[˜ÛË‚ˆYˆ
+[Û\‘[“[™XJHÂˆXZ˜\”]›Û”[XYÔ™XXİ]›ÊYÙK›Û™Ô™Yİ[K\İ[Ô™Yİ[K˜XÙ[ÊNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ›Û™Ô™Yİ[K
+È‹Œ‹Nˆ›Û™Ô™Yİ[KH
+È›Û™Ô™Yİ[KšZYÚHMHKˆ[™ˆÈˆ›Û™Ô™Yİ[K
+È›Û™Ô™Yİ[KÚYNˆ›Û™Ô™Yİ[KH
+È›Û™Ô™Yİ[KšZYÚHMHKˆÛÛÜˆ\İ[Ô™Yİ[K˜XÙ[ËˆXÚÛ™\ÜÎˆKˆÜXÚ]Nˆ‚ˆJNÂˆXZ˜\“[™XT[XYJˆYÙKˆÈˆ›Û™Ô™Yİ[K
+ÈKŒKNˆ›Û™Ô™Yİ[KHKˆÈˆ›Û™Ô™Yİ[K
+ÈKŒKNˆ›Û™Ô™Yİ[KH
+È›Û™Ô™Yİ[KšZYÚKˆ\İ[Ô™Yİ[K˜XÙ[ËˆËˆMBˆ
+NÂˆBˆÛÛœİ^Ó[Y\›ÈHİš[™Ê[Y\›ÊNÂˆÛÛœİÓ[HH[˜ÚÒ[œÚYÛšXT™Yİ[NÂˆÛÛœİ[HH[Y\›Ô™Yİ[H
+È\Ü^˜[ZY[Õ^Ô™Yİ[NÂˆËÈ[ˆHš[Y\˜H™Yİ[HH[˜HÛÛ[XXÚpìÛˆÜš^›Û[[^ÂˆËÈ[\Y^˜HX˜Z›ÈHH›Û˜HÙYİ\˜Hİ\\š[Ü‹\›È[šYXÚX[HBˆËÈ\Ü]Z[˜HØİ\HÙ]°ëXH\HH\ØH˜[™Kˆ˜Z˜\ˆÛÛÈH[œÚYÛšXBˆËÈ]š]H]YHHİXœ˜HÚ[ˆ\Ü^˜\ˆ[›Ü]YH\ÙÜ°èYšXÛÈÛÛ\]Ë‚ˆÛÛœİS[HHİ\œÛÜ–HHHH
+\Ôš[Y\˜T™Yİ[PÛÛ[XXÚ[Ûˆ	‰ˆÛ\‘\Ü]Y[XRÜš^›Û[ÈHˆ
+NÂˆÛÛœİÚ^™S[HH^Ó[Y\›Ë›[™İHÈÈˆNÂˆÛÛœİ[UÚYHY[P›ÛÚYÙ•^]Ú^™J^Ó[Y\›ËÚ^™S[JNÂˆËÈ™]0ëXİ[H[™İ[\ˆXšY\NˆÜ™XH[˜H[œÚYÛšXH™XÛÛ›ØÚX›HÚ[ˆ™[[˜\‚ˆËÈ[\[šH[\˜\ˆ[Ø\œš[™\Ù\˜YÈ[XİÜˆÓT‹‚ˆÛÛœİX\˜ØVH[H
+ÈËÂˆÛÛœİX\˜ØVHHS[H
+ÈNÂˆÛÛœİX\˜ØUÈHÓ[HHKŒÂˆÛÛœİX\˜ØRHÚ^™S[H
+ÈÎÂˆÛÛœİX\˜ØSH‹ÎÂˆ›Üˆ
+ÛÛœİÚYÛ›ÖÙˆÌKLWH\ÈÛÛœİ
+HÂˆ›Üˆ
+ÛÛœİÚYÛ›ÖHÙˆÌKLWH\ÈÛÛœİ
+HÂˆÛÛœİ\Ü]Z[˜VHÚYÛ›ÖˆÈX\˜ØVˆX\˜ØV
+ÈX\˜ØUÎÂˆÛÛœİ\Ü]Z[˜VHHÚYÛ›ÖHˆÈX\˜ØVHˆX\˜ØVH
+ÈX\˜ØRÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ\Ü]Z[˜VNˆ\Ü]Z[˜VHKˆ[™ˆÈˆ\Ü]Z[˜V
+ÈÚYÛ›Ö
+ˆX\˜ØSNˆ\Ü]Z[˜VHKˆÛÛÜˆ\İ[Ô™Yİ[K˜XÙ[ËˆXÚÛ™\ÜÎˆKˆÜXÚ]NˆMBˆJNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆ\Ü]Z[˜VNˆ\Ü]Z[˜VHKˆ[™ˆÈˆ\Ü]Z[˜VNˆ\Ü]Z[˜VH
+ÈÚYÛ›ÖH
+ˆX\˜ØSKˆÛÛÜˆ\İ[Ô™Yİ[K˜XÙ[ËˆXÚÛ™\ÜÎˆKˆÜXÚ]NˆMBˆJNÂˆBˆBˆYÙK™˜]Õ^
+^Ó[Y\›ËÂˆˆ[H
+È
+Ó[HH[UÚY
+HÈ‹ˆNˆS[H
+ÈËŒ‹ˆÚ^™NˆÚ^™S[Kˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ”š[X\š[ÂˆJNÂˆ]Y\İ[Û•^[šĞ›Ş\Ëœ\Ú
+ÈYˆ[Y\›ËIÛ[Y\›ßXˆX\˜ØVNˆX\˜ØVKÚYˆX\˜ØUËZYÚˆX\˜ØRJNÂˆÛÛœİ[XˆH[XYÙ[™\Ô™Yİ[K™Ù]
+™Yİ[KšY
+NÂˆÛÛœİ^[İ][XYÙ[ˆHØ[İ[\“^[İ][XYÙ[Š[X‹[˜ÚÕ^Ô™Yİ[PXİX[
+NÂˆÛÛœİ[˜ÚÑ[[˜ÚXYÈH^[İ][XYÙ[Ë›]\˜[ˆÈ^[İ][XYÙ[‹˜[˜ÚÕ^Âˆˆ[˜ÚÕ^Ô™Yİ[PXİX[ÂˆÛÛœİ[™X\Ñ[[˜ÚXYÈH[›Û™\•^ÓZ^ÊÂˆ^Îˆ]Z]\”™YšZ›Ô™XXİ]›Ê™Yİ[K™[[˜ÚXYË[Y\›ÊKˆX^ÚYˆ[˜ÚÑ[[˜ÚXYËˆY[KˆY[P›ÛˆY[R][XØNˆY[R][XØKBˆY[S[Û›ËBˆÚ^™U^ÎˆÚ^™T™Yİ[KBˆÚ^™PÛÙYÛÒ[›[™KBˆÚ^™PÛÙYÛĞ›Ü]YKBˆ[™RZYÚ^Îˆ[™XT™Yİ[KBˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YBˆJNÂˆÛÛœİ[Ñ[[˜ÚXYÈH[™X\Ñ[[˜ÚXYËœ™YXÙJ
+İ[[™XJHOˆİ[
+È[™XK›[™RZYÚ
+NÂˆÛÛœİ[\›[™XYÕ[[[Ñ[[˜ÚXYÈH[™X\Ñ[[˜ÚXYÖÛ[™X\Ñ[[˜ÚXYË›[™İHWOË›[™RZYÚÏÈ[™XT™Yİ[NÂˆËÈH0ë[™XH[™™\š[Üˆ[[[˜ÚXYÈ›ÈX™H›Ş˜\ˆÜÈ\ØÙ[™[\È[ˆËÈ0î›[[È™[™Û0ìÛ‹ˆ[\]Ypì[ÈX\™Ù[ˆİ\\š[ÜˆX[Y[™HHZ\ÛXHXİ\˜BˆËÈİX[™È[š[]Hİ\\š[Üˆ[›Û™È]YYHÙ\˜ØH[š[Y\ˆ™[™Û0ìÛ‹‚ˆÛÛœİÙ\\˜XÚ[Û”™Yİ[T™\ÜY\İHHX]›X^
+KÚ^™T™Yİ[H
+ˆŒ
+NÂˆÛÛœİÙ\\˜XÚ[Û”İ\\š[ÜØZ˜T™Yİ[HHËNÂˆÛÛœİØZ˜T™Yİ[Nˆ™Xİ›ŞHÂˆˆ^Ô™Yİ[T™[™\ˆH‹KˆËÈ[›Ü™H[™™\š[ÜˆÙHØ[İ[H\ÙHH0î›[XH0ë[™XH™X[[ˆËÈ[[˜ÚXYË›È\ÙHH˜\ÙHHHš[Y\˜HÜÚpìÛ‹ˆ\ğëH]YYH[ˆBˆËÈœ˜[š˜HXœ™H[™H[X›ÜÈ›Ü]Y\ÈH›È]˜]šY\ØHİ\ÈÛY›ÜË‚ˆNˆT™Yİ[UÜH[Ñ[[˜ÚXYÈ
+È[\›[™XYÕ[[[Ñ[[˜ÚXYÈHÙ\\˜XÚ[Û”™Yİ[T™\ÜY\İKˆÚYˆX]›X^
+Ì[˜ÚÑ[[˜ÚXYÈ
+È‹JKˆZYÚˆX]›X^
+ˆˆ[Ñ[[˜ÚXYÈH[\›[™XYÕ[[[Ñ[[˜ÚXYÈ
+ÈÙ\\˜XÚ[Û”™Yİ[T™\ÜY\İH
+ÈÙ\\˜XÚ[Û”İ\\š[ÜØZ˜T™Yİ[Bˆ
+BˆNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜JØZ˜T™Yİ[KØZ˜HH™Yİ[H	Û[Y\›ßX
+NÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆ‹‹˜ØZ˜T™Yİ[KˆÛÛÜˆ™ØŠKKJKˆËÈ[[[˜ÚXYÈ™XÙ\Ú]H[˜Hİ\\™šXÚYHÛ\˜[Y[H\İ[HH\ÂˆËÈÜÚ[Û™\ÎÈHÜXÚYY[HX[Y[™HYÚX›H[^ÈÚ[ˆİXœš\›Ë‚ˆÜXÚ]Nˆˆ›Ü™\•ÚYˆˆJNÂˆËÈ[›Ü™Hİ\\š[ÜˆÙHÛZ]H[X™\˜Y[Y[Nˆ›È^H[˜H˜[™HXœ™BˆËÈ[™H™XXİ]›ÜÈÛÛœÙXİ]]›ÜÈHÛÛØØ\›H[0ëHÙ°ëXH]˜]™\Ø\ˆ[ˆËÈ0î›[[È™[™Û0ìÛˆHH™Yİ[H[\š[Ü‹ˆÜÈ]\˜[\ÈH[›Ü™BˆËÈ[™™\š[Üˆ[[Z][ˆ[[[˜ÚXYÈÚ[ˆÜ^˜\ˆš[™ğî›ˆÛY›Ë‚ˆXZ˜\ØZ˜T[XYJYÙKØZ˜T™Yİ[K\İ[Ô™Yİ[K˜XÙ[Ë˜[ÙJNÂˆ]Y\İ[Û”›Û\›Ş\Ëœ\Ú
+ÈYˆØZ˜K\™Yİ[KIÛ[Y\›ßX‹‹˜ØZ˜T™Yİ[HJNÂˆÛÛœİZ[“ØØ[[[˜ÚXYÈHX]›X^
+ˆ
+Û\‘\Ü]Y[XRÜš^›Û[ÈLŒHˆL‹
+H
+ˆ›ÛØØ[KˆÚ^™T™Yİ[H
+ˆKŒNˆ
+H
+ˆ[™TÜXÚ[™ÎÂˆ›Üˆ
+ÛÛœİ[™XHÙˆ[™X\Ñ[[˜ÚXYÊHÃBˆZ[“[™RZYÚ\YYHX]›Z[ŠZ[“[™RZYÚ\YY[™XK›[™RZYÚ
+NÃBˆYˆ
+[™XK›[™RZYÚ
+ÈŒHZ[“ØØ[[[˜ÚXYÊHÃBˆ[™RZYÚš[Û][ÛœËœ\Ú
+ÃBˆYÚ[˜Nˆ[Y\›ÔYÚ[˜KBˆ™Yİ[RYˆ™Yİ[KšYBˆ[™RZYÚˆ[™XK›[™RZYÚBˆZ[ˆZ[“ØØ[[[˜ÚXYÃBˆJNÃBˆCBˆCBˆİ\œÛÜ–HHXZ˜\“[™X\ÓZ^\ÊÂˆYÙKˆ[™X\Îˆ[™X\Ñ[[˜ÚXYËˆˆ^Ô™Yİ[T™[™\‹ˆNˆİ\œÛÜ–KˆÛÛÜ•^ÎˆÛÛÜ‘[[˜ÚXYËˆ™YÚ\İ˜\”[œÎˆ
+[ŠHOˆÂˆ^[œÔ™Yİ[Kœ\Ú
+[ŠNÂˆ^[œÑ[[˜ÚXYËœ\Ú
+[ŠNÂˆBˆJNÂ‚ˆYˆ
+[XŠHÂˆÛÛœİÈH^[İ][XYÙ[ËÚYÏÈ[X‹ÚYÂˆÛÛœİH^[İ][XYÙ[ËšZYÚÏÈ[X‹šZYÚÂˆÛÛœİH^[İ][XYÙ[Ë›]\˜[ˆÈ^Ô™Yİ[T™[™\ˆ
+È^[İ][XYÙ[‹˜[˜ÚÕ^È
+ÈÙ\\˜XÚ[ÛÛÛ[[˜R[XYÙ[‚ˆˆ^Ô™Yİ[T™[™\ÂˆÛÛœİHH^[İ][XYÙ[Ë›]\˜[ˆÈT™Yİ[UÜHˆˆİ\œÛÜ–HHÂˆ[XYÙ[”™Yİ[HHÈKÚYˆËZYÚˆNÂˆYÙK™˜]Ò[XYÙJ[X‹š[XYÙK[XYÙ[”™Yİ[JNÂˆİ\œÛÜ–HH^[İ][XYÙ[Ë›]\˜[ˆÈX]›Z[Šİ\œÛÜ–KT™Yİ[UÜH
+HHÙ\\˜XÚ[Û’[XYÙ[“ÜÚ[Û™\Âˆˆİ\œÛÜ–HHHÙ\\˜XÚ[Û’[XYÙ[“ÜÚ[Û™\ÎÂˆBƒBˆÛÛœİÜ™[“ÜÚ[Û™\ÈH^[Y[‹›X\U˜\šX[K›Ü™[“ÜÚ[Û™\ÔÜ”™Yİ[VÜ™Yİ[KšYHÏÈÌK‹ËNÂˆÛÛœİ^[İ]ÜÚ[Û™\ÈHØ[™\“^[İ]ÜÚ[Û™\Ê™Yİ[K[Z]Q\™XÚÔ™Yİ[JNÂˆÛÛœİÈÛÛ[[˜\ËÜÛÛ[[˜Kİ]\ÛÛËÛÛÚYHH^[İ]ÜÚ[Û™\ÎÂˆÛÛœİ[˜ÚÓÜÚ[Û™\Õİ[HX]›X^
+[Z]Q\™XÚÔ™Yİ[HH^Ô™Yİ[JNÂˆÛÛœİÛÛÈH\œ˜^K™œ›ÛJÈ[™İˆÛÛ[[˜\ÈK
+İ˜[Ü‹Y
+HOˆ^Ô™Yİ[T™[™\ˆ
+ÈY
+ˆ
+ÛÛÚY
+Èİ]\ÛÛÊJNÂˆÛÛœİ™Yš^ÚYHY[P›ÛÚYÙ•^]Ú^™J	ÑJH	ËÚ^™SÜÚ[ÛŠH
+ÈÎÂ‚ˆÛÛœİR[šXÚ[ÓÜÚ[Û™\ÈHİ\œÛÜ–HHÙ\\˜XÚ[Û‘[[˜ÚXYÓÜÚ[Û™\ÎÂˆËÈ\È™\ÜY\İ\È™XÚX™[ˆ[˜H˜[™H›ÜXKYÙ\˜[Y[HY™\™[˜ÚXYBˆËÈ[[[˜ÚXYËˆÙHXZ˜H[\È[^ÈH›ÈØ[XšXHHÙ[ÛY]°ëXKˆËÈÜˆÈ]YH›È™YXÙHØ\XÚYYšH[\˜H[“ÒHÓT‹‚ˆÛÛœİ›Û™Ô™\ÜY\İ\Îˆ™Xİ›ŞHÂˆˆ^Ô™Yİ[T™[™\ˆH‹KˆNˆR[šXÚ[ÓÜÚ[Û™\ÈH^[İ]ÜÚ[Û™\Ë˜[\˜QÜšYHˆÚYˆX]›X^
+Ì[˜ÚÓÜÚ[Û™\Õİ[
+È‹JKˆZYÚˆ^[İ]ÜÚ[Û™\Ë˜[\˜QÜšY
+È‹Œ‚ˆNÂˆYˆ
+[Û\‘[“[™XJHÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆ‹‹™›Û™Ô™\ÜY\İ\ËˆÛÛÜˆ™ØŠKKJKˆÜXÚ]NˆŒˆ›Ü™\•ÚYˆˆJNÂˆXZ˜\”]›Û”[XYÔ™XXİ]›ÊYÙK›Û™Ô™\ÜY\İ\Ë\İ[Ô™Yİ[K˜XÙ[ÊNÂˆB‚ˆÛÛœİÜÚ[Û™\ÓÛ\ˆ\œ˜^OÂˆ]˜Nˆİš[™ÎÂˆˆ[X™\ÂˆNˆ[X™\Âˆ˜Y[ÏÎˆ[X™\ÂˆX™[›İ[™ÏÎˆÈˆ[X™\ÈNˆ[X™\ÈÚYˆ[X™\ÈZYÚˆ[X™\ˆNÂˆOˆH×NÂ‚ˆÛÛœİÜÚ[Û™\ĞÛÛ\Xİ\ÈH	ØÛÛ\XİÉÈ[ˆ^[İ]ÜÚ[Û™\È	‰ˆ^[İ]ÜÚ[Û™\Ë˜ÛÛ\XİÈOOHYNÂˆÛÛœİXZ˜\‘]\]Y]R[˜Ú\ÛÈH
+]\]Y]Nˆİš[™Ëˆ[X™\‹Nˆ[X™\ŠHOˆÂˆÛÛœİ\İ[Ñ]\]Y]HHÂˆÚ^™NˆX]›Z[ŠÚ^™SÜÚ[Û‹ŒŠKˆ›ÛˆY[P›ÛˆËÈ\È]\]Y]\ÈH[˜Ú\ÛÈYY[ˆ]YY\ˆHØÛÜÈ[ÜÈH[˜BˆËÈ\˜Z˜H[›[™NÈ\Ø\ˆ[Û›ÈY]ÜšX[ÜØİ\›ÈH™]]›È]š]H]YBˆËÈ[ˆXÙ[ÈÜ›Ûpè]XÛÈØ]\˜YÈÙHš[™H[“ÒHÓTˆ[˜\İ\š^˜\‹‚ˆÛÛÜˆÛÛÜ”š[X\š[ÂˆH\ÈÛÛœİÂˆXZ˜\•^ĞÛÛ”\ÛÕš\İX[
+YÙK]\]Y]KÈK‹‹™\İ[Ñ]\]Y]HKYJNÂˆÛÛœİ[Ñ]\]Y]HHX]›X^
+\İ[Ñ]\]Y]KœÚ^™H
+ˆKŒN\İ[Ñ]\]Y]KœÚ^™H
+ÈJNÂˆ^[œÔ™Yİ[Kœ\Ú
+Âˆ\Îˆ	İ^ÉËˆY[Nˆ•QS•WÑPÓÑ“Ó•ÑSRSPKˆÚ^™Nˆ\İ[Ñ]\]Y]KœÚ^™Kˆ[™RZYÚˆ[Ñ]\]Y]Kˆ˜›ŞˆÂˆˆKˆÚYˆY[P›ÛÚYÙ•^]Ú^™J]\]Y]K\İ[Ñ]\]Y]KœÚ^™JKˆZYÚˆ[Ñ]\]Y]BˆBˆJNÂˆNÂˆYˆ
+ÜÚ[Û™\ĞÛÛ\Xİ\ÊHÂˆÛÛœİ[™X\Ñ›Z›Îˆ[™XTÙYÛY[ÜÖ×HH	Û[™X\Ñ›Z›ÉÈ[ˆ^[İ]ÜÚ[Û™\ÂˆÈ
+^[İ]ÜÚ[Û™\È\ÈÈ[™X\Ñ›Z›Îˆ[™XTÙYÛY[ÜÖ×HJK›[™X\Ñ›Z›Âˆˆ×NÂˆXZ˜\“[™X\ÓZ^\ÊÂˆYÙKˆ[™X\Îˆ[™X\Ñ›Z›Ëˆˆ^Ô™Yİ[T™[™\‹ˆNˆR[šXÚ[ÓÜÚ[Û™\ËˆÛÛÜ•^ÎˆÛÛÜ•[Kˆ™YÚ\İ˜\”[œÎˆ
+[ŠHOˆ^[œÔ™Yİ[Kœ\Ú
+[ŠBˆJNÂˆH[ÙHYˆ
+	ÛÜÚ[Û”š[˜Ú\[	È[ˆ^[İ]ÜÚ[Û™\ÊHÂˆÛÛœİ^[İ]\ÜXÚX[H^[İ]ÜÚ[Û™\È\È\[Ùˆ^[İ]ÜÚ[Û™\È	ˆÂˆÜÚ[Û”š[˜Ú\[ˆÂˆ[™XÙSÜÚ[Ûˆ[X™\Âˆ]˜Nˆİš[™ÎÂˆ[™X\Îˆ[™XTÙYÛY[ÜÖ×NÂˆ[Îˆ[X™\ÂˆNÂˆÜÚ[Û™\Ô™\İ[\Îˆ\œ˜^OÂˆ[™XÙSÜÚ[Ûˆ[X™\Âˆ]˜Nˆİš[™ÎÂˆ[™XÙNˆ[X™\Âˆ[™X\Îˆ[™XTÙYÛY[ÜÖ×NÂˆ[Îˆ[X™\ÂˆOÂˆNÂˆÛÛœİš[˜Ú\[H^[İ]\ÜXÚX[›ÜÚ[Û”š[˜Ú\[ÂˆÛÛœİ™\İ[\ÈH^[İ]\ÜXÚX[›ÜÚ[Û™\Ô™\İ[\ÎÂˆÛÛœİXZ˜\•\š™]P[˜ÚHH
+ˆÛÛˆ[X™\‹ˆSØØ[ˆ[X™\‹ˆ[˜ÚÕ\š™]Nˆ[X™\‹ˆ][NˆÈ[™XÙSÜÚ[Ûˆ[X™\È]˜Nˆİš[™ÈKˆ[™X\Îˆ[™XTÙYÛY[ÜÖ×Kˆ[Ñš[Nˆ[X™\‚ˆ
+HOˆÂˆÛÛœİU^ÈHSØØ[HX]›X^
+
+[Ñš[HH
+[™X\Ëœ™YXÙJ
+İ[[™XJHOˆİ[
+È[™XK›[™RZYÚ
+JJHÈŠNÂˆÛÛœİ]\]Y]HH	Ú][K›]˜_JXÂˆXZ˜\‘]\]Y]R[˜Ú\ÛÊ]\]Y]KÛÛU^ÊNÂˆXZ˜\“[™X\ÓZ^\ÊÂˆYÙKˆ[™X\ËˆˆÛÛ
+È™Yš^ÚYˆNˆU^ËˆÛÛÜ•^ÎˆÛÛÜ•[Kˆ™YÚ\İ˜\”[œÎˆ
+[ŠHOˆ^[œÔ™Yİ[Kœ\Ú
+[ŠBˆJNÂˆNÂˆXZ˜\•\š™]P[˜ÚJˆ^Ô™Yİ[T™[™\‹ˆR[šXÚ[ÓÜÚ[Û™\Ëˆ[˜ÚÓÜÚ[Û™\Õİ[ˆš[˜Ú\[ˆš[˜Ú\[›[™X\Ëˆš[˜Ú\[˜[Âˆ
+NÂˆÛÛœİQš[T™\İ[\ÈHR[šXÚ[ÓÜÚ[Û™\ÈHš[˜Ú\[˜[ÈHÙ\\˜XÚ[Û•\š™]SÜÚ[ÛÂˆ›Üˆ
+][™XÙHHÈ[™XÙH™\İ[\Ë›[™İÈ[™XÙH
+ÏHJHÂˆÛÛœİ][HH™\İ[\ÖÚ[™XÙWHNÂˆXZ˜\•\š™]P[˜ÚJˆ^Ô™Yİ[T™[™\ˆ
+È[™XÙH
+ˆ
+^[İ]ÜÚ[Û™\Ë˜ÛÛÚY
+È^[İ]ÜÚ[Û™\Ë™İ]\ÛÛÊKˆQš[T™\İ[\Ëˆ^[İ]ÜÚ[Û™\Ë˜ÛÛÚYˆ][Kˆ][K›[™X\Ëˆ][K˜[Âˆ
+NÂˆBˆH[ÙHÂˆÛÛœİ][\ĞÛÛÈH\œ˜^K™œ›ÛJÈ[™İˆÛÛ[[˜\ÈK
+
+HOˆ×H\È\œ˜^OÈ[™XÙSÜÚ[Ûˆ[X™\È]˜Nˆİš[™ÈOŠNÂˆÜ™[“ÜÚ[Û™\Ë™›Ü‘XXÚ
+
+[™XÙSÜÚ[Û‹[™XÙJHOˆÂˆ][\ĞÛÛÖÚ[™XÙH	HÛÛ[[˜\×OËœ\Ú
+Âˆ[™XÙSÜÚ[Û‹ˆ]˜Nˆİš[™Ë™œ›ÛPÚ\ÛÙJH
+È[™XÙJBˆJNÂˆJNÂƒBˆÛÛœİÜÚ[Û™\Ô™[™\ˆH][\ĞÛÛË›X\
+
+][\ÊHOˆ][\Ë›X\
+
+][JHOˆÂˆÛÛœİÜÚ[ÛˆH™Yİ[K›ÜÚ[Û™\ÖÚ][Kš[™XÙSÜÚ[Û—NÂˆÛÛœİ^ÓÜÚ[ÛˆHÛÛ\Xİ\“ÜÚ[Û˜[˜ÛÔ\˜TŠÜÚ[ÛË^ÊNÂˆÛÛœİ^Ó[\[ÈHØ[š]^˜\•^ÔŠ^ÓÜÚ[ÛŠNÂˆÛÛœİ[™X\ÓÜÚ[ÛˆH[›Û™\•^ÓZ^ÊÃBˆ^Îˆ^Ó[\[ËBˆX^ÚYˆX]›X^
+ÌÛÛÚYH™Yš^ÚYH
+Û\‘[“[™XHÈÛ\”˜Y[È
+ˆˆ
+È[PT[ÜÊÊHˆ
+JKˆY[KBˆY[P›ÛBˆY[R][XØNˆY[R][XØKBˆY[S[Û›ËBˆÚ^™U^ÎˆÚ^™SÜÚ[Û‹BˆÚ^™PÛÙYÛÒ[›[™NˆX]›Z[ŠÚ^™PÛÙYÛÒ[›[™KÚ^™SÜÚ[ÛŠKBˆÚ^™PÛÙYÛĞ›Ü]YKBˆ[™RZYÚ^Îˆ[™XSÜÚ[Û‹Bˆ[™RZYÚÛÙYÛÎˆ[™XPÛÙYÛĞ›Ü]YCBˆJNÃBˆÛÛœİZ[“ØØ[ÜÚ[ÛˆHX]›X^
+ˆ
+Û\‘\Ü]Y[XRÜš^›Û[ÈHˆLJH
+ˆ›ÛØØ[KˆÚ^™SÜÚ[Ûˆ
+ˆKŒNˆ
+H
+ˆ[™TÜXÚ[™ÎÂˆ›Üˆ
+ÛÛœİ[™XHÙˆ[™X\ÓÜÚ[ÛŠHÃBˆZ[“[™RZYÚ\YYHX]›Z[ŠZ[“[™RZYÚ\YY[™XK›[™RZYÚ
+NÃBˆYˆ
+[™XK›[™RZYÚ
+ÈŒHZ[“ØØ[ÜÚ[ÛŠHÃBˆ[™RZYÚš[Û][ÛœËœ\Ú
+ÃBˆYÚ[˜Nˆ[Y\›ÔYÚ[˜KBˆ™Yİ[RYˆ™Yİ[KšYBˆ[™RZYÚˆ[™XK›[™RZYÚBˆZ[ˆZ[“ØØ[ÜÚ[ÛƒBˆJNÃBˆCBˆBˆÛÛœİ[Õ^ÓÜÚ[ÛˆH[™X\ÓÜÚ[Û‹œ™YXÙJ
+XØË[™XJHOˆXØÈ
+È[™XK›[™RZYÚ
+NÂˆÛÛœİ[Ñš[SÜÚ[ÛˆHX]›X^
+ˆ[\˜SZ[š[XQš[SÜÚ[Û‹ˆ[Õ^ÓÜÚ[Ûˆ
+È™[[›Õ™\XØ[ÜÚ[Û‹ˆÛ\‘[“[™XHÈX]›X^
+Û\”˜Y[È
+ˆ‹LH
+ˆSWĞWÔS•ÔÊHˆˆ
+NÂˆ™]\›ˆÈ][K[™X\ÓÜÚ[Û‹[Ñš[SÜÚ[ÛˆNÂˆJJNÂˆÛÛœİ[\˜\Ñš[\ÈH\œ˜^K™œ›ÛJÈ[™İˆÜÛÛ[[˜HK
+İ˜[Ü‹[™XÙQš[JHOˆX]›X^
+ˆ[\˜SZ[š[XQš[SÜÚ[Û‹ˆ‹‹›ÜÚ[Û™\Ô™[™\‹›X\
+
+ÛÛ
+HOˆÛÛÚ[™XÙQš[WOË˜[Ñš[SÜÚ[ÛˆÏÈ
+Bˆ
+JNÂˆ]Qš[QÜšYHR[šXÚ[ÓÜÚ[Û™\ÎÂ‚ˆÛÛœİXZ˜\’][HH
+ˆÛÛˆ[X™\‹ˆSØØ[ˆ[X™\‹ˆ[Ñš[PÛÛ\\YNˆ[X™\‹ˆ[™XÙQš[Nˆ[X™\‹ˆ™[™\ˆÈ][NˆÈ[™XÙSÜÚ[Ûˆ[X™\È]˜Nˆİš[™ÈNÈ[™X\ÓÜÚ[Ûˆ[™XTÙYÛY[ÜÖ×NÈ[Ñš[SÜÚ[Ûˆ[X™\ˆBˆ
+HOˆÂˆÛÛœİÈ][K[™X\ÓÜÚ[Û‹[Ñš[SÜÚ[ÛˆHH™[™\ÂˆÛÛœİU^ÈHSØØ[HX]›X^
+
+[Ñš[PÛÛ\\YHH[Ñš[SÜÚ[ÛŠHÈŠNÂˆËÈ[›Û™È[\›˜YÈXHYHXZ˜YÈ\˜HÙÈ[™XXİ]›ÎÈ›ÈÙBˆËÈÙ[™\˜[ˆ\š™]\È[™\[™Y[\È\˜HØYH™\ÜY\İK‚ˆÛÛœİ[˜Ú\ÛÈHÛÛ
+È
+Û\‘[“[™XHÈÛ\”˜Y[È
+ˆˆ
+È[PT[ÜÊÊHˆ
+NÂˆYˆ
+Û\‘[“[™XJHÂˆÛÛœİ\˜Z˜HHÛÛ
+ÈÛ\”˜Y[ÎÂˆÛÛœİP\˜Z˜HHU^È
+ÈÚ^™SÜÚ[Ûˆ
+ˆÂˆÛÛœİØZ˜P\˜Z˜Nˆ™Xİ›ŞHÂˆˆ\˜Z˜HHÛ\”˜Y[ËˆNˆP\˜Z˜HHÛ\”˜Y[ËˆÚYˆÛ\”˜Y[È
+ˆ‹ˆZYÚˆÛ\”˜Y[È
+ˆ‚ˆNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜JØZ˜P\˜Z˜K\˜Z˜H[›[™H	Ú][K›]˜_HH™Yİ[H	Ü™Yİ[KšYX
+NÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ\˜Z˜KˆNˆP\˜Z˜KˆÚ^™NˆÛ\”˜Y[Ëˆ›Ü™\•ÚYˆ\™š[Û\‹˜X˜›Tİ›ÚÙTÏÈ\™š[Û\‹˜\˜Z˜Tİ›ÚÙKˆ›Ü™\ÛÛÜˆ™ØŠ
+BˆJNÂˆÛÛœİ[˜ÚÑ]\]Y]HHY[P›ÛÚYÙ•^]Ú^™J	Ú][K›]˜_JXX]›Z[ŠÚ^™SÜÚ[Û‹ŒŠJNÂˆÜÚ[Û™\ÓÛ\‹œ\Ú
+Âˆ]˜Nˆ][K›]˜Kˆˆ\˜Z˜KˆNˆP\˜Z˜Kˆ˜Y[ÎˆÛ\”˜Y[ËˆX™[›İ[™ÎˆÈˆ[˜Ú\ÛËNˆU^ËÚYˆ[˜ÚÑ]\]Y]KZYÚˆX]›X^
+X]›Z[ŠÚ^™SÜÚ[Û‹ŒŠH
+ˆKŒNX]›Z[ŠÚ^™SÜÚ[Û‹ŒŠH
+ÈJHBˆJNÂˆBˆXZ˜\‘]\]Y]R[˜Ú\ÛÊ	Ú][K›]˜_JX[˜Ú\ÛËU^ÊNÂˆÛÛœİQš[˜[HXZ˜\“[™X\ÓZ^\ÊÂˆYÙKˆ[™X\Îˆ[™X\ÓÜÚ[Û‹ˆˆ[˜Ú\ÛÈ
+È™Yš^ÚYˆNˆU^ËˆÛÛÜ•^ÎˆÛÛÜ•[Kˆ™YÚ\İ˜\”[œÎˆ
+[ŠHOˆ^[œÔ™Yİ[Kœ\Ú
+[ŠCBˆJNÃBˆËÈ™\Ù\˜\ˆ[˜HÛİ\˜H^XÚ]H]š]H]YH\È\š™]\ÈÛÛœÙXİ]]˜\ÂˆËÈÙHÜ]Y[ˆİX[™È[˜HÜÚ[ÛˆØİ\H˜\šX\È[™X\Ëˆ[[šYšXØYÜ‚ˆËÈ\ØHHZ\ÛXH[\˜HH^ÈHÛÛœÙ\˜H[š][È™\XØ[‚ˆ™]\›ˆQš[˜[HÙ\\˜XÚ[Û•\š™]SÜÚ[ÛÂˆNÂ‚ˆ›Üˆ
+][™XÙQš[HHÈ[™XÙQš[HÜÛÛ[[˜NÈ[™XÙQš[H
+ÏHJHÂˆÛÛœİ[Ñš[PÛÛ\\YHH[\˜\Ñš[\ÖÚ[™XÙQš[WHÏÈÂˆÛÛœİÙ[\Ñš[HHÜÚ[Û™\Ô™[™\‹™š[\Š
+ÛÛ
+HOˆ›ÛÛX[ŠÛÛÚ[™XÙQš[WJJNÂˆ›Üˆ
+]YÛÛHÈYÛÛÜÚ[Û™\Ô™[™\‹›[™İÈYÛÛ
+ÏHJHÂˆÛÛœİ™[™\ˆHÜÚ[Û™\Ô™[™\–ÚYÛÛOË–Ú[™XÙQš[WNÂˆYˆ
+\™[™\ŠHÛÛ[YNÂˆÛÛœİÙ[HHÙ[\Ñš[K›[™İOOHBˆÈ^Ô™Yİ[T™[™\ˆ
+È
+[˜ÚÓÜÚ[Û™\Õİ[HÛÛÚY
+HÈ‚ˆˆ
+ÛÛÖÚYÛÛHÏÈ^Ô™Yİ[T™[™\ŠNÂˆXZ˜\’][JˆÙ[KˆQš[QÜšYˆ[Ñš[PÛÛ\\YKˆ[™XÙQš[Kˆ™[™\‚ˆ
+NÂˆBˆQš[QÜšYOH[Ñš[PÛÛ\\YH
+ÈÙ\\˜XÚ[Û•\š™]SÜÚ[ÛÂˆBˆBˆÛÛœİ]˜\ÈH]˜\ÓÛ\Âˆ]ØZ˜SÛ\”™Yİ[Nˆ™Xİ›ŞÂˆ]]\]Y]P›Ü™R[™™\š[Ü‘Ø\Û\ˆ[X™\ˆ[™Yš[™YÂˆ]šYXÚX[\ÓÛ\”™Yİ[Nˆ›Û“[X›OYÚ[˜SÛ\–ÉÜ™Yİ[\É×VÛ[X™\—VÉÙšYXÚX[\É×Oˆ[™Yš[™YÂˆYˆ
+Û\‘[“[™XJHÂˆYˆ
+ÜÚ[Û™\ÓÛ\‹›[™İOOH]˜\Ë›[™İ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ˜[[ˆ\˜Z˜\È[›[™H\˜HH™Yİ[H	Û[Y\›ßX
+NÂˆBˆÛÛœİYHX]›Z[Š‹‹›ÜÚ[Û™\ÓÛ\‹›X\
+
+][JHOˆ][KHÛ\”˜Y[ÊJNÂˆÛÛœİšYÚHX]›X^
+‹‹›ÜÚ[Û™\ÓÛ\‹›X\
+
+][JHOˆ][K
+ÈÛ\”˜Y[ÊJNÂˆÛÛœİ›İÛHHX]›Z[Š‹‹›ÜÚ[Û™\ÓÛ\‹›X\
+
+][JHOˆ][KHHÛ\”˜Y[ÊJNÂˆÛÛœİÜHX]›X^
+‹‹›ÜÚ[Û™\ÓÛ\‹›X\
+
+][JHOˆ][KH
+ÈÛ\”˜Y[ÊJNÂˆØZ˜SÛ\”™Yİ[HHÈˆYNˆ›İÛKÚYˆšYÚHYZYÚˆÜH›İÛHNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜JØZ˜SÛ\”™Yİ[KØZ˜HH\˜Z˜\È[›[™HHH™Yİ[H	Û[Y\›ßX
+NÂˆH[ÙHÂˆËÈ[ˆ[˜HÛÛ[XXÚpìÛ‹[š[Y\ˆ™XXİ]›È\ØH[[˜ÚÈ^œ]ZY\™È\˜BˆËÈ›È[˜Y\ˆ[T‹ˆİH[™[ÓT‹Ú[ˆ[X˜\™ÛËØX™H[ˆHÛÛ[[˜BˆËÈ\™XÚH\İÈX˜Z›È[T‹ˆÛÛØØ\›È[0ëH]š]HpìXY\ˆ[˜H[\˜BˆËÈ\YšXÚX[X˜Z›ÈH\ÈÜÚ[Û™\ÈHYZ›Ü˜H[™\\È[™H0èYÚ[˜\Ë‚ˆÛÛœİ[™[Û\“]\˜[ÛÛ[XXÚ[ÛˆH\Ôš[Y\˜T™Yİ[PÛÛ[XXÚ[ÛÂˆÛÛœİTš[Y\˜P\˜Z˜S]\˜[H™Xİ\‹HHÙ\\˜XÚ[Û”\”[™[Û\ÛÛ[XXÚ[ÛˆHÛ\”˜Y[ÈHÛ\“X\™Ù[”İ\\š[ÜÂˆÛÛœİTš[Y\˜P\˜Z˜P˜\ÙHH[™[Û\“]\˜[ÛÛ[XXÚ[Û‚ˆÈTš[Y\˜P\˜Z˜S]\˜[ˆËÈ[[™[›Ü›X[ÛÛ\\HHœ˜[š˜HHÜÚ[Û™\Ë\›È›ÈX™BˆËÈÛÛØ\ˆÜˆX˜Z›È[X\™Ù[ˆÙYİ\›ÈİX[™È[0î›[[È™XXİ]›ÈBˆËÈHÚ˜H]YYHÙ\˜ØH[YKˆİXš\›ÈˆX[Y[™H\ÛØÚXXÚpìÛ‚ˆËÈš\İX[Ú[ˆ[\˜\ˆ˜Y[Ë\ÛÈšH]ZY]›Û™\Ë‚ˆˆR[šXÚ[ÓÜÚ[Û™\ÈH\™š[Û\‹›Û\’XY\‘Ø\H
+È
+\™š[ÛÛ\XİĞØ\XÚYY[HÈLˆˆ
+NÂˆÛÛœİ\ÛĞ\˜Z˜U™\XØ[HÛ\”\ÛÖNÂˆÛÛœİÜ˜\ÙHHTš[Y\˜P\˜Z˜P˜\ÙH
+ÈÛ\”˜Y[È
+ÈÛ\“X\™Ù[”İ\\š[ÜÂˆÛÛœİ[™[[\š[ÜˆHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈÛ\”[™[›Ş\ÖÛÛ\”[™[›Ş\Ë›[™İHWBˆˆ[™Yš[™YÂˆËÈØYH[™[ÛÛœÙ\˜H[˜HÙ\\˜XÚpìÛˆpë[š[XH™\ÜXİÈ[[\š[Ü‹ˆBˆËÈÛÜœ™XØÚpìÛˆÙHØ[İ[HÛÛˆHÙ[ÛY]°ëXHY™Xİ]˜KÜˆÈ]YH[Xšpê[‚ˆËÈİXœ™HÛÛ[XXÚ[Û™\Ë^ÜÈH\İ[H[\˜HH™YÛ™[ÜÈHBˆËÈ™]0ëXİ[HÚ[ˆ™Xİ\œš\ˆH\Ü^˜[ZY[ÜÈšZ›ÜË‚ˆÛÛœİ\Ü^˜[ZY[Ô[™[ÜÛÛ\Ú[ÛˆH[™[[\š[Ü‚ˆÈX]›X^
+Ü˜\ÙHH
+[™[[\š[Ü‹HHÙ\\˜XÚ[Û”[™[Û\ŠJBˆˆÂˆ]Tš[Y\˜P\˜Z˜HHTš[Y\˜P\˜Z˜P˜\ÙHH\Ü^˜[ZY[Ô[™[ÜÛÛ\Ú[ÛÂˆËÈ[ğè[İ[È\ÙÜ°èYšXÛÈYYHZ˜\ˆ[0î›[[È[™[Üš^›Û[[›ÜÂˆËÈ[ÜÈÜˆX˜Z›È[X\™Ù[ˆÙYİ\›ÈÜœ]YHİH]\]Y]H[™™\š[Ü‚ˆËÈY[™H[˜H™\Ù\˜H›ÜXKˆİXš\ˆ0î›šXØ[Y[H[[™[ÛÛœÙ\˜H[ˆËÈ^ÈH]š]H]YHH[\™\ÛÜ˜H™XÛÜHHš[HÓT‹‚ˆÛÛœİ›İÛPØ[İ[YÈHTš[Y\˜P\˜Z˜HHÛ\”˜Y[ÈHÛ\“X\™Ù[’[™™\š[ÜÂˆYˆ
+›İÛPØ[İ[YÈ[\˜Q\ÜÛšX›SZ[ŠHÂˆTš[Y\˜P\˜Z˜H
+ÏH[\˜Q\ÜÛšX›SZ[ˆH›İÛPØ[İ[YÎÂˆBˆÛÛœİÜHTš[Y\˜P\˜Z˜H
+ÈÛ\”˜Y[È
+ÈÛ\“X\™Ù[”İ\\š[ÜÂˆÛÛœİ›İÛHHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈTš[Y\˜P\˜Z˜HHÛ\”˜Y[ÈHÛ\“X\™Ù[’[™™\š[Ü‚ˆˆTš[Y\˜P\˜Z˜HH
+]˜\Ë›[™İHJH
+ˆ\ÛĞ\˜Z˜U™\XØ[HÛ\”˜Y[ÈHÛ\“X\™Ù[’[™™\š[ÜÂˆÛÛœİØZ˜HHX]›X^
+Œ‹ÜH›İÛJNÂˆÛÛœİ[™[YH\™š[Û\‹›Û\”[™[Y[™ÎÂˆÛÛœİ[™[HÛÛ™\ÜY\İNÂˆÛÛœİ[™[™Xİˆ™Xİ›ŞHÂˆˆ[™[ˆNˆ›İÛKˆÚYˆ[˜ÚĞÛÛ™\ÜY\İKˆZYÚˆØZ˜BˆNÂˆØZ˜SÛ\”™Yİ[HH[™[™XİÂˆÛÛœİ[™[İ]\”™Xİˆ™Xİ›ŞHÂˆˆ[™[H[™[YˆNˆ›İÛHH[™[YˆÚYˆ[˜ÚĞÛÛ™\ÜY\İH
+È[™[Y
+ˆ‹ˆZYÚˆØZ˜H
+È[™[Y
+ˆ‚ˆNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜J[™[İ]\”™Xİ[Ë[Û\‹\™Yİ[KIÛ[Y\›ßX
+NÂˆYˆ
+\Ôš[Y\˜T™Yİ[PÛÛ[XXÚ[Ûˆ	‰ˆ™Xİ[\œÙXØJ[™[İ]\”™Xİ™Xİ\ŠJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[š[Y\ˆ[™[ÓTˆHHYÚ[˜H	Û[Y\›ÔYÚ[˜_H[˜YH[T˜
+NÂˆBˆYˆ
+[™[İ]\”™XİX\™Ù[ˆ
+ÈËH[™[İ]\”™Xİ
+È[™[İ]\”™XİÚYˆSÒ×ĞĞT•HHX\™Ù[ˆHËJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[™[ÓTˆ	Û[Y\›ßH[˜YH[X\˜ÛÈ[\š[ZX›X
+NÂˆBˆÛ\”[™[›Ş\Ëœ\Ú
+ÈYˆÛ\‹IÛ[Y\›ßX‹‹œ[™[İ]\”™XİJNÂ‚ˆYˆ
+[™[Yˆ
+HÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆ‹‹œ[™[İ]\”™XİˆÛÛÜˆ™ØŠKKJBˆJNÂˆBˆYÙK™˜]Ô™Xİ[™ÛJÂˆ‹‹œ[™[™Xİˆ›Ü™\•ÚYˆ\™š[Û\‹›Û\›Ş›Ü™\•ÚYˆ›Ü™\ÛÛÜˆÛÛÜ›Ü™SÛ\‹ˆÛÛÜˆÛÛÜ”[™[Û\‚ˆJNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜Jˆ[™[™XİˆÛ\‹\™Yİ[KIÛ[Y\›ßXˆ
+NÂˆYˆ
+[™[™XİH[\˜Q\ÜÛšX›SZ[ŠHÂˆ›İÈ™]È\œ›ÜŠˆ^[İ][˜[YÎˆ[[™[ÓTˆ	Û[Y\›ßH[˜YHH›Û˜HÙYİ\˜H[™™\š[ÜˆHHYÚ[˜H	Û[Y\›ÔYÚ[˜_Xˆ
+NÂˆBƒBˆÛÛœİYÈH\™š[[Y\›ÓÛ\‘^\š[ÜˆÈˆ\™š[Û\‹›Û\•YÒZYÚÂˆÛÛœİÕYÈH\™š[Û\‹›Û\•YÕÚYÂˆËÈ[šYXÚX[İ\\š[Üˆ^œ]ZY\™ÈØİ\HH\Ü]Z[˜H[[™[ˆÙ\\˜\‚ˆËÈH]\]Y]H[›Ü™H]š]H]YH[İXY˜YÈÙHXHÛÛ[È[ˆğë[X›ÛÂˆËÈYØYÈ[°î›Y\›È[™XXİ]›È[˜\İ\š^˜\ˆH˜Z˜H™\ÛÛXÚpìÛ‹‚ˆËÈ[šYXÚX[™Y›Ü˜YÈ™XÙ\Ú]H[˜H™\Ù\˜HÜš^›Û[X^[ÜÈ[İ™\‚ˆËÈH[œÚYÛšXH[›ÜÈ[ÜÈ]š]H[˜Y\ˆİH]ZY]›Û™HÚ[ˆXÙ\˜Ø\›BˆËÈ[›Ü™H\™XÚÈ[[™[‚ˆÛÛœİYÈH[™[
+ÈLÎÂˆËÈ[›Ü™Hİ\\š[Üˆ[[™[\È[˜H™\Ù\˜H™X[ˆÛÛØØ\ˆ\]pëHBˆËÈ[œÚYÛšXHZ˜HHÛİ\˜HÛÛ\]HHH˜[™H[\ÈHH\˜Z˜KˆËÈ[˜Û\ÛÈÚHİ\È›ŞYXØÚ[Û™\ÈÜš^›Û[\ÈÛÚ[˜ÚY[‹‚ˆÛÛœİUYÈHÛ\‘\Ü]Y[XRÜš^›Û[ÈÜHYÈˆTš[Y\˜P\˜Z˜H
+ÈÛ\”˜Y[È
+ÈÎÂˆÛÛœİØZ˜S[Y\›ÓÛ\ˆ™Xİ›ŞHÂˆˆYËˆNˆUYËˆÚYˆ\™š[[Y\›ÓÛ\‘^\š[ÜˆÈˆÕYËˆZYÚˆYÂˆNÂˆ\ÜÙ\™XİÛÛ[šYJØZ˜S[Y\›ÓÛ\‹[™[™Xİ[œÚYÛšXH[Y\šXØHÓTˆHH™Yİ[H	Û[Y\›ßX
+NÂˆËÈÜÈ°î›Y\›ÜÈ˜[ˆY\˜HHH™]0ëXİ[H[ˆ\™š[\ÈÛÛ\XİÜÈ\˜BˆËÈ™\Ù\˜\ˆHXİ\˜HÓT‹‚ˆYˆ
+\™š[[Y\›ÓÛ\‘^\š[ÜŠHÂˆËÈÙHXZ˜[ˆ\Üpê\ÈH˜[Y\ˆ^Ë\˜Z˜\ÈHšYXÚX[\Ë‚ˆH[ÙHYˆ
+\Ëœ\™š[^[İ]\Ø\‘]\]Y]SÛ\”ÛÛYJHÂˆYÙK™˜]Ô™Xİ[™ÛJÈˆYËNˆUYËÚYˆÕYËZYÚˆYËÛÛÜˆÛÛÜ“™YÜ›ÓXİ\˜KÜXÚ]NˆHJNÂˆ›Üˆ
+ÛÛœİ[ÈÙˆÂˆÈˆYÈ
+È‹ŒKNˆUYÈ
+È‹ŒHKˆÈˆYÈ
+ÈÕYÈH‹ŒKNˆUYÈ
+ÈYÈH‹ŒHBˆJHÂˆYÙK™˜]ĞÚ\˜ÛJÈˆ[ËNˆ[ËKÚ^™NˆŒËÛÛÜˆ™ØŠKKJKÜXÚ]NˆŒNJNÂˆBˆÛÛœİ[˜ÚÓ[Y\›ÈHY[P›ÛÚYÙ•^]Ú^™Jİš[™Ê[Y\›ÊK\™š[Û\‹›Û\•YÑ›ÛÚ^™JNÂˆYÙK™˜]Õ^
+İš[™Ê[Y\›ÊKÂˆˆYÈ
+ÈX]›X^
+
+ÕYÈH[˜ÚÓ[Y\›ÊHÈŠKˆNˆUYÈ
+ÈX]›X^
+
+YÈH\™š[Û\‹›Û\•YÑ›ÛÚ^™JHÈŠKˆÚ^™Nˆ\™š[Û\‹›Û\•YÑ›ÛÚ^™Kˆ›ÛˆY[P›ÛˆÛÛÜˆ™ØŠKKJBˆJNÂˆYÙK™˜]Õ^
+İš[™Ê[Y\›ÊKÂˆˆYÈ
+ÈX]›X^
+
+ÕYÈH[˜ÚÓ[Y\›ÊHÈŠH
+ÈŒNˆNˆUYÈ
+ÈX]›X^
+
+YÈH\™š[Û\‹›Û\•YÑ›ÛÚ^™JHÈŠKˆÚ^™Nˆ\™š[Û\‹›Û\•YÑ›ÛÚ^™Kˆ›ÛˆY[P›ÛˆÛÛÜˆ™ØŠKKJBˆJNÂˆH[ÙHÂˆËÈ[°î›Y\›È]YYH\™Xİ[Y[HÛØœ™H[›Û™È[[™[ˆHØZ˜BˆËÈÙHÛÛœÙ\˜HÛÛÈÛÛ[È™\Ù\˜H0ìÙÚXØH\˜H›İYÙ\ˆH\˜Z˜KˆËÈ\›ÈXH›ÈÙH[\š[YHİH™Xİ0è[™İ[Ë‚ˆÛÛœİ[˜ÚÓ[Y\›ÈHY[P›ÛÚYÙ•^]Ú^™Jİš[™Ê[Y\›ÊK\™š[Û\‹›Û\•YÑ›ÛÚ^™JNÂˆYÙK™˜]Õ^
+İš[™Ê[Y\›ÊKÂˆˆYÈ
+ÈX]›X^
+
+ÕYÈH[˜ÚÓ[Y\›ÊHÈŠKˆNˆUYÈ
+ÈX]›X^
+
+YÈH\™š[Û\‹›Û\•YÑ›ÛÚ^™JHÈŠKˆÚ^™Nˆ\™š[Û\‹›Û\•YÑ›ÛÚ^™Kˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ“™YÜ›ÓXİ\˜BˆJNÂˆYÙK™˜]Õ^
+İš[™Ê[Y\›ÊKÂˆˆYÈ
+ÈX]›X^
+
+ÕYÈH[˜ÚÓ[Y\›ÊHÈŠH
+ÈŒNˆNˆUYÈ
+ÈX]›X^
+
+YÈH\™š[Û\‹›Û\•YÑ›ÛÚ^™JHÈŠKˆÚ^™Nˆ\™š[Û\‹›Û\•YÑ›ÛÚ^™Kˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ“™YÜ›ÓXİ\˜BˆJNÂˆCBƒBˆËÈ›ÈÙH[\š[YH[˜H]\]Y]H]^[X\ˆ[›È[“ÒHÓT‹ˆH^Y[™BˆËÈ‘TÔ˜ÛÛ\]0ëXHÛÛˆHš[Y\˜Hš[HH\˜Z˜\È[˜\İ\š^˜\ˆH›ÂˆËÈ\ÜH[™›Ü›XXÚpìÛˆ™XÙ\Ø\šXH\˜H]Xİ\ˆšHØ[YšXØ\ˆ™\ÜY\İ\Ë‚ƒBˆÛÛœİ]\]Y]P[˜ÚÓX^H]\]Y]P[˜ÚÓX^Û\ÂˆÛÛœİX[Y]›Ğ\˜Z˜HHX[Y]›Ğ\˜Z˜SÛ\ÂˆÛÛœİ]\]Y]QØ\\˜Z˜HHÛ\‘\Ü]Y[XRÜš^›Û[ÈKŒˆˆÛ\‘]\]Y]QØ\ÂˆËÈX[[™\ˆ\È]˜\ÈÙ\\˜Y\È[ğë\˜İ[ÈH[›Ü™H[™™\š[ÜˆÚ[‚ˆËÈ][Y[\ˆHØZ˜HÓTˆ[[™[X™HÙYİZ\ˆÚY[™ÈÛÛ\XİÈHBˆËÈ]\]Y]HX™HÛÛœÙ\˜\ˆ[˜H™\Ù\˜Hš\ÚX›H[˜\İ\š^˜\‹‚ˆÛÛœİ]\]Y]SÛ\“Ù™œÙ]™\XØ[HÛ\‘\Ü]Y[XRÜš^›Û[È‹ˆNÂˆ]\]Y]P›Ü™R[™™\š[Ü‘Ø\Û\ˆHÛ\“X\™Ù[’[™™\š[ÜˆH]\]Y]SÛ\“Ù™œÙ]™\XØ[ÂˆÛÛœİ\˜Z˜P˜\ÙHHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈ[™[
+È
+[˜ÚĞÛÛ™\ÜY\İHH
+]˜\Ë›[™İHJH
+ˆÛ\”\ÛÖ
+HÈ‚ˆˆ[™[
+ÈX]›X^
+ˆÛ\“X\™Ù[’Üš^›Û[
+È]\]Y]P[˜ÚÓX^
+È]\]Y]QØ\\˜Z˜H
+ÈÛ\”˜Y[Ëˆ[˜ÚĞÛÛ™\ÜY\İH
+ˆˆ
+NÂˆÛÛœİØZ˜\Ğ\˜Z˜\Îˆ™Xİ›Ş×HH×NÂˆÛÛœİØZ˜\Ñ]\]Y]\ÓÛ\ˆ™Xİ›Ş×HH×NÂˆ›Üˆ
+]YHÈY]˜\Ë›[™İÈY
+ÏHJHÂˆÛÛœİ]˜HH]˜\ÖÚYNÂˆÛÛœİ\˜Z˜HHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈ\˜Z˜P˜\ÙH
+ÈY
+ˆÛ\”\ÛÖˆˆ\˜Z˜P˜\ÙNÂˆÛÛœİP\˜Z˜HHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈTš[Y\˜P\˜Z˜BˆˆTš[Y\˜P\˜Z˜HHY
+ˆ\ÛĞ\˜Z˜U™\XØ[ÂˆÛÛœİ[X[›Ñ]\]Y]SÛ\ˆHÛ\‘\Ü]Y[XRÜš^›Û[ÈHˆ‹ÂˆÛÛœİ]\]Y]P[˜ÚÈHY[KÚYÙ•^]Ú^™J]˜K[X[›Ñ]\]Y]SÛ\ŠNÂˆYˆ
+\˜Z˜HHÛ\”˜Y[È[™[\˜Z˜H
+ÈÛ\”˜Y[Èˆ[™[
+È[˜ÚĞÛÛ™\ÜY\İJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆÜÚ[ÛˆÓTˆ	Û]˜_HY\˜H[[™[HH™Yİ[H	Û[Y\›ßX
+NÂˆBˆÛÛœİØZ˜P\˜Z˜Nˆ™Xİ›ŞHÂˆˆ\˜Z˜HHÛ\”˜Y[ËˆNˆP\˜Z˜HHÛ\”˜Y[ËˆÚYˆX[Y]›Ğ\˜Z˜KˆZYÚˆX[Y]›Ğ\˜Z˜BˆNÂˆYˆ
+™Xİ[\œÙXØJØZ˜S[Y\›ÓÛ\‹ØZ˜P\˜Z˜JJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆH[œÚYÛšXH[Y\šXØH[˜YHH\˜Z˜H	Û]˜_HHH™Yİ[H	Û[Y\›ßX
+NÂˆBˆ\ÜÙ\™XİÛÛ[šYJØZ˜P\˜Z˜K[™[™Xİ\˜Z˜H	Û]˜_HHH™Yİ[H	Û[Y\›ßX
+NÂˆÛÛœİØZ˜Q]\]Y]Nˆ™Xİ›ŞHÛ\‘\Ü]Y[XRÜš^›Û[ˆÈÂˆˆ\˜Z˜HH]\]Y]P[˜ÚÈÈ‹ˆNˆP\˜Z˜HHÛ\”˜Y[ÈH]\]Y]SÛ\“Ù™œÙ]™\XØ[ˆÚYˆ]\]Y]P[˜ÚËˆZYÚˆ[X[›Ñ]\]Y]SÛ\ˆ
+ÈBˆBˆˆÂˆˆ\˜Z˜HHÛ\”˜Y[ÈH]\]Y]QØ\\˜Z˜HH]\]Y]P[˜ÚËˆNˆP\˜Z˜HH‹ˆÚYˆ]\]Y]P[˜ÚËˆZYÚˆ‹
+ÈBˆNÂˆ\ÜÙ\™XİÛÛ[šYJØZ˜Q]\]Y]K[™[™Xİ]\]Y]H	Û]˜_HHH™Yİ[H	Û[Y\›ßX
+NÂˆØZ˜\Ñ]\]Y]\ÓÛ\‹œ\Ú
+ØZ˜Q]\]Y]JNÂˆYˆ
+ØZ˜\Ğ\˜Z˜\ËœÛÛYJ
+[\š[ÜŠHOˆ™Xİ[\œÙXØJ[\š[Ü‹ØZ˜P\˜Z˜JJJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ\˜Z˜\ÈÓTˆİ\\œY\İ\È[ˆH™Yİ[H	Û[Y\›ßX
+NÂˆBˆØZ˜\Ğ\˜Z˜\Ëœ\Ú
+ØZ˜P\˜Z˜JNÂˆYÙK™˜]ĞÚ\˜ÛJÂˆˆ\˜Z˜KBˆNˆP\˜Z˜KBˆÚ^™NˆÛ\”˜Y[ËBˆ›Ü™\•ÚYˆ\™š[Û\‹˜X˜›Tİ›ÚÙTÏÈ\™š[Û\‹˜\˜Z˜Tİ›ÚÙKBˆ›Ü™\ÛÛÜˆ™ØŠ
+CBˆJNÂˆYÙK™˜]Õ^
+]˜KÂˆˆÛ\‘\Ü]Y[XRÜš^›Û[È\˜Z˜HH]\]Y]P[˜ÚÈÈˆˆ\˜Z˜HHÛ\”˜Y[ÈH]\]Y]QØ\\˜Z˜HH]\]Y]P[˜ÚËˆNˆÛ\‘\Ü]Y[XRÜš^›Û[ÈP\˜Z˜HHÛ\”˜Y[ÈH]\]Y]SÛ\“Ù™œÙ]™\XØ[ˆP\˜Z˜HH‹ˆÚ^™Nˆ[X[›Ñ]\]Y]SÛ\‹ˆ›ÛˆY[KˆÛÛÜˆÛÛÜ•[BˆJNÂˆÜÚ[Û™\ÓÛ\‹œ\Ú
+È]˜Kˆ\˜Z˜KNˆP\˜Z˜K˜Y[ÎˆÛ\”˜Y[ËX™[›İ[™ÎˆØZ˜Q]\]Y]HJNÂˆCBˆ›Üˆ
+ÛÛœİØZ˜Q]\]Y]HÙˆØZ˜\Ñ]\]Y]\ÓÛ\ŠHÂˆYˆ
+ØZ˜\Ğ\˜Z˜\ËœÛÛYJ
+ØZ˜P\˜Z˜JHOˆ™Xİ[\œÙXØJØZ˜Q]\]Y]KØZ˜P\˜Z˜JJJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[˜H]\]Y]HÓTˆ[˜YH[˜H\˜Z˜HHH™Yİ[H	Û[Y\›ßX
+NÂˆBˆB‚ˆÛÛœİšYÚ^™HH\™š[Û\‹™šYXÚX[Ú^™NÃBˆÛÛœİšYX\™Ú[ˆHX]›X^
+KŒ‹\™š[Û\‹™šYXÚX[X\™Ú[ŠNÂˆÛÛœİ[‘šYHšYÚ^™HÈÂˆËÈ[]ZY]›Û™H[XšY[ˆØİ\H[KÙ\ÜXÚ[Îˆ[Ù[›ÈX™BˆËÈØ[İ[\œÙHH\\ˆH[X›ÜË›ÈÛÛÈ[[X[›È[šYXÚX[‚ˆÛÛœİšYYÙR[œÙ]H[‘šY
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ÈšYX\™Ú[ÂˆÛÛœİšYH[™[
+ÈšYYÙR[œÙ]ÂˆÛÛœİšYšYÚH[™[
+È[˜ÚĞÛÛ™\ÜY\İHHšYYÙR[œÙ]ÂˆÛÛœİQšYÜHÜHšYYÙR[œÙ]ÂˆÛÛœİQšY›İÛHH›İÛH
+ÈšYYÙR[œÙ]ÂˆYˆ
+QšY›İÛHHQšYÜ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆšYXÚX[\È[™\YÜÈ[ˆ™Yİ[H	Û[Y\›ßX
+NÂˆBˆXZ˜\‘šYXÚX[Û\ŠYÙKšYQšYÜšYÚ^™K\™š[Û\‹™šYXÚX[]ZY]›Û™JNÂˆXZ˜\‘šYXÚX[Û\ŠYÙKšYQšY›İÛKšYÚ^™K\™š[Û\‹™šYXÚX[]ZY]›Û™JNÂˆXZ˜\‘šYXÚX[Û\ŠYÙKšYšYÚQšYÜšYÚ^™K\™š[Û\‹™šYXÚX[]ZY]›Û™JNÂˆXZ˜\‘šYXÚX[Û\ŠYÙKšYšYÚQšY›İÛKšYÚ^™K\™š[Û\‹™šYXÚX[]ZY]›Û™JNÂ‚ˆÛÛœİØZ˜\Ô]ZY]šYXÚX[\ÈHÂˆÈˆšYH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KNˆQšYÜH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KÚYˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆ‹ZYÚˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆˆKˆÈˆšYH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KNˆQšY›İÛHH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KÚYˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆ‹ZYÚˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆˆKˆÈˆšYšYÚH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KNˆQšYÜH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KÚYˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆ‹ZYÚˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆˆKˆÈˆšYšYÚH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KNˆQšY›İÛHH[‘šYH\™š[Û\‹™šYXÚX[]ZY]›Û™KÚYˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆ‹ZYÚˆšYÚ^™H
+È\™š[Û\‹™šYXÚX[]ZY]›Û™H
+ˆˆBˆNÂˆYˆ
+\™š[[Y\›ÓÛ\‘^\š[ÜŠHÂˆÛÛœİÚ^™S[Y\›Ô[™[HNÂˆÛÛœİ[˜ÚÓ[Y\›Ô[™[HY[P›ÛÚYÙ•^]Ú^™Jİš[™Ê[Y\›ÊKÚ^™S[Y\›Ô[™[
+NÂˆÛÛœİ[Y\›Ô[™[H[™[H[˜ÚÓ[Y\›Ô[™[HÂˆÛÛœİS[Y\›Ô[™[HTš[Y\˜P\˜Z˜HHÚ^™S[Y\›Ô[™[ÈÂˆÛÛœİØZ˜S[Y\›Ô[™[ˆ™Xİ›ŞHÂˆˆ[Y\›Ô[™[ˆNˆS[Y\›Ô[™[ˆÚYˆ[˜ÚÓ[Y\›Ô[™[ˆZYÚˆÚ^™S[Y\›Ô[™[ˆNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜JØZ˜S[Y\›Ô[™[[Y\›ÈH™Yİ[HÓTˆ	Û[Y\›ßX
+NÂˆYˆ
+ØZ˜S[Y\›Ô[™[
+ÈØZ˜S[Y\›Ô[™[ÚYH[™[™Xİ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[[Y\›È	Û[Y\›ßH[˜YH[[™[ÓT˜
+NÂˆBˆYˆ
+^[œÔ™Yİ[KœÛÛYJ
+[ŠHOˆ™Xİ[\œÙXØJ[‹˜˜›ŞØZ˜S[Y\›Ô[™[
+JJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[[Y\›È	Û[Y\›ßH[˜YH[^ÈHİH™Yİ[X
+NÂˆBˆ›Üˆ
+ÛÛœİÚ[™XÙQšYØZ˜QšYHÙˆØZ˜\Ô]ZY]šYXÚX[\Ë™[šY\Ê
+JHÂˆYˆ
+™Xİ[\œÙXØJØZ˜S[Y\›Ô[™[ØZ˜QšY
+JHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[[Y\›È	Û[Y\›ßH[˜YHH]ZY]›Û™H[šYXÚX[	Ú[™XÙQšY
+È_X
+NÂˆBˆBˆYˆ
+ØZ˜\Ğ\˜Z˜\ËœÛÛYJ
+ØZ˜P\˜Z˜JHOˆ™Xİ[\œÙXØJØZ˜S[Y\›Ô[™[ØZ˜P\˜Z˜JJJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[[Y\›È	Û[Y\›ßH[˜YH[˜H\˜Z˜HÓT˜
+NÂˆBˆYÙK™˜]Õ^
+İš[™Ê[Y\›ÊKÂˆˆ[Y\›Ô[™[ˆNˆS[Y\›Ô[™[ˆÚ^™NˆÚ^™S[Y\›Ô[™[ˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ“™YÜ›ÓXİ\˜BˆJNÂˆÛ\”]Y\İ[Û“[X™\›Ş\Ëœ\Ú
+ÈYˆ[Y\›Ë[Û\‹IÛ[Y\›ßX[Y\›Ô™Yİ[Nˆ[Y\›Ë‹‹˜ØZ˜S[Y\›Ô[™[JNÂˆBˆ›Üˆ
+ÛÛœİÚ[™XÙQšYØZ˜QšYHÙˆØZ˜\Ô]ZY]šYXÚX[\Ë™[šY\Ê
+JHÂˆ\ÜÙ\™XİÛÛ[šYJØZ˜QšY[™[™Xİ]ZY]›Û™HšYXÚX[	Ú[™XÙQšY
+È_HHH™Yİ[H	Û[Y\›ßX
+NÂˆYˆ
+™Xİ[\œÙXØJØZ˜S[Y\›ÓÛ\‹ØZ˜QšY
+JHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆH[œÚYÛšXH[Y\šXØH[˜YHH]ZY]›Û™H[šYXÚX[	Ú[™XÙQšY
+È_HHH™Yİ[H	Û[Y\›ßX
+NÂˆBˆYˆ
+ØZ˜\Ğ\˜Z˜\ËœÛÛYJ
+ØZ˜P\˜Z˜JHOˆ™Xİ[\œÙXØJØZ˜P\˜Z˜KØZ˜QšY
+JJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[˜H\˜Z˜H[˜YHH]ZY]›Û™HH[ˆšYXÚX[[ˆH™Yİ[H	Û[Y\›ßX
+NÂˆBˆB‚ˆYˆ
+[XYÙ[”™Yİ[JHÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜J[XYÙ[”™Yİ[K[XYÙ[ˆH™Yİ[H	Û[Y\›ßX
+NÂˆ›Üˆ
+ÛÛœİ[ˆÙˆ^[œÔ™Yİ[JHÂˆYˆ
+™Xİ[\œÙXØJ[‹˜˜›Ş[XYÙ[”™Yİ[JJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ^ËIÛ[Y\›ßXˆ[XYÙ[‹IÛ[Y\›ßXJNÂˆBˆBˆBˆ›Üˆ
+ÛÛœİ[ˆÙˆ^[œÔ™Yİ[JHÂˆYˆ
+™Xİ[\œÙXØJ[‹˜˜›Ş[™[™Xİ
+JHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ^ËIÛ[Y\›ßXˆÛ\‹IÛ[Y\›ßXJNÂˆBˆBˆ›Üˆ
+ÛÛœİ[ˆÙˆ^[œÔ™Yİ[JHÂˆYˆ
+]^[œÑ[[˜ÚXYËš[˜ÛY\Ê[ŠH	‰ˆ™Xİ[\œÙXØJ[‹˜˜›ŞØZ˜T™Yİ[JJHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ™\ÜY\İ\ËIÛ[Y\›ßXˆØZ˜K\™Yİ[KIÛ[Y\›ßXJNÂˆBˆBˆYˆ
+™Xİ[\œÙXØJØZ˜T™Yİ[K[™[İ]\”™Xİ
+JHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆØZ˜K\™Yİ[KIÛ[Y\›ßXˆÛ\‹IÛ[Y\›ßXJNÂˆBˆYˆ
+™Xİ[\œÙXØJ›Û™Ô™Yİ[K[™[İ]\”™Xİ
+JHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ›Û™Ë\™Yİ[KIÛ[Y\›ßXˆÛ\‹IÛ[Y\›ßXJNÂˆBˆYˆ
+™Xİ[\œÙXØJ›Û™Ô™\ÜY\İ\Ë[™[İ]\”™Xİ
+JHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ›Û™Ë\™\ÜY\İ\ËIÛ[Y\›ßXˆÛ\‹IÛ[Y\›ßXJNÂˆBˆ›Üˆ
+ÛÛœİ™]š[ÈÙˆÛ\”[™[›Ş\ÊHÂˆYˆ
+Û\‘\Ü]Y[XRÜš^›Û[	‰ˆ™]š[ËšYOOHÛ\‹IÛ[Y\›ßX	‰ˆ™Xİ[\œÙXØJ™]š[Ë[™[İ]\”™Xİ
+JHÂˆÛÛ\Ú[Û›Ş\Ëœ\Ú
+ÈYÚ[˜Nˆ[Y\›ÔYÚ[˜KNˆ™]š[ËšYˆÛ\‹IÛ[Y\›ßXJNÂˆBˆBˆ]Y\İ[Û•^[šĞ›Ş\Ëœ\Ú
+‹‹^[œÔ™Yİ[K›X\
+
+[‹[™^
+HOˆ
+ÈYˆ^ËIÛ[Y\›ßKIÚ[™^
+È_X‹‹œ[‹˜˜›ŞJJJNÂˆYˆ
+[XYÙ[”™Yİ[JH]Y\İ[Û•^[šĞ›Ş\Ëœ\Ú
+ÈYˆ[XYÙ[‹IÛ[Y\›ßX‹‹š[XYÙ[”™Yİ[HJNÂˆYˆ
+ÛÛ\Ú[Û›Ş\Ë›[™İˆ
+HÂˆÛÛœİ][HHÛÛ\Ú[Û›Ş\Ë›X\
+
+ÛÛ\Ú[ÛŠHOˆ	ØÛÛ\Ú[Û‹˜_OO‰ØÛÛ\Ú[Û‹˜ŸX
+Kš›Ú[Š	Ë	ÊNÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆÛÛ\Ú[Û™\È[ˆH™Yİ[H	Û[Y\›ßHHHYÚ[˜H	Û[Y\›ÔYÚ[˜_Nˆ	Ù][_X
+NÂˆBˆšYXÚX[\ÓÛ\”™Yİ[HHÂˆYÜˆÈˆšYNˆQšYÜKˆY›İÛNˆÈˆšYNˆQšY›İÛHKˆšYÚÜˆÈˆšYšYÚNˆQšYÜKˆšYÚ›İÛNˆÈˆšYšYÚNˆQšY›İÛHBˆNÂˆBˆËÈ[[šYšXØYÜˆ™\Ù\˜H[pè^[[È[™H[›Z›ÈH^ÈH[[™[ˆËÈÓT‹ˆ™]\Ø\ˆH[\˜H[šYšXØYHX[Y[™H[X›ÜÈØ\œš[\È[ˆBˆËÈZ\ÛXH™]0ëXİ[HH]š]H]YHH[\˜HY[›Üˆ[^ÈXİ[][H\š]˜K‚ˆÛÛœİÙ\\˜XÚ[Û”™Yİ[PXİX[HØ[™\”Ù\\˜XÚ[Û”™Yİ[J™Yİ[JH
+È
+^[Y[‹İ[™Yİ[\ÈˆŒÈˆJNÂˆÛÛœİ[\˜T[šYšXØYPXİX[H[”YÚ[˜VÛX\TYÚ[˜K›[™İOË˜[\˜NÂˆYˆ
+S[X™\‹š\Ñš[š]J[\˜T[šYšXØYPXİX[
+H[\˜T[šYšXØYPXİX[H
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ˜[H[\˜H[šYšXØYH\˜H[™XXİ]›È	Û[Y\›ßX
+NÂˆBˆİ\œÛÜ–HHT™Yİ[UÜH[\˜T[šYšXØYPXİX[ÂˆYÙK™˜]Ó[™JÂˆËÈH™YÛH]YYHX˜Z›ÈHHÚYİZY[H0ë[™XH˜\ÙNÈÛÛˆ[˜BˆËÈÙ\\˜XÚpìÛˆÛÛ\XİH›ÈX™H]˜]™\Ø\ˆÜÈ\ØÙ[™[\È[°ìŞ[[ÂˆËÈ[[˜ÚXYË‚ˆİ\ˆÈˆ^Ô™Yİ[T™[™\‹Nˆİ\œÛÜ–HHËŒˆKˆ[™ˆÈˆ[Z]Q\™XÚÔ™Yİ[KNˆİ\œÛÜ–HHËŒˆKˆÛÛÜˆ\İ[Ô™Yİ[K˜XÙ[ËˆXÚÛ™\ÜÎˆMBˆJNÂˆÛÛœİQš[”™Yİ[HHİ\œÛÜ–H
+ÈÙ\\˜XÚ[Û”™Yİ[PXİX[Â‚ˆ[™XÙT™Yİ[H
+ÏHNÂˆÛÛœİ˜›Ş™Yİ[HHÂˆˆ[Y\›Ô™Yİ[KˆNˆQš[”™Yİ[KˆÚYˆÛÛ™\ÜY\İH
+È[˜ÚĞÛÛ™\ÜY\İHH[Y\›Ô™Yİ[KˆZYÚˆX]›X^
+KT™Yİ[UÜHQš[”™Yİ[JBˆNÂˆ]Y\İ[Û›ØÚĞ›Ş\Ëœ\Ú
+ÈYˆ™Yİ[KIÛ[Y\›ßX‹‹˜˜›Ş™Yİ[HJNÂˆ]Y\İ[Û˜XÚÙÜ›İ[™›Ş\Ëœ\Ú
+ÈYˆ›Û™Ë\™Yİ[KIÛ[Y\›ßX‹‹™›Û™Ô™Yİ[HJNÂ‚ˆX\TYÚ[˜Kœ\Ú
+Âˆ[Y\›Ô™Yİ[Nˆ[Y\›ËˆY™Yİ[Nˆ™Yİ[KšYˆ˜›Ş™Yİ[KˆÜÚ[Û™\ÎˆÜÚ[Û™\ÓÛ\‹ˆ^[œÎˆ^[œÔ™Yİ[Kˆ[XYÙ[ˆ[XYÙ[”™Yİ[Kˆ[XYÙ[‘\ÜÜÚXÚ[Ûˆ[XYÙ[”™Yİ[BˆÈ
+^[İ][XYÙ[Ë›]\˜[È	Û]\˜[	Èˆ	Ú[™™\š[Ü‰ÊBˆˆ[™Yš[™Yˆ[XYÙT™[™\”İ]\Îˆ\İYÒ[XYÙ[”™Yİ[K™Ù]
+™Yİ[KšY
+KˆØZ˜SÛ\ˆØZ˜SÛ\”™Yİ[Kˆ\™š[Û\ˆÂˆ˜Y[ÎˆÛ\”˜Y[Ëˆ\ÛÖNˆÛ\”\ÛÖKˆ\ÛÖˆÛ\”\ÛÖ\ÛĞ\˜Z˜VˆØZ˜P[˜ÚÎˆØZ˜SÛ\”™Yİ[KÚYˆÜšY[XÚ[Ûˆ\™š[Û\‹›ÜšY[XÚ[Û‹ˆ]\]Y]P›Ü™R[™™\š[Ü‘Ø\ˆ]\]Y]P›Ü™R[™™\š[Ü‘Ø\Û\‹ˆXšXØXÚ[ÛˆÛ\‘[“[™XHÈ	Ú[ËXK[ÜÚ[Û‰Èˆ	Ü[™[\Ù\\˜YÉÂˆKˆšYXÚX[\ÎˆšYXÚX[\ÓÛ\”™Yİ[BˆJNÂˆB‚ˆYˆ
+X\TYÚ[˜K›[™İOOH[”YÚ[˜K›[™İ
+HÂˆ›İÈ™]È\œ›ÜŠˆ^[İ][˜[YÎˆ[[ˆHHYÚ[˜H	Û[Y\›ÔYÚ[˜_H™\Ù\˜H	Ü[”YÚ[˜K›[™İH™XXİ]›ÜÈ
+Âˆ\›È[™[™\™\ˆXZ›È	ÛX\TYÚ[˜K›[™İXˆ
+NÂˆBˆÛÛœİš[ÛXÚ[Û™\Õ\ÙÜ˜YšXØ\ÔYÚ[˜HH[™RZYÚš[Û][ÛœË™š[\Š
+š[ÛXÚ[ÛŠHOˆš[ÛXÚ[Û‹œYÚ[˜HOOH[Y\›ÔYÚ[˜JNÂˆYˆ
+š[ÛXÚ[Û™\Õ\ÙÜ˜YšXØ\ÔYÚ[˜K›[™İˆ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[™XXİ]›È›ÈÛÛœÙ\˜HH[\˜H\ÙÜ˜YšXØHZ[š[XH[ˆHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆB‚ˆÛÛœİ[\˜\Ô[šYšXØY\Ô™[™\š^˜Y\ÈHX\TYÚ[˜K›X\
+
+™Yİ[T™[™\š^˜YK[™XÙJHOˆÂˆÛÛœİ™Yİ[T[šYšXØYHH[”YÚ[˜VÚ[™XÙWNÂˆÛÛœİ™Yİ[P˜\ÙT[šYšXØYHH™Yİ[T[šYšXØYBˆÈ™Yİ[\ÓÜ™[˜Y\ÖÜ™Yİ[T[šYšXØYKš[™XÙWBˆˆ[™Yš[™YÂˆÛÛœİ[\˜T[šYšXØYHH™Yİ[T[šYšXØYOË˜[\˜HÏÈÂˆÛÛœİ[\˜T™[™\š^˜YHH™Yİ[T™[™\š^˜YK˜˜›Ş™Yİ[OËšZYÚÏÈÂˆYˆ
+ˆS[X™\‹š\Ñš[š]J[\˜T[šYšXØYJBˆ[\˜T[šYšXØYHHˆS[X™\‹š\Ñš[š]J[\˜T™[™\š^˜YJBˆ[\˜T™[™\š^˜YHHˆ[\˜T™[™\š^˜YHˆ[\˜T[šYšXØYH
+ÈÔ’QÔÕT
+ÈŒBˆ
+HÂˆ›İÈ™]È\œ›ÜŠˆ^[İ][˜[YÎˆ[™XXİ]›È	Ü™Yİ[T™[™\š^˜YK›[Y\›Ô™Yİ[_HHHYÚ[˜H	Û[Y\›ÔYÚ[˜_H
+Âˆ^ÙYHİH™\Ù\˜H™]šXH
+	Ø[\˜T™[™\š^˜YKÑš^Y
+Š_HXZ˜YÜË
+Âˆ	Ø[\˜T[šYšXØYKÑš^Y
+Š_H[™XYÜÊXˆ
+NÂˆBˆYˆ
+
+™Yİ[T™[™\š^˜YK˜˜›Ş™Yİ[OËHÏÈ
+H[\˜Q\ÜÛšX›SZ[ˆHŒJHÂˆ›İÈ™]È\œ›ÜŠˆ^[İ][˜[YÎˆ[™XXİ]›È	Ü™Yİ[T™[™\š^˜YK›[Y\›Ô™Yİ[_H[˜YH[X\™Ù[ˆ[™™\š[ÜˆÙYİ\›È
+ÂˆHHYÚ[˜H	Û[Y\›ÔYÚ[˜_Xˆ
+NÂˆBˆ™]\›ˆÂˆ]Y\İ[Û’Yˆ™Yİ[T™[™\š^˜YKšY™Yİ[Kˆ[›™YZYÚˆ[X™\Š[\˜T[šYšXØYKÑš^Y
+ÊJKˆ™[™\™YZYÚˆ[X™\Š[\˜T™[™\š^˜YKÑš^Y
+ÊJKˆÛÛ[Ú\˜Xİ\œÎˆ™Yİ[P˜\ÙT[šYšXØYHÈÛÛ\Ø\˜Xİ\™\Ô™Yİ[J™Yİ[P˜\ÙT[šYšXØYJHˆˆ[\”]Y\İ[Û‘Ø\ˆ™Yİ[P˜\ÙT[šYšXØYBˆÈ[X™\ŠØ[™\”Ù\\˜XÚ[Û”™Yİ[J™Yİ[P˜\ÙT[šYšXØYJKÑš^Y
+ÊJBˆˆˆNÂˆJNÂ‚ˆYˆ
+X\TYÚ[˜K›[™İOOH	‰ˆ[™XÙT™Yİ[Hİ[™Yİ[\ÊHÂˆ›İÈ™]È\œ›ÜŠˆ^[İ][˜[YÎˆ[™XXİ]›È	Ôİš[™Ê[™XÙT™Yİ[H
+ÈJ_H›ÈØX™H[ˆ[˜HYÚ[˜H
+ÂˆÛÛˆ[[X[›ÈH]˜HZ[š[[ÈYÚX›H
+	Ù›ÛØØ[KÑš^Y
+Š_^
+K˜ˆ
+NÂˆB‚ˆËÈ[TˆX™H\ØÜšXš\ˆHYÚ[˜Hš\ÚXØHXH™[™\š^˜YK›ÈÙÈ[ˆËÈ^[Y[‹ˆÛÙYšXØ\ˆÙ\È\È™Yİ[\È][Y[X˜HH™\œÚ[Ûˆ[T‹ˆËÈ™YXÚXHÜÈ^[\ÈÜˆ[Ù[ÈHXÚXHX\Èœ˜YÚ[HXİ\˜H[İš[‚ˆËÈÙH™YXZ˜HÛØœ™HH™\Ù\˜HXHØ[İ[YH\˜HÛÛœÙ\˜\ˆ[^[İ]‚ˆÛÛœİ]Y\İ[Û’YÔYÚ[˜HHX\TYÚ[˜K›X\
+
+™Yİ[JHOˆ™Yİ[KšY™Yİ[JNÂˆÛÛœİ\•^ÔYÚ[˜Qš[˜[H^[Y[‹™Ù[™\˜\•^Ô\”YÚ[˜J[Y\›ÔYÚ[˜T‹]Y\İ[Û’YÔYÚ[˜JNÂˆ\•^ÔYÚ[˜HH\•^ÔYÚ[˜Qš[˜[Âˆ\’[™›ÈH]ØZ]YÜ™YØ\”\Š‘ØËYÙK\•^ÔYÚ[˜KX\™Ù[‹\™š[Û\ŠNÂ‚ˆËÈXZ˜\ˆH^Y[™H\Üpê\ÈHHXİX[^˜XÚpìÛˆš[˜[[T‹ˆ[ˆ[˜BˆËÈ0èYÚ[˜H[œØH[TˆÙH™YÙ[™\˜HÛÛˆİ\È™Yİ[\È™X[\ÎÈXÙ\›È[\ÂˆËÈZ˜\°ëXHH^Y[™HİXšY\HÜˆHÙYİ[™H\š™]H›[˜ØK‚ˆÂˆÛÛœİ[Ñœ˜[š˜S^Y[™T\ˆHLÂˆÛÛœİ[˜ÚÔ™\Ù\˜T\ˆHØ\™ÎÂˆÛÛœİ^Y[™T\ˆH	Ù›Û[Ô\ŸH0­È	Û[Y\›ÔYÚ[˜TŸXÂˆÛÛœİ[˜ÚÓ^Y[™Q\ÜÛšX›HHX]›X^
+[˜ÚÔ™\Ù\˜T\ˆH
+NÂˆ]Ú^™S^Y[™T\ˆHKÂˆÚ[H
+ˆÚ^™S^Y[™T\ˆˆˆ	‰‚ˆY[P›ÛÚYÙ•^]Ú^™J^Y[™T\‹Ú^™S^Y[™T\ŠHˆ[˜ÚÓ^Y[™Q\ÜÛšX›Bˆ
+HÂˆÚ^™S^Y[™T\ˆHX]›X^
+‹Ú^™S^Y[™T\ˆHŒŠNÂˆBˆÛÛœİ[˜ÚÓ^Y[™T\ˆHY[P›ÛÚYÙ•^]Ú^™J^Y[™T\‹Ú^™S^Y[™T\ŠNÂˆYˆ
+[˜ÚÓ^Y[™T\ˆˆ[˜ÚÓ^Y[™Q\ÜÛšX›JHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[Y[YšXØYÜˆÛÛ\Y\İÈ›ÈØX™H˜Z›È[TˆHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆBˆÛÛœİ^Y[™T\ˆHØ\™
+ÈX]›X^
+
+Ø\™ÈH[˜ÚÓ^Y[™T\ŠHÈŠNÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆˆØ\™
+ÈKˆNˆØ\™H
+ÈKˆÚYˆX]›X^
+KØ\™ÈHŠKˆZYÚˆ[Ñœ˜[š˜S^Y[™T\ˆHKˆÛÛÜˆ™ØŠM‹NJKˆÜXÚ]NˆM‚ˆJNÂˆYÙK™˜]Õ^
+^Y[™T\‹Âˆˆ^Y[™T\‹ˆNˆØ\™H
+È
+[Ñœ˜[š˜S^Y[™T\ˆHÚ^™S^Y[™T\ŠHÈ‹ˆÚ^™NˆÚ^™S^Y[™T\‹ˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ”š[X\š[ÂˆJNÂˆB‚ˆËÈ[˜HÛÛHÜ˜\HÛÜİY[™H[\]Y]KˆH™\Ù\˜HHHÛÜ›Û˜H]YY[‚ˆËÈ™\XØ[\Ë\˜[[\È[›Ü™H^œ]ZY\™ÎÈH]\]Y]H[Xšpê[ˆÙBˆËÈÛÛ\Û™H[ˆ™\XØ[HÙHÙ\\˜HHH0ë[™XH\˜HÛÛœÙ\˜\ˆYÚXš[YY‚ˆYˆ
+\Ôš[Y\˜JHÂˆÛÛœİİ\UÚYH[PT[ÜÊ
+NÂˆÛÛœİİ\RZYÚH[PT[ÜÊŒ
+NÂˆÛÛœİÛİÙÛÒ^œ]ZY\™ÈHXY\”Ûİ›Ş\Ë™š[™
+
+Ûİ
+HOˆÛİšYOOH	ÛÙÛËZ^œ]ZY\™ÉÊNÂˆÛÛœİİ\V™Y™\šYÈH[PT[ÜÊJNÂˆÛÛœİİ\VZ[š[[ÈH[PT[ÜÊJNÂˆËÈX[[™\ˆHİpëXH[ˆ[X\™Ù[ˆ^œ]ZY\™ÎÈ\Ü^˜\›HÛÛÈÂˆËÈ™XÙ\Ø\š[È\˜HÛÛœÙ\˜\ˆH[HHÙ\\˜XÚpìÛˆ[Ûİ[œİ]XÚ[Û˜[‚ˆÛÛœİİ\VX^[[ÈHÛİÙÛÒ^œ]ZY\™ÂˆÈÛİÙÛÒ^œ]ZY\™ËHİ\UÚYˆˆİ\V™Y™\šYÎÂˆYˆ
+İ\VX^[[Èİ\VZ[š[[ÊHÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆ›È^H\ÜXÚ[È[\š[ZX›HÙYİ\›È\˜HHÜ˜\IÊNÂˆBˆÛÛœİİ\VHX]›Z[Šİ\V™Y™\šYËİ\VX^[[ÊNÂˆİ\V›Û™HHÂˆˆİ\VˆËÈÙH˜Z˜HH[H\˜HÛÛœÙ\˜\ˆ[\ÜZ™HYXÚ[Û˜[[™Y›Z˜\ˆBˆËÈ™\Ù\˜H0îœ^XÚXH[šYXÚX[HH\Ü]Z[˜HÜY\İK‚ˆNˆS×ĞĞT•HH[PT[ÜÊÊKˆÚYˆİ\UÚYˆZYÚˆİ\RZYÚˆNÂˆ›Û˜Q[™Ü˜\YÑš\ÚXØHHİ\V›Û™NÂˆİ\RÙY\İ]›Û™HHİ\V›Û™NÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜Jİ\V›Û™K	Ş›Û˜HH[™Ü˜\YÉÊNÂˆÛÛœİ™Xİ\‘^[™YÎˆ™Xİ›ŞHÂˆˆ™Xİ\‹H[PT[ÜÊJKˆNˆ™Xİ\‹HH[PT[ÜÊJKˆÚYˆ™Xİ\‹ÚY
+È[PT[ÜÊŠKˆZYÚˆ™Xİ\‹šZYÚ
+È[PT[ÜÊŠBˆNÂˆÛÛœİ›Ü]Y\Ó›ÑÜ˜\X›\ÈHÂˆ‹‹šXY\”Ûİ›Ş\Ëˆ‹‹šXY\•^›ØÚÜËˆ‹‹šXY\’XÛÛ›Ş\Ëˆ‹‹šXY\‘šY[›Ş\Ëˆ‹‹œ]Y\İ[Û”›Û\›Ş\Ëˆ‹‹œ]Y\İ[Û•^[šĞ›Ş\Ëˆ‹‹›Û\”[™[›Ş\ÂˆNÂˆÛÛœİ\’[˜YYÈH™Xİ[\œÙXØJİ\RÙY\İ]›Û™K™Xİ\‘^[™YÊNÂˆÛÛœİÛÛ[šYÒ[˜YYÈH›Ü]Y\Ó›ÑÜ˜\X›\Ë™š[\Š
+ØZ˜JHOˆ™Xİ[\œÙXØJİ\RÙY\İ]›Û™HKØZ˜JJK›X\
+
+ÈYJHOˆY
+NÂˆYˆ
+\’[˜YYÈÛÛ[šYÒ[˜YYË›[™İˆ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ™\Ù\˜HH[™Ü˜\YÈ[˜YH\IÜ\’[˜YYßKÛÛ[šYÏIØÛÛ[šYÒ[˜YYËš›Ú[Š	Ë	Ê_X
+NÂˆBˆËÈØ[YÈ›[˜ÛÈÚ[ˆÛØ™\\˜HH[Nˆ]š]H]YH[X\˜ÛÈH[ˆËÈÜ›˜[Y[È™Y^\İ[\È]˜]šY\Ù[ˆHX\˜ØHH[™Ü˜\YË‚ˆYÙK™˜]Ô™Xİ[™ÛJÈ‹‹œİ\V›Û™KÛÛÜˆ™ØŠKKJHJNÂˆÛÛœİ\ÛÔ[ÜÑÜ˜\HHŒÂˆÛÛœİ[Ò^œ]ZY\™ÈHİ\V›Û™K
+ÈNÂˆÛÛœİ[Ñ\™XÚÈHİ\V›Û™K
+Èİ\V›Û™KÚYHNÂˆ›Üˆ
+]HHİ\V›Û™KH
+ÈÈHHİ\V›Û™KH
+Èİ\V›Û™KšZYÚHÈH
+ÏH\ÛÔ[ÜÑÜ˜\JHÂˆYÙK™˜]ĞÚ\˜ÛJÈˆ[Ò^œ]ZY\™ËKÚ^™NˆŒÛÛÜˆÛÛÜXÙ[ËÜXÚ]NˆŒLˆJNÂˆYÙK™˜]ĞÚ\˜ÛJÈˆ[Ñ\™XÚËKÚ^™NˆŒÛÛÜˆÛÛÜXÙ[ËÜXÚ]NˆŒLˆJNÂˆBˆ›Üˆ
+]Hİ\V›Û™K
+ÈÈHİ\V›Û™K
+Èİ\V›Û™KÚYHÈ
+ÏH\ÛÔ[ÜÑÜ˜\JHÂˆYÙK™˜]ĞÚ\˜ÛJÈNˆİ\V›Û™KH
+ÈKÚ^™NˆŒÛÛÜˆÛÛÜXÙ[ËÜXÚ]NˆŒLˆJNÂˆYÙK™˜]ĞÚ\˜ÛJÈNˆİ\V›Û™KH
+Èİ\V›Û™KšZYÚHKÚ^™NˆŒÛÛÜˆÛÛÜXÙ[ËÜXÚ]NˆŒLˆJNÂˆBˆÛÛœİÙ[›ÑÜ˜\HHÂˆˆİ\V›Û™K
+Èİ\V›Û™KÚYÈ‹ˆNˆİ\V›Û™KH
+Èİ\V›Û™KšZYÚÈ‚ˆNÂˆÛÛœİYYXPÛÜ›Û˜HH[PT[ÜÊ‹
+NÂˆÛÛœİ^[œÚ[Û”]HH[PT[ÜÊÊNÂˆ›Üˆ
+ÛÛœİÚYÛ›ÈÙˆËLKWH\ÈÛÛœİ
+HÂˆÛÛœİ^™[[ÈHÈˆÙ[›ÑÜ˜\KNˆÙ[›ÑÜ˜\KH
+ÈÚYÛ›È
+ˆYYXPÛÜ›Û˜HNÂˆYÙK™˜]Ó[™JÂˆİ\ˆ^™[[Ëˆ[™ˆÈˆ^™[[Ë
+È^[œÚ[Û”]KNˆ^™[[ËHKˆÛÛÜˆÛÛÜ”š[X\š[ËˆXÚÛ™\ÜÎˆBˆJNÂˆBˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆÙ[›ÑÜ˜\KNˆÙ[›ÑÜ˜\KHHYYXPÛÜ›Û˜HKˆ[™ˆÈˆÙ[›ÑÜ˜\KNˆÙ[›ÑÜ˜\KH
+ÈYYXPÛÜ›Û˜HKˆÛÛÜˆÛÛÜ”š[X\š[ËˆXÚÛ™\ÜÎˆBˆJNÂˆÛÛœİ]\]Y]QÜ˜\HH	ÑÔTIÎÂˆÛÛœİ]\]Y]QÜ˜\TÚ^™HHŒÂˆÛÛœİ]\]Y]QÜ˜\UÚYHY[KÚYÙ•^]Ú^™J]\]Y]QÜ˜\K]\]Y]QÜ˜\TÚ^™JNÂˆÛÛœİ]\]Y]QÜ˜\Q›ÛZYÚHY[P›ÛšZYÚ]Ú^™J]\]Y]QÜ˜\TÚ^™JNÂˆÛÛœİ]\]Y]QÜ˜\VHİ\V›Û™K
+È[PT[ÜÊKŒŠNÂˆÛÛœİ]\]Y]QÜ˜\VHHİ\V›Û™KH
+È
+İ\V›Û™KšZYÚH]\]Y]QÜ˜\UÚY
+HÈÂˆİ\SX™[›Û™HHÂˆˆ]\]Y]QÜ˜\VˆNˆ]\]Y]QÜ˜\VKˆÚYˆ]\]Y]QÜ˜\Q›ÛZYÚˆZYÚˆ]\]Y]QÜ˜\UÚYˆ›İ][ÛˆÌˆNÂˆYÙK™˜]Õ^
+]\]Y]QÜ˜\KÂˆˆ]\]Y]QÜ˜\VˆNˆ]\]Y]QÜ˜\VH
+È]\]Y]QÜ˜\UÚYˆÚ^™Nˆ]\]Y]QÜ˜\TÚ^™Kˆ›ÛˆY[P›ÛˆÛÛÜˆÛÛÜ”š[X\š[Ëˆ›İ]NˆYÜ™Y\ÊÌ
+BˆJNÂˆB‚ˆYˆ
+İ\RÙY\İ]›Û™JHÂˆYˆ
+Y\Ôš[Y\˜JHÂˆÛÛœİØZ˜\ĞÛÛ[šYÑ[”™\Ù\˜HHÂˆÈYˆ	Ü\‰Ë‹‹œ™Xİ\ˆKˆ‹‹šXY\”Ûİ›Ş\Ëˆ‹‹šXY\•^›ØÚÜËˆ‹‹šXY\’XÛÛ›Ş\Ëˆ‹‹šXY\‘šY[›Ş\Ëˆ‹‹œ]Y\İ[Û”›Û\›Ş\Ëˆ‹‹›Û\”[™[›Ş\Ëˆ‹‹˜ÛÛ[X][Û•^›ØÚÜÂˆNÂˆÛÛœİÛÛ\Ú[Û™\Ô™\Ù\˜HHØZ˜\ĞÛÛ[šYÑ[”™\Ù\˜Bˆ™š[\Š
+ØZ˜JHOˆ™Xİ[\œÙXØJİ\RÙY\İ]›Û™HKØZ˜JJBˆ›X\
+
+ÈYJHOˆY
+NÂˆYˆ
+ÛÛ\Ú[Û™\Ô™\Ù\˜K›[™İˆ
+HÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆH™\Ù\˜HH[™Ü˜\YÈ[˜YH	ØÛÛ\Ú[Û™\Ô™\Ù\˜Kš›Ú[Š	Ë	Ê_H[ˆHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆBˆYÙK™˜]Ô™Xİ[™ÛJÈ‹‹œİ\RÙY\İ]›Û™KÛÛÜˆ™ØŠKKJHJNÂˆBˆ›Üˆ
+ÛÛœİ™Yİ[HÙˆX\TYÚ[˜JHÂˆ›Üˆ
+ÛÛœİÜÚ[ÛˆÙˆ™Yİ[K›ÜÚ[Û™\ÊHÂˆÛÛœİ[ÖHX]›X^
+İ\RÙY\İ]›Û™KX]›Z[ŠÜÚ[Û‹İ\RÙY\İ]›Û™K
+Èİ\RÙY\İ]›Û™KÚY
+JNÂˆÛÛœİ[ÖHHX]›X^
+İ\RÙY\İ]›Û™KKX]›Z[ŠÜÚ[Û‹Kİ\RÙY\İ]›Û™KH
+Èİ\RÙY\İ]›Û™KšZYÚ
+JNÂˆYˆ
+X]š\İ
+ÜÚ[Û‹H[ÖÜÚ[Û‹HH[ÖJH\™š[Û\‹˜\˜Z˜T˜Y[ÊHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[˜H\˜Z˜HÓTˆ[˜YHH™\Ù\˜Hš\ÚXØHH[™Ü˜\YÈ[ˆHYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆBˆBˆBˆB‚ˆÛÛœİ[\˜U][HX]›X^
+Kİ\œÛÜ–R[šXÚ[ÈH[\˜Q\ÜÛšX›SZ[ŠNÂˆÛÛœİ[\˜T™\İ[HHX]›X^
+İ\œÛÜ–HH[\˜Q\ÜÛšX›SZ[ŠNÂˆÛÛœİœ˜XØÚ[Û•˜XÚXHHX]›X^
+X]›Z[ŠK[\˜T™\İ[HÈ[\˜U][
+JNÂˆY]šXØ\ÔYÚ[˜\Ëœ\Ú
+È[Y\›Îˆ[Y\›ÔYÚ[˜T‹œ˜XØÚ[Û•˜XÚXK™Yİ[\ÎˆX\TYÚ[˜K›[™İJNÂ‚ˆYˆ
+X\TYÚ[˜K›[™İOOH	‰ˆ
+™Yİ[\Ñ[OOH™Yİ[\Ğ[OOH
+JHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ˜[™ÛÜÈ[˜ÛÛœÚ\İ[\È[ˆYÚ[˜H	Û[Y\›ÔYÚ[˜_X
+NÂˆBˆYˆ
+X\TYÚ[˜K›[™İˆ
+HÂˆÛÛœİ\Ü\˜YÑ[HX\TYÚ[˜VÌOË›[Y\›Ô™Yİ[HÏÈÂˆÛÛœİ\Ü\˜YĞ[HX\TYÚ[˜VÛX\TYÚ[˜K›[™İHWOË›[Y\›Ô™Yİ[HÏÈÂˆYˆ
+™Yİ[\Ñ[OOH\Ü\˜YÑ[™Yİ[\Ğ[OOH\Ü\˜YĞ[
+HÂˆ›İÈ™]È\œ›ÜŠˆ^[İ][˜[YÎˆYÚ[˜H	Û[Y\›ÔYÚ[˜_HØ[İ[YH	Ü™Yİ[\Ñ[KIÜ™Yİ[\Ğ[H\›È™[™\ˆ	Ù\Ü\˜YÑ[KIÙ\Ü\˜YĞ[Xˆ
+NÂˆBˆB‚ˆYÚ[˜\ÓY]Kœ\Ú
+È[Y\›Îˆ[Y\›ÔYÚ[˜T‹\•^Îˆ\•^ÔYÚ[˜K™Yİ[\Ñ[™Yİ[\Ğ[\ÔYÚ[˜Nˆ	Ù^[Y[‰ÈJNÂˆYÚ[˜\ÓÛ\‹œ\Ú
+Âˆ[Y\›ÔYÚ[˜Nˆ[Y\›ÔYÚ[˜T‹ˆ\ÔYÚ[˜Nˆ	Ù^[Y[‰Ëˆ\^ˆÂˆÚ˜NˆX]˜ÙZ[
+[Y\›ÔYÚ[˜TˆÈŠKˆYÎˆ[Y\›ÔYÚ[˜Tˆ	HˆOOHHÈ	Ùœ™[IÈˆ	Ü™]™\œÛÉËˆ[™XÙQ[’Ú˜Nˆ[Y\›ÔYÚ[˜Tˆ	HˆOOHHÈHˆ‚ˆKˆ[\]U™\œÚ[Ûˆ\™š[Û\‹™\œÚ[Û‹ˆ[\]RYˆ\™š[Û\‹[\]RYˆX\šÙ\”ÜXËˆ[™Ú[™R[Ëˆ\ˆÂˆ^Îˆ\•^ÔYÚ[˜Kˆˆ\‹ˆNˆT\‹ˆÚ^™Nˆ\”Ú^™KˆY[™Îˆ\”Y[™Ëˆ\œ›ÜÛÜœ™Xİ[Û“]™[ˆ\’[™›Ë™\œ›ÜÛÜœ™Xİ[Û“]™[ˆX\™Ú[“[Ù[\Îˆ\’[™›Ë›X\™Ú[“[Ù[\ËˆX]š^[Ù[\Îˆ\’[™›Ë›X]š^[Ù[\Ëˆ[Ù[TÚ^™Nˆ\’[™›Ë›[Ù[TÚ^™BˆKˆX\˜Ø\ÔYÚ[˜Kˆ™Yİ[\ÎˆX\TYÚ[˜Kˆ^[İ]XYÎˆÂˆ^[İ][\]U™\œÚ[ÛˆSTUWÕ‘T”ÒSÓ—ĞĞS“Ó’PĞKˆXY\ˆÈˆ™XİXY\‹Nˆ™XİXY\‹KÚYˆ™XİXY\‹ÚYZYÚˆ™XİXY\‹šZYÚKˆš[™[™Ö›Û™Nˆİ\V›Û™Kˆš[™[™ÒÙY\İ]›Û™Nˆİ\RÙY\İ]›Û™Kˆš[™[™ÓX™[ˆİ\SX™[›Û™KˆÛÛ[X][Û•^›ØÚÜËˆ\ˆÈˆ™Xİ\‹Nˆ™Xİ\‹KÚYˆ™Xİ\‹ÚYZYÚˆ™Xİ\‹šZYÚKˆ[œİXİ[ÛœÎˆ™Xİ[™XØXÚ[Û™\ËˆXY\”ÛİÎˆXY\”Ûİ›Ş\ËˆXY\’XÛÛ›Ş\ËˆXY\•^›ØÚÜËˆXY\‘šY[›Ş\Ëˆ[›™Y]Y\İ[Û’ZYÚÎˆ[\˜\Ô[šYšXØY\Ô™[™\š^˜Y\Ëˆ[™RZYÚš[Û][ÛœÎˆ[™RZYÚš[Û][ÛœÂˆ™š[\Š
+ŠHOˆ‹œYÚ[˜HOOH[Y\›ÔYÚ[˜JBˆ›X\
+
+ŠHOˆ
+È™Yİ[RYˆ‹œ™Yİ[RY[™RZYÚˆ‹›[™RZYÚZ[ˆ‹›Z[ˆJJKˆÛÛ[İ\Nˆİ\œÛÜ–R[šXÚ[ËˆÛÛ[[™Nˆİ\œÛÜ–Kˆ]Y\İ[Û›ØÚĞ›Ş\Ëˆ]Y\İ[Û˜XÚÙÜ›İ[™›Ş\Ëˆ]Y\İ[Û”›Û\›Ş\ËˆÛ\”[™[›Ş\ËˆÛ\”]Y\İ[Û“[X™\›Ş\ËˆÛÛ\Ú[Û›Ş\ÂˆBˆJNÂ‚ˆYˆ
+™]™\œÛÑ[›[˜ÛÊHÂˆËÈHØ[™Y]H[YÜ˜YHX[Y[™Hİ\È\˜Z˜\È[ˆ[˜HÛÛHØ\˜HBˆËÈØYHÚ˜Nˆ[™]™\œÛÈ˜Xğë[È]š]H]YHH[H[\™\ØH]˜]šY\ÙH[ˆËÈ\[HØ[XšYH[[Xœ˜[HXİ\˜H[ˆ›İÜÈpìİš[\Ë‚ˆ‘ØË˜YYÙJĞSÒ×ĞĞT•KS×ĞĞT•WJNÂˆÛÛœİ[Y\›Ô™]™\œÛÔˆH‘ØË™Ù]YÙPÛİ[
+
+NÂˆYÚ[˜\ÓY]Kœ\Ú
+Âˆ[Y\›Îˆ[Y\›Ô™]™\œÛÔ‹ˆ\•^Îˆ	ÉËˆ™Yİ[\Ñ[ˆˆ™Yİ[\Ğ[ˆˆ\ÔYÚ[˜Nˆ	Ü™]™\œÛË]˜XÚ[ÉÂˆJNÂˆY]šXØ\ÔYÚ[˜\Ëœ\Ú
+È[Y\›Îˆ[Y\›Ô™]™\œÛÔ‹œ˜XØÚ[Û•˜XÚXNˆK™Yİ[\ÎˆJNÂˆYÚ[˜\ÓÛ\‹œ\Ú
+Âˆ[Y\›ÔYÚ[˜Nˆ[Y\›Ô™]™\œÛÔ‹ˆ\ÔYÚ[˜Nˆ	Ü™]™\œÛË]˜XÚ[ÉËˆ\^ˆÂˆÚ˜NˆX]˜ÙZ[
+[Y\›Ô™]™\œÛÔˆÈŠKˆYÎˆ	Ü™]™\œÛÉËˆ[™XÙQ[’Ú˜Nˆ‚ˆKˆ[\]U™\œÚ[Ûˆ\™š[Û\‹™\œÚ[Û‹ˆ[\]RYˆ\™š[Û\‹[\]RYˆ™Yİ[\Îˆ×BˆJNÂˆB‚ˆ[Y\›ÔYÚ[˜H
+ÏHNÂˆB‚ˆÛÛœİYÚ[˜\Ñ^[Y[ˆHYÚ[˜\ÓY]K™š[\Š
+YÚ[˜JHOˆYÚ[˜K\ÔYÚ[˜HOOH	Ù^[Y[‰ÊNÂˆÛÛœİÜÚXÚ[Û™\ÔYHHĞSÒ×ĞĞT•H
+ˆŒKSÒ×ĞĞT•H
+ˆL—NÂˆÛÛœİ[˜ÚÖ›Û˜TYHHSÒ×ĞĞT•H
+ˆŒÎÂˆÛÛœİYTÚ^™T™Y™\šYÈHKNÂˆÛÛœİYTÚ^™T™YXÚYÈHNÂˆÛÛœİYVHHX\™Ù[ˆ
+È‹NÂˆÛÛœİYT[™[ˆ™Xİ›ŞHÂˆˆÜÚXÚ[Û™\ÔYVÌHKˆNˆX\™Ù[ˆ
+ÈKˆÚYˆSÒ×ĞĞT•H
+ˆˆZYÚˆLÂˆNÂˆ›Üˆ
+ÛÛœİÚ[™XÙTYÚ[˜KYÚ[˜SY]WHÙˆYÚ[˜\Ñ^[Y[‹™[šY\Ê
+JHÂˆÛÛœİYÙHH‘ØË™Ù]YÙ\Ê
+VÜYÚ[˜SY]K›[Y\›ÈHWNÂˆYˆ
+\YÙJH›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ›È^\İHHYÚ[˜H	ÜYÚ[˜SY]K›[Y\›ßH\˜HXZ˜\ˆ[YX
+NÂˆÛÛœİYÚ[˜SÛ\ˆHYÚ[˜\ÓÛ\‹™š[™
+
+YÚ[˜JHOˆYÚ[˜K›[Y\›ÔYÚ[˜HOOHYÚ[˜SY]K›[Y\›ÊNÂˆÛÛœİX\˜Ø\Ñ›Ûİ\ˆHYÚ[˜SÛ\Ë›X\˜Ø\ÔYÚ[˜NÂˆYˆ
+[X\˜Ø\Ñ›Ûİ\ŠH›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ˜[[ˆšYXÚX[\È\˜H[YHHYÚ[˜H	ÜYÚ[˜SY]K›[Y\›ßX
+NÂˆÛÛœİ]ZY]›Û™\Ñ›Ûİ\ˆ™Xİ›Ş×HH
+Éİ	Ë	İ‰Ë	Ø›	Ë	Øœ‰×H\ÈÛÛœİ
+K›X\
+
+\Ü]Z[˜JHOˆÂˆÛÛœİX\˜ØHHX\˜Ø\Ñ›Ûİ\–Ù\Ü]Z[˜WNÂˆÛÛœİ^œ]ZY\™HH\Ü]Z[˜K™[™ÕÚ]
+	Û	ÊNÂˆÛÛœİİ\\š[ÜˆH\Ü]Z[˜Kœİ\ÕÚ]
+	İ	ÊNÂˆÛÛœİ^[œÚ[ÛˆHX\˜Ø\Ñ›Ûİ\‹œ]ZY]›Û™H
+È[PT[ÜÊŠNÂˆ™]\›ˆÂˆˆ
+^œ]ZY\™HÈX\˜ØKˆX\˜ØKHX\˜Ø\Ñ›Ûİ\‹œÚ^™JHH^[œÚ[Û‹ˆNˆ
+İ\\š[ÜˆÈX\˜ØKHHX\˜Ø\Ñ›Ûİ\‹œÚ^™HˆX\˜ØKJHH^[œÚ[Û‹ˆÚYˆX\˜Ø\Ñ›Ûİ\‹œÚ^™H
+È^[œÚ[Ûˆ
+ˆ‹ˆZYÚˆX\˜Ø\Ñ›Ûİ\‹œÚ^™H
+È^[œÚ[Ûˆ
+ˆ‚ˆNÂˆJNÂˆÛÛœİØZ˜\ĞÛÛ[šYÔYHHÂˆ‹‹ŠYÚ[˜SÛ\‹›^[İ]XYÏËœ\ˆÈÜYÚ[˜SÛ\‹›^[İ]XYËœ\—Hˆ×JKˆ‹‹ŠYÚ[˜SÛ\‹›^[İ]XYÏËœ]Y\İ[Û›ØÚĞ›Ş\ÈÏÈ×JKˆ‹‹ŠYÚ[˜SÛ\‹›^[İ]XYÏËœ]Y\İ[Û”›Û\›Ş\ÈÏÈ×JKˆ‹‹ŠYÚ[˜SÛ\‹›^[İ]XYÏË›Û\”[™[›Ş\ÈÏÈ×JKˆ‹‹œYÚ[˜SÛ\‹œ™Yİ[\Ë™›]X\
+
+™Yİ[JHOˆ
+™Yİ[K^[œÈÏÈ×JK›X\
+
+[ŠHOˆ[‹˜˜›Ş
+JBˆNÂˆÛÛœİÛÛ\Ú[Û™\ÔYHHØZ˜\ĞÛÛ[šYÔYK™š[\Š
+ØZ˜JHOˆ™Xİ[\œÙXØJYT[™[ØZ˜JJNÂˆYˆ
+ÛÛ\Ú[Û™\ÔYK›[™İˆ
+HÂˆÛÛœİXYÛ›ÜİXÛÈHÛÛ\Ú[Û™\ÔYK›X\
+
+ØZ˜JHO‚ˆ	ÉÚY	È[ˆØZ˜HÈØZ˜KšYˆ	Ø›Ü]YIßJ	ØØZ˜KÑš^Y
+J_K	ØØZ˜KKÑš^Y
+J_K	ØØZ˜KÚYÑš^Y
+J_K	ØØZ˜KšZYÚÑš^Y
+J_JXˆ
+NÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ[YH[˜YHÛÛ[šYÈÓTˆ[ˆHYÚ[˜H	ÜYÚ[˜SY]K›[Y\›ßNˆ	ÙXYÛ›ÜİXÛËš›Ú[Š	ÎÈ	Ê_X
+NÂˆBˆÛÛœİ[Y\›ÔYÚ[˜Q^[Y[ˆH[™XÙTYÚ[˜H
+ÈNÂˆÛÛœİYU^ÈH“ÓSÈ	Ù^[Y[‹™›Û[Ó›Ü›X[^˜YßH0­È	Û[Y\›ÔYÚ[˜Q^[Y[ŸXÂˆ]YTÚ^™HHYTÚ^™T™Y™\šYÎÂˆ]YUÚYHY[SØÜ‹ÚYÙ•^]Ú^™JYU^ËYTÚ^™JNÂˆYˆ
+YUÚYˆ[˜ÚÖ›Û˜TYJHÂˆYTÚ^™HHYTÚ^™T™YXÚYÎÂˆYUÚYHY[SØÜ‹ÚYÙ•^]Ú^™JYU^ËYTÚ^™JNÂˆBˆYˆ
+YUÚYˆ[˜ÚÖ›Û˜TYJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆH™Y™\™[˜ÚXHĞÔˆHHYÚ[˜H	Û[Y\›ÔYÚ[˜Q^[Y[ŸH^ÙYH[[˜ÚÈ\›Z]YÈH	ÜYTÚ^™_H
+NÂˆBˆÛÛœİÜÚXÚ[Û™\Õ^Îˆ™Xİ›Ş×HH×NÂˆYÙK™˜]Ô™Xİ[™ÛJÂˆ‹‹œYT[™[ˆÛÛÜˆ™ØŠKKJKˆ›Ü™\ÛÛÜˆÛÛÜ“[™XKˆ›Ü™\•ÚYˆKˆ›Ü™\“ÜXÚ]NˆÂˆJNÂˆYÙK™˜]Ó[™JÂˆİ\ˆÈˆSÒ×ĞĞT•H
+ˆKNˆYT[™[H
+ÈKHKˆ[™ˆÈˆSÒ×ĞĞT•H
+ˆKNˆYT[™[H
+ÈYT[™[šZYÚHKHKˆÛÛÜˆÛÛÜ“[™XKˆXÚÛ™\ÜÎˆKˆÜXÚ]NˆÍBˆJNÂˆÛÛœİXÙ[ÔYHHØÛÛÜ“™[ÛÚX[‹ÛÛÜ“™[Û“XYÙ[KÛÛÜ“™[Û“XYÙ[KÛÛÜ“™[ÛÚX[—H\ÈÛÛœİÂˆÛÛœİ^™[[ÜÔYHHÂˆÈˆYT[™[
+ÈKNˆYT[™[H
+ÈYT[™[šZYÚHHKˆÈˆYT[™[
+ÈYT[™[ÚYHKNˆYT[™[H
+ÈYT[™[šZYÚHHKˆÈˆYT[™[
+ÈKNˆYT[™[H
+ÈHKˆÈˆYT[™[
+ÈYT[™[ÚYHKNˆYT[™[H
+ÈHBˆNÂˆ^™[[ÜÔYK™›Ü‘XXÚ
+
+[šXÚ[Ë[™XÙJHOˆYÙK™˜]Ó[™JÂˆİ\ˆ[šXÚ[Ëˆ[™ˆÈˆ[šXÚ[Ë
+È
+[™XÙH	HˆOOHÈLˆˆLLŠKNˆ[šXÚ[ËHKˆÛÛÜˆXÙ[ÔYVÚ[™XÙWHKˆXÚÛ™\ÜÎˆKŒBˆJJNÂˆ›Üˆ
+ÛÛœİÚ[™XÙKYVHÙˆÜÚXÚ[Û™\ÔYK™[šY\Ê
+JHÂˆÛÛœİHYV
+È
+[˜ÚÖ›Û˜TYHHYUÚY
+HÈÂˆÛÛœİ˜›ŞHÈNˆYVHHKÚYˆYUÚYZYÚˆYTÚ^™H
+ÈˆNÂˆ\ÜÙ\™Xİ[›ÔYÚ[˜J˜›Ş™Y™\™[˜ÚXHĞÔˆ	Ú[™XÙH
+È_HHYÚ[˜H	Û[Y\›ÔYÚ[˜Q^[Y[ŸX
+NÂˆYˆ
+]ZY]›Û™\Ñ›Ûİ\‹œÛÛYJ
+]ZY]›Û™JHOˆ™Xİ[\œÙXØJ˜›Ş]ZY]›Û™JJJHÂˆ›İÈ™]È\œ›ÜŠ^[İ][˜[YÎˆ™Y™\™[˜ÚXHĞÔˆ	Ú[™XÙH
+È_H[˜YH[ˆšYXÚX[[ˆHYÚ[˜H	Û[Y\›ÔYÚ[˜Q^[Y[ŸX
+NÂˆBˆÜÚXÚ[Û™\Õ^Ëœ\Ú
+˜›Ş
+NÂˆYÙK™˜]Õ^
+YU^ËÈNˆYVKÚ^™NˆYTÚ^™K›ÛˆY[SØÜ‹ÛÛÜˆÛÛÜ“™YÜ›ÓXİ\˜HJNÂˆBˆYˆ
+YÚ[˜SÛ\Ë›^[İ]XYÊHÂˆYÚ[˜SÛ\‹›^[İ]XYË™›Ûİ\”™Y™\™[˜Ù\ÈHÜÚXÚ[Û™\Õ^Ë›X\
+
+˜›Ş
+HOˆ
+Âˆ^ˆYU^Ëˆ›Û˜[Z[Nˆİ[™\™›ÛË’[™]XØP›ÛˆÚ^™NˆYTÚ^™Kˆ˜›ŞˆJJNÂˆBˆB‚ˆËÈÜÈ™]™\œÛÜÈ[Ø[™Y]È[YÜ˜YÈÛÛˆ›[˜ÛÜÎÈH[[HØ[°ìÛšXØBˆËÈÛÛœÙ\˜HİHYÚ[˜XÚpìÛˆ\İ0ìÜšXØHÚ[ˆ[œÙ\\ˆØ\˜\ÈYXÚ[Û˜[\Ë‚ˆYˆ
+YÚ[˜\ÓÛ\‹›[™İOOHYÚ[˜\ÓY]K›[™İY]šXØ\ÔYÚ[˜\Ë›[™İOOHYÚ[˜\ÓY]K›[™İ
+HÂˆ›İÈ™]È\œ›ÜŠ	Ó^[İ][˜[YÎˆHØ[YHˆ›ÈÛÛœÙ\˜HÛÜœ™\ÜÛ™[˜ÚXH[™HYÚ[˜\ËX\HÓTˆHY]šXØ\ÉÊNÂˆB‚ˆÛÛœİ]\ÈHY™™\‹™œ›ÛJ]ØZ]‘ØËœØ]™J
+JNÂˆÛÛœİ™Yİ[\Ô™\İ[\ÈHX]›X^
+İ[™Yİ[\ÈH[™XÙT™Yİ[JNÂ‚ˆ™]\›ˆÂˆ]\Ëˆ^[İ][™Ú[™Nˆ	Ü‹[X‹XØ[›ÛšXØ[	Ëˆ^[İ][\]U™\œÚ[ÛˆSTUWÕ‘T”ÒSÓ—ĞĞS“Ó’PĞKˆYÚ[˜\ÎˆYÚ[˜\ÓY]KˆY]šXØ\ÔYÚ[˜\ËˆY]šXØ\Ó^[İ]ˆÂˆZ[“[™RZYÚ\YYˆ[X™\‹š\Ñš[š]JZ[“[™RZYÚ\YY
+HÈZ[“[™RZYÚ\YYˆ[™XSÜÚ[Û‹ˆ›ÛÚ^™T™Yİ[NˆÚ^™T™Yİ[Kˆ›ÛÚ^™SÜÚ[ÛˆÚ^™SÜÚ[Û‹ˆ›ÛÚ^™R[™XØXÚ[Û™\Îˆ
+ˆ›ÛØØ[PØX™XÙ\˜Kˆ[™RZYÚ™Yİ[Nˆ[™XT™Yİ[Kˆ[™RZYÚÜÚ[Ûˆ[™XSÜÚ[Û‹ˆ™Yİ[\ĞÛÛ‘›Ü›X]ÔšXÛÎˆ™Yİ[\ÓÜ™[˜Y\Ë›[™İˆ[XYÙ[™\Ò[[Y\Ëˆ[XYÙ[™\Ô™[™\š^˜Y\Ëˆ[XYÙ[™\Ñ˜[Y\ËˆÙÛÜÓÛZ]YÜÂˆKˆX\SÛ\ˆÂˆX\™Ù[“[Kˆ[\]U™\œÚ[Ûˆ\™š[Û\‹™\œÚ[Û‹ˆ[\]RYˆ\™š[Û\‹[\]RYˆX\šÙ\”ÜXËˆ›ØÚÔÜXËˆ[™Ú[™R[Ëˆ[\™\Ú[ÛˆÂˆ[ÙÎˆ	Ù\^	Ëˆ›Û[Îˆ	Ø›Ü™K[\™ÛÉËˆYÚ[˜\ÔÜ’Ú˜Nˆ‹ˆÛ\˜[˜ÚXT™YÚ\İ›Ó[Nˆ
+
+
+HOˆÂˆÛÛœİ˜[ÜˆH[X™\‹œ\œÙQ›Ø]
+›ØÙ\ÜË™[‹‘VSQS—ÓÓT—ÕÓTSÒPWÔ‘QÒTÕ“×ÑTVÓSHÏÈ	ÌÉÊNÂˆ™]\›ˆ[X™\‹š\Ñš[š]J˜[ÜŠHÈX]›Z[ŠLX]›X^
+˜[ÜŠJHˆÎÂˆJJ
+BˆKˆ\™š[^[İ]ˆÃBˆÜšYİ\ˆ\Ëœ\™š[^[İ]™ÜšYİ\BˆXY\’ZYÚš\œİˆ\Ëœ\™š[^[İ]šXY\’ZYÚš\œİBˆXY\’ZYÚİ\ˆ\Ëœ\™š[^[İ]šXY\’ZYÚİ\‹Bˆ›İÛTØY™Tˆ\Ëœ\™š[^[İ]˜›İÛTØY™TBˆ\Ø\”™[[›ÜÑXÛÜ˜]]›ÜÎˆ\Ëœ\™š[^[İ]\Ø\”™[[›ÜÑXÛÜ˜]]›ÜËBˆ\Ø\‘]\]Y]SÛ\”ÛÛYNˆ\Ëœ\™š[^[İ]\Ø\‘]\]Y]SÛ\”ÛÛYCBˆKBˆ\™š[ˆÃBˆ\”Ú^™Nˆ\™š[Û\‹œ\”Ú^™KBˆ\”Y[™Îˆ\™š[Û\‹œ\”Y[™ËBˆ\“X\™Ú[“[Ù[ÜÎˆ\™š[Û\‹œ\“X\™Ú[“[Ù[ÜËBˆX\˜Ø\Ñ\Ü]Z[˜Nˆ\™š[Û\‹›X\˜Ø\Ñ\Ü]Z[˜KBˆX\˜ØPİXY˜YÔÚ^™Nˆ\™š[Û\‹›X\˜ØPİXY˜YÔÚ^™KBˆX\˜ØPİXY˜YÔ]ZY]›Û™Nˆ\™š[Û\‹›X\˜ØPİXY˜YÔ]ZY]›Û™Kˆ\˜Z˜T˜Y[Îˆ\™š[Û\‹˜\˜Z˜T˜Y[Ëˆ\˜Z˜T\ÛÖNˆ\™š[Û\‹˜\˜Z˜T\ÛÖKˆ\˜Z˜T\ÛÖˆ\™š[Û\‹˜\˜Z˜T\ÛÖˆÜšY[XÚ[Ûˆ\™š[Û\‹›ÜšY[XÚ[Û‹ˆØZ˜SÛ\[˜ÚÎˆ\™š[Û\‹˜ØZ˜SÛ\[˜ÚËˆšYXÚX[Ú^™Nˆ\™š[Û\‹™šYXÚX[Ú^™KBˆX˜›Tİ›ÚÙTˆ\™š[Û\‹˜X˜›Tİ›ÚÙTBˆX™[ĞX˜›S[Nˆ\™š[Û\‹›X™[ĞX˜›S[KBˆ™Yİ[\ÔÜ›Ü]YNˆ\™š[Û\‹œ™Yİ[\ÔÜ›Ü]YKBˆÜÚ[Û™\ÔÜ”™Yİ[Nˆ\™š[Û\‹›ÜÚ[Û™\ÔÜ”™Yİ[CBˆKBˆYÚ[˜\ÎˆYÚ[˜\ÓÛ\ƒBˆKBˆ™Yİ[\Ô™\İ[\ÃBˆNÃBˆCBŸCB
