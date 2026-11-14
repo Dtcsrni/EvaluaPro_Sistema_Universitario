@@ -9707,6 +9707,7 @@
   flex-wrap: wrap;
 }
 
+/* WCAG AA: sombra decorativa; la lectura y los estados dependen de texto y bordes contrastados. */
 .calif-captura-card {
   padding: 1.35rem 1.5rem;
   border-radius: 20px;
