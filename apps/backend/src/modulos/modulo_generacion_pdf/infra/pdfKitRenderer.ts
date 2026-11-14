@@ -12,6 +12,7 @@ import {
   PDFDocument,
   StandardFonts,
   TextRenderingMode,
+  cmyk,
   degrees,
   popGraphicsState,
   pushGraphicsState,
@@ -82,6 +83,7 @@ type SegmentoTexto = {
 };
 type LineaSegmentos = { segmentos: SegmentoTexto[]; lineHeight: number };
 type RectBox = { x: number; y: number; width: number; height: number };
+type PdfColor = ReturnType<typeof rgb> | ReturnType<typeof cmyk>;
 type EstiloTexto = 'regular' | 'bold' | 'italic';
 type TextRunDebug = {
   tipo: 'texto' | 'codigo';
@@ -805,7 +807,7 @@ function envolverTextoMixto({
 function dibujarTextoConPesoVisual(
   page: PDFPage,
   texto: string,
-  opciones: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb> },
+  opciones: { x: number; y: number; size: number; font: PDFFont; color?: PdfColor },
   reforzarPeso: boolean
 ) {
   if (!reforzarPeso) {
@@ -840,7 +842,7 @@ function dibujarLineasMixtas({
   lineas: LineaSegmentos[];
   x: number;
   y: number;
-  colorTexto?: ReturnType<typeof rgb>;
+  colorTexto?: PdfColor;
   reforzarPeso?: boolean;
   registrarRuns?: (run: TextRunDebug) => void;
 }) {
@@ -1105,7 +1107,7 @@ async function agregarQr(
   const padding = perfil.qrPadding;
   // La clave compuesta tiene una franja propia debajo del QR; el cálculo de `y`
   // conserva la posición física del símbolo aunque la tarjeta crezca hacia abajo.
-  const captionHeight = 12;
+  const captionHeight = 10;
   const cardW = qrSize + padding * 2;
   const cardH = qrSize + padding * 2 + captionHeight;
 
@@ -1266,10 +1268,14 @@ async function intentarEmbedImagen(pdfDoc: PDFDocument, src?: string): Promise<L
   }
 }
 
-function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: ReturnType<typeof rgb>) {
-  // La referencia combina una retícula ligera de rombos/nodos con una red
-  // diagonal extendida. Mantener ambas capas por debajo del contenido preserva
-  // contraste y zonas funcionales, sin rasterizar ni sombrear el papel.
+function dibujarPatronPunteadoEncabezado(
+  page: PDFPage,
+  rect: RectBox,
+  color: PdfColor,
+  colorSecundario: PdfColor
+) {
+  // La malla facetada y los rosetones poligonales refuerzan la identidad
+  // institucional sin tocar las zonas blancas de QR, captura o lectura.
   const margenX = Math.min(10, rect.width * 0.04);
   const margenY = Math.min(10, rect.height * 0.08);
   const xMin = rect.x + margenX;
@@ -1303,10 +1309,10 @@ function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: Re
       const vecinoDiagonal = columna + ((fila + columna) % 2 === 0 ? 1 : -1);
       const vecinos = [siguienteFila[columna], siguienteFila[vecinoDiagonal]];
       for (const vecino of vecinos) {
-        if (vecino) page.drawLine({ start: nodo, end: vecino, color, thickness: 0.46, opacity: 0.064 });
+        if (vecino) page.drawLine({ start: nodo, end: vecino, color, thickness: 0.5, opacity: 0.12 });
       }
       if ((fila + columna) % 4 === 0 && siguienteFila[columna + 2]) {
-        page.drawLine({ start: nodo, end: siguienteFila[columna + 2]!, color, thickness: 0.38, opacity: 0.046 });
+        page.drawLine({ start: nodo, end: siguienteFila[columna + 2]!, color, thickness: 0.42, opacity: 0.09 });
       }
     }
   }
@@ -1320,7 +1326,7 @@ function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: Re
     [nodos[0]![Math.floor(columnas * 0.3)]!, nodos[filas - 1]![columnas - 1]!]
   ];
   for (const [inicio, fin] of diagonalesLargas) {
-    page.drawLine({ start: inicio, end: fin, color, thickness: 0.58, opacity: 0.052 });
+    page.drawLine({ start: inicio, end: fin, color, thickness: 0.58, opacity: 0.1 });
   }
 
   // Rombos abiertos en todos los nodos; algunos reciben un segundo contorno
@@ -1343,7 +1349,7 @@ function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: Re
           end: vertices[(lado + 1) % vertices.length]!,
           color,
           thickness: destacado ? 0.55 : 0.4,
-          opacity: destacado ? 0.12 : 0.088
+          opacity: destacado ? 0.22 : 0.15
         });
       }
       if (destacado) {
@@ -1360,11 +1366,31 @@ function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: Re
             end: interior[(lado + 1) % interior.length]!,
             color,
             thickness: 0.35,
-            opacity: 0.085
+            opacity: 0.16
           });
         }
       }
-      page.drawCircle({ x: centro.x, y: centro.y, size: destacado ? 1.05 : 0.66, color, opacity: 0.14 });
+      page.drawCircle({ x: centro.x, y: centro.y, size: destacado ? 1.15 : 0.72, color, opacity: 0.2 });
+
+      // Rosetón de ocho pétalos sobre una parte de los nodos: las puntas
+      // quedan abiertas para conservar un trazo ligero en el fondo impreso.
+      if ((fila + columna * 2) % 5 === 0 && rect.width >= 250 && rect.height >= 80) {
+        const radioInterior = 2.1;
+        const radioMedio = 5.3;
+        const radioExterior = 8.1;
+        for (let petalo = 0; petalo < 8; petalo += 1) {
+          const angulo = (Math.PI * 2 * petalo) / 8;
+          const anguloMedio = angulo + Math.PI / 8;
+          const interior = { x: centro.x + Math.cos(angulo) * radioInterior, y: centro.y + Math.sin(angulo) * radioInterior };
+          const punta = { x: centro.x + Math.cos(angulo) * radioExterior, y: centro.y + Math.sin(angulo) * radioExterior };
+          const petaloMedio = { x: centro.x + Math.cos(anguloMedio) * radioMedio, y: centro.y + Math.sin(anguloMedio) * radioMedio };
+          const siguientePuntaAngulo = angulo + Math.PI / 4;
+          const siguientePunta = { x: centro.x + Math.cos(siguientePuntaAngulo) * radioExterior, y: centro.y + Math.sin(siguientePuntaAngulo) * radioExterior };
+          page.drawLine({ start: interior, end: petaloMedio, color: colorSecundario, thickness: 0.46, opacity: 0.16 });
+          page.drawLine({ start: petaloMedio, end: punta, color: colorSecundario, thickness: 0.46, opacity: 0.16 });
+          page.drawLine({ start: punta, end: siguientePunta, color, thickness: 0.42, opacity: 0.12 });
+        }
+      }
     }
   }
 }
@@ -1372,7 +1398,7 @@ function dibujarPatronPunteadoEncabezado(page: PDFPage, rect: RectBox, color: Re
 function dibujarPatronBloqueCaptura(
   page: PDFPage,
   rect: RectBox,
-  color: ReturnType<typeof rgb>,
+  color: PdfColor,
   exclusiones: RectBox[]
 ) {
   // El bloque completo recibe únicamente una retícula de puntos tenue. Las
@@ -1388,7 +1414,7 @@ function dibujarPatronBloqueCaptura(
     caja.x >= xMin && caja.y >= yMin && caja.x + caja.width <= xMax && caja.y + caja.height <= yMax;
   const libre = (caja: RectBox) => dentro(caja) && exclusiones.every((exclusion) => !rectInterseca(caja, exclusion));
   const colorSecundario = rgb(0.12, 0.38, 0.58);
-  const dibujarPunto = (x: number, y: number, radio: number, tono: ReturnType<typeof rgb>) => {
+  const dibujarPunto = (x: number, y: number, radio: number, tono: PdfColor) => {
     const caja = { x: x - radio, y: y - radio, width: radio * 2, height: radio * 2 };
     if (!libre(caja)) return;
     page.drawCircle({ x, y, size: radio, color: tono, opacity: 0.055 });
@@ -1407,7 +1433,7 @@ function dibujarPatronBloqueCaptura(
 function dibujarPatronPunteadoReactivo(
   page: PDFPage,
   rect: RectBox,
-  color: ReturnType<typeof rgb>
+  color: PdfColor
 ) {
   // Conserva la textura editorial con menos marcas vectoriales por área.
   // El paso de 18.375 pt reduce ~36 % los puntos frente a 14.7 pt sin cambiar
@@ -1435,7 +1461,7 @@ function dibujarPatronPunteadoReactivo(
 function dibujarOrnamentoPunteadoCuerpo(
   page: PDFPage,
   rect: RectBox,
-  color: ReturnType<typeof rgb>
+  color: PdfColor
 ) {
   // Adorno de muy baja cobertura en las esquinas del cuerpo. Aporta
   // continuidad visual sin poner tinta debajo de preguntas, respuestas ni
@@ -1475,7 +1501,7 @@ function dibujarPathIconoCabecera(
   path: string,
   x: number,
   y: number,
-  color: ReturnType<typeof rgb>
+  color: PdfColor
 ) {
   page.drawSvgPath(path, {
     x,
@@ -1487,7 +1513,7 @@ function dibujarPathIconoCabecera(
   });
 }
 
-function dibujarIconoPersona(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
+function dibujarIconoPersona(page: PDFPage, x: number, y: number, color: PdfColor): RectBox {
   const escala = ESCALA_ICONO_CABECERA;
   dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNO_HOMBROS, x, y, color);
   page.drawCircle({
@@ -1500,7 +1526,7 @@ function dibujarIconoPersona(page: PDFPage, x: number, y: number, color: ReturnT
   return { x, y, width: 12, height: ALTO_ICONO_CABECERA };
 }
 
-function dibujarIconoGrupo(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
+function dibujarIconoGrupo(page: PDFPage, x: number, y: number, color: PdfColor): RectBox {
   const escala = ESCALA_ICONO_CABECERA;
   dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNOS_HOMBRO, x, y, color);
   dibujarPathIconoCabecera(page, SVG_ICONO_ALUMNOS_DERECHA, x, y, color);
@@ -1515,7 +1541,7 @@ function dibujarIconoGrupo(page: PDFPage, x: number, y: number, color: ReturnTyp
   return { x, y, width: 12, height: ALTO_ICONO_CABECERA };
 }
 
-function dibujarIconoDocente(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
+function dibujarIconoDocente(page: PDFPage, x: number, y: number, color: PdfColor): RectBox {
   dibujarPathIconoCabecera(page, SVG_ICONO_DOCENTE_GORRO, x, y, color);
   dibujarPathIconoCabecera(page, SVG_ICONO_DOCENTE_BANDA, x, y, color);
   // El birrete ocupa menos altura que los iconos de captura; conservar una
@@ -1523,7 +1549,7 @@ function dibujarIconoDocente(page: PDFPage, x: number, y: number, color: ReturnT
   return { x, y, width: 12, height: 9.6 };
 }
 
-function dibujarIconoIndicaciones(page: PDFPage, x: number, y: number, color: ReturnType<typeof rgb>): RectBox {
+function dibujarIconoIndicaciones(page: PDFPage, x: number, y: number, color: PdfColor): RectBox {
   const escala = ESCALA_ICONO_CABECERA;
   dibujarPathIconoCabecera(page, 'M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18', x, y, color);
   dibujarPathIconoCabecera(page, SVG_ICONO_INFO, x, y, color);
@@ -1592,42 +1618,72 @@ function dibujarEjemplosMarca(
 function dibujarBordePagina(
   page: PDFPage,
   margen: number,
-  color: ReturnType<typeof rgb>,
-  acento: ReturnType<typeof rgb>
+  color: PdfColor,
+  acento: PdfColor,
+  cian: PdfColor,
+  magenta: PdfColor,
+  ambar: PdfColor
 ) {
   const inset = margen + 3.5;
   const xMin = inset;
   const xMax = ANCHO_CARTA - inset;
   const yMin = inset;
   const yMax = ALTO_CARTA - inset;
-  page.drawRectangle({
-    x: xMin,
-    y: yMin,
-    width: xMax - xMin,
-    height: yMax - yMin,
-    borderColor: color,
-    borderWidth: 0.55,
-    borderOpacity: 0.46
-  });
-
-  // Remates cromáticos centrados en los cuatro lados: dan jerarquía al marco
-  // sin acercarse a las marcas de registro de las esquinas ni invadir el OMR.
-  const separacionEsquina = 30;
-  const segmentos = [
-    [{ x: xMin + separacionEsquina, y: yMax }, { x: xMax - separacionEsquina, y: yMax }],
-    [{ x: xMin + separacionEsquina, y: yMin }, { x: xMax - separacionEsquina, y: yMin }],
-    [{ x: xMin, y: yMin + separacionEsquina }, { x: xMin, y: yMax - separacionEsquina }],
-    [{ x: xMax, y: yMin + separacionEsquina }, { x: xMax, y: yMax - separacionEsquina }]
-  ] as const;
-  for (const [inicio, fin] of segmentos) {
+  const chaflan = 9;
+  const vertices = [
+    { x: xMin + chaflan, y: yMin },
+    { x: xMax - chaflan, y: yMin },
+    { x: xMax, y: yMin + chaflan },
+    { x: xMax, y: yMax - chaflan },
+    { x: xMax - chaflan, y: yMax },
+    { x: xMin + chaflan, y: yMax },
+    { x: xMin, y: yMax - chaflan },
+    { x: xMin, y: yMin + chaflan }
+  ];
+  for (let indice = 0; indice < vertices.length; indice += 1) {
     page.drawLine({
-      start: inicio,
-      end: fin,
-      color: acento,
-      thickness: 0.9,
-      opacity: 0.68,
+      start: vertices[indice]!,
+      end: vertices[(indice + 1) % vertices.length]!,
+      color,
+      thickness: 0.72,
+      opacity: 0.84,
       lineCap: LineCapStyle.Round
     });
+  }
+
+  // Dos acentos de circuito dan la mezcla cyberpunk/editorial. Se mantienen
+  // en el carril exterior y fuera de los 30 pt reservados junto a fiduciales;
+  // agregarMarcasRegistro vuelve a blanquear las quiet zones después del marco.
+  const separacionEsquina = 30;
+  const segmentos = [
+    { start: { x: xMin + separacionEsquina, y: yMax }, end: { x: xMin + separacionEsquina + 36, y: yMax }, color: cian },
+    { start: { x: xMax - separacionEsquina - 36, y: yMax }, end: { x: xMax - separacionEsquina, y: yMax }, color: magenta },
+    { start: { x: xMin + separacionEsquina, y: yMin }, end: { x: xMin + separacionEsquina + 36, y: yMin }, color: ambar },
+    { start: { x: xMax - separacionEsquina - 36, y: yMin }, end: { x: xMax - separacionEsquina, y: yMin }, color: cian },
+    { start: { x: xMin, y: yMin + separacionEsquina }, end: { x: xMin, y: yMin + separacionEsquina + 28 }, color: cian },
+    { start: { x: xMin, y: yMax - separacionEsquina - 28 }, end: { x: xMin, y: yMax - separacionEsquina }, color: ambar },
+    { start: { x: xMax, y: yMin + separacionEsquina }, end: { x: xMax, y: yMin + separacionEsquina + 28 }, color: magenta },
+    { start: { x: xMax, y: yMax - separacionEsquina - 28 }, end: { x: xMax, y: yMax - separacionEsquina }, color: cian }
+  ] as const;
+  for (const segmento of segmentos) {
+    page.drawLine({
+      ...segmento,
+      thickness: 1.05,
+      opacity: 0.9,
+      lineCap: LineCapStyle.Round
+    });
+  }
+
+  // Pequeños nodos y cortes oblicuos convierten las esquinas libres en
+  // terminales de circuito, sin dibujar sobre las marcas de registro.
+  const nodos = [
+    { x: xMin + separacionEsquina + 42, y: yMax, color: acento },
+    { x: xMax - separacionEsquina - 42, y: yMin, color: acento },
+    { x: xMin, y: yMin + separacionEsquina + 34, color: magenta },
+    { x: xMax, y: yMax - separacionEsquina - 34, color: cian }
+  ];
+  for (const nodo of nodos) {
+    page.drawCircle({ ...nodo, size: 1.25 });
   }
 }
 
@@ -1635,7 +1691,7 @@ function dibujarLineaPunteada(
   page: PDFPage,
   inicio: { x: number; y: number },
   fin: { x: number; y: number },
-  color: ReturnType<typeof rgb>,
+  color: PdfColor,
   grosor = 0.55,
   opacidad = 0.62
 ) {
@@ -1662,7 +1718,7 @@ function dibujarLineaPunteada(
 function dibujarCajaPunteada(
   page: PDFPage,
   caja: RectBox,
-  color: ReturnType<typeof rgb>,
+  color: PdfColor,
   incluirBordeSuperior = true
 ) {
   const x2 = caja.x + caja.width;
@@ -1737,14 +1793,25 @@ export class PdfKitRenderer {
       ? Math.max(1, Math.floor(examen.layout.totalPaginas))
       : 1;
 
-    const colorPrimario = rgb(...PDF_VISUAL_BASELINE_RGB.primary);
-    const colorGris = rgb(...PDF_VISUAL_BASELINE_RGB.textSoft);
+    // Texto humano: proceso CMY equilibrado con casi nada de K. El negro puro
+    // queda reservado para referencias OCR y señales OMR/QR.
+    const colorPrimario = cmyk(0.72, 0.70, 0.67, 0.02);
+    // El enunciado conserva el mismo peso tipográfico que las opciones y se
+    // distingue solo por un incremento cromático muy leve.
+    const colorEnunciado = cmyk(0.75, 0.73, 0.70, 0.02);
+    const colorGris = cmyk(0.62, 0.60, 0.58, 0.01);
     const colorLinea = rgb(...PDF_VISUAL_BASELINE_RGB.line);
     const colorAcento = rgb(...PDF_VISUAL_BASELINE_RGB.accent);
     const colorAcentoSuave = rgb(...PDF_VISUAL_BASELINE_RGB.accentSoft);
+    const colorNeonCian = cmyk(0.9, 0.2, 0, 0);
+    const colorNeonMagenta = cmyk(0, 0.9, 0.15, 0);
+    const colorNeonAmbar = cmyk(0, 0.18, 0.95, 0);
     const colorSeccion = rgb(...PDF_VISUAL_BASELINE_RGB.section);
   const colorFondoPagina = rgb(1, 1, 1);
-    const colorTinta = rgb(...PDF_VISUAL_BASELINE_RGB.primary);
+    const colorTinta = colorPrimario;
+    // Negro de una sola placa para preservar contraste de las señales y evitar
+    // que RGB negro se convierta en una mezcla CMYK distinta según el driver.
+    const colorNegroLectura = cmyk(0, 0, 0, 1);
     // El área de lectura permanece blanca: los colores decorativos se quedan
     // fuera del ROI para que la conversión a escala de grises no fabrique tinta.
     const colorPanelOmr = rgb(1, 1, 1);
@@ -2040,7 +2107,7 @@ export class PdfKitRenderer {
     // alturas tipográficas de las dos etiquetas.
     const sizeCalificacionEstimado = Math.max(6.4, 6.4 * fontScaleCabecera);
     const altoZonaCalificacionEstimado = sizeCalificacionEstimado
-      + (perfilCompactoAltaDensidad ? 10 : 16);
+      + (perfilCompactoAltaDensidad ? 10 : 15);
     // Reducir la reserva base recupera espacio para el primer reactivo sin
     // tocar logos, QR ni la geometría OMR. La rama larga conserva holgura
     // adicional y ambas quedan protegidas por las aserciones de colisión.
@@ -2205,10 +2272,12 @@ export class PdfKitRenderer {
           : zonaEngrapadoFisica.x
       };
       stapleKeepOutZone = {
-        x: stapleKeepOutZone.x - margenSeguridadGrapa,
-        y: stapleKeepOutZone.y - margenSeguridadGrapa,
-        width: stapleKeepOutZone.width + margenSeguridadGrapa * 2,
-        height: stapleKeepOutZone.height + margenSeguridadGrapa * 2
+        x: Math.max(0, stapleKeepOutZone.x - margenSeguridadGrapa),
+        y: Math.max(0, stapleKeepOutZone.y - margenSeguridadGrapa),
+        width: Math.min(ANCHO_CARTA, stapleKeepOutZone.x + stapleKeepOutZone.width + margenSeguridadGrapa) -
+          Math.max(0, stapleKeepOutZone.x - margenSeguridadGrapa),
+        height: Math.min(ALTO_CARTA, stapleKeepOutZone.y + stapleKeepOutZone.height + margenSeguridadGrapa) -
+          Math.max(0, stapleKeepOutZone.y - margenSeguridadGrapa)
       };
     }
     const desplazamientoTextoPorGrapa = obtenerDesplazamientoTextoPorGrapa(stapleKeepOutZone);
@@ -2256,7 +2325,8 @@ export class PdfKitRenderer {
         dibujarPatronPunteadoEncabezado(
           page,
           { x: xCaja + 1, y: yCaja + 1, width: wCaja - 2, height: altoEncabezado - 2 },
-          colorAcento
+          colorAcento,
+          colorNeonMagenta
         );
 
         // Una regla superior aporta identidad sin atravesar la tipografia. La
@@ -2314,7 +2384,7 @@ export class PdfKitRenderer {
       // El marco decorativo debe quedar debajo de los fiduciales. Dibujarlo
       // despues podia atravesar su quiet zone y convertir el borde en una
       // falsa prolongacion del cuadrado durante la rectificacion CV.
-      dibujarBordePagina(page, margen, colorLinea, colorAcento);
+      dibujarBordePagina(page, margen, colorLinea, colorAcento, colorNeonCian, colorNeonMagenta, colorNeonAmbar);
       agregarMarcasRegistro(page, margen, perfilOmr);
       let qrInfo = await agregarQr(
         pdfDoc,
@@ -2334,7 +2404,10 @@ export class PdfKitRenderer {
       // reducido conserva ese bloque aun cuando la cabecera se comprime.
       const filaUnicaZonaCalificacion = perfilCompactoAltaDensidad;
       const altoCajaCalificacionCompacta = sizeCalificacionEstimado + (filaUnicaZonaCalificacion ? 6 : 12);
-      if (esPrimera && cardY - yCaja - 2 >= (filaUnicaZonaCalificacion ? altoCajaCalificacionCompacta + 1 : 23)) {
+      const alturaMinimaZonaCalificacion = filaUnicaZonaCalificacion
+        ? altoCajaCalificacionCompacta + 1
+        : altoZonaCalificacionEstimado;
+      if (esPrimera && cardY - yCaja - 2 >= alturaMinimaZonaCalificacion) {
         // El espacio libre bajo la tarjeta QR se convierte en zona de
         // calificación. Cubrir el patrón complejo anterior evita que el
         // mandala se confunda con texto; encima solo se dibuja una retícula
@@ -2644,13 +2717,33 @@ export class PdfKitRenderer {
         // La cabecera ahora es clara; mantener la institucion en blanco aqui
         // la hacia practicamente invisible al eliminar la banda oscura.
         const colorInstitucion = colorAcento;
+        const dibujarTextoCabeceraLimpio = (
+          texto: string,
+          opciones: NonNullable<Parameters<typeof page.drawText>[1]>
+        ) => {
+          const x = opciones.x ?? 0;
+          const y = opciones.y ?? 0;
+          const size = opciones.size ?? 8;
+          const font = opciones.font ?? fuente;
+          const ancho = font.widthOfTextAtSize(texto, size);
+          // La caja usa el mismo tono que el fondo base y limpia solo la línea
+          // OCR, dejando visible la trama en el resto del encabezado.
+          page.drawRectangle({
+            x: x - 0.5,
+            y: y - 1.6,
+            width: ancho + 1,
+            height: size + 4,
+            color: colorAcentoSuave
+          });
+          page.drawText(texto, opciones);
+        };
         const dibujarLineasCabecera = (
           lineas: string[],
           yInicial: number,
           lineGap: number,
           font: PDFFont,
           size: number,
-          color: ReturnType<typeof rgb>,
+          color: PdfColor,
           id: string,
           negrita = false,
           cursiva = false
@@ -2659,11 +2752,33 @@ export class PdfKitRenderer {
             const yLinea = yInicial - indice * lineGap;
             const xLinea = xTextoCentrado(linea, font, size);
             const inclinacion = cursiva ? { ySkew: degrees(10) } : {};
-            page.drawText(linea, { x: xLinea, y: yLinea, size, font, color, ...inclinacion });
+            if (id === 'titulo') {
+              const anchoLinea = font.widthOfTextAtSize(linea, size);
+              const centroY = yLinea + size * 0.38;
+              const dibujarCorte = (x: number, colorCorte: PdfColor) => page.drawLine({
+                start: { x, y: centroY - size * 0.28 },
+                end: { x: x + 3.2, y: centroY + size * 0.28 },
+                color: colorCorte,
+                thickness: 1.1,
+                opacity: 0.95,
+                lineCap: LineCapStyle.Round
+              });
+              // El título conserva Ecofont; las barras laterales aportan
+              // jerarquía editorial sin sustituir la tipografía del documento.
+              if (xLinea - (xCaja + 12) >= 10) {
+                dibujarCorte(xLinea - 11, colorNeonCian);
+                dibujarCorte(xLinea - 6, colorNeonMagenta);
+              }
+              if (xCaja + wCaja - 12 - (xLinea + anchoLinea) >= 10) {
+                dibujarCorte(xLinea + anchoLinea + 3, colorNeonMagenta);
+                dibujarCorte(xLinea + anchoLinea + 8, colorNeonCian);
+              }
+            }
+            dibujarTextoCabeceraLimpio(linea, { x: xLinea, y: yLinea, size, font, color, ...inclinacion });
             if (negrita) {
               // Ecofont solo dispone de regular; el segundo trazo desplazado
               // aporta peso visual sin introducir otra familia tipográfica.
-              page.drawText(linea, { x: xLinea + 0.22, y: yLinea, size, font, color, ...inclinacion });
+              dibujarTextoCabeceraLimpio(linea, { x: xLinea + 0.22, y: yLinea, size, font, color, ...inclinacion });
             }
             headerTextBlocks.push({
               id: `${id}-${indice + 1}`,
@@ -2690,7 +2805,7 @@ export class PdfKitRenderer {
           const esMateria = linea.startsWith('Materia:');
           const fuenteMeta = esMateria ? fuenteBold : fuente;
           const xMeta = xTextoCentrado(linea, fuenteMeta, sizeMetaEsc);
-          page.drawText(linea, {
+          dibujarTextoCabeceraLimpio(linea, {
             x: xMeta,
             y: yLinea,
             size: sizeMetaEsc,
@@ -2700,7 +2815,7 @@ export class PdfKitRenderer {
           if (esMateria) {
             // Ecofont solo se embebe en regular; este segundo trazo compacto
             // aplica negrita visual sin cambiar de familia tipográfica.
-            page.drawText(linea, {
+            dibujarTextoCabeceraLimpio(linea, {
               x: xMeta + 0.22,
               y: yLinea,
               size: sizeMetaEsc,
@@ -2718,7 +2833,7 @@ export class PdfKitRenderer {
         });
 
         headerIconBoxes.push({ id: 'icono-alumno', ...dibujarIconoPersona(page, iconoCapturaX, yNombre + 0.4, colorIconoAlumno) });
-        page.drawText(etiquetaNombre, { x: xEtiquetasCaptura, y: yNombre, size: sizeCampo, font: fuenteBold, color: colorPrimario });
+        dibujarTextoCabeceraLimpio(etiquetaNombre, { x: xEtiquetasCaptura, y: yNombre, size: sizeCampo, font: fuenteBold, color: colorAcento });
         headerTextBlocks.push({
           id: 'nombre-etiqueta',
           x: xEtiquetasCaptura,
@@ -2751,7 +2866,7 @@ export class PdfKitRenderer {
           if (xIdentidad < xDatosLeft || yIdentidad <= yNombre + sizeCampo + 1) {
             throw new Error('Layout invalido: no hay espacio para la identidad corta fuera del campo manuscrito');
           }
-          page.drawText(identidadAlumno, {
+          dibujarTextoCabeceraLimpio(identidadAlumno, {
             x: xIdentidad,
             y: yIdentidad,
             size: sizeIdentidad,
@@ -2768,7 +2883,7 @@ export class PdfKitRenderer {
         }
 
          headerIconBoxes.push({ id: 'icono-grupo', ...dibujarIconoGrupo(page, xIconoGrupo, yGrupo + 0.4, colorIconoGrupo) });
-         page.drawText(etiquetaGrupo, { x: xEtiquetasGrupo, y: yGrupo, size: sizeCampo, font: fuenteBold, color: colorPrimario });
+         dibujarTextoCabeceraLimpio(etiquetaGrupo, { x: xEtiquetasGrupo, y: yGrupo, size: sizeCampo, font: fuenteBold, color: colorAcento });
          headerTextBlocks.push({
            id: 'grupo-etiqueta',
            x: xEtiquetasGrupo,
@@ -2820,7 +2935,7 @@ export class PdfKitRenderer {
         // de su borde superior.
         const yCalificacionZona = filaUnicaZonaCalificacion
           ? cardY - sizeCampoAux - 3
-          : yCaja + 5.5;
+          : yCaja + 3.3;
         const yReactivosZonaCalificacion = yCalificacionZona + 11.5;
         const etiquetaReactivos = 'Reactivos:';
         const textoConteoReactivos = `/ ${examen.totalPreguntas}`;
@@ -2852,7 +2967,7 @@ export class PdfKitRenderer {
         ) {
           throw new Error('Layout invalido: la zona de calificacion no tiene espacio suficiente');
         }
-        page.drawText(etiquetaReactivos, {
+        dibujarTextoCabeceraLimpio(etiquetaReactivos, {
           x: xZonaCalificacion,
           y: filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion,
           size: sizeCampoAux,
@@ -2879,7 +2994,7 @@ export class PdfKitRenderer {
           width: Math.max(0, xLineaReactivosFin - xLineaReactivos),
           height: 0.8
         });
-        page.drawText(textoConteoReactivos, {
+        dibujarTextoCabeceraLimpio(textoConteoReactivos, {
           x: xConteoReactivos,
           y: filaUnicaZonaCalificacion ? yCalificacionZona : yReactivosZonaCalificacion,
           size: sizeCampoAux,
@@ -2893,7 +3008,7 @@ export class PdfKitRenderer {
           width: anchoConteoReactivos,
           height: sizeCampoAux + 1
         });
-        page.drawText(etiquetaCalificacion, {
+        dibujarTextoCabeceraLimpio(etiquetaCalificacion, {
           x: xEtiquetaCalificacion,
           y: yCalificacionZona,
           size: sizeCampoAux,
@@ -2907,16 +3022,17 @@ export class PdfKitRenderer {
           width: anchoEtiquetaCalificacion,
           height: sizeCampoAux + 1
         });
+        const yLineaCalificacion = yCalificacionZona - (filaUnicaZonaCalificacion ? 3.2 : 1.5);
         page.drawLine({
-          start: { x: xLineaCalificacion, y: yCalificacionZona - 3.2 },
-          end: { x: xLineaCalificacionFin, y: yCalificacionZona - 3.2 },
+          start: { x: xLineaCalificacion, y: yLineaCalificacion },
+          end: { x: xLineaCalificacionFin, y: yLineaCalificacion },
           color: colorLinea,
           thickness: 0.8
         });
         headerFieldBoxes.push({
           id: 'calificacion-linea',
           x: xLineaCalificacion,
-          y: yCalificacionZona - 3.2,
+          y: yLineaCalificacion,
           width: Math.max(0, xLineaCalificacionFin - xLineaCalificacion),
           height: 0.8
         });
@@ -2939,13 +3055,13 @@ export class PdfKitRenderer {
           const anchoEtiquetaCalificacion = fuenteBold.widthOfTextAtSize(etiquetaCalificacion, sizeCampoAux);
           const xLineaCalificacion = xEtiquetaCalificacion + anchoEtiquetaCalificacion + 3;
           const xLineaCalificacionFin = xDatosRight;
-          page.drawText(etiquetaReactivos, { x: xEtiquetaReactivos, y: yGrupo, size: sizeCampoAux, font: fuenteBold, color: colorPrimario });
+          dibujarTextoCabeceraLimpio(etiquetaReactivos, { x: xEtiquetaReactivos, y: yGrupo, size: sizeCampoAux, font: fuenteBold, color: colorPrimario });
           headerTextBlocks.push({ id: 'reactivos-etiqueta', x: xEtiquetaReactivos, y: yGrupo, width: anchoEtiquetaReactivos, height: sizeCampoAux + 1 });
           page.drawLine({ start: { x: xLineaReactivos, y: yGrupo + PLANTILLA_PX.campoLineOffsetY }, end: { x: xLineaReactivosFin, y: yGrupo + PLANTILLA_PX.campoLineOffsetY }, color: colorLinea, thickness: 0.8 });
           headerFieldBoxes.push({ id: 'reactivos-linea', x: xLineaReactivos, y: yGrupo + PLANTILLA_PX.campoLineOffsetY - 0.4, width: Math.max(0, xLineaReactivosFin - xLineaReactivos), height: 0.8 });
-          page.drawText(textoConteoReactivos, { x: xConteoReactivos, y: yGrupo, size: sizeCampoAux, font: fuente, color: colorGris });
+          dibujarTextoCabeceraLimpio(textoConteoReactivos, { x: xConteoReactivos, y: yGrupo, size: sizeCampoAux, font: fuente, color: colorGris });
           headerTextBlocks.push({ id: 'conteo-reactivos', x: xConteoReactivos, y: yGrupo, width: anchoTextoConteoReactivos, height: sizeCampoAux + 1 });
-          page.drawText(etiquetaCalificacion, { x: xEtiquetaCalificacion, y: yCalificacionFallback, size: sizeCampoAux, font: fuenteBold, color: colorPrimario });
+        dibujarTextoCabeceraLimpio(etiquetaCalificacion, { x: xEtiquetaCalificacion, y: yCalificacionFallback, size: sizeCampoAux, font: fuenteBold, color: colorAcento });
           headerTextBlocks.push({ id: 'calificacion-etiqueta', x: xEtiquetaCalificacion, y: yCalificacionFallback, width: anchoEtiquetaCalificacion, height: sizeCampoAux + 1 });
           page.drawLine({ start: { x: xLineaCalificacion, y: yCalificacionFallback + PLANTILLA_PX.campoLineOffsetY }, end: { x: xLineaCalificacionFin, y: yCalificacionFallback + PLANTILLA_PX.campoLineOffsetY }, color: colorLinea, thickness: 0.8 });
           headerFieldBoxes.push({ id: 'calificacion-linea', x: xLineaCalificacion, y: yCalificacionFallback + PLANTILLA_PX.campoLineOffsetY - 0.4, width: Math.max(0, xLineaCalificacionFin - xLineaCalificacion), height: 0.8 });
@@ -3010,12 +3126,12 @@ export class PdfKitRenderer {
             id: 'icono-indicaciones',
             ...dibujarIconoIndicaciones(page, xIndicacionesBase, yIndicacionesHeader + 0.2, colorIconoIndicaciones)
           });
-          page.drawText(etiquetaIndicaciones, {
+          dibujarTextoCabeceraLimpio(etiquetaIndicaciones, {
             x: xIndicacionesHeader,
             y: yIndicacionesHeader,
             size: tamIndicacionesHeader,
             font: fuenteBold,
-            color: colorAcento
+          color: colorNeonCian
           });
           headerTextBlocks.push({
             id: 'indicaciones-etiqueta',
@@ -3026,7 +3142,7 @@ export class PdfKitRenderer {
           });
           lineasFisicasIndicaciones.forEach(({ texto, x }, indice) => {
               const yLinea = yIndicacionesHeader - indice * lineGapIndicacionesHeader;
-              page.drawText(texto, {
+              dibujarTextoCabeceraLimpio(texto, {
                 x,
                 y: yLinea,
                 size: tamIndicacionesHeader,
@@ -3635,6 +3751,7 @@ export class PdfKitRenderer {
         : 0;
       const rellenoPanelOmr = Math.max(0, perfilOmr.omrPanelPadding);
       const pasoPanelOmrMin = altoPanelOmrMin + separacionPanelOmr + rellenoPanelOmr * 2;
+      const reservaInferiorOmrEnPlan = omrEsquemaHorizontal ? Math.max(0, omrMargenInferior - 1.1) : 0;
       const separacionQrPanelOmrContinuacion = perfilCompacto35 || perfilCompactoCapacidadAlta ? 1 : 8;
       const fondoPrimerPanelContinuacion = rectQr.y - separacionQrPanelOmrContinuacion - omrRadio * 2 - omrMargenSuperior - omrMargenInferior;
       const capacidadPanelContinuacion = omrEsquemaHorizontal
@@ -3678,7 +3795,7 @@ export class PdfKitRenderer {
           preguntaPlan,
           limiteDerechoPlan
         );
-        if (yPlanPagina - alturaPlan < alturaDisponibleMin) break;
+        if (yPlanPagina - alturaPlan < alturaDisponibleMin + reservaInferiorOmrEnPlan) break;
         planPagina.push({ indice: indicePregunta + planPagina.length, altura: alturaPlan });
         // El renderer vuelve a ajustar cada cursor a la retícula de impresión;
         // simularlo durante la planificación evita acumular fracciones que
@@ -3687,7 +3804,7 @@ export class PdfKitRenderer {
       }
       while (planPagina.length > 0) {
         const simulacion = recalcularPlanPagina();
-        if (simulacion.yRender >= alturaDisponibleMin) {
+        if (simulacion.yRender >= alturaDisponibleMin + reservaInferiorOmrEnPlan) {
           break;
         }
         planPagina.pop();
@@ -3842,16 +3959,41 @@ export class PdfKitRenderer {
         const yNum = cursorY - 1 - (esPrimeraPreguntaContinuacion && omrEsquemaHorizontal ? 9 : 0);
         const sizeNum = textoNumero.length >= 3 ? 8 : 9;
         const numWidth = fuenteBold.widthOfTextAtSize(textoNumero, sizeNum);
-        // El número queda como texto independiente, sin borde ni relleno;
-        // así se elimina una masa sólida innecesaria y no compite con el OMR.
+        // Retícula angular abierta: crea una insignia reconocible sin rellenar
+        // el papel ni alterar el carril reservado al lector OMR.
+        const marcaX = xNum + 3.6;
+        const marcaY = yNum + 1;
+        const marcaW = wNum - 5.2;
+        const marcaH = sizeNum + 3;
+        const marcaL = 2.7;
+        for (const signoX of [1, -1] as const) {
+          for (const signoY of [1, -1] as const) {
+            const esquinaX = signoX > 0 ? marcaX : marcaX + marcaW;
+            const esquinaY = signoY > 0 ? marcaY : marcaY + marcaH;
+            page.drawLine({
+              start: { x: esquinaX, y: esquinaY },
+              end: { x: esquinaX + signoX * marcaL, y: esquinaY },
+              color: estiloPregunta.acento,
+              thickness: 0.9,
+              opacity: 0.95
+            });
+            page.drawLine({
+              start: { x: esquinaX, y: esquinaY },
+              end: { x: esquinaX, y: esquinaY + signoY * marcaL },
+              color: estiloPregunta.acento,
+              thickness: 0.9,
+              opacity: 0.95
+            });
+          }
+        }
         page.drawText(textoNumero, {
           x: xNum + (wNum - numWidth) / 2,
           y: yNum + 3.2,
           size: sizeNum,
           font: fuenteBold,
-          color: estiloPregunta.acento
+          color: colorPrimario
         });
-        questionTextInkBoxes.push({ id: `numero-${numero}`, x: xNum, y: yNum + 3.2, width: wNum, height: sizeNum + 1 });
+        questionTextInkBoxes.push({ id: `numero-${numero}`, x: marcaX, y: marcaY, width: marcaW, height: marcaH });
         const emb = imagenesPregunta.get(pregunta.id);
         const layoutImagen = calcularLayoutImagen(emb, anchoTextoPreguntaActual);
         const anchoEnunciado = layoutImagen?.lateral
@@ -3924,7 +4066,7 @@ export class PdfKitRenderer {
           lineas: lineasEnunciado,
           x: xTextoPreguntaRender,
           y: cursorY,
-          reforzarPeso: true,
+          colorTexto: colorEnunciado,
           registrarRuns: (run) => {
             textRunsPregunta.push(run);
             textRunsEnunciado.push(run);
@@ -3987,7 +4129,10 @@ export class PdfKitRenderer {
           const estiloEtiqueta = {
             size: Math.min(sizeOpcion, 8.2),
             font: fuenteBold,
-            color: colorPrimario
+          // Las etiquetas de inciso pueden quedar a pocos puntos de una
+          // burbuja inline; usar el tono editorial oscuro y neutro evita que
+          // un acento cromático saturado se filtre al ROI OMR al rasterizar.
+          color: colorPrimario
           } as const;
           dibujarTextoConPesoVisual(page, etiqueta, { x, y, ...estiloEtiqueta }, true);
           const altoEtiqueta = Math.max(estiloEtiqueta.size * 1.18, estiloEtiqueta.size + 1);
@@ -4247,7 +4392,10 @@ export class PdfKitRenderer {
         // puntos por debajo del margen seguro porque su etiqueta inferior
         // tiene una reserva propia. Subir únicamente el panel conserva el
         // texto y evita que la impresora recorte la fila OMR.
-        const bottomCalculado = yPrimeraBurbuja - omrRadio - omrMargenInferior;
+        const bottomCalculado = yPrimeraBurbuja
+          - (omrEsquemaHorizontal ? 0 : (letras.length - 1) * pasoBurbujaVertical)
+          - omrRadio
+          - omrMargenInferior;
         if (bottomCalculado < alturaDisponibleMin) {
           yPrimeraBurbuja += alturaDisponibleMin - bottomCalculado;
         }
@@ -4296,7 +4444,7 @@ export class PdfKitRenderer {
           panelRect,
           `omr-pregunta-${numero}`
         );
-        if (panelRect.y < alturaDisponibleMin) {
+        if (panelRect.y < alturaDisponibleMin - 0.01) {
           throw new Error(
             `Layout invalido: el panel OMR ${numero} invade la zona segura inferior de la pagina ${numeroPagina}`
           );
@@ -4327,7 +4475,7 @@ export class PdfKitRenderer {
         if (perfilNumeroOmrExterior) {
           // Se dibujan después de validar texto, burbujas y fiduciales.
         } else if (this.perfilLayout.usarEtiquetaOmrSolida) {
-          page.drawRectangle({ x: xTag, y: yTag, width: wTag, height: hTag, color: colorPrimario, opacity: 0.9 });
+          page.drawRectangle({ x: xTag, y: yTag, width: wTag, height: hTag, color: colorNegroLectura, opacity: 0.9 });
           for (const punto of [
             { x: xTag + 2.1, y: yTag + 2.1 },
             { x: xTag + wTag - 2.1, y: yTag + hTag - 2.1 }
@@ -4359,14 +4507,14 @@ export class PdfKitRenderer {
             y: yTag + Math.max(0.4, (hTag - perfilOmr.omrTagFontSize) / 2),
             size: perfilOmr.omrTagFontSize,
             font: fuenteBold,
-            color: colorPrimario
+            color: colorNegroLectura
           });
           page.drawText(String(numero), {
             x: xTag + Math.max(0.8, (wTag - anchoNumero) / 2) + 0.18,
             y: yTag + Math.max(0.4, (hTag - perfilOmr.omrTagFontSize) / 2),
             size: perfilOmr.omrTagFontSize,
             font: fuenteBold,
-            color: colorPrimario
+            color: colorNegroLectura
           });
         }
 
@@ -4509,7 +4657,7 @@ export class PdfKitRenderer {
             y: yNumeroPanel,
             size: sizeNumeroPanel,
             font: fuenteBold,
-            color: colorPrimario
+            color: colorNegroLectura
           });
           omrQuestionNumberBoxes.push({ id: `numero-omr-${numero}`, numeroPregunta: numero, ...cajaNumeroPanel });
         }
@@ -4691,7 +4839,7 @@ export class PdfKitRenderer {
       // página densa el QR se regenera con sus preguntas reales; hacerlo antes
       // dejaría la leyenda cubierta por la segunda tarjeta blanca.
       {
-        const altoFranjaLeyendaQr = 12;
+        const altoFranjaLeyendaQr = 10;
         const anchoReservaQr = cardW;
         const leyendaQr = `${folioQr} · P${numeroPaginaPdf}`;
         const anchoLeyendaDisponible = Math.max(24, anchoReservaQr - 4);
@@ -5035,6 +5183,19 @@ export class PdfKitRenderer {
         thickness: 0.45,
         opacity: 0.75
       });
+      const acentoPie = [colorNeonCian, colorNeonMagenta, colorNeonMagenta, colorNeonCian] as const;
+      const extremosPie = [
+        { x: piePanel.x + 1, y: piePanel.y + piePanel.height - 1 },
+        { x: piePanel.x + piePanel.width - 1, y: piePanel.y + piePanel.height - 1 },
+        { x: piePanel.x + 1, y: piePanel.y + 1 },
+        { x: piePanel.x + piePanel.width - 1, y: piePanel.y + 1 }
+      ];
+      extremosPie.forEach((inicio, indice) => page.drawLine({
+        start: inicio,
+        end: { x: inicio.x + (indice % 2 === 0 ? 12 : -12), y: inicio.y },
+        color: acentoPie[indice]!,
+        thickness: 1.05
+      }));
       for (const [indice, pieX] of posicionesPie.entries()) {
         const x = pieX + (anchoZonaPie - pieWidth) / 2;
         const bbox = { x, y: pieY - 1, width: pieWidth, height: pieSize + 2 };
@@ -5043,7 +5204,7 @@ export class PdfKitRenderer {
           throw new Error(`Layout invalido: referencia OCR ${indice + 1} invade un fiducial en la pagina ${numeroPaginaExamen}`);
         }
         posicionesTexto.push(bbox);
-        page.drawText(pieTexto, { x, y: pieY, size: pieSize, font: fuenteOcr, color: colorPrimario });
+        page.drawText(pieTexto, { x, y: pieY, size: pieSize, font: fuenteOcr, color: colorNegroLectura });
       }
       if (paginaOmr?.layoutDebug) {
         paginaOmr.layoutDebug.footerReferences = posicionesTexto.map((bbox) => ({
