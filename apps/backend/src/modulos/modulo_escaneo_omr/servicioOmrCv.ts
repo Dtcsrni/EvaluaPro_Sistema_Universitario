@@ -4703,14 +4703,32 @@ export async function analizarOmr(
       if (!forceSimpleScale) {
         motivosRevision.push('Alineacion global inestable (escala simple puntuo mejor)');
       }
+      const puntosReferenciaMapa = [
+        mapaPagina.marcasPagina?.tl,
+        mapaPagina.marcasPagina?.tr,
+        mapaPagina.marcasPagina?.bl,
+        mapaPagina.marcasPagina?.br
+      ].filter((punto): punto is Punto => Boolean(punto));
+      const diferenciasAnclasEscala = puntosReferenciaMapa.map((punto) => {
+        const anclado = transformacionBase.transformar(punto);
+        const escalado = transformarEscala(punto);
+        return Math.hypot(anclado.x - escalado.x, anclado.y - escalado.y);
+      }).sort((a, b) => a - b);
+      const desplazamientoMedianoEscala = diferenciasAnclasEscala.length >= 3
+        ? diferenciasAnclasEscala[Math.floor(diferenciasAnclasEscala.length / 2)] ?? 0
+        : Number.POSITIVE_INFINITY;
+      const umbralDesplazamientoAnclas = Math.max(6, paramsBurbuja.radio * 0.5);
+      const escalaSeSeparaDeLasAnclas = desplazamientoMedianoEscala > umbralDesplazamientoAnclas;
       const referenciaGlobalAnclada =
         transformacionBase.referenciaPagina?.orientacionDeterminada !== false &&
         (transformacionBase.referenciaPagina?.puntosDetectados ?? 0) >= 4 &&
-        referenciaPaginaCalidad >= 0.85;
+        referenciaPaginaCalidad >= 0.85 &&
+        escalaSeSeparaDeLasAnclas;
       // El puntaje tonal puede favorecer una escala ajustada al lienzo completo
       // aunque la captura incluya márgenes, pie del escáner o espacio de cámara.
       // Con cuatro referencias de página concordantes, la homografía conserva
-      // la relación con el papel y debe prevalecer sobre esa escala de lienzo.
+      // la relación con el papel cuando la escala se aparta materialmente de
+      // ellas. Si coinciden, la escala sencilla sigue siendo candidata válida.
       const permitirFallbackEscala = debePermitirFallbackEscalaOmr({
         forceSimpleScale,
         referenciaGlobalAnclada,
