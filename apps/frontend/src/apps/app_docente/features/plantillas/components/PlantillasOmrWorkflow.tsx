@@ -231,6 +231,16 @@ function etiquetaEstadoPaginaOmr(estado: string) {
   return etiquetas[estado.trim().toLowerCase()] ?? estado;
 }
 
+function etiquetaFlagOmr(flag: string) {
+  const etiquetas: Record<string, string> = {
+    bajo_contraste: 'Bajo contraste',
+    doble_marca: 'Varias marcas',
+    LOW_CONFIDENCE: 'Confianza baja'
+  };
+  const normalizado = flag.trim();
+  return etiquetas[normalizado] ?? normalizado.replace(/[_-]+/g, ' ').replace(/^\w/, (letra) => letra.toUpperCase());
+}
+
 function mensajeErrorTrabajoOmr(job: OmrJobDetalle, esIngestaOmr: boolean, folio?: string) {
   if (esIngestaOmr) {
     return 'No se pudo completar la ingesta OMR. Los archivos originales se conservan; puedes reprocesarlos con el botón inferior.';
@@ -781,7 +791,7 @@ export function PlantillasOmrWorkflow({
           </ul>
         </div>
       )}
-      <div className="acciones acciones--mt">
+      <div className="acciones acciones--mt plantillas-omr__artifact-actions">
         <label className="campo">
           <input type="checkbox" checked={sharedFormCopies} disabled={!puedeAsignarAlumnoCopia} onChange={(event) => setSharedFormCopies(event.target.checked)} />
           Varias copias físicas del mismo formulario para alumnos distintos
@@ -1217,7 +1227,7 @@ export function PlantillasOmrWorkflow({
             <div className="resultado plantillas-omr__review">
               <h4>Revisión de página: {paginaActiva.sheetSerial}</h4>
               <div className="item-meta">
-                <span>Estado: {paginaEnRevisionCiega ? 'Revisión visual ciega' : paginaActiva.scanStatus}</span>
+                <span>Estado: {paginaEnRevisionCiega ? 'Revisión visual ciega' : etiquetaEstadoPaginaOmr(paginaActiva.scanStatus)}</span>
                 {!paginaEnRevisionCiega && <span>Confianza: {(paginaActiva.confidence * 100).toFixed(1)}%</span>}
                 {!paginaEnRevisionCiega && <span>Auto: {paginaActiva.autoGradable ? 'Sí' : 'No'}</span>}
                 {paginaActiva.sourceFileName && <span>Origen: {paginaActiva.sourceFileName} · página {paginaActiva.sourcePage}</span>}
@@ -1533,7 +1543,7 @@ export function PlantillasOmrWorkflow({
                                 ? evidencia.candidatas.map((candidata) => `${candidata.opcion} (${Math.round(candidata.score * 100)}%, ${etiquetaEstadoMarca(candidata.estadoMarca)})`).join(' · ')
                                 : 'sin evidencia candidata conservada'}
                             </p>
-                            {evidencia?.flags?.length ? <p>Señales: {evidencia.flags.join(', ')}</p> : null}
+                            {evidencia?.flags?.length ? <p>Señales: {evidencia.flags.map(etiquetaFlagOmr).join(' · ')}</p> : null}
                           </>
                         )}
                       </div>

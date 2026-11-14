@@ -5822,7 +5822,7 @@ button.chip-docente-sesion:active {
   background: var(--docente-teal);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico {
   margin-bottom: 0 !important;
   border-color: var(--docente-edge) !important;
   border-radius: 22px;
@@ -5837,22 +5837,22 @@ button.chip-docente-sesion:active {
   -webkit-backdrop-filter: blur(30px) saturate(118%) !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__header {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__header {
   padding-bottom: 1.1rem;
   border-bottom: 1px solid var(--docente-edge-soft);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__title {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__title {
   color: var(--docente-ink) !important;
   font-size: clamp(1.45rem, 2.3vw, 2rem);
   letter-spacing: -0.045em;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__subtitle {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__subtitle {
   color: var(--docente-ink-soft) !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-panel__hint {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-panel__hint {
   margin: 1rem 0 0;
   border: 0 !important;
   border-left: 2px solid var(--docente-teal) !important;
@@ -5863,12 +5863,12 @@ button.chip-docente-sesion:active {
   box-shadow: none !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__fields {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__row--top {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5876,8 +5876,8 @@ button.chip-docente-sesion:active {
   padding: 1.2rem 0 1.35rem;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas-box,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box {
   grid-column: 1 / -1;
   grid-row: auto;
   width: 100%;
@@ -5890,24 +5890,24 @@ button.chip-docente-sesion:active {
   box-shadow: none !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas__header,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__heading {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas__header,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__heading {
   align-items: flex-start;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas__title {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas__title {
   color: var(--docente-ink) !important;
   font-size: 1.22rem;
   letter-spacing: -0.025em;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas__lista {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas__lista {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.6rem;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-tema-chip {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-tema-chip {
   min-height: 48px;
   border-color: var(--docente-edge-soft) !important;
   border-radius: 12px;
@@ -5916,37 +5916,37 @@ button.chip-docente-sesion:active {
   box-shadow: inset 0 1px 0 rgba(247, 255, 251, 0.08) !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-tema-chip:hover,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-tema-chip--selected {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-tema-chip:hover,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-tema-chip--selected {
   border-color: rgba(159, 202, 189, 0.58) !important;
   color: #eff8f3 !important;
   background: rgba(159, 202, 189, 0.15) !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-empty {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas-empty {
   min-height: 5.2rem;
   border-color: rgba(159, 202, 189, 0.34) !important;
   border-radius: 14px;
   background: rgba(20, 34, 40, 0.2) !important;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__controls {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__controls {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-auto-status {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-auto-status {
   border-color: rgba(159, 202, 189, 0.34);
   color: var(--docente-ink-soft);
   background: rgba(20, 34, 40, 0.2);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__footer {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__logos,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__footer {
   border-top-color: var(--docente-edge-soft);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__footer {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__footer {
   grid-column: 1 / -1;
   border-top: 1px solid var(--docente-edge-soft);
   margin-top: 1.25rem;
@@ -5954,36 +5954,36 @@ button.chip-docente-sesion:active {
 }
 
 @media (max-width: 900px) {
-  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__controls {
+  :root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 720px) {
-  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top,
-  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__controls {
+  :root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__row--top,
+  :root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__controls {
     grid-template-columns: 1fr;
   }
 }
 
 /* SPEC-066: Secciones editoriales explícitas.
    Marca el recorrido del formulario sin crear paneles anidados. */
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__row--top,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas-box,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box {
   position: relative;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__row--top {
   margin-top: 0.55rem;
   border-top: 1px solid var(--docente-edge-soft);
   padding-top: 2.55rem;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top::before,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box::before,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box::before,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos::before {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__row--top::before,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas-box::before,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box::before,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__logos::before {
   display: block;
   color: var(--docente-ink-muted);
   font-size: 0.68rem;
@@ -5993,43 +5993,43 @@ button.chip-docente-sesion:active {
   text-transform: uppercase;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .alumnos-form__row--top::before {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .alumnos-form__row--top::before {
   grid-column: 1 / -1;
   content: "01 · Datos del examen";
   color: var(--docente-teal);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-temas-box::before {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-temas-box::before {
   content: "02 · Temas y cobertura";
   margin-bottom: 0.8rem;
   color: var(--docente-teal);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box::before {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box::before {
   content: "03 · Formato del cuadernillo";
   margin-bottom: 0.8rem;
   color: #c7b9ef;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__logos {
   position: relative;
   grid-template-columns: minmax(180px, 1.1fr) repeat(2, minmax(0, 1fr));
   padding-top: 2.35rem;
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos::before {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__logos::before {
   grid-column: 1 / -1;
   content: "04 · Identidad visual";
   color: var(--docente-teal);
 }
 
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__heading > div > .plantillas-formato-box__eyebrow,
-:root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos .plantillas-formato-box__eyebrow {
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__heading > div > .plantillas-formato-box__eyebrow,
+:root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__logos .plantillas-formato-box__eyebrow {
   display: none;
 }
 
 @media (max-width: 720px) {
-  :root[data-theme="dark"] .page--docente .plantillas-form--panoramico .plantillas-formato-box__logos {
+  :root[data-theme="dark"] .page--docente .alumnos-form--panoramico .plantillas-formato-box__logos {
     grid-template-columns: 1fr;
   }
 }
