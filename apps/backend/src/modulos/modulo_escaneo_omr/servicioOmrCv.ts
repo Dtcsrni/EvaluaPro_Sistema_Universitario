@@ -217,6 +217,29 @@ export function debeReactivarGeometriaLocalTrasEscalaOmr(args: {
  * cuatro fiduciales de esquina con calidad alta. La escala explicita del mapa
  * siempre conserva prioridad.
  */
+export function debePermitirFallbackEscalaOmr(args: {
+  forceSimpleScale: boolean;
+  referenciaGlobalAnclada: boolean;
+  geometriaLocalActiva: boolean;
+  fiducialesEsquinaFuertes: boolean;
+  rescateFiducialesDesactivado: boolean;
+  escalaMuyMejor: boolean;
+  transformacionHomografica: boolean;
+  ventajaEscala: number;
+}) {
+  if (args.forceSimpleScale) return true;
+  // Una puntuacion de tinta puede preferir por error la escala del lienzo si
+  // la captura contiene márgenes alrededor del papel. Con cuatro referencias
+  // concordantes, conservar la geometría anclada evita desplazar las filas.
+  if (args.referenciaGlobalAnclada) return false;
+  return (
+    !args.geometriaLocalActiva ||
+    args.fiducialesEsquinaFuertes ||
+    (args.rescateFiducialesDesactivado && args.escalaMuyMejor) ||
+    (args.transformacionHomografica && args.escalaMuyMejor && args.ventajaEscala > 0.18)
+  );
+}
+
 /**
  * Las fotografias moviles pueden conservar una pagina vertical como pixeles
  * apaisados cuando la aplicacion no guarda EXIF. El mapa OMR siempre describe
@@ -4680,12 +4703,25 @@ export async function analizarOmr(
       if (!forceSimpleScale) {
         motivosRevision.push('Alineacion global inestable (escala simple puntuo mejor)');
       }
-      const permitirFallbackEscala = forceSimpleScale || (
-        !usarGeometriaLocal ||
-        (transformacionBase.referenciaPagina?.tipo === 'marcas_esquina' && escalaMejor && referenciaGlobalFuerte) ||
-        (opcionesInternas?.rescueFiduciales === false && escalaMuyMejor && referenciaGlobalFuerte) ||
-        (transformacionBase.tipo === 'homografia' && escalaMuyMejor && ventajaEscala > 0.18 && referenciaGlobalFuerte)
-      );
+      const referenciaGlobalAnclada =
+        transformacionBase.referenciaPagina?.orientacionDeterminada !== false &&
+        (transformacionBase.referenciaPagina?.puntosDetectados ?? 0) >= 4 &&
+        referenciaPaginaCalidad >= 0.85;
+      // El puntaje tonal puede favorecer una escala ajustada al lienzo completo
+      // aunque la captura incluya márgenes, pie del escáner o espacio de cámara.
+      // Con cuatro referencias de página concordantes, la homografía conserva
+      // la relación con el papel y debe prevalecer sobre esa escala de lienzo.
+      const permitirFallbackEscala = debePermitirFallbackEscalaOmr({
+        forceSimpleScale,
+        referenciaGlobalAnclada,
+        geometriaLocalActiva: usarGeometriaLocal,
+        fiducialesEsquinaFuertes:
+          transformacionBase.referenciaPagina?.tipo === 'marcas_esquina' && escalaMejor && referenciaGlobalFuerte,
+        rescateFiducialesDesactivado: opcionesInternas?.rescueFiduciales === false && referenciaGlobalFuerte,
+        escalaMuyMejor,
+        transformacionHomografica: transformacionBase.tipo === 'homografia' && referenciaGlobalFuerte,
+        ventajaEscala
+      });
       if (permitirFallbackEscala) {
         if (!forceSimpleScale) {
           advertencias.push('Se eligio transformacion por escala por mayor coherencia de marcas');
