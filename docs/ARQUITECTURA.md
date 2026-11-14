@@ -58,7 +58,7 @@ Cada módulo publica dos superficies separadas: `index.ts` para APIs de dominio 
 - Para actualizar una API de dominio o de composición, cambia primero `contractVersion` según compatibilidad y ejecuta `npm run qa:module-contracts:snapshot`; el comando agrega snapshots a ambos historiales y falla si detecta cambios sin versión nueva o un bump insuficiente.
 - Para agregar o cambiar una dependencia: actualizar primero la API pública consumida, declarar el rango en el registro y validar el grafo. Los cambios incompatibles incrementan la versión mayor del contrato y requieren adaptar consumidores antes de integrar el host.
 - Prisma y SQLite mantienen una base y migraciones centrales. Aplicar `expand-migrate-contract`: expandir de forma compatible, migrar datos/consumidores y retirar columnas o estructuras solo cuando todos los consumidores hayan superado la ventana de compatibilidad.
-- La versión de contrato es actualmente `1.1.0` en todos los módulos y el host admite `>=1.2.6 <2.0.0`. Son límites de integración dentro del monorepo; no representan paquetes publicados ni compatibilidad binaria entre procesos.
+- Cada módulo evoluciona su `contractVersion` de forma independiente; el manifiesto `docs/contracts/module-contracts.v2.json` es la fuente vigente. El host admite `>=1.2.6 <2.0.0`. Son límites de integración dentro del monorepo; no representan paquetes publicados ni compatibilidad binaria entre procesos.
 
 ## Datos y persistencia
 - Fuente primaria local del flavor docente: SQLite administrado por Prisma

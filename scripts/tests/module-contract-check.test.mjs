@@ -121,11 +121,13 @@ test('la base vigente registra todos los módulos, sin ciclos ni modelos huérfa
   assert.ok(result.transitiveConsumers.modulo_autenticacion.length > 0);
 });
 
-test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consumidores', () => {
+test('el contrato PDF conserva el historial y versiona de forma incompatible los cambios posteriores a Zod 4', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/contracts/module-contracts.v2.json'), 'utf8'));
   const pdf = manifest.modules.find((item) => item.id === 'modulo_generacion_pdf');
-  assert.equal(pdf.contractVersion, '4.0.0');
-  assert.equal(pdf.publicApiHistory.at(-1).version, '4.0.0');
+  assert.equal(pdf.contractVersion, '5.0.0');
+  assert.deepEqual(pdf.publicApiHistory.map((snapshot) => snapshot.version), ['1.0.0', '1.1.0', '2.0.0', '3.0.0', '4.0.0', '5.0.0']);
+  assert.equal(pdf.compositionApiHistory.at(-2).version, '4.0.0');
+  assert.equal(pdf.compositionApiHistory.at(-1).version, '5.0.0');
   assert.match(
     pdf.publicApiHistory.at(-1).exports.find((item) => item.name === 'ResumenQrExamen')?.signature ?? '',
     /loteId\?: string/,
@@ -149,7 +151,7 @@ test('el contrato PDF versiona el cambio incompatible de Zod 4 y todos sus consu
     'modulo_sincronizacion_nube'
   ]) {
     const consumer = manifest.modules.find((item) => item.id === consumerId);
-    assert.equal(consumer.dependencies.find((item) => item.module === 'modulo_generacion_pdf')?.contractRange, '^4.0.0', consumerId);
+    assert.equal(consumer.dependencies.find((item) => item.module === 'modulo_generacion_pdf')?.contractRange, '^5.0.0', consumerId);
   }
 });
 
