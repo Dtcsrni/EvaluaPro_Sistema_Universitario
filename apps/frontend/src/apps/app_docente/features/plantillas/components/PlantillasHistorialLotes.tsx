@@ -57,7 +57,7 @@ export function PlantillasHistorialLotes({
   onRegenerarPaquete,
   onEliminarPaquete,
   lotesArchivados,
-  cantidadLotesOmrArchivados,
+  cantidadLotesOmrDisponibles,
   cargandoLotesArchivados,
   hayMasLotesArchivados,
   onCargarMasLotesArchivados,
@@ -88,7 +88,7 @@ export function PlantillasHistorialLotes({
   onRegenerarPaquete: (loteId: string) => Promise<void>;
   onEliminarPaquete: (loteId: string, items: ExamenGeneradoResumen[]) => Promise<void>;
   lotesArchivados: LoteArchivadoResumen[];
-  cantidadLotesOmrArchivados: number;
+  cantidadLotesOmrDisponibles: number;
   cargandoLotesArchivados: boolean;
   hayMasLotesArchivados: boolean;
   onCargarMasLotesArchivados: () => Promise<void>;
@@ -163,7 +163,7 @@ export function PlantillasHistorialLotes({
         <div className="ayuda anim-fade-in" role="status">
           <Spinner /> Cargando historial de exámenes generados…
         </div>
-      ) : !errorExamenesGenerados && !errorLotesArchivados && paquetes.length === 0 && examenesIndividuales.length === 0 && listaLotesArchivados.length === 0 && cantidadLotesOmrArchivados === 0 ? (
+      ) : paquetes.length === 0 && examenesIndividuales.length === 0 && listaLotesArchivados.length === 0 && cantidadLotesOmrDisponibles === 0 ? (
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon anim-icon-pulse" aria-hidden="true">
             <IconoLucide icon={Package} size={26} />
@@ -188,7 +188,7 @@ export function PlantillasHistorialLotes({
         <div className="empty-state-card anim-fade-in">
           <div className="empty-state-card__icon" aria-hidden="true"><IconoLucide icon={Package} size={26} /></div>
           <h4>No hay paquetes activos</h4>
-          <p>Hay {cantidadLotesOmrArchivados} lotes activos o archivados disponibles para cotejo OMR. La consulta conserva el estado del lote.</p>
+          <p>Hay {cantidadLotesOmrDisponibles} lotes registrados (activos y archivados) disponibles para el cotejo OMR.</p>
         </div>
       ) : (
         <div className="plantillas-historial-wrap">

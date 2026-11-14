@@ -81,7 +81,7 @@ describe('salud', () => {
         omr: expect.objectContaining({
           contractId: 'omr-canonical-1.0.0',
           templateVersion: 4,
-          displayLabel: 'OMR · 1.0.0-dev.1',
+          displayLabel: 'OMR · 1.1.0-dev.1',
           oldVersionsOperational: false
         }),
         build: expect.objectContaining({
@@ -107,7 +107,7 @@ describe('salud', () => {
         omr: expect.objectContaining({
           contractId: 'omr-canonical-1.0.0',
           templateVersion: 4,
-          displayLabel: 'OMR · 1.0.0-dev.1',
+          displayLabel: 'OMR · 1.1.0-dev.1',
           oldVersionsOperational: false
         })
       })

@@ -3,9 +3,9 @@
   "active": {
     "templateVersion": 4,
     "contractId": "omr-canonical-1.0.0",
-    "layoutVersion": "1.0.0-dev.1",
-    "displayLabel": "OMR · 1.0.0-dev.1",
-    "wireMarker": "O1.0.0"
+    "layoutVersion": "1.1.0-dev.1",
+    "displayLabel": "OMR · 1.1.0-dev.1",
+    "wireMarker": "O1.1.0"
   },
   "oldVersionsOperational": false,
   "legacyQrReadable": true,

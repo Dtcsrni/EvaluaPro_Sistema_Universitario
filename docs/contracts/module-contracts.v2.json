@@ -471,11 +471,11 @@
         },
         {
           "module": "modulo_escaneo_omr",
-          "contractRange": "^1.0.0"
+          "contractRange": "^2.0.0"
         },
         {
           "module": "modulo_generacion_pdf",
-          "contractRange": "^4.0.0"
+          "contractRange": "^3.1.0"
         }
       ],
       "persistenceModels": [
@@ -542,8 +542,8 @@
           "version": "1.2.0",
           "exports": [
             {
-              "name": "calificarExamenAutomatico",
-              "signature": "(args: { docenteId: string; body: unknown; }) => Promise<{ statusCode: number; body: unknown; }>"
+              "name": "calificarExamen",
+              "signature": "(req: SolicitudDocente, res: Response) => Promise<void>"
             },
             {
               "name": "rutasCalificaciones",
@@ -686,7 +686,7 @@
     },
     {
       "id": "modulo_escaneo_omr",
-      "contractVersion": "1.2.0",
+      "contractVersion": "2.0.0",
       "entry": "apps/backend/src/modulos/modulo_escaneo_omr/index.ts",
       "hostCompatibility": ">=1.2.6 <2.0.0",
       "purpose": "Ingesta y análisis de hojas OMR.",
@@ -697,7 +697,7 @@
         },
         {
           "module": "modulo_generacion_pdf",
-          "contractRange": "^4.0.0"
+          "contractRange": "^3.1.0"
         }
       ],
       "persistenceModels": [
@@ -734,19 +734,31 @@
           ]
         },
         {
-          "version": "1.2.0",
+          "version": "2.0.0",
           "exports": [
             {
+              "name": "analizarPaginasOmrParaCalificacion",
+              "signature": "(params: { folio: string; mapaOmr: MapaOmrExamen; paginasExamen: PaginaExamenOmr[]; paginasCapturadas: PaginaCapturadaOmr[]; totalPreguntasEsperadas: number; analizar?: AnalizadorPaginaOmr; leerBono?: typeof leerBonoVisibleOmr; }) => Promise<ResultadoCalificacionOmrLocal>"
+            },
+            {
               "name": "evaluarAutoCalificableOmr",
-              "signature": "(args: EntradaAutoCalificacionOmr) => { hardStop: boolean; rescateAltaPrecision: boolean; autoCalificableOmr: boolean; }"
+              "signature": "(args: EntradaAutoCalificacionOmr) => { hardStop: boolean; rescateAltaPrecision: boolean; autoCalificableOmr: boolean; motivos: string[]; }"
             },
             {
               "name": "leerCapturasOmrParaPortal",
               "signature": "(folio: string) => Promise<Array<{ numeroPagina: number; formato: \"webp\"; imagenBase64: string; calidad?: number; sugerencias?: string[]; }>>"
             },
             {
-              "name": "obtenerTransformacion",
-              "signature": "(gray: Uint8ClampedArray, width: number, height: number, advertencias: string[], qr?: QrDetalle | null, opciones?: { margenMm: number; qrSizePts: number; qrGeometry?: { x: number; y: number; size: number; marginModules?: number; matrixModules?: number; errorCorrectionLevel?: \"L\" | \"M\" | \"Q\" | \"H\"; textoEsperado?: string | string[]; }; marcasPagina?: { tipo?: \"lineas\" | \"cuadrados\"; size?: number; orientacion?: { esquina: \"tl\"; tipo: \"centro_vacio\"; radio: number; }; tl?: Punto; tr?: Punto; bl?: Punto; br?: Punto; }; anchoCarta: number; altoCarta: number; mmAPuntos: number; }) => { transformar: (punto: Punto) => { x: number; y: number; }; tipo: \"homografia\"; referenciaPagina: { fuenteOrientacion: \"indeterminada\" | \"qr\" | \"qr_patron_esperado\" | \"fiducial_direccional\"; conflictoOrientacion: boolean; confianzaOrientacion?: number | undefined; margenOrientacion?: number | undefined; orientacionDeterminada: boolean; orientacionGrados?: 0 | 180 | 90 | 270 | undefined; inclinacionGrados?: number | undefined; tipo: \"marcas_esquina\"; calidad: number; puntosDetectados: number; }; } | { transformar: (punto: Punto) => { x: number; y: number; }; tipo: \"qr\"; referenciaPagina: { orientacionDeterminada: boolean; fuenteOrientacion: \"qr\"; conflictoOrientacion: boolean; orientacionGrados: 0 | 90 | 180 | 270; inclinacionGrados: number; tipo: \"qr\"; calidad: number; puntosDetectados: number; }; } | { transformar: (punto: Punto) => { x: number; y: number; }; tipo: \"escala\"; referenciaPagina: { tipo: \"escala\"; calidad: number; puntosDetectados: number; orientacionDeterminada: boolean; fuenteOrientacion: \"indeterminada\"; conflictoOrientacion: boolean; }; }"
+              "name": "leerQrDesdeImagen",
+              "signature": "(imagenBase64: string) => Promise<string | undefined>"
+            },
+            {
+              "name": "OMR_TV4_REAL_PILOT_GATE_PASSED",
+              "signature": "boolean"
+            },
+            {
+              "name": "ResultadoCalificacionOmrLocal",
+              "signature": "{ respuestasDetectadas: ResultadoOmr[\"respuestasDetectadas\"]; analisis: { estadoAnalisis: ResultadoOmr[\"estadoAnalisis\"]; calidadPagina: number; confianzaPromedioPagina: number; ratioAmbiguas: number; templateVersionDetectada: 4; motivosRevision: string[]; engineVersion: string; geomQuality: number; photoQuality: number; decisionPolicy: string; qrTexto: string; resumenRespuestas: NonNullable<ResultadoOmr[\"resumenRespuestas\"]>; bonoVisible: boolean; bonoOcrResuelto: boolean; bonoOcrConfianza: number; }; paginas: Array<{ numeroPagina: number; sha256Imagen: string; qrTexto: string; estadoAnalisis: ResultadoOmr[\"estadoAnalisis\"]; calidadPagina: number; confianzaPromedioPagina: number; ratioAmbiguas: number; engineVersion: string; decisionPolicy: string; }>; }"
             }
           ]
         }
@@ -775,11 +787,11 @@
           ]
         },
         {
-          "version": "1.2.0",
+          "version": "2.0.0",
           "exports": [
             {
-              "name": "configurarCalificadorAutomaticoOmr",
-              "signature": "(calificador: CalificadorAutomaticoOmr) => void"
+              "name": "configurarCalificadorExamenOmr",
+              "signature": "(calificador: CalificadorExamenOmr) => void"
             },
             {
               "name": "ejecutarSmokeTestOmrCv",
@@ -870,7 +882,7 @@
     },
     {
       "id": "modulo_generacion_pdf",
-      "contractVersion": "4.0.0",
+      "contractVersion": "3.2.0",
       "entry": "apps/backend/src/modulos/modulo_generacion_pdf/index.ts",
       "hostCompatibility": ">=1.2.6 <2.0.0",
       "purpose": "Plantillas, lotes, PDFs y artefactos de examen.",
@@ -1228,15 +1240,15 @@
           ]
         },
         {
-          "version": "4.0.0",
+          "version": "3.1.0",
           "exports": [
             {
-              "name": "ALTO_CARTA",
-              "signature": "792"
+              "name": "construirFirmaClave",
+              "signature": "(preguntas: PreguntaBase[] | undefined, mapaVariante?: MapaVariante) => string"
             },
             {
-              "name": "ANCHO_CARTA",
-              "signature": "612"
+              "name": "construirFirmaVariante",
+              "signature": "(mapaVariante?: MapaVariante) => string"
             },
             {
               "name": "descargarPdfLoteUseCase",
@@ -1263,12 +1275,16 @@
               "signature": "({ titulo, folio, loteId, examId, preguntas, mapaVariante, tipoExamen, totalPaginas, margenMm, encabezado, bookletConfig, templateVersion, omrTemplateId }: { titulo: string; folio: string; loteId?: string; examId?: string; preguntas: PreguntaBase[]; mapaVariante: MapaVariante; tipoExamen: TipoExamen; totalPaginas: number; margenMm?: number; templateVersion?: TemplateVersion; omrTemplateId?: OmrTemplateId; bookletConfig?: { densityMode?: \"balanced\" | \"compact\" | \"relaxed\"; autoFitPages?: boolean; autoFitTypography?: boolean; fontScale?: number; lineSpacing?: number; distribuirEnPaginasObjetivo?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; encabezado?: { institucion?: string; lema?: string; materia?: string; docente?: string; instrucciones?: string; alumno?: { nombre?: string; grupo?: string; iniciales?: string; }; mostrarInstrucciones?: boolean; mostrarMarcaInstitucional?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; }) => Promise<import(\"#self\").ResultadoGeneracionPdf>"
             },
             {
-              "name": "MapaVariante",
-              "signature": "{ ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]>; }"
+              "name": "hashContenidoPregunta",
+              "signature": "(pregunta: BancoPreguntaLean, numeroVersion: number) => string"
             },
             {
-              "name": "MM_A_PUNTOS",
-              "signature": "number"
+              "name": "MapaOmr",
+              "signature": "MapaOmr"
+            },
+            {
+              "name": "MapaVariante",
+              "signature": "{ ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]>; }"
             },
             {
               "name": "normalizarTituloPlantilla",
@@ -1276,19 +1292,11 @@
             },
             {
               "name": "OMR_CANONICAL_CONTRACT_ID",
-              "signature": "\"omr-canonical-1.0.0\""
+              "signature": "\"omr-canonical-v4\""
             },
             {
               "name": "OMR_CANONICAL_DISPLAY_LABEL",
-              "signature": "\"OMR · 1.0.0-dev.1\""
-            },
-            {
-              "name": "OMR_LAYOUT_RELEASE_VERSION",
-              "signature": "\"1.0.0-dev.1\""
-            },
-            {
-              "name": "OmrTemplateId",
-              "signature": "\"omr-canonical-1.0.0\" | \"omr-canonical-v4\" | \"omr-inline-exam-v1\""
+              "signature": "\"OMR canónico · v4\""
             },
             {
               "name": "PreguntaBase",
@@ -1311,8 +1319,113 @@
               "signature": "{ questionId: string; questionRef: string; pageNumber: number; visibleNumber: number; variantOrder: number[]; correctLetterVisible: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; opcionesVisibles: Array<{ letra: string; originalIndex: number; texto: string; esCorrecta: boolean; }>; }"
             },
             {
-              "name": "resolverOmrTemplateId",
-              "signature": "(templateId?: OmrTemplateId) => OmrTemplateId"
+              "name": "ResumenQrExamen",
+              "signature": "{ folio: string; numeroPagina: number; templateVersion?: TemplateVersion; templateId?: OmrTemplateId; keyId?: string; examId?: string; loteId?: string; totalPreguntas?: number; preguntaDesde?: number; preguntaHasta?: number; variantHash?: string; answerKeyHash?: string; pageAnswerKey?: string; payloadSignature?: string; payloadSignatureMode?: \"hmac-v1\" | \"unsupported\" | \"none\"; payloadSignatureValid?: boolean; qrPayloadMode?: \"self-contained\" | \"manifest-bound\"; validatedAgainstManifest?: boolean; questionRefs?: string[]; optionOrders?: string[]; raw: string; }"
+            },
+            {
+              "name": "TEMPLATE_VERSION_CANONICA",
+              "signature": "4"
+            },
+            {
+              "name": "TemplateVersion",
+              "signature": "4"
+            },
+            {
+              "name": "verificarRecoveryBundle",
+              "signature": "(bundle: RecoveryBundle) => boolean"
+            },
+            {
+              "name": "verificarRecoveryManifest",
+              "signature": "(manifest: RecoveryManifest) => boolean"
+            }
+          ]
+        },
+        {
+          "version": "3.2.0",
+          "exports": [
+            {
+              "name": "construirFirmaClave",
+              "signature": "(preguntas: PreguntaBase[] | undefined, mapaVariante?: MapaVariante) => string"
+            },
+            {
+              "name": "construirFirmaVariante",
+              "signature": "(mapaVariante?: MapaVariante) => string"
+            },
+            {
+              "name": "descargarPdfLoteUseCase",
+              "signature": "(params: { docenteId: unknown; loteId: string; }) => Promise<{ buffer: Buffer<ArrayBufferLike>; fileName: string; pdfSha256: string; totalPaginas: number; }>"
+            },
+            {
+              "name": "esquemaBodyVacioOpcional",
+              "signature": "z.ZodOptional<z.ZodObject<{}, z.core.$strict>>"
+            },
+            {
+              "name": "ExamenGenerado",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "ExamenPlantilla",
+              "signature": "{ create(data: any): Promise<any>; findOne(query: any): MongooseQuery; findById(id: any): MongooseQuery; find(query: any): MongooseQuery; findOneAndUpdate(query: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; findByIdAndUpdate(id: any, update: any, options?: any): Promise<any> & { lean(): Promise<any>; }; updateOne(query: any, update: any, options?: any): Promise<void>; updateMany(query: any, update: any): Promise<void>; deleteOne(query: any): Promise<void>; countDocuments(query: any): Promise<any>; deleteMany(query: any): Promise<void>; insertMany(docs: any[]): Promise<any[]>; aggregate(pipeline: any[]): Promise<any[]>; }"
+            },
+            {
+              "name": "extraerResumenQrExamen",
+              "signature": "(textoQr?: string) => ResumenQrExamen | null"
+            },
+            {
+              "name": "generarPdfExamen",
+              "signature": "({ titulo, folio, loteId, examId, preguntas, mapaVariante, tipoExamen, totalPaginas, margenMm, encabezado, bookletConfig, templateVersion, omrTemplateId }: { titulo: string; folio: string; loteId?: string; examId?: string; preguntas: PreguntaBase[]; mapaVariante: MapaVariante; tipoExamen: TipoExamen; totalPaginas: number; margenMm?: number; templateVersion?: TemplateVersion; omrTemplateId?: OmrTemplateId; bookletConfig?: { densityMode?: \"balanced\" | \"compact\" | \"relaxed\"; autoFitPages?: boolean; autoFitTypography?: boolean; fontScale?: number; lineSpacing?: number; distribuirEnPaginasObjetivo?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; encabezado?: { institucion?: string; lema?: string; materia?: string; docente?: string; instrucciones?: string; alumno?: { nombre?: string; grupo?: string; iniciales?: string; }; mostrarInstrucciones?: boolean; mostrarMarcaInstitucional?: boolean; logos?: { izquierdaPath?: string; derechaPath?: string; }; }; }) => Promise<import(\"#self\").ResultadoGeneracionPdf>"
+            },
+            {
+              "name": "hashContenidoPregunta",
+              "signature": "(pregunta: BancoPreguntaLean, numeroVersion: number) => string"
+            },
+            {
+              "name": "MapaOmr",
+              "signature": "MapaOmr"
+            },
+            {
+              "name": "MapaVariante",
+              "signature": "{ ordenPreguntas: string[]; ordenOpcionesPorPregunta: Record<string, number[]>; }"
+            },
+            {
+              "name": "normalizarTituloPlantilla",
+              "signature": "(titulo: string) => string"
+            },
+            {
+              "name": "OMR_CANONICAL_CONTRACT_ID",
+              "signature": "\"omr-canonical-v4\""
+            },
+            {
+              "name": "OMR_CANONICAL_DISPLAY_LABEL",
+              "signature": "\"OMR canónico · v4\""
+            },
+            {
+              "name": "OpcionesRasterizadoPdf",
+              "signature": "{ dpi?: number; desdePagina?: number; cantidadPaginas?: number; }"
+            },
+            {
+              "name": "PaginaPdfPreviewVisual",
+              "signature": "{ numero: number; width: number; height: number; dataUrl: string; }"
+            },
+            {
+              "name": "PreguntaBase",
+              "signature": "{ id: string; enunciado: string; imagenUrl?: string; opciones: OpcionPregunta[]; }"
+            },
+            {
+              "name": "rasterizarPdfParaPreview",
+              "signature": "(buffer: Buffer, opciones?: OpcionesRasterizadoPdf) => Promise<{ paginas: PaginaPdfPreviewVisual[]; paginasTotales: number; paginasOmitidas: number; }>"
+            },
+            {
+              "name": "RecoveryBundle",
+              "signature": "{ version: 1; kind: \"lot-recovery\"; keyId: string; generatedAt: string; loteId: string; docenteId?: string; periodoId?: string; plantillaId?: string; templateVersion: TemplateVersion; totalExamenes: number; questionBankHash: string; questionBank: Array<{ questionId: string; questionRef: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; sourceExamIds: string[]; sourceFolios: string[]; }>; examenes: Array<{ examId: string; folio: string; manifestHash: string; variantHash?: string; answerKeyHash?: string; answerKeySnapshotHash: string; totalPreguntas: number; totalPaginas: number; }>; manifests: RecoveryManifest[]; signature: string; bundleHash: string; }"
+            },
+            {
+              "name": "RecoveryManifest",
+              "signature": "{ version: 1; kind: \"exam-recovery\"; keyId: string; generatedAt: string; examId: string; docenteId?: string; periodoId?: string; plantillaId?: string; loteId?: string; folio: string; templateVersion: TemplateVersion; totalPreguntas: number; totalPaginas: number; variantHash?: string; answerKeyHash?: string; qrKeyId?: string; questionBankHash: string; answerKeySnapshot: RecoveryAnswerKeySnapshot; traceability: RecoveryTraceability; mapaOmrSnapshot: MapaOmr; pages: Array<{ numeroPagina: number; qrTexto: string; preguntaDesde?: number; preguntaHasta?: number; questionRefs: string[]; optionOrders: string[]; questionIds: string[]; }>; questions: RecoveryQuestionSnapshot[]; signature: string; manifestHash: string; }"
+            },
+            {
+              "name": "RecoveryQuestionSnapshot",
+              "signature": "{ questionId: string; questionRef: string; pageNumber: number; visibleNumber: number; variantOrder: number[]; correctLetterVisible: string; enunciado: string; opcionesBase: Array<{ index: number; texto: string; esCorrecta: boolean; }>; opcionesVisibles: Array<{ letra: string; originalIndex: number; texto: string; esCorrecta: boolean; }>; }"
             },
             {
               "name": "ResumenQrExamen",
@@ -1379,7 +1492,20 @@
           ]
         },
         {
-          "version": "4.0.0",
+          "version": "3.1.0",
+          "exports": [
+            {
+              "name": "iniciarSchedulerRetencionExamenes",
+              "signature": "() => void"
+            },
+            {
+              "name": "rutasGeneracionPdf",
+              "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"
+            }
+          ]
+        },
+        {
+          "version": "3.2.0",
           "exports": [
             {
               "name": "iniciarSchedulerRetencionExamenes",
@@ -1673,7 +1799,7 @@
         },
         {
           "module": "modulo_escaneo_omr",
-          "contractRange": "^1.0.0"
+          "contractRange": "^2.0.0"
         },
         {
           "module": "modulo_evaluaciones",

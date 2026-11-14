@@ -41,7 +41,7 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 - En runtime normal (dev/prod), el motor CV permanece forzado a activo.
 - El scoring principal puede usar imagen preprocesada y conserva un segundo pase controlado sobre la misma captura cuando la calidad lo requiere o quedan reactivos sin letra; la fusión es monotónica y nunca sacrifica cobertura válida de la pasada base.
 - La fusion de pasadas usa `conservadora_v2`: normaliza por reactivo el vector
-  de cinco opciones con mediana/MAD, incorpora evidencia de nucleo y forma,
+  de opciones presentes con mediana/MAD, incorpora evidencia de nucleo y forma,
   rescata una marca fuerte frente a un blanco solo con evidencia separable y
   se abstiene ante conflictos cercanos. No consulta la clave de respuestas.
 - La decision conserva como invalidantes una doble marca o tachadura en

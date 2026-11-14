@@ -99,8 +99,8 @@ describe('rutasSalud', () => {
     expect(info.omr).toEqual({
       contractId: 'omr-canonical-1.0.0',
       templateVersion: 4,
-      layoutVersion: '1.0.0-dev.1',
-      displayLabel: 'OMR · 1.0.0-dev.1',
+      layoutVersion: '1.1.0-dev.1',
+      displayLabel: 'OMR · 1.1.0-dev.1',
       oldVersionsOperational: false
     });
     expect(Array.isArray(info.technologies)).toBe(true);

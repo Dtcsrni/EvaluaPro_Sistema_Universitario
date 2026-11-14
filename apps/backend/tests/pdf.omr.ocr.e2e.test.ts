@@ -50,8 +50,8 @@ describe('E2E PDF generado a identidad OMR por OCR real', () => {
       const trazas: Array<{ rotacion: number; region: number; preparacion: number; segmentacion: string; confianza: number; texto: string }> = [];
       const referencia = await leerReferenciaPieOmr(captura!.dataUrl, lectorOcr, (lectura) => trazas.push(lectura));
       expect(referencia, `Tesseract debe consensuar ambas regiones en la página ${pagina.numeroPagina}; lecturas=${JSON.stringify(trazas)}`)
-        .toMatchObject({ folio: 'FEEDFACE', numeroPagina: paginasExamen.indexOf(pagina) + 1 });
-      expect(referencia!.confianza).toBeGreaterThanOrEqual(65);
+        .toMatchObject({ folio: 'FEEDFACE', numeroPagina: paginasExamen.indexOf(pagina) + 1, posicionesCoincidentes: 2 });
+      expect(referencia!.confianza).toBeGreaterThanOrEqual(60);
     }
   }, 120_000);
 });

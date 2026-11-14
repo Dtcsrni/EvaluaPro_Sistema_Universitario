@@ -346,6 +346,7 @@ export async function generarExamenesLoteUseCase(params: {
   confirmarMasivo?: boolean;
   loteId?: string;
   grupo?: string;
+  variantPolicy?: 'unique' | 'shared';
   tipoExamen?: 'extraordinario';
   alumnoIds?: string[];
 }) {
@@ -369,6 +370,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   confirmarMasivo?: boolean;
   loteId?: string;
   grupo?: string;
+  variantPolicy?: 'unique' | 'shared';
   tipoExamen?: 'extraordinario';
   alumnoIds?: string[];
 }) {
@@ -389,6 +391,10 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   if (tipoExamen === 'extraordinario' && params.grupo) {
     throw new ErrorAplicacion('GRUPO_NO_ADMITIDO', 'La selección de grupo se aplica solo a lotes ordinarios.', 400);
+  }
+  const variantPolicy = params.variantPolicy ?? 'unique';
+  if (variantPolicy === 'shared' && tipoExamen === 'extraordinario') {
+    throw new ErrorAplicacion('VARIANTE_COMPARTIDA_NO_ADMITIDA', 'La variante compartida solo está disponible para lotes ordinarios por grupo.', 400);
   }
   const esExtraordinarioArchivado = tipoExamen === 'extraordinario' && Boolean(plantilla.archivadoEn);
   if (plantilla.archivadoEn && !esExtraordinarioArchivado) {
@@ -459,7 +465,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   }
   const grupoLote = tipoExamen === 'extraordinario' ? null : String(params.grupo ?? '').trim() || String(alumnos[0]?.grupo ?? '').trim();
   const cohorteLoteHash = createHash('sha256')
-    .update(`${grupoLote ?? 'extraordinario'}\n${alumnos.map((alumno) => String(alumno.id)).sort().join('\n')}`)
+    .update(`${grupoLote ?? 'extraordinario'}\n${alumnos.map((alumno) => String(alumno.id)).sort().join('\n')}${variantPolicy === 'shared' ? '\nvariant:shared' : ''}`)
     .digest('hex');
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
   const esTest = esEntornoTest();
@@ -660,16 +666,41 @@ async function generarExamenesLoteUseCaseInterno(params: {
     const mapaVariantePrevio = parsearJsonPersistido<Parameters<typeof construirFirmaVariante>[0]>(examenPrevio.mapaVariante);
     if (mapaVariantePrevio) firmasVariantesLote.add(construirFirmaVariante(mapaVariantePrevio));
   }
+  let varianteCompartida: { preguntas: typeof preguntasBaseLote; mapaVariante: ReturnType<typeof generarVariante> } | null = null;
+  if (variantPolicy === 'shared' && examenesPrevios.length > 0) {
+    const mapasPrevios = examenesPrevios.map((examen) => parsearJsonPersistido<ReturnType<typeof generarVariante>>(examen.mapaVariante));
+    if (mapasPrevios.some((mapa) => !mapa) || firmasVariantesLote.size !== 1) {
+      throw new ErrorAplicacion('LOTE_VARIANTE_COMPARTIDA_INCONSISTENTE', 'El lote no tiene una sola variante verificable para reanudarlo en modo compartido.', 409, { loteId });
+    }
+    const mapaBase = mapasPrevios[0]!;
+    const preguntasPorId = new Map(preguntasBaseLote.map((pregunta) => [String(pregunta.id), pregunta]));
+    const preguntasOrdenadas = mapaBase.ordenPreguntas.map((id) => preguntasPorId.get(String(id)));
+    if (preguntasOrdenadas.length !== preguntasBaseLote.length || preguntasOrdenadas.some((pregunta) => !pregunta)) {
+      throw new ErrorAplicacion('LOTE_VARIANTE_COMPARTIDA_INCONSISTENTE', 'El mapa del lote no coincide con todos los reactivos actuales.', 409, { loteId });
+    }
+    varianteCompartida = { preguntas: preguntasOrdenadas as typeof preguntasBaseLote, mapaVariante: mapaBase };
+  }
   const maxIntentosVarianteUnica = Math.min(36, Math.max(10, totalAlumnos * 2));
 
   const prepararExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
-      const preguntasCandidatas = esExtraordinarioArchivado
-        ? preguntasBaseLote
-        : ordenarPreguntasAleatorio(preguntasBaseLote);
-      const mapaVariante = esExtraordinarioArchivado && previewArchivado
-        ? previewArchivado.mapaVariante
-        : generarVariante(preguntasCandidatas);
+      let preguntasCandidatas: typeof preguntasBaseLote;
+      let mapaVariante: ReturnType<typeof generarVariante>;
+      if (variantPolicy === 'shared') {
+        if (!varianteCompartida) {
+          const questions = ordenarPreguntasAleatorio(preguntasBaseLote);
+          varianteCompartida = { preguntas: questions, mapaVariante: generarVariante(questions) };
+        }
+        preguntasCandidatas = varianteCompartida.preguntas;
+        mapaVariante = varianteCompartida.mapaVariante;
+      } else {
+        preguntasCandidatas = esExtraordinarioArchivado
+          ? preguntasBaseLote
+          : ordenarPreguntasAleatorio(preguntasBaseLote);
+        mapaVariante = esExtraordinarioArchivado && previewArchivado
+          ? previewArchivado.mapaVariante
+          : generarVariante(preguntasCandidatas);
+      }
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       const folio = randomUUID().split('-')[0].toUpperCase();
       try {
@@ -741,7 +772,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
             { fraccionVaciaUltimaPagina, numeroPaginas }
           );
         }
-        if (firmasVariantesLote.has(firmaVariante) && !esUltimoIntentoVariante) continue;
+        if (variantPolicy === 'unique' && firmasVariantesLote.has(firmaVariante) && !esUltimoIntentoVariante) continue;
 
         const nombreArchivo = construirNombrePdfExamen({
           folio,
@@ -1054,6 +1085,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
     lotePdfUrl = `/examenes/generados/lote/${encodeURIComponent(loteSafe)}/pdf`;
     return {
       loteId,
+      variantPolicy,
       totalAlumnos,
       examenesGenerados,
       lotePdfUrl,

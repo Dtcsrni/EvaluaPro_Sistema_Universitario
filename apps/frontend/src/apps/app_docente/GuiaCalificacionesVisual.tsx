@@ -79,8 +79,8 @@ export function GuiaCalificacionesVisual() {
             <h4>Leer exámenes</h4>
             <p>Carga imágenes de exámenes individuales o en lote y revisa la lectura detectada.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">Captura individual o lote</span>
-              <span className="guia-chip-sample">Lectura de marcas OMR</span>
+              <span className="guia-chip-sample">Análisis OMR local</span>
+              <span className="guia-chip-sample">Abstiene ante dudas</span>
             </div>
           </div>
         </div>
@@ -108,11 +108,11 @@ export function GuiaCalificacionesVisual() {
           </div>
           <div className="guia-step-card__body">
             <span className="guia-step-chip">PASO 03</span>
-            <h4>Calificar y exportar resultados</h4>
-            <p>Consulta las calificaciones calculadas y descarga los resultados en CSV o XLSX.</p>
+            <h4>Cálculo y Publicación</h4>
+            <p>Calcula el examen sobre 5 puntos. Solo agrega +0.25 cuando el OCR confirma esa marca en el área de calificaciones; la nota final no excede 5.</p>
             <div className="guia-step-examples">
-              <span className="guia-chip-sample">CSV</span>
-              <span className="guia-chip-sample">XLSX</span>
+              <span className="guia-chip-sample">Escala 0–5 · Máximo 5</span>
+              <span className="guia-chip-sample">Bono OCR +0.25 · Tope 5</span>
             </div>
           </div>
         </div>

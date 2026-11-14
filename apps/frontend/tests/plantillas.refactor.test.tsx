@@ -201,7 +201,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Pestaña 1 (Diseño) activa por defecto
     expect(screen.getByRole('heading', { name: /Diseño de plantilla/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Plantillas existentes/i })).toBeInTheDocument();
-    expect(screen.getAllByText('OMR · 1.0.0-dev.1').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('OMR · 1.1.0-dev.1').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/ESTUDIO DE CONSTRUCCIÓN/i)).toBeInTheDocument();
     expect(screen.getByText(/Formato de respuesta: panel OMR reservado/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seleccionar imagen izquierda' })).toBeVisible();
@@ -215,7 +215,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Cambiar a Pestaña 2 (Generación)
     fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
     expect(screen.getByRole('heading', { name: /Generación de exámenes/i })).toBeInTheDocument();
-    expect(screen.getByText('OMR · 1.0.0-dev.1')).toBeInTheDocument();
+    expect(screen.getByText('OMR · 1.1.0-dev.1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ver guía rápida de generación de exámenes/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Ver guía rápida de generación de exámenes/i }));
     expect(screen.getByText(/Producción OMR, Folios Únicos y Códigos QR/i)).toBeInTheDocument();
@@ -228,11 +228,11 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     // Cambiar a Pestaña 3 (Historial)
     fireEvent.click(screen.getByRole('tab', { name: /Historial de Lotes/i }));
     expect(screen.getByRole('heading', { level: 3, name: /^Exámenes generados$/i })).toBeInTheDocument();
-    expect(screen.getAllByText('OMR · 1.0.0-dev.1').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('OMR · 1.1.0-dev.1').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('button', { name: /Ver guía rápida de historial y custodia/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Ver guía rápida de historial y custodia/i }));
     expect(screen.getByText(/Custodia, Descargas y Trazabilidad OMR/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /OMR · 1.0.0-dev.1/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /OMR · 1.1.0-dev.1/i })).toBeInTheDocument();
   });
 
   it('muestra los paquetes activos recientes sin exigir seleccionar una plantilla', async () => {
@@ -350,6 +350,35 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     fireEvent.change(selectorGrupo, { target: { value: 'B' } });
     expect(screen.getByText(/Alumno del grupo:/)).toHaveTextContent(/Alumno del grupo:\s*1 alumno/);
     expect(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumno\)/i })).toBeEnabled();
+  });
+
+  it('advierte y exige confirmación específica antes de generar un lote con variante común', async () => {
+    const enviarConPermiso = vi.fn(async () => ({}));
+    render(
+      <ConfirmDialogProvider>
+        <HarnessPlantillas
+          plantillas={[{ _id: 'pla-1', titulo: 'Segundo Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1' } as Plantilla]}
+          alumnos={[{ _id: 'al-1', matricula: 'MAT-1', nombreCompleto: 'Ana Uno', periodoId: 'per-1', grupo: 'A', activo: true }]}
+          enviarConPermiso={enviarConPermiso}
+        />
+      </ConfirmDialogProvider>
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), { target: { value: 'pla-1' } });
+    fireEvent.click(screen.getByRole('radio', { name: /Una variante común para todo el grupo/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/mismo orden de preguntas y opciones/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/Cada examen conservará su QR y folio propios/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumno\)/i }));
+    const dialogo = await screen.findByRole('alertdialog', { name: /Confirmar formulario compartido para el grupo/i });
+    expect(dialogo).toHaveClass('confirm-dialog--warning');
+    expect(dialogo).toHaveTextContent(/misma clave de respuestas/i);
+    expect(dialogo).toHaveTextContent(/riesgo de copiar respuestas/i);
+    expect(within(dialogo).getByRole('button', { name: /Sí, generar formulario compartido/i })).toBeInTheDocument();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(enviarConPermiso).not.toHaveBeenCalled();
   });
 
   it('permite seleccionar destinatarios al elegir el tipo extraordinario', () => {

@@ -37,6 +37,7 @@ const esquemaAnalisisOmr = z
     templateVersionDetectada: z.literal(4).optional(),
     motivosRevision: z.array(z.string().min(1).max(200)).max(50).optional(),
     revisionConfirmada: z.boolean().optional(),
+    bonoVisibleConfirmado: z.boolean().optional(),
     usuarioRevisor: z.string().trim().min(3).max(120).optional(),
     revisionTimestamp: z.string().trim().datetime().optional(),
     motivoRevisionManual: z.string().trim().min(8).max(300).optional(),

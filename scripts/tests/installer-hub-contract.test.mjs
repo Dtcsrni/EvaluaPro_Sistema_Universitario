@@ -336,7 +336,10 @@ $envelope = [ordered]@{ schemaVersion=1; operationId='${operationId}'; command='
     if (createResult.skipped) return;
     assert.equal(createResult.status, 0, `${createResult.stderr}\n${createResult.stdout}`);
 
-    const helperScript = `& '${helperPath}' -Mode post-install -RequestPath '${escapedRequestPath}' -ResponsePath '${escapedResponsePath}'`;
+    const helperScript = `
+function Get-CimInstance { param([string]$ClassName, [string]$Filter); @() }
+& '${helperPath}' -Mode post-install -RequestPath '${escapedRequestPath}' -ResponsePath '${escapedResponsePath}'
+`.trim();
     const helperResult = runPowerShell(helperScript);
     assert.equal(fs.existsSync(responsePath), true, `${helperResult.stderr}\n${helperResult.stdout}`);
     const response = JSON.parse(fs.readFileSync(responsePath, 'utf8').replace(/^\uFEFF/, ''));
@@ -2754,10 +2757,13 @@ $r | ConvertTo-Json -Depth 8
 test('configuracion operativa conserva OAuth existente cuando repair no recibe esos campos', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-oauth-preserve-'));
   const installDir = path.join(tempRoot, 'EvaluaPro');
+  const programDataRoot = path.join(tempRoot, 'ProgramData');
   fs.mkdirSync(path.join(installDir, 'config'), { recursive: true });
   const cipherKey = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 
   const script = `
+$env:ProgramData = '${programDataRoot.replace(/'/g, "''")}'
+New-Item -ItemType Directory -Path $env:ProgramData -Force | Out-Null
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
 $envPath = '${path.join(installDir, '.env').replace(/'/g, "''")}'
 @(

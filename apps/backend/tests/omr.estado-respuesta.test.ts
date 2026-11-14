@@ -119,6 +119,25 @@ describe('estado de respuesta OMR', () => {
     });
   });
 
+  it('reconoce página casi toda vacía cuando queda un blanco claro y el resto es ruido ambiguo', () => {
+    const resumen = resumirRespuestasOmr([
+      respuestaVacia,
+      ...Array.from({ length: 18 }, () => ({ opcion: null, flags: ['bajo_contraste', 'parcial_detectada'] })),
+      ...Array.from({ length: 2 }, () => ({ opcion: null, flags: ['doble_marca', 'bajo_contraste'] }))
+    ], 0.8325, 0.8758);
+
+    expect(resumen).toMatchObject({
+      totalReactivos: 21,
+      reactivosRespondidos: 0,
+      reactivosSinMarca: 1,
+      reactivosAmbiguos: 18,
+      reactivosInvalidos: 2,
+      examenVacio: false,
+      examenVacioProbable: true,
+      estadoExamen: 'vacio_probable'
+    });
+  });
+
   it('no infiere vacío probable si no hay reactivos inequívocamente en blanco', () => {
     const resumen = resumirRespuestasOmr(
       Array.from({ length: 10 }, () => ({ opcion: null, flags: ['parcial_detectada'] })),
@@ -127,6 +146,22 @@ describe('estado de respuesta OMR', () => {
     );
 
     expect(resumen.examenVacioProbable).toBe(false);
+  });
+
+  it('marca vacío probable si predominan respuestas débiles y hay blancos inequívocos', () => {
+    const resumen = resumirRespuestasOmr([
+      ...Array.from({ length: 20 }, () => ({ opcion: null, flags: ['bajo_contraste', 'parcial_detectada'] })),
+      ...Array.from({ length: 2 }, () => respuestaVacia)
+    ], 0.83, 0.87);
+
+    expect(resumen).toMatchObject({
+      reactivosRespondidos: 0,
+      reactivosSinMarca: 2,
+      reactivosAmbiguos: 20,
+      examenVacio: false,
+      examenVacioProbable: true,
+      estadoExamen: 'vacio_probable'
+    });
   });
 
   it('abstiene una señal parcial débil aunque domine relativamente a las otras opciones', () => {
@@ -147,6 +182,25 @@ describe('estado de respuesta OMR', () => {
 
     expect(debeAbstenerseMarcaParcialOmr(lecturaParcial)).toBe(true);
     expect(debeAbstenerseMarcaParcialOmr({ ...lecturaParcial, score: 0.18 })).toBe(false);
+  });
+
+  it('no publica una señal central oscura cuando es muy irregular y está desplazada', () => {
+    const manchaDesplazada = {
+      score: 0.415,
+      fillRatioCore: 0.846,
+      shapeCompactness: 0.192,
+      centerDarknessDelta: 0.189,
+      contrasteCromaticoLocal: 0,
+      margenCromatico: 0,
+      centroidOffsetRatio: 0.379,
+      softCoreContrast: 0.215,
+      markConfidence: 1,
+      permitirConfianzaMarcada: true,
+      fillCoreMargin: 0.18,
+      fillCoreCompetitorScore: 0.03
+    };
+
+    expect(debeAbstenerseMarcaParcialOmr(manchaDesplazada)).toBe(true);
   });
 
   it('distingue un intento tenue de una burbuja vacia sin publicar letra', () => {
@@ -170,7 +224,7 @@ describe('estado de respuesta OMR', () => {
     })).toBe(false);
   });
 
-  it('conserva como ambigua una microcomponente compacta que destaca frente a sus cuatro opciones', () => {
+  it('conserva como ambigua una microcomponente compacta que destaca frente a las otras opciones', () => {
     const opciones = [
       { centerMean: 252.58, largestComponentPixels: 0, largestComponentFillRatio: 0 },
       { centerMean: 251.47, largestComponentPixels: 0, largestComponentFillRatio: 0 },
@@ -205,6 +259,7 @@ describe('estado de respuesta OMR', () => {
     };
 
     expect(esIntentoMarcaDebilOmr(microcomponente, opciones)).toBe(true);
+    expect(esIntentoMarcaDebilOmr(microcomponente, opciones.slice(0, 2))).toBe(true);
     expect(esIntentoMarcaDebilOmr(microcomponente, opciones, {
       permitirMicrocomponenteRelativo: false
     })).toBe(false);
@@ -373,6 +428,10 @@ describe('estado de respuesta OMR', () => {
     expect(seleccionarPuntoCompactoAisladoOmr(args)?.opcion).toBe('C');
     expect(seleccionarPuntoCompactoAisladoOmr({
       ...args,
+      scores: scores.filter((item) => ['A', 'B', 'C'].includes(item.opcion))
+    })?.opcion).toBe('C');
+    expect(seleccionarPuntoCompactoAisladoOmr({
+      ...args,
       scores: scores.map((item) => ({ ...item, largestComponentDensity: 0.2 }))
     })).toBeNull();
     expect(seleccionarPuntoCompactoAisladoOmr({
@@ -391,7 +450,7 @@ describe('estado de respuesta OMR', () => {
     })).toBeNull();
   });
 
-  it('resuelve una microcomponente tenue solo si destaca por tono, forma y ubicación frente a las cuatro opciones', () => {
+  it('resuelve una microcomponente tenue si destaca frente a las opciones disponibles', () => {
     const score = (
       opcion: ScoreOpcionOmr['opcion'],
       centerMean: number,
@@ -448,6 +507,10 @@ describe('estado de respuesta OMR', () => {
     };
 
     expect(seleccionarPuntoCompactoAisladoOmr(args)?.opcion).toBe('D');
+    expect(seleccionarPuntoCompactoAisladoOmr({
+      ...args,
+      scores: scores.filter((item) => ['A', 'D', 'E'].includes(item.opcion))
+    })?.opcion).toBe('D');
     expect(seleccionarPuntoCompactoAisladoOmr({
       ...args,
       scores: scores.map((item) => item.opcion === 'D'
@@ -539,6 +602,10 @@ describe('estado de respuesta OMR', () => {
     expect(seleccionarPuntoCompactoAisladoOmr(args)?.opcion).toBe('E');
     expect(seleccionarPuntoCompactoAisladoOmr({
       ...args,
+      scores: scores.filter((item) => ['A', 'D', 'E'].includes(item.opcion))
+    })?.opcion).toBe('E');
+    expect(seleccionarPuntoCompactoAisladoOmr({
+      ...args,
       scores: scores.map((item) => item.opcion === 'E'
         ? { ...item, largestComponentAspectRatio: 3.5 }
         : item)
@@ -589,6 +656,10 @@ describe('estado de respuesta OMR', () => {
     };
 
     expect(seleccionarNucleoTenueDominanteOmr(args)?.opcion).toBe('E');
+    expect(seleccionarNucleoTenueDominanteOmr({
+      ...args,
+      scores: scores.filter((item) => ['A', 'D', 'E'].includes(item.opcion))
+    })?.opcion).toBe('E');
     expect(seleccionarNucleoTenueDominanteOmr({ ...args, existeOpcionActual: true })).toBeNull();
     expect(seleccionarNucleoTenueDominanteOmr({ ...args, dobleMarcada: true })).toBeNull();
     expect(seleccionarNucleoTenueDominanteOmr({ ...args, tachada: true })).toBeNull();

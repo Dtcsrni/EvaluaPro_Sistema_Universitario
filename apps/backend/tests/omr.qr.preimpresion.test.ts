@@ -15,7 +15,7 @@ describe('auditoria QR de referencia preimpresion', () => {
       templateVersion: 4,
       compacto: true
     });
-    expect(nuevo).toMatch(/^EXAMEN:SEMVER100:P1:O1\.0\.0:/);
+    expect(nuevo).toMatch(/^EXAMEN:SEMVER100:P1:O1\.1\.0:/);
     expect(extraerResumenQrExamen(nuevo)).toMatchObject({
       folio: 'SEMVER100',
       numeroPagina: 1,
@@ -137,7 +137,7 @@ describe('auditoria QR de referencia preimpresion', () => {
     const pageHeight = 2154;
     const qrSizePts = 79.37;
     const roi = calcularRegionQrFocalizada(pageWidth, pageHeight, qrSizePts, 612);
-    expect(roi).toEqual({ left: 1236, top: 48, width: 364, height: 364 });
+    expect(roi).toEqual({ left: 1120, top: 22, width: 416, height: 416 });
 
     const rgba = new Uint8ClampedArray(roi.width * roi.height * 4);
     const gray = new Uint8ClampedArray(roi.width * roi.height);

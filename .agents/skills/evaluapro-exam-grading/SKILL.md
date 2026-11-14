@@ -27,6 +27,31 @@ Usa EvaluaPro como sistema de registro. Mantén separadas la lectura OMR, la cal
 - Mantén el resultado OMR separado de componentes manuales y de calificaciones de Classroom. No copies el resultado a una columna de lista institucional ni sincronices Classroom por inferencia.
 - Bono de guía de estudio («acordeón»): para parciales y globales, usa la vista previa de EvaluaPro. La app alinea la zona impresa con QR/fiduciales y concede automáticamente +0.25 sobre 5 solo si dos lecturas OCR independientes reconocen `+0.25` con confianza >= 80/100. Si la lectura queda dudosa, revisa el recorte y confirma solo si la marca manuscrita está presente; si hay error o no corresponde, deja el bono desactivado. La nota base 5.00 no recibe bono. El backend repite la detección al guardar e incorpora decisión/método a `omrAuditoria`; no sumes `bonoSolicitado` ni uses la marca de entrega como evidencia del examen.
 
+## Autocalificación OMR local
+
+- Antes de usarla, verifica que la función esté disponible en la UI/API del runtime activo y que el gate de precisión esté abierto. Cambios de worktree, pruebas sintéticas o respuestas antiguas de la UI no prueban que la instalación la tenga habilitada.
+- Envía las capturas originales al servidor para que vuelva a validar QR, lote, folio, página, variante y clave registrados. No uses OCR generativo, nombres de archivo ni datos aportados por el cliente como autoridad para identidad o respuestas.
+- Permite nota automática solo cuando todas las páginas y reactivos requeridos estén presentes y no duplicados, con identidad/variante exactas, legibilidad global suficiente y capturas originales verificadas. Una respuesta ambigua, doble, tachada o sin opción cuenta como incorrecta y conserva su bandera diagnóstica; no se convierte en acierto ni bloquea por sí sola una página legible. Una página ilegible, identidad incierta o evidencia incompleta queda en revisión.
+- Procesa los exámenes elegibles por separado. Una excepción de un alumno no debe detener a los demás ni permitir que una respuesta o bono se comparta entre folios.
+- Para lote, prepara una tabla con `loteId`, `folio`, `examId`, `alumnoId`, páginas, variante, clave, respuestas, excepciones, aciertos/total, bono y estado de escritura. Muestra primero solo las excepciones que requieren revisión.
+- Tras registrar, vuelve a leer cada nota y verifica identidad, folio, aciertos, total, bono y nota final. Un timeout o respuesta incierta exige consultar el job/historial antes de reintentar.
+- No habilites autocalificación general hasta validar el gate con capturas reales representativas y verdad terreno revisada independientemente. Exige que el límite inferior unilateral exacto Clopper–Pearson al 95% de concordancia de notas sea `>= 0.98`; con cero discordancias requiere 149 exámenes completos e independientes. Cuenta una observación por examen, no por página ni recaptura. Reporta por separado cota, concordancia observada y cobertura; el éxito sintético no sustituye evidencia real.
+
+### Si el gate sigue cerrado: capturar verdad terreno
+
+1. Usa la ingesta local del `loteId` exacto y conserva separado el PDF escaneado del PDF generado. Etiqueta solo páginas con asociación canónica confirmada a `examId`, folio, alumno y número de página; resuelve primero cualquier página sin identidad segura.
+2. Abre la captura original y registra cada reactivo desde esa imagen sin consultar la predicción, confianza, candidata OMR/OCR ni la clave. La UI debe indicar revisión ciega y bloquear el guardado hasta mostrar la imagen y confirmar la revisión.
+3. Usa el selector único por reactivo: opción `A–E`, en blanco, doble marca o tachadura. Para una doble marca, registra todas las opciones observadas; no conviertas tachaduras o dudas en una respuesta única.
+4. En la primera página del examen indica si el área de calificaciones muestra literalmente `+0.25`; no deduzcas el bono de que el alumno haya entregado o aparezca en un escaneo.
+5. Guarda la etiqueta en el registro independiente y exporta solo las páginas elegibles con hash de imagen y procedencia de revisión ciega. La API debe persistir `reviewerAttested: true` junto con el revisor seudonimizado y la fecha; las etiquetas históricas sin esa marca no cuentan como verdad terreno y requieren una nueva ingesta porque son inmutables. Una etiqueta no cambia el resultado OMR ni escribe una calificación.
+6. Ejecuta el validador de piloto y revisa concordancia de nota y bono, límite inferior, cobertura y discordancias. Las páginas del mismo examen, duplicados y recapturas no aumentan el tamaño independiente de muestra. Si el gate no pasa, conserva la autocalificación cerrada.
+
+## Escala del examen y bono de acordeón
+
+- El componente de examen usa escala 0–5 y nunca supera 5.
+- El bono es exactamente `+0.25` y solo procede si aparece impreso explícitamente como `+0.25` en el área de calificaciones de esa hoja. Haber entregado o escaneado el examen no demuestra el bono. Si OCR no confirma el contenido del área, no asumas que está vacío: marca revisión docente y no guardes aún la nota automática.
+- Si la revisión visual confirma que no aparece, el bono es cero. El resultado final es `min(5, nota base + bono confirmado)`; una nota base de 5 permanece en 5.
+
 ## Persistencia
 
 - Una petición de revisar o calcular permite preparar el resultado; escribirlo requiere una petición explícita para registrar, importar o publicar las calificaciones.

@@ -521,8 +521,8 @@ describe('módulo evaluaciones (LISC)', () => {
     expect(auditoriaOtro.body.eventos).toEqual([]);
   });
 
-  describe('política de cuarentena OMR (SPEC-OMR-CUARENTENA-RETENCION)', () => {
-    it('clasifica capturas OMR inestables en cuarentena y prohíbe autocalificación', async () => {
+  describe('política de confianza OMR (SPEC-OMR-CUARENTENA-RETENCION)', () => {
+    it('bloquea páginas sin confianza global suficiente y puntúa marcas inválidas como incorrectas', async () => {
       const { evaluarAutoCalificableOmr } = await import('../../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
 
       // REQ-001: Baja confianza (0.25 <= 0.30) fuerza hardStop y autocalificableOmr = false
@@ -536,7 +536,8 @@ describe('módulo evaluaciones (LISC)', () => {
       expect(bajaConfianza.hardStop).toBe(true);
       expect(bajaConfianza.autoCalificableOmr).toBe(false);
 
-      // REQ-001: Ratio de ambiguas alto (0.90 >= 0.85) fuerza hardStop y autocalificableOmr = false
+      // Una proporción alta de respuestas ambiguas no bloquea por sí sola:
+      // cada respuesta sin opción se puntuará como incorrecta si la página es legible.
       const altaAmbiguedad = evaluarAutoCalificableOmr({
         estadoAnalisis: 'ok',
         calidadPagina: 0.8,
@@ -544,8 +545,8 @@ describe('módulo evaluaciones (LISC)', () => {
         ratioAmbiguas: 0.9,
         coberturaDeteccion: 0.9
       });
-      expect(altaAmbiguedad.hardStop).toBe(true);
-      expect(altaAmbiguedad.autoCalificableOmr).toBe(false);
+      expect(altaAmbiguedad.hardStop).toBe(false);
+      expect(altaAmbiguedad.autoCalificableOmr).toBe(true);
 
       // REQ-001: Rechazado por calidad fuerza hardStop
       const rechazadoCalidad = evaluarAutoCalificableOmr({

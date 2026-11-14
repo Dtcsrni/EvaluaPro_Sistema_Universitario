@@ -290,14 +290,20 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
     for (const [indicePagina, paginaDuplex] of resultado.mapaOmr.paginas.entries()) {
       const zonaReserva = paginaDuplex.layoutDebug?.bindingKeepOutZone;
       expect(zonaReserva).toBeDefined();
-      const expandida = indicePagina > 0;
-      expect(zonaReserva!.width).toBeCloseTo(zona!.width + (expandida ? despejeGrapa * 2 : 0), 5);
-      expect(zonaReserva!.height).toBeCloseTo(zona!.height + (expandida ? despejeGrapa * 2 : 0), 5);
-      if (expandida) expect(zonaReserva!.y).toBeCloseTo(zona!.y - despejeGrapa, 5);
+      const margenSeguroPagina = indicePagina === 0 ? 0 : despejeGrapa;
       const esReverso = paginaDuplex.duplex?.lado === 'reverso';
       ladosConGrapa.add(esReverso ? 'reverso' : 'frente');
-      expect(zonaReserva!.x).toBeCloseTo(
-        (esReverso ? 612 - zona!.x - zona!.width : zona!.x) - (expandida ? despejeGrapa : 0),
+      const xBase = esReverso ? 612 - zona!.x - zona!.width : zona!.x;
+      const xEsperada = Math.max(0, xBase - margenSeguroPagina);
+      const yEsperada = Math.max(0, zona!.y - margenSeguroPagina);
+      expect(zonaReserva!.x).toBeCloseTo(xEsperada, 5);
+      expect(zonaReserva!.y).toBeCloseTo(yEsperada, 5);
+      expect(zonaReserva!.width).toBeCloseTo(
+        Math.min(612, xBase + zona!.width + margenSeguroPagina) - xEsperada,
+        5
+      );
+      expect(zonaReserva!.height).toBeCloseTo(
+        Math.min(792, zona!.y + zona!.height + margenSeguroPagina) - yEsperada,
         5
       );
       const marcasPagina = paginaDuplex.marcasPagina;
@@ -305,10 +311,10 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
       const margenQuiet = Number(marcasPagina!.quietZone) + (2 * 72) / 25.4;
       const margenGrapa = paginaDuplex.numeroPagina === 1 ? (3 * 72) / 25.4 : 0;
       const zonaGrapaSegura = {
-        x: zonaReserva!.x - margenGrapa,
-        y: zonaReserva!.y - margenGrapa,
-        width: zonaReserva!.width + margenGrapa * 2,
-        height: zonaReserva!.height + margenGrapa * 2
+        x: Math.max(0, zonaReserva!.x - margenGrapa),
+        y: Math.max(0, zonaReserva!.y - margenGrapa),
+        width: Math.min(612, zonaReserva!.x + zonaReserva!.width + margenGrapa) - Math.max(0, zonaReserva!.x - margenGrapa),
+        height: Math.min(792, zonaReserva!.y + zonaReserva!.height + margenGrapa) - Math.max(0, zonaReserva!.y - margenGrapa)
       };
       for (const esquina of ['tl', 'tr', 'bl', 'br'] as const) {
         const marca = marcasPagina![esquina];
@@ -330,7 +336,7 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
         ? zonaReserva!.x - (reservaQr!.x + reservaQr!.width)
         : reservaQr!.x - (zonaReserva!.x + zonaReserva!.width);
       expect(distanciaQrGrapa).toBeGreaterThanOrEqual(despejeQrGrapa);
-      if (expandida) {
+      if (indicePagina > 0) {
         const contenidoCritico = [
           paginaDuplex.layoutDebug?.qr,
           ...(paginaDuplex.layoutDebug?.questionPromptBoxes ?? []),
@@ -403,6 +409,28 @@ describe('plantilla OMR de tinta reducida y engrapado', () => {
         .raw()
         .toBuffer();
       expect([...pixelExterior]).toEqual([255, 255, 255]);
+
+      const contarPixelesNeon = async (zona: { left: number; top: number; width: number; height: number }) => {
+        const { data, info } = await sharp(captura.data)
+          .extract(zona)
+          .removeAlpha()
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        let cian = 0;
+        let magenta = 0;
+        for (let indice = 0; indice < info.width * info.height * info.channels; indice += info.channels) {
+          const rojo = data[indice] ?? 0;
+          const verde = data[indice + 1] ?? 0;
+          const azul = data[indice + 2] ?? 0;
+          if (rojo < 120 && verde > 75 && azul > 95) cian += 1;
+          if (rojo > 120 && verde < 105 && azul > 65) magenta += 1;
+        }
+        return { cian, magenta };
+      };
+      expect(await contarPixelesNeon({ left: 140, top: 58, width: 100, height: 16 }).then(({ cian }) => cian))
+        .toBeGreaterThan(4);
+      expect(await contarPixelesNeon({ left: 1290, top: 58, width: 100, height: 16 }).then(({ magenta }) => magenta))
+        .toBeGreaterThan(4);
     } finally {
       await parser.destroy();
     }

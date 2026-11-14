@@ -4,6 +4,15 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Changed
+- Equilibra el texto editorial del examen en CMY y reduce su negro de proceso a 2%; reserva K puro para QR/OMR/fiduciales/referencias OCR. La separación se verifica en el PDF, pero el consumo físico depende de la configuración de impresión Epson.
+- Refuerza la cabecera PDF con una malla geométrica y rosetones vectoriales de dos tonos, manteniendo las reservas blancas de QR, fiduciales y OMR.
+- Da a la plantilla un marco angular de baja cobertura con circuitos cian/magenta y acentos laterales en el título; conserva Ecofont para texto humano y la fuente dedicada en referencias OCR.
+
+### Fixed
+- El ajuste local OMR admite subconjuntos de fiduciales con consenso robusto; con una esquina global ausente registra la cobertura parcial y usa el QR como referencia independiente cuando está disponible.
+- La reserva de grapado conserva el despeje validado en anverso y reverso sin invadir logo, QR ni fiduciales.
+
 ## [1.2.14] - 2026-11-09
 
 ### Added
@@ -19,33 +28,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Hub 1.2.20] - 2026-11-06
 
 ### Changed
-- Avanza el Installer Hub que empaqueta la aplicación docente 1.2.14.
+- El piloto de calificación OMR exige etiquetas humanas ciegas y atestadas, informa abstenciones de bono y estratos de concordancia, y mantiene cerrado el gate hasta cumplir la evidencia estadística.
+- Se separa la validación empírica del lote (12 exámenes perfectos) del gate global (límite inferior Clopper–Pearson unilateral al 95% ≥0.98 para nota y bono; 149 casos sin discordancias como mínimo).
 
-## [1.2.13] - 2026-11-06
-
-### Fixed
-- El login Google Desktop puede enviar el secreto de su propio cliente cuando está provisionado localmente; conserva PKCE y no incorpora secretos al repositorio.
-
-## [Hub 1.2.19] - 2026-11-06
-
-### Fixed
-- El login Google Desktop usa la URI loopback raíz (`http://127.0.0.1:<puerto>`) tanto en autorización como en canje del código, conforme al contrato de apps de escritorio.
-
-## [1.2.12] - 2026-11-06
-
-### Fixed
-- Corrige el callback OAuth de escritorio para usar la URI loopback raíz y aceptar el callback que Google devuelve en esa URI.
-- Añade diagnóstico local opcional de errores OAuth; registra la respuesta de error del proveedor con campos de credenciales redactados.
-
-## [Hub 1.2.18] - 2026-11-06
-
-### Changed
-- Avanza el Installer Hub del bundle candidato para permitir la actualización desde instalaciones locales que ya tienen Hub 1.2.17, manteniendo la aplicación en 1.2.11.
-
-## [1.2.11] - 2026-11-06
-
-### Changed
-- Actualizadas `google-auth-library`, `lucide-react`, `eslint`, `@eslint/js` y `@types/node` con sus lockfiles.
 - El versionado de EvaluaPro y del Installer Hub queda independiente: `app-vX.Y.Z` para la aplicación e imágenes Docker; `hub-vX.Y.Z` para el instalador Windows.
 - CI centraliza la validación automática en `CI Checks`, valida detector, plan affected y coherencia entre grupos, gates y jobs, y limita sus reportes a salidas conocidas.
 - Las suites backend de prueba y cobertura ya no reintentan automáticamente fallos; los lotes de cobertura mantienen diagnósticos y un orden de reporte determinista.

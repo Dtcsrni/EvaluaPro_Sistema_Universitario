@@ -1,0 +1,353 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-28T08-09-33.128Z",
+  "status": "final",
+  "generatedAt": "2026-10-28T08:20:59.025Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Continuar la automatización local OMR y verificar el modo de variante compartida y el gate de alta precisión."
+  },
+  "objective": "Avanzar el flujo local de EvaluaPro para procesar copias OMR compartidas con identidad, respuestas y calificaciones verificables, manteniendo cerrado el gate general hasta tener verdad terreno independiente.",
+  "scope": [
+    "Verificar confirmación y advertencia del modo de variante común en la interfaz de generación.",
+    "Revalidar el E2E del backend para copias compartidas, identidad requerida y aislamiento por intento.",
+    "Auditar SPEC-128 y el estado actual del conjunto piloto real de SPEC-117."
+  ],
+  "constraints": [
+    "No desplegar ni sincronizar el worktree con la instalación local.",
+    "No escribir calificaciones, alterar la base operativa ni incorporar PDFs reales al repositorio.",
+    "Distinguir QR/segmentación de lectura de respuestas y precisión de notas."
+  ],
+  "actions": [
+    {
+      "type": "cleanup",
+      "summary": "Retirar el script temporal de diagnóstico QR que contenía una ruta local; conservar los resultados resumidos en la traza de SPEC-128.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Confirmar advertencia visible y diálogo de confirmación; cancelar no inicia la generación.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Repetir el E2E sintético de generación compartida, segmentación, identidad requerida y calificación aislada.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecutar el validador de piloto real en NODE_ENV=test; resultado not_applicable por cero capturas y cero etiquetas.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecutar SDD audit; todas las specs, incluida SPEC-128, cumplen el auditor.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Extraer la configuración del diálogo de variante compartida y reducir la complejidad del validador del lote para satisfacer el guard sin cambiar criterios.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Tras el refactor, guard WCAG aprobó; 28 pruebas de generación/sesión y typecheck frontend pasaron.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "documentation",
+      "summary": "Regenerar AUTO_ENV tras hallar una variable de piloto OMR no listada; docs:check volvió a pasar.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Revalidar lint OMR, auditoría SDD y contratos de trazabilidad/handoff.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    },
+    {
+      "type": "verification",
+      "summary": "Consultar solo salud y versión del runtime local; API y UI responden 200 y la API reporta 1.2.8.",
+      "timestamp": "2026-10-28T08:20:59.025Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "README.md",
+      "docs/README.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-128_omr_copias_multiples_mismo_formulario.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/copiasFormularioOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx",
+      "apps/frontend/tests/plantillas.refactor.test.tsx",
+      "apps/backend/scripts/omr-tv4-validate-pilot-real.ts",
+      ".agents/skills/evaluapro-exam-workflow/SKILL.md",
+      ".agents/skills/evaluapro-exam-grading/SKILL.md",
+      "apps/frontend/src/apps/app_docente/features/plantillas/confirmacionGeneracionLote.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/loteGeneracionSesion.ts",
+      "scripts/ia-traceability.mjs",
+      "docs/AUTO_ENV.md",
+      "C:/Users/evega/Documents/EvaluaPro/docs/RUNBOOK_OPERACION.md"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts",
+      "apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+      "apps/backend/tests/omr.geometry.reference.test.ts",
+      "apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/loteGeneracionSesion.ts",
+      "apps/frontend/src/apps/app_docente/tipos.ts",
+      "apps/frontend/tests/plantillas.loteSesion.test.ts",
+      "apps/frontend/tests/plantillas.refactor.test.tsx",
+      "apps/frontend/tests/plantillasOmrWorkflow.test.tsx",
+      "docs/AUTO_ENV.md",
+      "scripts/tests/app-host-shutdown.contract.test.mjs",
+      "apps/backend/scripts/tmp-omr-ocr-crops.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/copiasFormularioOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/rasterizadorIngestaPdfOmr.ts",
+      "apps/backend/tests/copiasFormularioOmr.test.ts",
+      "apps/backend/tests/rasterizadorIngestaPdfOmr.test.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/confirmacionGeneracionLote.ts",
+      "docs/handoff/sesiones/2026-10-27/omr-shared-copies-e2e-followup-2026-10-27.json",
+      "docs/handoff/sesiones/2026-10-27/omr-shared-copies-e2e-followup-2026-10-27.md",
+      "docs/handoff/sesiones/2026-10-27/omr-source-dedup-2026-10-27.json",
+      "docs/handoff/sesiones/2026-10-27/omr-source-dedup-2026-10-27.md",
+      "docs/handoff/sesiones/2026-10-28/",
+      "docs/specs/SPEC-128_omr_copias_multiples_mismo_formulario.spec.md"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-10-28/sesion-2026-10-28T08-09-33.128Z.json",
+      "docs/handoff/sesiones/2026-10-28/sesion-2026-10-28T08-09-33.128Z.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "shared_variant_ui_test",
+      "command": "npm run test -- tests/plantillas.refactor.test.tsx -t \"variante común\" (apps/frontend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 14710,
+      "resultSummary": "1 prueba aprobada; 20 omitidas por filtro.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "shared_copies_backend_e2e",
+      "command": "npm run test -- --run tests/integracion/omrJobsWorkflow.test.ts -t \"separa copias del mismo formulario\" (apps/backend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 62490,
+      "resultSummary": "1 prueba aprobada; 14 omitidas por filtro. Comprueba variante/claves compatibles, copias separadas, ausencia de identidad inicial y lectura de resultados por intento en fixtures sintéticos.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1100,
+      "resultSummary": "Auditoría exitosa; todas las especificaciones cumplen la política.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "pilot_real_validator",
+      "command": "NODE_ENV=test npx tsx apps/backend/scripts/omr-tv4-validate-pilot-real.ts --dataset omr_samples_tv4_pilot_real --report <temp> --failure-report <temp>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3530,
+      "resultSummary": "not_applicable: 0 capturas, 0 etiquetas y 0 exámenes independientes; el gate poblacional requiere al menos 149 exámenes independientes sin discordancias para cota inferior unilateral exacta 95% >= 0.98.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 6758,
+      "resultSummary": "El contrato del pipeline pasa.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 2110,
+      "resultSummary": "docs/AUTO_ENV.md está desactualizado; el checker indica ejecutar npm run docs:generate. No se regeneró en este turno.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "guard_wcag_initial",
+      "command": "npm run guard:wcag",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 39700,
+      "resultSummary": "Detectó max-lines en SeccionPlantillas.tsx y complexity en validarLoteListoParaDescarga; ambos se corrigieron después.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "guard_wcag_final",
+      "command": "npm run guard:wcag",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 20700,
+      "resultSummary": "Lint frontend sin errores; política, semántica, contraste 33/33 y diff CSS aprobados.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "blind_ground_truth_ui",
+      "command": "npm run test -- tests/plantillasOmrWorkflow.test.tsx -t \"captura secuencia de verdad terreno ciega\" (apps/frontend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2000,
+      "resultSummary": "1 prueba aprobada; 13 omitidas por filtro.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "frontend_plantillas_tests",
+      "command": "npm run test -- tests/plantillas.loteSesion.test.ts tests/plantillas.refactor.test.tsx (apps/frontend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3780,
+      "resultSummary": "2 archivos, 28 pruebas aprobadas.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "frontend_typecheck",
+      "command": "npm run typecheck (apps/frontend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4327,
+      "resultSummary": "TypeScript completado sin errores.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npm run typecheck (apps/backend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 9781,
+      "resultSummary": "Prisma Client generado; TypeScript completado sin errores.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "docs_generate",
+      "command": "npm run docs:generate",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1789,
+      "resultSummary": "Actualizó una entrada en docs/AUTO_ENV.md; no hubo otros cambios generados.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "docs_check_final",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 1594,
+      "resultSummary": "[docs] ok.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "backend_lint",
+      "command": "npx eslint <OMR source and integration files> --max-warnings=0 (apps/backend)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 9352,
+      "resultSummary": "ESLint pasó sin errores ni advertencias en todos los archivos OMR y generación tocados.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "traceability_tests_final",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3545,
+      "resultSummary": "7/7 pruebas aprobadas.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "handoff_tests_final",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3565,
+      "resultSummary": "11/11 pruebas aprobadas.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "sdd_audit_final",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3964,
+      "resultSummary": "Todas las especificaciones cumplen la política.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    },
+    {
+      "name": "runtime_health_readonly",
+      "command": "GET http://127.0.0.1:4000/api/salud/live; GET http://localhost:4173/; GET http://127.0.0.1:4000/api/version",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4270,
+      "resultSummary": "API HTTP 200; UI HTTP 200; API version=1.2.8. No se verificó login ni snapshot en esta revisión.",
+      "timestamp": "2026-10-28T08:20:59.025Z"
+    }
+  ],
+  "decisions": [
+    "La variante compartida sigue siendo optativa; el modo por alumno sigue como predeterminado.",
+    "La advertencia y confirmación explícita se consideran parte del contrato de interfaz.",
+    "El resultado de lectura QR y segmentación no se contará como verdad terreno ni como precisión de calificación.",
+    "La validación de progreso fue reestructurada como predicados de integridad y mantiene todos los requisitos de lote, registro y hash.",
+    "Actualizar AUTO_ENV fue necesario: el diff documenta EVALUAPRO_OMR_TV4_REAL_PILOT_REPORT usado por la política local de autocalificación."
+  ],
+  "assumptions": [
+    "La validación estadística del piloto se ejecutó únicamente sobre el dataset local versionado, sin consultar la sesión docente ni escribir en EvaluaPro runtime."
+  ],
+  "risks": [
+    "El conjunto piloto real actual está vacío: no hay etiquetas humanas ciegas para validar la lectura de respuestas ni las notas.",
+    "La autocalificación general debe permanecer cerrada hasta que los gates y la evidencia humana independiente se satisfagan.",
+    "Los cambios permanecen en un worktree aislado y no están desplegados en la instalación activa.",
+    "El runtime local responde 200 pero sigue en v1.2.8; no se publicó este worktree ni se verificó sesión docente/snapshot para promoverlo."
+  ],
+  "nextStep": "Obtener capturas representativas y etiquetas visuales independientes con predicciones ocultas; alcanzar el gate estadístico separado de notas y bono (149 exámenes independientes con cero discordancias para cada cota), ejecutar la validación end-to-end en la instalación local sin escribir notas hasta confirmar resultados, y luego preparar el PR draft autorizado.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\worktrees\\omr-pilot-draft-20261027",
+    "branch": "codex/omr-pilot-hardening-draft",
+    "commit": "55e6e6df",
+    "workingTreeStatus": "M apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/validacionesOmr.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/controladorGeneracionPdf.ts\n M apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts\n M apps/backend/tests/integracion/omrJobsWorkflow.test.ts\n M apps/backend/tests/omr.geometry.reference.test.ts\n M apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasConsolaGeneracion.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx\n M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts\n M apps/frontend/src/apps/app_docente/features/plantillas/loteGeneracionSesion.ts\n M apps/frontend/src/apps/app_docente/tipos.ts\n M apps/frontend/tests/plantillas.loteSesion.test.ts\n M apps/frontend/tests/plantillas.refactor.test.tsx\n M apps/frontend/tests/plantillasOmrWorkflow.test.tsx\n M docs/AUTO_ENV.md\n M scripts/tests/app-host-shutdown.contract.test.mjs\n?? apps/backend/scripts/tmp-omr-ocr-crops.ts\n?? apps/backend/src/modulos/modulo_escaneo_omr/copiasFormularioOmr.ts\n?? apps/backend/src/modulos/modulo_escaneo_omr/infra/rasterizadorIngestaPdfOmr.ts\n?? apps/backend/tests/copiasFormularioOmr.test.ts\n?? apps/backend/tests/rasterizadorIngestaPdfOmr.test.ts\n?? apps/frontend/src/apps/app_docente/features/plantillas/confirmacionGeneracionLote.ts\n?? docs/handoff/sesiones/2026-10-27/omr-shared-copies-e2e-followup-2026-10-27.json\n?? docs/handoff/sesiones/2026-10-27/omr-shared-copies-e2e-followup-2026-10-27.md\n?? docs/handoff/sesiones/2026-10-27/omr-source-dedup-2026-10-27.json\n?? docs/handoff/sesiones/2026-10-27/omr-source-dedup-2026-10-27.md\n?? docs/handoff/sesiones/2026-10-28/\n?? docs/specs/SPEC-128_omr_copias_multiples_mismo_formulario.spec.md"
+  },
+  "parentSessionId": "omr-shared-copies-e2e-followup-2026-10-27"
+}
