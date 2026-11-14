@@ -31,11 +31,13 @@ const CANONICAL_GATE_CONFIG = {
 
 function parseArgs(argv) {
   const values = {
-    dryRun: false
+    dryRun: false,
+    allowEmptyDataset: false
   };
 
   for (const arg of argv) {
     if (arg === '--dry-run') values.dryRun = true;
+    if (arg === '--allow-empty-dataset') values.allowEmptyDataset = true;
   }
 
   return values;
@@ -97,8 +99,12 @@ function runCommand(command) {
 
 export { clasificarDatasetPiloto, resolveConfig, tieneCapturasPiloto };
 
+export function debeOmitirseDatasetVacioEnCi(manifest, allowEmptyDataset) {
+  return Boolean(allowEmptyDataset && !tieneCapturasPiloto(manifest));
+}
+
 async function main() {
-  const { dryRun } = parseArgs(process.argv.slice(2));
+  const { dryRun, allowEmptyDataset } = parseArgs(process.argv.slice(2));
   const resolved = resolveConfig();
   const datasetManifestPath = await ensureDatasetManifestExists(resolved.datasetManifest);
   const manifest = await readDatasetManifest(datasetManifestPath);
@@ -118,6 +124,7 @@ async function main() {
   const datasetGate = clasificarDatasetPiloto(manifest);
   if (!datasetGate.allowed) {
     const now = new Date().toISOString();
+    const omitidoEnCi = debeOmitirseDatasetVacioEnCi(manifest, allowEmptyDataset);
     await writeReport(resolved.wrapperReport, {
       version: '1',
       gate: resolved.gate,
@@ -129,12 +136,18 @@ async function main() {
       validated: false,
       reason: datasetGate.reason,
       captureCount: datasetGate.captureCount,
-      exitCode: 1,
+      exitCode: omitidoEnCi ? 0 : 1,
       startedAt: now,
       finishedAt: now,
       durationMs: 0
     });
-    process.stderr.write(`[omr-canonical-gate] FAIL (dataset vacio; validacion real requerida) -> ${resolved.wrapperReport}\n`);
+    const mensaje = '[omr-canonical-gate]';
+    const detalle = 'dataset vacio; validacion real no ejecutada y autocalificacion sigue bloqueada';
+    if (omitidoEnCi) {
+      process.stdout.write(`${mensaje} SKIP (${detalle}) -> ${resolved.wrapperReport}\n`);
+      return;
+    }
+    process.stderr.write(`${mensaje} FAIL (${detalle}) -> ${resolved.wrapperReport}\n`);
     process.exitCode = 1;
     return;
   }

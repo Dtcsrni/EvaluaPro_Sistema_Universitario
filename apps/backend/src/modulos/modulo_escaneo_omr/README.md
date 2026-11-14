@@ -60,7 +60,9 @@ Ruta: `apps/backend/src/modulos/modulo_escaneo_omr`.
 ## Gate de release
 - Gate sintético principal: `omr:eval:synthetic` (guardrail de regresión controlada).
 - Gate real principal: `omr:validate:pilot-real` sobre `omr_samples_tv4_pilot_real/`.
-- El gate bloqueante en CI es `npm run test:omr:canonical:gate:ci`.
+- En CI, `npm run test:omr:canonical:gate:ci` registra `not_applicable` si el corpus privado está vacío; ese estado no se trata como validación ni habilita la autocalificación.
+- La validación estricta local es `npm run test:omr:canonical:gate:required`; falla si no hay capturas reales revisadas.
+- La autocalificación solo se habilita con un informe de piloto real aprobado, con muestras independientes, concordancia completa y huellas de evidencia/código/configuración coincidentes.
 - La plantilla canónica se rechaza si el mapa, QR o payload declara otra versión.
 - En `por-folio`, la cobertura se mide por preguntas resueltas:
   - respuesta marcada válida,

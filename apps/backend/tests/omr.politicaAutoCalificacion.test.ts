@@ -689,6 +689,63 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(competidor.motivos).not.toContain('marca_parcial_no_competitiva');
   });
 
+  it('conserva B en la pregunta 14 cuando A es residuo y C solo tiene señal débil', () => {
+    const resultado = evaluarAutoCalificableOmr({
+      estadoAnalisis: 'ok',
+      calidadPagina: 0.99,
+      confianzaPromedioPagina: 0.99,
+      ratioAmbiguas: 0,
+      coberturaDeteccion: 1,
+      respuestasDetectadas: [{
+        opcion: 'B',
+        confianza: 1,
+        estadoRespuesta: 'respondida',
+        flags: ['parcial_detectada'],
+        scoresPorOpcion: [
+          { opcion: 'B', score: 0.8983598782276364, fillRatioCore: 1, nucleusFillRatio: 1, centroidOffsetRatio: 0.034944171512788676, markConfidence: 1, shapeCompactness: 0.8736656348428794, contraste: 0.4411673294026235, estadoMarca: 'marcada' },
+          { opcion: 'C', score: 0.11102795753782672, fillRatioCore: 0.09090909090909091, nucleusFillRatio: 0, centroidOffsetRatio: 0.341096700753, markConfidence: 0.16812999724686647, shapeCompactness: 0.04505290743295098, contraste: 0.09726221490927366, estadoMarca: 'parcial' },
+          { opcion: 'A', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 0.48352483280138325, markConfidence: 0, shapeCompactness: 0.035103341920948154, contraste: 0, estadoMarca: 'no_marcada' },
+          { opcion: 'D', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' },
+          { opcion: 'E', score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' }
+        ]
+      }]
+    });
+
+    expect(resultado.hardStop).toBe(false);
+    expect(resultado.autoCalificableOmr).toBe(true);
+  });
+
+  it('deja la pregunta 19 sin opción ante ruido menor al piso y la cuenta incorrecta', () => {
+    const sinMarca = {
+      opcion: null,
+      confianza: 0.45707,
+      estadoRespuesta: 'ambigua' as const,
+      flags: ['parcial_detectada'],
+      scoresPorOpcion: ['A', 'B', 'C', 'D', 'E'].map((opcion) => opcion === 'C'
+        ? { opcion, score: 0.0773, fillRatioCore: 0.09091, nucleusFillRatio: 0.10811, centroidOffsetRatio: 0.04714, markConfidence: 0.16569, shapeCompactness: 0.95286, contraste: 0.00671, estadoMarca: 'no_marcada' }
+        : { opcion, score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 0, markConfidence: 0, shapeCompactness: 1, contraste: 0, estadoMarca: 'no_marcada' })
+    };
+
+    expect(opcionParcialDominanteRecuperable(sinMarca)).toBeNull();
+    const resultado = evaluarAutoCalificableOmr({
+      estadoAnalisis: 'ok',
+      calidadPagina: 0.99,
+      confianzaPromedioPagina: 0.99,
+      ratioAmbiguas: 0.2,
+      coberturaDeteccion: 1,
+      respuestasDetectadas: [
+        { opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' },
+        { opcion: 'B', confianza: 0.99, estadoRespuesta: 'respondida' },
+        { opcion: 'C', confianza: 0.99, estadoRespuesta: 'respondida' },
+        { opcion: 'D', confianza: 0.99, estadoRespuesta: 'respondida' },
+        sinMarca
+      ]
+    });
+
+    expect(resultado.hardStop).toBe(false);
+    expect(resultado.autoCalificableOmr).toBe(true);
+  });
+
   it('tolera un contorno secundario desplazado solo con una marca circular dominante', () => {
     const resultado = evaluarAutoCalificableOmr({
       estadoAnalisis: 'ok',

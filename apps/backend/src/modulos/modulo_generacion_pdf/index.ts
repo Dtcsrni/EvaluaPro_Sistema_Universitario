@@ -8,11 +8,19 @@ export { ExamenPlantilla, normalizarTituloPlantilla } from './modeloExamenPlanti
 export { generarPdfExamen } from './servicioGeneracionPdf.js';
 export { hashContenidoPregunta } from './shared/controladorGeneracionPdfShared.js';
 export { type MapaVariante, type PreguntaBase } from './servicioVariantes.js';
-export { type MapaOmr, type TemplateVersion } from './shared/tiposPdf.js';
+export {
+  ALTO_CARTA,
+  ANCHO_CARTA,
+  MM_A_PUNTOS,
+  type MapaOmr,
+  type OmrTemplateId,
+  type TemplateVersion
+} from './shared/tiposPdf.js';
 export { esquemaBodyVacioOpcional } from './validacionesExamenes.js';
 export {
   OMR_CANONICAL_CONTRACT_ID,
   OMR_CANONICAL_DISPLAY_LABEL,
   OMR_LAYOUT_RELEASE_VERSION,
-  TEMPLATE_VERSION_CANONICA
+  TEMPLATE_VERSION_CANONICA,
+  resolverOmrTemplateId
 } from './domain/templateCanonico.js';
