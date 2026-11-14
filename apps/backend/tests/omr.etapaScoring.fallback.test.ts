@@ -88,6 +88,54 @@ describe('etapaScoring reintento tras fallo de preproceso CV', () => {
     });
   });
 
+  it('promueve la B claramente marcada sobre una señal residual y actualiza el resumen de ambigüedad', async () => {
+    mockPreprocesar.mockResolvedValue('imagen-preprocesada');
+    const scoresPorOpcion = ['A', 'B', 'C', 'D', 'E'].map((opcion) => opcion === 'B'
+      ? { opcion, score: 0.8983598782276364, fillRatioCore: 1, nucleusFillRatio: 1, centroidOffsetRatio: 0.0349, markConfidence: 1, shapeCompactness: 0.8737, contraste: 0.4412, estadoMarca: 'marcada' }
+      : opcion === 'A'
+        ? { opcion, score: 0.018, fillRatioCore: 0.04, nucleusFillRatio: 0, centroidOffsetRatio: 0.48, markConfidence: 0.06, shapeCompactness: 0.035, contraste: 0.02, estadoMarca: 'parcial' }
+        : { opcion, score: 0, fillRatioCore: 0, nucleusFillRatio: 0, centroidOffsetRatio: 1, markConfidence: 0, shapeCompactness: 0, contraste: 0, estadoMarca: 'no_marcada' });
+    mockAnalizarOmrCv.mockResolvedValue({
+      respuestasDetectadas: [{
+        numeroPregunta: 14,
+        opcion: null,
+        confianza: 0.5,
+        estadoRespuesta: 'ambigua',
+        flags: ['parcial_detectada'],
+        scoresPorOpcion
+      }],
+      advertencias: [],
+      calidadPagina: 0.99,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.5,
+      ratioAmbiguas: 1,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.9,
+      pageOrientationDetermined: true,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v1'
+    });
+
+    const contexto = await ejecutarEtapaScoring({
+      imagenBase64: 'imagen-original',
+      mapaPagina: { templateVersion: 4, preguntas: [] },
+      margenMm: 10
+    });
+
+    const respuesta = (contexto.resultado as {
+      respuestasDetectadas: Array<{ opcion: string | null; estadoRespuesta: string }>;
+      ratioAmbiguas: number;
+      confianzaPromedioPagina: number;
+      resumenRespuestas: { reactivosRespondidos: number; reactivosAmbiguos: number };
+    });
+    expect(respuesta.respuestasDetectadas[0]).toMatchObject({ opcion: 'B', estadoRespuesta: 'respondida' });
+    expect(respuesta.ratioAmbiguas).toBe(0);
+    expect(respuesta.confianzaPromedioPagina).toBe(1);
+    expect(respuesta.resumenRespuestas).toMatchObject({ reactivosRespondidos: 1, reactivosAmbiguos: 0 });
+  });
+
   it('rescata una marca tenue desde la imagen original sin sustituir una doble marca', async () => {
     mockPreprocesar.mockResolvedValue('imagen-preprocesada');
     mockAnalizarOmrCv.mockImplementation(async (imagen: string) => ({
