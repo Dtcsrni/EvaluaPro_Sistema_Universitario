@@ -31,6 +31,9 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- El lector OMR conserva una única marca tenue con evidencia morfológica y orientación verificada cuando las alternativas son residuos débiles; las señales mínimas y las dobles claras siguen sin crédito. El corpus sintético y sus métricas distinguen respuestas débiles de manchas o blancos.
+
 ## [1.2.14] - 2026-11-09
 
 ### Added

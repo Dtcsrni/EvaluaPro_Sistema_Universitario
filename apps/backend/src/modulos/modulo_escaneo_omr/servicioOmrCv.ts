@@ -614,6 +614,26 @@ export function debeAceptarMarcaFaintOmr(args: {
 }
 
 /**
+ * Recupera una respuesta tenue aislada cuando las alternativas restantes
+ * solo muestran residuos débiles, no evidencia morfológica de otra respuesta.
+ * Dos burbujas con evidencia suficiente permanecen ambiguas.
+ */
+export function seleccionarMarcaUnicaConEvidenciaSuficiente(
+  scores: readonly ScoreOpcionOmr[]
+): ScoreOpcionOmr | null {
+  const candidatas = scores.filter((item) =>
+    item.estadoMarca === 'marcada' &&
+    item.score >= 0.16 &&
+    item.fillRatioCore >= 0.18 &&
+    item.contraste >= 0.1 &&
+    item.shapeCompactness >= 0.18 &&
+    item.centroidOffsetRatio <= 0.5 &&
+    item.markConfidence >= 0.2
+  );
+  return candidatas.length === 1 ? candidatas[0] ?? null : null;
+}
+
+/**
  * Recupera una marca de baja señal cuando los rasgos continuos todavía
  * aíslan una sola burbuja. No sustituye la lectura normal: requiere una
  * segunda opción prácticamente vacía y rechaza dobles/tachaduras explícitas.
@@ -1422,6 +1442,22 @@ function agregarIntentosNoResueltosAlResultadoOmr(
     if (
       sinDobleEspuria.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')
     ) return sinDobleEspuria;
+
+    const marcaUnicaConEvidencia = seleccionarMarcaUnicaConEvidenciaSuficiente(sinDobleEspuria.scoresPorOpcion);
+    if (
+      marcaUnicaConEvidencia &&
+      resultado.pageOrientationDetermined === true &&
+      !resultado.pageOrientationConflict
+    ) {
+      cambios += 1;
+      return {
+        ...sinDobleEspuria,
+        opcion: marcaUnicaConEvidencia.opcion,
+        confianza: Math.max(sinDobleEspuria.confianza, marcaUnicaConEvidencia.markConfidence),
+        flags: sinDobleEspuria.flags.filter((flag) => flag !== 'parcial_detectada'),
+        estadoRespuesta: 'respondida' as const
+      };
+    }
 
     const intentos = sinDobleEspuria.scoresPorOpcion.filter((score) =>
       esIntentoMarcaDebilOmr(
@@ -3519,6 +3555,19 @@ function anularRespuestasAmbiguasParaCalificacion(resultado: ResultadoOmr): Resu
     const flagsInvalidantes = respuesta.flags.some((flag) =>
       flag === 'doble_marca' || flag === 'tachada_detectada'
     );
+    const marcaUnicaConEvidencia = seleccionarMarcaUnicaConEvidenciaSuficiente(respuesta.scoresPorOpcion);
+    const rescateDebilConOrientacionVerificada =
+      resultado.pageOrientationDetermined === true &&
+      !resultado.pageOrientationConflict &&
+      !flagsInvalidantes &&
+      marcaUnicaConEvidencia?.opcion === respuesta.opcion;
+    if (rescateDebilConOrientacionVerificada) {
+      return {
+        ...respuesta,
+        flags: respuesta.flags.filter((flag) => flag !== 'parcial_detectada'),
+        estadoRespuesta: 'respondida' as const
+      };
+    }
     const confianzaBajaConAdvertencia =
       respuesta.confianza < 0.75 &&
       respuesta.flags.some((flag) => flag === 'bajo_contraste' || flag === 'parcial_detectada' || flag === 'fuera_roi');
@@ -5830,11 +5879,13 @@ export async function analizarOmr(
         scores: scoresPorOpcion
       })
     );
+    const marcaUnicaConEvidencia = seleccionarMarcaUnicaConEvidenciaSuficiente(scoresPorOpcion);
     const dobleMarcadaReal =
       dobleMarcada &&
       !rescatePuntoCentralAislado &&
       !rescateNucleoRobusto &&
-      !rescateDoblePorTintaCromatica;
+      !rescateDoblePorTintaCromatica &&
+      !marcaUnicaConEvidencia;
     const rescateMarcaCromatica = Boolean(
       candidataCromatica &&
       debeAceptarMarcaCromaticaAisladaOmr({
@@ -5962,14 +6013,20 @@ export async function analizarOmr(
         marcaAmbiguaDeBajoContraste
       );
     const rescateMarcaAislada = rescatePrimeraPorNucleoFuerte || rescateSegundaPorNucleoFuerte;
-    const rechazoPorMarcaInvalida = !rescateMarcaCromatica && !rescatePuntoCompacto && !rescateNucleoTenue && (
+    const rechazoPorMarcaInvalida = !marcaUnicaConEvidencia && !rescateMarcaCromatica && !rescatePuntoCompacto && !rescateNucleoTenue && (
       (dobleMarcadaReal && !rescateMarcaAislada) ||
       marcaParcialDominante ||
       formaCircularInsuficiente ||
       marcaAmbiguaNoCompacta ||
       marcaAmbiguaDeBajoContraste
     );
-    const rescateDominante = rescatePuntoCompacto
+    const rescateDominante = marcaUnicaConEvidencia
+      ? {
+          opcion: marcaUnicaConEvidencia.opcion,
+          confianza: round6(marcaUnicaConEvidencia.markConfidence),
+          motivo: `Respuesta tenue aislada por evidencia morfológica (${marcaUnicaConEvidencia.opcion})`
+        }
+      : rescatePuntoCompacto
       ? {
           opcion: rescatePuntoCompacto.opcion,
           confianza: round6(Math.max(0.42, rescatePuntoCompacto.markConfidence)),
@@ -6102,7 +6159,7 @@ export async function analizarOmr(
     }
     // Las candidatas con confianza subumbral siguen visibles en los scores
     // para revisión, pero se excluyen de la respuesta que recibe puntaje.
-    if (opcionDetectada && confianzaPregunta < OMR_RESPUESTA_CONF_MIN) {
+    if (opcionDetectada && confianzaPregunta < OMR_RESPUESTA_CONF_MIN && !marcaUnicaConEvidencia) {
       opcionDetectada = null;
       confianzaPregunta = Math.min(confianzaPregunta, 0.5);
     }

@@ -63,19 +63,13 @@ describe('métricas del evaluador sintético TV4', () => {
     })));
   }, 120_000);
 
-  it.each([
-    { captureId: 'TV4-SYNTH-001-P1', numeroPregunta: 7, opcionEsperada: null },
-    { captureId: 'TV4-SYNTH-004-P2', numeroPregunta: 20, opcionEsperada: 'E' },
-    { captureId: 'TV4-SYNTH-005-P2', numeroPregunta: 16, opcionEsperada: 'A' }
-  ] as const)(
-    'rechaza el solapamiento del panel y conserva señales tenues sin competidora clara: $captureId',
-    async (caso) => {
+  it('rechaza la señal mínima y conserva la marca débil única del corpus', async () => {
       const datasetRoot = path.resolve(process.cwd(), '../../omr_samples_tv4');
       const manifest = JSON.parse(
         await readFile(path.join(datasetRoot, 'manifest.json'), 'utf8')
       ) as { capturas: Array<{ captureId: string; imagePath: string; mapaOmrPath: string }> };
-      const captura = manifest.capturas.find((item) => item.captureId === caso.captureId);
-      expect(captura, `captura sintética faltante: ${caso.captureId}`).toBeDefined();
+      const captura = manifest.capturas.find((item) => item.captureId === 'TV4-SYNTH-001-P1');
+      expect(captura, 'falta captura que contiene solapamiento de panel').toBeDefined();
       if (!captura) return;
       const [imageBuffer, mapaRaw] = await Promise.all([
         readFile(path.join(datasetRoot, captura.imagePath)),
@@ -87,22 +81,67 @@ describe('métricas del evaluador sintético TV4', () => {
         mapa as never,
         mapa.qr.texto,
         10,
-        { folio: caso.captureId, numeroPagina: mapa.numeroPagina, templateVersionDetectada: 4 },
-        caso.captureId
+        { folio: captura.captureId, numeroPagina: mapa.numeroPagina, templateVersionDetectada: 4 },
+        captura.captureId
       );
       const respuesta = resultado.respuestasDetectadas.find(
-        (item) => item.numeroPregunta === caso.numeroPregunta
+        (item) => item.numeroPregunta === 7
       );
 
-      expect(respuesta?.opcion, `${caso.captureId} Q${caso.numeroPregunta}`).toBe(caso.opcionEsperada);
-      if (caso.opcionEsperada === null) {
-        expect(['ambigua', 'doble_marca', 'tachada']).toContain(respuesta?.estadoRespuesta);
-      } else {
-        expect(respuesta?.estadoRespuesta).toBe('respondida');
+      expect(respuesta?.opcion, 'la señal de solapamiento no debe dar crédito').toBeNull();
+      expect(['ambigua', 'doble_marca', 'tachada']).toContain(respuesta?.estadoRespuesta);
+    }, 180_000);
+
+  it('acepta marcas débiles aisladas y rechaza dobles claras en todas las capturas del corpus', async () => {
+    const datasetRoot = path.resolve(process.cwd(), '../../omr_samples_tv4');
+    const [manifestRaw, truthRaw] = await Promise.all([
+      readFile(path.join(datasetRoot, 'manifest.json'), 'utf8'),
+      readFile(path.join(datasetRoot, 'ground_truth.jsonl'), 'utf8')
+    ]);
+    const manifest = JSON.parse(manifestRaw) as {
+      capturas: Array<{ captureId: string; imagePath: string; mapaOmrPath: string }>;
+    };
+    const truth = truthRaw.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as {
+      captureId: string;
+      numeroPregunta: number;
+      opcionEsperada: string | null;
+      markType: string;
+    });
+    const weakCaptureIds = new Set(truth.filter((row) => row.markType === 'weak').map((row) => row.captureId));
+    const cases = truth.filter((row) =>
+      weakCaptureIds.has(row.captureId) && (row.markType === 'weak' || row.markType === 'double')
+    );
+    const captureIds = [...weakCaptureIds];
+
+    for (const captureId of captureIds) {
+      const capture = manifest.capturas.find((item) => item.captureId === captureId);
+      expect(capture, `falta captura ${captureId}`).toBeDefined();
+      if (!capture) continue;
+      const [imageBuffer, mapRaw] = await Promise.all([
+        readFile(path.join(datasetRoot, capture.imagePath)),
+        readFile(path.join(datasetRoot, capture.mapaOmrPath), 'utf8')
+      ]);
+      const map = JSON.parse(mapRaw) as { qr: { texto: string }; numeroPagina: number };
+      const result = await analizarOmr(
+        `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
+        map as never,
+        map.qr.texto,
+        10,
+        { folio: captureId, numeroPagina: map.numeroPagina, templateVersionDetectada: 4 },
+        captureId
+      );
+      for (const row of cases.filter((item) => item.captureId === captureId)) {
+        const response = result.respuestasDetectadas.find((item) => item.numeroPregunta === row.numeroPregunta);
+        if (row.markType === 'weak') {
+          expect(response?.opcion, `${captureId} Q${row.numeroPregunta}`).toBe(row.opcionEsperada);
+          expect(response?.estadoRespuesta, `${captureId} Q${row.numeroPregunta}`).toBe('respondida');
+        } else {
+          expect(response?.opcion, `${captureId} Q${row.numeroPregunta}`).toBeNull();
+          expect(['ambigua', 'doble_marca', 'tachada']).toContain(response?.estadoRespuesta);
+        }
       }
-    },
-    180_000
-  );
+    }
+  }, 300_000);
 
   it('considera rechazo seguro una marca doble aunque exista una opción candidata', () => {
     expect(esRechazoSeguroMarcaInvalida('doble_marca', 'A')).toBe(true);
@@ -125,33 +164,35 @@ describe('métricas del evaluador sintético TV4', () => {
     expect(debeIncluirIssueSintetico('valid', 'A', 'B')).toBe(true);
     expect(debeIncluirIssueSintetico('valid', 'A', 'A')).toBe(false);
     expect(debeIncluirIssueSintetico('double', null, null)).toBe(true);
+    expect(debeIncluirIssueSintetico('weak', 'B', 'B')).toBe(false);
+    expect(debeIncluirIssueSintetico('weak', 'B', null)).toBe(true);
   });
 
   it('mide confianza solo en notas automáticas y cobertura contra páginas claramente elegibles', () => {
     const metricas = resumirConfianzaCoberturaAutoCalificacion([
-      { claramenteElegible: true, autoCalificable: true, calificacionCoincide: true },
-      { claramenteElegible: true, autoCalificable: false, calificacionCoincide: false },
-      { claramenteElegible: false, autoCalificable: false, calificacionCoincide: false }
+      { groundTruthComplete: true, autoCalificable: true, calificacionCoincide: true },
+      { groundTruthComplete: true, autoCalificable: false, calificacionCoincide: false },
+      { groundTruthComplete: false, autoCalificable: false, calificacionCoincide: false }
     ]);
 
     expect(metricas).toMatchObject({
       autoEligibleCaptures: 1,
-      clearlyEligibleCaptures: 2,
+      groundTruthCompleteCaptures: 2,
       autoCoverageRate: 0.5,
       autoGradeTrustRate: 1,
       automaticGradeDiscordances: 0
     });
   });
 
-  it('falla la confianza si una nota autocalificada difiere de la clave o se emitió sobre una hoja inválida', () => {
+  it('falla confianza si la nota difiere o si se autocalifica con evidencia incompleta', () => {
     const metricas = resumirConfianzaCoberturaAutoCalificacion([
-      { claramenteElegible: true, autoCalificable: true, calificacionCoincide: false },
-      { claramenteElegible: false, autoCalificable: true, calificacionCoincide: true }
+      { groundTruthComplete: true, autoCalificable: true, calificacionCoincide: false },
+      { groundTruthComplete: false, autoCalificable: true, calificacionCoincide: true }
     ]);
 
     expect(metricas).toMatchObject({
       autoEligibleCaptures: 2,
-      clearlyEligibleCaptures: 1,
+      groundTruthCompleteCaptures: 1,
       autoCoverageRate: 1,
       autoGradeTrustRate: 0,
       automaticGradeDiscordances: 2
@@ -160,9 +201,23 @@ describe('métricas del evaluador sintético TV4', () => {
 
   it('no presenta la abstención total como falta de cobertura resuelta', () => {
     const metricas = resumirConfianzaCoberturaAutoCalificacion([
-      { claramenteElegible: true, autoCalificable: false, calificacionCoincide: false }
+      { groundTruthComplete: true, autoCalificable: false, calificacionCoincide: false }
     ]);
 
     expect(metricas).toMatchObject({ autoEligibleCaptures: 0, autoCoverageRate: 0 });
+  });
+
+  it('permite medir como correcta una nota que cuenta marcas ambiguas como cero', () => {
+    const metricas = resumirConfianzaCoberturaAutoCalificacion([
+      { groundTruthComplete: true, autoCalificable: true, calificacionCoincide: true }
+    ]);
+
+    expect(metricas).toMatchObject({
+      groundTruthCompleteCaptures: 1,
+      autoEligibleCaptures: 1,
+      autoCoverageRate: 1,
+      autoGradeTrustRate: 1,
+      automaticGradeDiscordances: 0
+    });
   });
 });
