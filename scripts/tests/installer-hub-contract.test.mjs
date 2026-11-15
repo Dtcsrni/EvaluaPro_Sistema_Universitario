@@ -765,6 +765,30 @@ test('MSI docente perUser no escribe marcadores en HKLM', () => {
   assert.match(cleanup, /Root="\$\(var\.ProductRegistryRoot\)"/);
 });
 
+test('MSI docente instala los ICO de alta resolución que usa el reconciliador nativo', () => {
+  const appFiles = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'AppFiles.wxs'), 'utf8');
+  const shortcutReconciler = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'ShortcutReconciler.cs'), 'utf8');
+  const packagedIcons = [
+    { component: 'CMP.ShortcutDashboardIcon', file: 'F.ShortcutDashboardIcon', name: 'dashboard-prod.ico' },
+    { component: 'CMP.ShortcutHubIcon', file: 'F.ShortcutHubIcon', name: 'installer-canonical.ico' },
+  ];
+
+  for (const { component, file, name } of packagedIcons) {
+    assert.ok(appFiles.includes(`<Component Id="${component}" Guid="*">`), `${component} debe instalarse en el payload docente`);
+    assert.ok(appFiles.includes(`<File Id="${file}" Source="$(var.SourceRoot)/scripts/icons/${name}" Name="${name}" KeyPath="yes" />`));
+    const icon = fs.readFileSync(path.join(root, 'scripts', 'icons', name));
+    assert.equal(icon.readUInt16LE(0), 0, `${name}: cabecera ICO reservada`);
+    assert.equal(icon.readUInt16LE(2), 1, `${name}: tipo ICO`);
+    const count = icon.readUInt16LE(4);
+    assert.ok(count > 0, `${name}: debe incluir al menos un frame`);
+    const has256Frame = Array.from({ length: count }, (_, index) => 6 + index * 16)
+      .some((offset) => icon[offset] === 0 && icon[offset + 1] === 0);
+    assert.ok(has256Frame, `${name}: debe incluir frame de 256 x 256 px`);
+  }
+
+  assert.match(shortcutReconciler, /Path\.Combine\(root, iconName\)/);
+});
+
 test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   assert.match(build, /schemaSqlText = \$sqlLines -join/);
