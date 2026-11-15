@@ -4,7 +4,7 @@
     <ComponentGroup Id="CG.AppFiles" Directory="INSTALLFOLDER">
       <?if $(var.FlavorId) = docente-local ?>
       <!-- Bootstrap explícito + payload único. No cosechar el repositorio. -->
-      <Component Id="CMP.AppPayloadArchive" Guid="*">
+      <Component Id="CMP.AppPayloadArchive" Guid="*" Directory="PAYLOADFOLDER">
         <File Id="F.AppPayloadArchive" Source="$(var.PayloadArchive)" Name="$(var.PayloadArchiveFileName)" KeyPath="yes" />
       </Component>
       <Component Id="CMP.RootPackageJson" Guid="*">

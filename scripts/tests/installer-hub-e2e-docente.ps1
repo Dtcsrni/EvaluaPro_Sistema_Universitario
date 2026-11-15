@@ -1489,6 +1489,8 @@ function Invoke-PreviousVersionRelatedBundleUpgrade {
 
 function Wait-NativeDashboardHealth {
   param([int]$TimeoutSec = 240)
+  $payloadArchiveName = "evaluapro-native-dist-{0}-{1}.zip" -f [string]$releaseManifest.appVersion, [string]$releaseManifest.version
+  $payloadArchivePath = Join-Path $env:LOCALAPPDATA "EvaluaProInstaller\installer-hub\payloads\$payloadArchiveName"
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   $lastError = 'sin respuesta HTTP'
   do {
@@ -1673,11 +1675,18 @@ function Wait-InstalledPayload {
     (Join-Path $installedRoot 'apps\backend\dist\index.js'),
     (Join-Path $installedRoot 'apps\frontend\dist-docente\index.html'),
     (Join-Path $installedRoot 'logs\installation.manifest.json'),
-    (Join-Path $installedRoot 'config\update-config.json')
+    (Join-Path $installedRoot 'config\update-config.json'),
+    $payloadArchivePath
   )
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   do {
-    if (@($required | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -eq 0) { return }
+    if (@($required | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -eq 0) {
+      $legacyArchives = @(Get-ChildItem -LiteralPath $installedRoot -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue)
+      if ($legacyArchives.Count -gt 0) {
+        throw "El ZIP nativo no debe quedar en el directorio compartido que limpia un bundle anterior: $($legacyArchives[0].Name)"
+      }
+      return
+    }
     Start-Sleep -Milliseconds 800
   } while ((Get-Date) -lt $deadline)
   $missing = @($required | Where-Object { -not (Test-Path -LiteralPath $_) })
