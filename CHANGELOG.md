@@ -2,6 +2,14 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [1.2.22] - 2026-11-15
+
+### Fixed
+- El reconciliador del host nativo concentra los accesos del menu Inicio en `Programas/EvaluaPro` y retira solo los duplicados raiz que apuntan a la instalacion canonica.
+
+### Changed
+- Los accesos principales y del Hub seleccionan los ICO locales de 256 x 256 y registran la ruta real del icono en la bitacora de reconciliacion.
+
 ## [1.2.21] - 2026-11-14
 
 ### Changed
