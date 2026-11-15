@@ -48,13 +48,66 @@ function crearClienteOauth(clientId: string, redirectUri: string) {
 
 function responderCallback(res: ServerResponse, status: number, exito: boolean, mensaje: string) {
   const seguro = mensaje.replace(/[&<>"']/g, (caracter) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[caracter] || '');
+  const nonce = randomBytes(18).toString('base64');
+  const titulo = exito ? 'Autorización completada' : 'No se pudo completar el acceso';
+  const etiqueta = exito ? 'Autorización verificada' : 'No se completó la autorización';
   res.writeHead(status, {
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-store',
     'referrer-policy': 'no-referrer',
-    'x-content-type-options': 'nosniff'
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'content-security-policy': `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+    'permissions-policy': 'camera=(), microphone=(), geolocation=()'
   });
-  res.end(`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Acceso Google · EvaluaPro</title><body><main><h1>${exito ? 'Autorización completada' : 'No se pudo completar el acceso'}</h1><p>${seguro}</p><p>Regresa a EvaluaPro. Esta ventana se cerrará en un momento.</p></main><script>setTimeout(()=>{try{window.close()}catch{}},1200)</script></body></html>`);
+  res.end(`<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081a2c">
+  <title>${titulo} · EvaluaPro</title>
+  <style nonce="${nonce}">
+    :root { color-scheme: dark; font-family: Inter, "Segoe UI", system-ui, sans-serif; font-synthesis: none; text-rendering: optimizeLegibility; }
+    * { box-sizing: border-box; }
+    body { min-width: 280px; min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; color: #e8f2ff; background: radial-gradient(ellipse at 50% 0%, #173d61 0%, #0b223a 48%, #071525 100%); }
+    main { width: min(100%, 520px); padding: clamp(28px, 7vw, 48px); text-align: center; background: #102841; border: 1px solid #35536e; border-radius: 24px; box-shadow: 0 24px 72px #020b16a8; }
+    .marca { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 34px; color: #d9eaff; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+    .isotipo { display: grid; width: 38px; height: 38px; place-items: center; color: #78e2ef; background: #123d54; border: 1px solid #36869a; border-radius: 12px; }
+    .estado { display: grid; width: 72px; height: 72px; place-items: center; margin: 0 auto 22px; color: ${exito ? '#72e2c0' : '#ffbd8b'}; background: ${exito ? '#123f42' : '#493044'}; border: 1px solid ${exito ? '#328b79' : '#bd7182'}; border-radius: 50%; }
+    .estado svg, .isotipo svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+    .eyebrow { margin: 0 0 10px; color: #a8c4dd; font-size: 12px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; color: #f5f9ff; font-size: clamp(25px, 6vw, 34px); line-height: 1.2; letter-spacing: -.025em; }
+    .mensaje { margin: 16px 0 0; color: #d6e5f4; font-size: 16px; line-height: 1.6; }
+    .regreso { margin: 26px 0 0; padding: 16px; color: #c7d9eb; background: #0a2035; border: 1px solid #294863; border-radius: 14px; font-size: 14px; line-height: 1.55; }
+    button { min-height: 46px; margin-top: 22px; padding: 0 22px; color: #061b2b; background: #8ce6ed; border: 2px solid #8ce6ed; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 750; cursor: pointer; }
+    button:hover { background: #b3f3f4; border-color: #b3f3f4; }
+    button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+    @media (max-width: 420px) { body { padding: 16px; } main { border-radius: 20px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="marca"><span class="isotipo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 5.5v15M8 7h8M8 11h6"/></svg></span><span>EvaluaPro <span aria-hidden="true">·</span> Plataforma Docente</span></div>
+    <div class="estado" aria-hidden="true">${exito ? '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'}</div>
+    <p class="eyebrow">${etiqueta}</p>
+    <h1>${titulo}</h1>
+    <p class="mensaje" role="${exito ? 'status' : 'alert'}">${seguro}</p>
+    <p class="regreso">Vuelve a EvaluaPro para continuar. Intentaremos cerrar esta pestaña automáticamente.</p>
+    <p class="regreso" id="alternativa" role="status" hidden>Si la pestaña sigue abierta, ciérrala y regresa a EvaluaPro.</p>
+    <button type="button" id="volver">Cerrar ventana</button>
+  </main>
+  <script nonce="${nonce}">
+    history.replaceState(null, document.title, location.pathname);
+    const alternativa = document.getElementById('alternativa');
+    const cerrar = () => { try { window.close(); } catch {} };
+    const cerrarConAyuda = () => { cerrar(); window.setTimeout(() => { if (alternativa) alternativa.hidden = false; }, 700); };
+    document.getElementById('volver')?.addEventListener('click', cerrarConAyuda);
+    window.setTimeout(cerrarConAyuda, 2500);
+  </script>
+</body>
+</html>`);
 }
 
 function esLoopback(address: string | undefined): boolean {
