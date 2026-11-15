@@ -38,17 +38,28 @@ internal static class ShortcutReconciler
         var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         var startMenu = Environment.GetFolderPath(Environment.SpecialFolder.StartMenu);
         if (!string.IsNullOrWhiteSpace(desktop)) locations.Add(desktop);
-        if (!string.IsNullOrWhiteSpace(startMenu)) locations.Add(Path.Combine(startMenu, "Programs"));
+        var appStartMenu = string.IsNullOrWhiteSpace(startMenu)
+            ? null
+            : Path.Combine(startMenu, "Programs", "EvaluaPro");
+        if (!string.IsNullOrWhiteSpace(appStartMenu)) locations.Add(appStartMenu);
         var oneDrive = Environment.GetEnvironmentVariable("OneDrive");
         if (!string.IsNullOrWhiteSpace(oneDrive)) locations.Add(Path.Combine(oneDrive, "Desktop"));
+
+        if (!string.IsNullOrWhiteSpace(startMenu))
+        {
+            RemoveManagedRootShortcut(Path.Combine(startMenu, "Programs"), "EvaluaPro", executable);
+            RemoveManagedRootShortcut(Path.Combine(startMenu, "Programs"), "EvaluaPro - Hub", executable);
+        }
 
         var entries = new List<ShortcutResult>();
         foreach (var directory in locations)
         {
             if (string.IsNullOrWhiteSpace(directory)) continue;
             Directory.CreateDirectory(directory);
-            entries.Add(CreateShortcut(directory, "EvaluaPro", executable, root, string.Empty));
-            entries.Add(CreateShortcut(directory, "EvaluaPro - Hub", executable, root, "--installer-hub"));
+            entries.Add(CreateShortcut(directory, "EvaluaPro", executable, root, string.Empty,
+                ResolveIcon(root, "dashboard-prod.ico", executable)));
+            entries.Add(CreateShortcut(directory, "EvaluaPro - Hub", executable, root, "--installer-hub",
+                ResolveIcon(root, "installer-canonical.ico", executable)));
         }
 
         WriteSuccess(executable, entries);
@@ -63,7 +74,75 @@ internal static class ShortcutReconciler
         throw new FileNotFoundException("No existe una instalación canónica de EvaluaPro para crear accesos directos.", canonicalExecutable);
     }
 
-    private static ShortcutResult CreateShortcut(string directory, string name, string executable, string workingDirectory, string arguments)
+    private static string ResolveIcon(string root, string iconName, string executable)
+    {
+        var iconPath = Path.Combine(root, "scripts", "icons", iconName);
+        return File.Exists(iconPath) && Has256PixelFrame(iconPath) ? iconPath : executable;
+    }
+
+    private static bool Has256PixelFrame(string iconPath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(iconPath);
+            Span<byte> header = stackalloc byte[6];
+            if (stream.Read(header) != header.Length ||
+                BitConverter.ToUInt16(header.Slice(0, 2)) != 0 ||
+                BitConverter.ToUInt16(header.Slice(2, 2)) != 1)
+            {
+                return false;
+            }
+
+            var count = BitConverter.ToUInt16(header.Slice(4, 2));
+            if (count == 0) return false;
+            Span<byte> entry = stackalloc byte[16];
+            for (var index = 0; index < count; index++)
+            {
+                if (stream.Read(entry) != entry.Length) return false;
+                if (entry[0] == 0 && entry[1] == 0) return true;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static void RemoveManagedRootShortcut(string directory, string name, string executable)
+    {
+        var linkPath = Path.Combine(directory, name + ".lnk");
+        if (!File.Exists(linkPath)) return;
+
+        object? shellLink = null;
+        try
+        {
+            shellLink = new ShellLink();
+            ((IPersistFile)shellLink).Load(linkPath, 0);
+            var target = ReadShortcutTarget((IShellLinkW)shellLink);
+            if (!string.Equals(Path.GetFullPath(target), Path.GetFullPath(executable), StringComparison.OrdinalIgnoreCase)) return;
+            File.Delete(linkPath);
+            SHChangeNotify(ShcneUpdateItem, ShcnfPathW | ShcnfFlush, linkPath, IntPtr.Zero);
+        }
+        catch
+        {
+            // Preserve a link whose ownership or target cannot be verified.
+        }
+        finally
+        {
+            if (shellLink is not null && Marshal.IsComObject(shellLink)) Marshal.FinalReleaseComObject(shellLink);
+        }
+    }
+
+    private static string ReadShortcutTarget(IShellLinkW link)
+    {
+        var path = new StringBuilder(32768);
+        link.GetPath(path, path.Capacity, IntPtr.Zero, 0);
+        return path.ToString();
+    }
+
+    private static ShortcutResult CreateShortcut(string directory, string name, string executable, string workingDirectory, string arguments, string iconPath)
     {
         var linkPath = Path.Combine(directory, name + ".lnk");
         object? shellLink = null;
@@ -75,11 +154,11 @@ internal static class ShortcutReconciler
             link.SetArguments(arguments);
             link.SetWorkingDirectory(workingDirectory);
             link.SetDescription(name);
-            link.SetIconLocation(executable, 0);
+            link.SetIconLocation(iconPath, 0);
             link.SetShowCmd(1);
             ((IPersistFile)shellLink).Save(linkPath, true);
             SHChangeNotify(ShcneUpdateItem, ShcnfPathW | ShcnfFlush, linkPath, IntPtr.Zero);
-            return new ShortcutResult(linkPath, executable, arguments, workingDirectory, executable, true);
+            return new ShortcutResult(linkPath, executable, arguments, workingDirectory, iconPath, true);
         }
         finally
         {
@@ -159,7 +238,7 @@ internal static class ShortcutReconciler
     [ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IShellLinkW
     {
-        void GetPath(IntPtr file, int maxPath, IntPtr findData, uint flags);
+        void GetPath([MarshalAs(UnmanagedType.LPWStr)] StringBuilder file, int maxPath, IntPtr findData, uint flags);
         void GetIDList(out IntPtr itemIdList);
         void SetIDList(IntPtr itemIdList);
         void GetDescription(IntPtr name, int maxName);

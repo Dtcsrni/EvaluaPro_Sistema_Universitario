@@ -2151,6 +2151,32 @@ test('launcher broker unifica shortcuts, hub y splash state', () => {
   assert.doesNotMatch(dashboard, /scripts[\\/]+installer-hub[\\/]+InstallerHub\.ps1/);
 });
 
+test('shortcut reconciler evita duplicados y conserva iconos de alta resolucion', () => {
+  const reconciler = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'ShortcutReconciler.cs'), 'utf8');
+  assert.match(reconciler, /Path\.Combine\(startMenu, "Programs", "EvaluaPro"\)/);
+  assert.match(reconciler, /RemoveManagedRootShortcut\(Path\.Combine\(startMenu, "Programs"\), "EvaluaPro"/);
+  assert.match(reconciler, /RemoveManagedRootShortcut\(Path\.Combine\(startMenu, "Programs"\), "EvaluaPro - Hub"/);
+  assert.match(reconciler, /string\.Equals\(Path\.GetFullPath\(target\), Path\.GetFullPath\(executable\)/);
+  assert.match(reconciler, /ResolveIcon\(root, "dashboard-prod\.ico", executable\)/);
+  assert.match(reconciler, /ResolveIcon\(root, "installer-canonical\.ico", executable\)/);
+  assert.match(reconciler, /Has256PixelFrame/);
+
+  const shortcutManifest = JSON.parse(fs.readFileSync(path.join(root, 'config', 'shortcuts-manifest.json'), 'utf8'));
+  const iconNames = [...new Set(shortcutManifest.shortcuts.map((entry) => entry.icon))];
+  for (const iconName of iconNames) {
+    const icon = fs.readFileSync(path.join(root, 'scripts', 'icons', iconName));
+    assert.equal(icon.readUInt16LE(0), 0, `${iconName}: reserved header`);
+    assert.equal(icon.readUInt16LE(2), 1, `${iconName}: icon type`);
+    const count = icon.readUInt16LE(4);
+    const frames = Array.from({ length: count }, (_, index) => {
+      const width = icon[6 + index * 16];
+      const height = icon[7 + index * 16];
+      return [width || 256, height || 256];
+    });
+    assert.ok(frames.some(([width, height]) => width === 256 && height === 256), `${iconName}: 256x256 frame`);
+  }
+});
+
 test('dashboard protege operaciones privilegiadas de soporte con step-up y allowlist', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
 
