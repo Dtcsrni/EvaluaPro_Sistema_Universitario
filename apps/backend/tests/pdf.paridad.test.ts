@@ -151,10 +151,10 @@ describe('pdf OMR canónico', () => {
     const resultado = await generarPdfExamen(crearParametros(8));
 
     for (const pagina of resultado.paginas) {
-      expect(pagina.qrTexto).toContain(':O1.0.0');
+      expect(pagina.qrTexto).toContain(':O1.1.0');
     }
     for (const paginaOmr of resultado.mapaOmr.paginas) {
-      expect(paginaOmr.qr?.texto).toContain(':O1.0.0');
+      expect(paginaOmr.qr?.texto).toContain(':O1.1.0');
     }
   });
 

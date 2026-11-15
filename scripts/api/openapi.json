@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EvaluaPro API docente",
-    "version": "1.2.14",
+    "version": "1.2.20",
     "description": "Contrato de las operaciones clave para automatizar autoría de reactivos, generación de exámenes, procesamiento OMR, calificación y consulta académica. Las operaciones usan los mismos servicios y persistencia que la GUI."
   },
   "servers": [
@@ -18003,8 +18003,7 @@
         },
         "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
         "x-evaluapro-permissions": [
-          "omr:analizar",
-          "calificaciones:calificar"
+          "omr:analizar"
         ]
       }
     },
@@ -23706,6 +23705,356 @@
         ],
         "x-evaluapro-validators": [
           "esquemaBodyVacioOpcional"
+        ]
+      }
+    },
+    "/omr/ingestas/{jobId}/shared-candidates": {
+      "get": {
+        "tags": [
+          "OMR"
+        ],
+        "operationId": "get_omr_ingestas_jobId_shared_candidates",
+        "summary": "GET /omr/ingestas/{jobId}/shared-candidates",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+        "x-evaluapro-permissions": [
+          "omr:analizar",
+          "alumnos:leer"
+        ]
+      }
+    },
+    "/omr/ingestas/{jobId}/submissions/{submissionId}/assign": {
+      "post": {
+        "tags": [
+          "OMR"
+        ],
+        "operationId": "post_omr_ingestas_jobId_submissions_submissionId_assign",
+        "summary": "POST /omr/ingestas/{jobId}/submissions/{submissionId}/assign",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+        "x-evaluapro-permissions": [
+          "omr:analizar",
+          "alumnos:leer"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaAsignarAlumnoCopiaOmr"
+        ]
+      }
+    },
+    "/omr/ingestas/{jobId}/calificar": {
+      "post": {
+        "tags": [
+          "OMR"
+        ],
+        "operationId": "post_omr_ingestas_jobId_calificar",
+        "summary": "POST /omr/ingestas/{jobId}/calificar",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+        "x-evaluapro-permissions": [
+          "omr:analizar",
+          "banco:leer",
+          "calificaciones:calificar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaCalificarIngestaPdfOmr"
+        ]
+      }
+    },
+    "/omr/ingestas/{jobId}/paginas/{pageIndex}/verdad-terreno": {
+      "post": {
+        "tags": [
+          "OMR"
+        ],
+        "operationId": "post_omr_ingestas_jobId_paginas_pageIndex_verdad_terreno",
+        "summary": "POST /omr/ingestas/{jobId}/paginas/{pageIndex}/verdad-terreno",
+        "description": "Operación registrada en el router backend. El schema de entrada estricto, si aplica, se identifica en x-evaluapro-validators; las reglas de negocio y estados los define el controlador/servicio canónico.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageIndex",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta JSON definida por el controlador; ver validador y servicio indicados en metadatos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error HTTP con envelope de aplicación, código y mensaje.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-evaluapro-router": "apps/backend/src/modulos/modulo_escaneo_omr/rutasEscaneoOmr.ts",
+        "x-evaluapro-permissions": [
+          "omr:analizar"
+        ],
+        "x-evaluapro-validators": [
+          "esquemaRegistrarVerdadTerrenoOmr"
         ]
       }
     }

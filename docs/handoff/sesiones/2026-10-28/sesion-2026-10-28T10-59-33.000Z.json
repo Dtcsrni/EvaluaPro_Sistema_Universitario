@@ -1,0 +1,168 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-10-28T10-59-33.000Z",
+  "parentSessionId": "sesion-2026-10-28T08-09-33.128Z",
+  "status": "final",
+  "generatedAt": "2026-10-28T10:59:33.000Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Eliminar del template OMR una captura y una verdad terreno ficticias generadas por detector, y evitar que regresen."
+  },
+  "objective": "Avanzar la calificación OMR local con alta precisión sin aceptar predicciones como etiquetas humanas ni habilitar calificación no validada.",
+  "scope": [
+    "Alinear el template de importación versionado con el manifiesto vacío que emite el builder.",
+    "Añadir una prueba contra regresiones del archivo versionado."
+  ],
+  "constraints": [
+    "No inventar verdad terreno ni incorporar capturas reales.",
+    "No escribir calificaciones, alterar la base operativa ni desplegar.",
+    "Preservar modificaciones locales no relacionadas."
+  ],
+  "actions": [
+    {
+      "type": "inspection",
+      "summary": "Confirmar que el template versionado contenía una respuesta artificial marcada panel_darkness_v1, prohibida como verdad terreno por SPEC-117 y el runbook.",
+      "timestamp": "2026-10-28T10:59:33.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "implementation",
+      "summary": "Reemplazar el ejemplo por captures vacío, igual a buildTemplateImportManifest, y añadir una prueba de igualdad del artefacto versionado.",
+      "timestamp": "2026-10-28T10:59:33.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "La suite focal de builder aprobó 4/4; git diff --check no reportó errores de whitespace.",
+      "timestamp": "2026-10-28T10:59:33.000Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Typecheck y lint del backend, docs:check, auditoría SDD y prueba de trazabilidad aprobaron.",
+      "timestamp": "2026-10-28T10:59:33.000Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/specs/SPEC-117_calificacion_automatica_local_omr.spec.md",
+      "docs/OMR_GATE_RUNBOOK.md",
+      "apps/backend/scripts/omr-tv4-build-pilot-real.ts",
+      "apps/backend/tests/omr.tv4.pilot-real.builder.test.ts",
+      "omr_samples_tv4_pilot_real/source/pilot_import.template.json"
+    ],
+    "changed": [
+      "apps/backend/tests/omr.tv4.pilot-real.builder.test.ts",
+      "omr_samples_tv4_pilot_real/source/pilot_import.template.json",
+      "docs/handoff/sesiones/2026-10-28/sesion-2026-10-28T10-59-33.000Z.json",
+      "docs/handoff/sesiones/2026-10-28/sesion-2026-10-28T10-59-33.000Z.md"
+    ],
+    "artifacts": []
+  },
+  "commands": [
+    {
+      "name": "pilot_builder_test",
+      "command": "npm -C apps/backend run test -- tests/omr.tv4.pilot-real.builder.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3626,
+      "resultSummary": "1 archivo aprobado; 4 pruebas aprobadas."
+    },
+    {
+      "name": "diff_whitespace_check",
+      "command": "git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Sin errores de whitespace en los cambios de esta tarea; Git mostró solo una advertencia CRLF preexistente para scripts/tests/app-host-shutdown.contract.test.mjs."
+    },
+    {
+      "name": "backend_lint",
+      "command": "npm -C apps/backend run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 15006,
+      "resultSummary": "ESLint completo para src, tests y scripts del backend aprobó sin warnings."
+    },
+    {
+      "name": "backend_typecheck",
+      "command": "npm -C apps/backend run typecheck",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 12590,
+      "resultSummary": "Prisma Client generado y TypeScript --noEmit aprobó."
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4301,
+      "resultSummary": "[docs] ok."
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3198,
+      "resultSummary": "Auditoría exitosa; todas las especificaciones cumplen la política."
+    },
+    {
+      "name": "traceability_tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 6003,
+      "resultSummary": "7/7 pruebas aprobadas."
+    },
+    {
+      "name": "lint_invocation_retry",
+      "command": "npm -C apps/backend exec eslint -- tests/omr.tv4.pilot-real.builder.test.ts --max-warnings=0",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 10000,
+      "resultSummary": "Invocación inicial con ruta relativa incorrecta desde la raíz; ESLint no encontró el archivo. La ejecución completa del script npm run lint sí aprobó."
+    },
+    {
+      "name": "pilot_manifest_state",
+      "command": "node -e <lectura de conteos de manifest.json y ground_truth.jsonl>",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 537,
+      "resultSummary": "Capturas: 0; filas de verdad terreno: 0; la plantilla versionada contiene captures vacío."
+    }
+  ],
+  "decisions": [
+    "Conservar la plantilla completamente vacía; las respuestas reales solo entran por revisión humana atestada y validación del dataset.",
+    "No sobrescribir templates locales existentes desde el builder; el cambio corrige la plantilla versionada y su prueba sin riesgo de borrar ediciones fuera del repo."
+  ],
+  "assumptions": [],
+  "risks": [
+    "El corpus de verdad terreno independiente sigue sin capturas etiquetadas; no hay evidencia para habilitar autocalificación global."
+  ],
+  "nextStep": "Ejecutar lint/typecheck focales, adjuntar el commit al PR draft autorizado y continuar el piloto con etiquetas humanas ciegas; mantener deshabilitada la autocalificación hasta superar los gates de SPEC-117.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "lint y typecheck focales",
+      "validación de verdad terreno humana independiente",
+      "gate estadístico poblacional de SPEC-117"
+    ]
+  },
+  "repo": {
+    "rootDir": "C:/Users/evega/Documents/ChatGPT/Evaluapro/worktrees/omr-pilot-draft-20261027",
+    "branch": "codex/omr-pilot-hardening-draft",
+    "commit": "47e83b044a51714e6f5f34be74c00e0a49beb06d",
+    "workingTreeStatus": "Se preservan dos modificaciones locales preexistentes no relacionadas."
+  }
+}

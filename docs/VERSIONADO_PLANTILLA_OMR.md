@@ -8,4 +8,4 @@ La versión de implementación de la plantilla sigue `MAJOR.MINOR.PATCH` y se pu
 
 La versión del formato, la versión del motor de lectura QR/OMR y la versión de la aplicación son independientes. Los QR nuevos y los manifiestos de recuperación registran la identidad SemVer del formato. El lector conserva compatibilidad con el marcador `TV4` de hojas impresas anteriormente; ese marcador es histórico y no se genera para hojas nuevas.
 
-La identidad OMR visible es `OMR · 1.0.0-dev.1`; `templateVersion: 4` se conserva solo como número interno de geometría y almacenamiento heredado. El marcador `O1.0.0` identifica los QR nuevos. Las versiones anteriores de la app y del motor se consultan por separado.
+La identidad OMR visible es `OMR · 1.1.0-dev.1`; `templateVersion: 4` se conserva solo como número interno de geometría y almacenamiento heredado. El marcador `O1.1.0` identifica los QR nuevos. Las versiones anteriores de la app y del motor se consultan por separado.

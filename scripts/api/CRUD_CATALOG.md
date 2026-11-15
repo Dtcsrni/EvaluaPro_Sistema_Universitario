@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 266 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 270 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -183,16 +183,20 @@ Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo`
 | Listas institucionales | `/listas-institucionales/generar` | GET | Bearer | analiticas:leer | — |
 | Listas institucionales | `/listas-institucionales/plantillas` | GET | Bearer | analiticas:leer | — |
 | OMR | `/omr/analizar` | POST | Bearer | omr:analizar | esquemaAnalizarOmr |
-| OMR | `/omr/ingestas` | POST | Bearer | omr:analizar, calificaciones:calificar | — |
+| OMR | `/omr/ingestas` | POST | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}` | GET | Bearer | omr:analizar | — |
+| OMR | `/omr/ingestas/{jobId}/calificar` | POST | Bearer | omr:analizar, banco:leer, calificaciones:calificar | esquemaCalificarIngestaPdfOmr |
 | OMR | `/omr/ingestas/{jobId}/dataset-export` | POST | Bearer | omr:analizar | esquemaExportarDatasetIngestaOmr |
 | OMR | `/omr/ingestas/{jobId}/manifiesto` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/originales/{fileId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/paginas/{pageIndex}/preview` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/paginas/{pageIndex}/reference-preview` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/paginas/{pageIndex}/resolver` | POST | Bearer | omr:analizar | esquemaResolverPaginaIngestaOmr |
+| OMR | `/omr/ingestas/{jobId}/paginas/{pageIndex}/verdad-terreno` | POST | Bearer | omr:analizar | esquemaRegistrarVerdadTerrenoOmr |
 | OMR | `/omr/ingestas/{jobId}/paquetes/{packageId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}/reintentar` | POST | Bearer | omr:analizar | esquemaReintentarIngestaOmr |
+| OMR | `/omr/ingestas/{jobId}/shared-candidates` | GET | Bearer | omr:analizar, alumnos:leer | — |
+| OMR | `/omr/ingestas/{jobId}/submissions/{submissionId}/assign` | POST | Bearer | omr:analizar, alumnos:leer | esquemaAsignarAlumnoCopiaOmr |
 | OMR | `/omr/ingestas/por-clave/{clientRequestId}` | GET | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/prevalidar-referencia` | POST | Bearer | omr:analizar | esquemaPrevalidarReferenciaIngestaOmr |
 | OMR | `/omr/jobs` | POST, GET | Bearer | omr:analizar, calificaciones:calificar | esquemaCrearJobOmr |

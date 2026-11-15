@@ -5,8 +5,19 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import type { ContextoPipelineOmr } from '../types.js';
-import { analizarOmr as analizarOmrCv, type ResultadoOmr, type RespuestaDetectadaOmr } from '../../servicioOmrCv.js';
+import {
+  analizarOmr as analizarOmrCv,
+  aplicarAbstencionPorOrientacionOmr,
+  type ResultadoOmr,
+  type RespuestaDetectadaOmr
+} from '../../servicioOmrCv.js';
 import { debeIntentarMotorCv, describirErrorCv, preprocesarImagenOmrCv } from '../../infra/omrCvEngine.js';
+import {
+  evidenciaOmrNoDiscriminante,
+  opcionParcialDominanteRecuperable,
+  parcialDetectadaConFormaCircularFuerte
+} from '../../politicaAutoCalificacionOmr.js';
+import { resumirRespuestasOmr } from '../decision/estadoRespuesta.js';
 
 function necesitaRescateSinPreproceso(resultado: ResultadoOmr) {
   return (
@@ -149,7 +160,7 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
         contexto.qrEsperado,
         contexto.margenMm,
         contexto.debugInfo,
-        {}
+        { qrTextoPrevalidado: contexto.qrTexto }
       );
       resultado.engineVersion = engineVersion;
 
@@ -171,7 +182,7 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
           // En el perfil horizontal compacto el rescate debe evaluarse sobre
           // la imagen preprocesada, sin entregar además la imagen original al
           // motor, porque eso puede reactivar una doble marca entre burbujas.
-          { noRetry: true }
+          { noRetry: true, qrTextoPrevalidado: contexto.qrTexto }
         );
         // En el panel horizontal compacto una segunda burbuja puede perderse
         // parcialmente por perspectiva. Nunca se permite que ese rescate
@@ -186,7 +197,7 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
         contexto.qrEsperado,
         contexto.margenMm,
         contexto.debugInfo,
-        {}
+        { qrTextoPrevalidado: contexto.qrTexto }
       );
       resultado.engineVersion = engineVersion;
       resultado.motivosRevision = Array.from(
@@ -200,11 +211,63 @@ export async function ejecutarEtapaScoring(contexto: ContextoPipelineOmr) {
       contexto.qrEsperado,
       contexto.margenMm,
       contexto.debugInfo,
-      {}
+      { qrTextoPrevalidado: contexto.qrTexto }
     );
     resultado.engineVersion = engineVersion;
   }
 
-  contexto.resultado = resultado as ResultadoOmr;
+  const respuestasDetectadas = resultado.respuestasDetectadas.map((respuesta) => {
+    if (evidenciaOmrNoDiscriminante(respuesta)) {
+      return {
+        ...respuesta,
+        opcion: null,
+        confianza: Math.min(respuesta.confianza, 0.5),
+        estadoRespuesta: 'ambigua' as const
+      };
+    }
+    if (!respuesta.flags.includes('parcial_detectada')) return respuesta;
+    const opcionRecuperada = opcionParcialDominanteRecuperable(respuesta);
+    if (opcionRecuperada) {
+      const seleccionada = respuesta.scoresPorOpcion.find((score) => score.opcion === opcionRecuperada);
+      return {
+        ...respuesta,
+        // La señal de doble marca se descarta solo cuando la evidencia por
+        // opción confirma una única marca clara; las dobles claras siguen
+        // sin candidato recuperable y se califican como incorrectas.
+        flags: respuesta.flags.filter((flag) => flag !== 'doble_marca'),
+        opcion: opcionRecuperada,
+        confianza: seleccionada?.markConfidence ?? respuesta.confianza,
+        estadoRespuesta: 'respondida' as const
+      };
+    }
+    if (respuesta.opcion === null || parcialDetectadaConFormaCircularFuerte(respuesta)) return respuesta;
+    return {
+      ...respuesta,
+      opcion: null,
+      confianza: Math.min(respuesta.confianza, 0.5),
+      estadoRespuesta: 'ambigua' as const
+    };
+  });
+  const confianzaPromedioPagina = respuestasDetectadas.length > 0
+    ? respuestasDetectadas.reduce((total, respuesta) => total + Math.max(0, respuesta.confianza), 0) / respuestasDetectadas.length
+    : resultado.confianzaPromedioPagina;
+  const ratioAmbiguas = respuestasDetectadas.length > 0
+    ? respuestasDetectadas.filter((respuesta) => respuesta.opcion == null && respuesta.flags.length > 0).length / respuestasDetectadas.length
+    : resultado.ratioAmbiguas;
+  resultado = {
+    ...resultado,
+    respuestasDetectadas,
+    confianzaPromedioPagina,
+    ratioAmbiguas,
+    resumenRespuestas: resumirRespuestasOmr(
+      respuestasDetectadas,
+      resultado.calidadPagina,
+      resultado.geomQuality
+    )
+  };
+  // Los rescates de marcas pueden recuperar una opción después del análisis
+  // geométrico. Vuelve a aplicar la barrera de orientación al final del scoring
+  // para que esas candidatas no sean calificables sin QR/fiducial direccional.
+  contexto.resultado = aplicarAbstencionPorOrientacionOmr(resultado as ResultadoOmr);
   return contexto;
 }

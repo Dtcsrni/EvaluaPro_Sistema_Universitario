@@ -169,7 +169,7 @@ assert.match(css, /:root:not\(\[data-theme="dark"\]\) \.tabs \.tab[\s\S]*color:\
 assert.match(css, /tabs \.tab\.activa[\s\S]*color:\s*#ffffff\s*!important[\s\S]*background:\s*#0b6fa8\s*!important/);
 assert.match(css, /WCAG AA:[\s\S]{0,800}\.banco-mini-kpi--temas \.banco-mini-kpi__num/);
 assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-formato-box\s*\{/);
-assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-form--panoramico \.plantillas-formato-box\s*\{/);
+assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.alumnos-form--panoramico \.plantillas-formato-box\s*\{/);
 assert.match(css, /calificaciones-experience \.banco-mini-kpi--preguntas \.banco-mini-kpi__num[\s\S]{0,180}color:\s*#6b21a8\s*!important/);
 assert.match(css, /calificaciones-experience \.banco-mini-kpi--paginas \.banco-mini-kpi__num--cyan[\s\S]{0,180}color:\s*#075985\s*!important/);
 assert.match(css, /calificaciones-experience \.banco-mini-kpi--sintema \.banco-mini-kpi__num--amber[\s\S]{0,180}color:\s*#92400e\s*!important/);

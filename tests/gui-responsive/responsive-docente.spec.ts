@@ -5572,7 +5572,7 @@ test.describe('GUI responsive e2e · docente', () => {
       if (panel === 'historial') {
         await expect(page.getByRole('button', { name: 'Seleccionar PDF de referencia' })).toBeVisible();
         await expect(page.locator('#omr-referencia-lote-estado')).toHaveText('Sin PDF seleccionado.');
-        await expect(page.getByLabel('Lote de examen')).toHaveCount(0);
+        await expect(page.getByLabel('Lote de examen')).toBeVisible();
       }
       if (panel === 'diseno') await assertPlantillasFormatBadgesFit(page, `Diseño ${ancho}px / ${tema}`);
       if (panel === 'generacion' && tema === 'light') await assertPlantillasLightPanelContrast(page, `${panel} ${ancho}px / ${tema}`);
@@ -5709,13 +5709,14 @@ test.describe('GUI responsive e2e · docente', () => {
     }
     await page.locator('#omr-referencia-lote').setInputFiles([]);
     await historialOmr.getByRole('button', { name: 'Reabrir revisión: folio FOLIO-OMR-DEMO-01' }).click();
-    await expect(page.getByRole('heading', { name: 'Trabajo OMR' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^OMR · / })).toBeVisible();
+    await expect(page.locator('.plantillas-omr > .item-meta').getByText('Folio: FOLIO-OMR-DEMO-01')).toBeVisible();
     await page.getByRole('button', { name: 'HOJA-OMR-DEMO-01 · P2 · Requiere revisión' }).click();
     const revisionOmr = page.locator('.plantillas-omr__review');
-    await expect(revisionOmr.getByRole('heading', { name: 'Revisión y ajuste: HOJA-OMR-DEMO-01' })).toBeVisible();
+    await expect(revisionOmr.getByRole('heading', { name: 'Revisión de página: HOJA-OMR-DEMO-01' })).toBeVisible();
     await expect(revisionOmr.getByLabel('Identificador del alumno')).toBeVisible();
     await expect(revisionOmr.getByText('Estado: Requiere revisión')).toBeVisible();
-    await expect(revisionOmr.getByText('Marcas candidatas del análisis: No hay marcas candidatas disponibles')).toBeVisible();
+    await expect(revisionOmr.getByText('Candidatas OMR: sin evidencia candidata conservada')).toBeVisible();
     await expect(revisionOmr.getByText('Señales: Bajo contraste · Varias marcas')).toBeVisible();
     await expect(revisionOmr.getByText('LOW_CONFIDENCE')).not.toBeVisible();
     await expect(revisionOmr.getByRole('button', { name: 'Guardar resolución' })).toBeVisible();
@@ -5733,9 +5734,9 @@ test.describe('GUI responsive e2e · docente', () => {
       }
     }
     await page.getByRole('button', { name: 'REVERSO-OMR-DEMO-01 · P3 · Omitida' }).click();
-    await expect(revisionOmr.getByRole('heading', { name: 'Detalle de página: REVERSO-OMR-DEMO-01' })).toBeVisible();
-    await expect(revisionOmr.getByText('No requiere resolución manual: es un reverso vacío sin respuestas OMR.')).toBeVisible();
-    await expect(revisionOmr.getByText(/Confianza del análisis/)).toHaveCount(0);
+    await expect(revisionOmr.getByRole('heading', { name: 'Revisión de página: REVERSO-OMR-DEMO-01' })).toBeVisible();
+    await expect(revisionOmr.getByText('Estado: Omitida')).toBeVisible();
+    await expect(revisionOmr.getByText('Esta página fue omitida por el análisis y no admite resolución manual.')).toBeVisible();
     await expect(revisionOmr.getByRole('button', { name: 'Guardar resolución' })).toHaveCount(0);
     for (const ancho of [390, 320]) {
       await page.setViewportSize({ width: ancho, height: ancho === 320 ? 800 : 844 });
@@ -5789,8 +5790,9 @@ test.describe('GUI responsive e2e · docente', () => {
       'No se pudo completar el procesamiento OMR. El servicio no devolvió un código técnico; si necesitas ayuda, comparte el folio FOLIO-OMR-SIN-CODIGO-DEMO con soporte.'
     );
     await expect(estadoScanFallidoSinCodigo.getByText('Ver código técnico para soporte')).toHaveCount(0);
-    const artefactosOmr = page.getByRole('group', { name: 'Archivos del folio FOLIO-OMR-SIN-CODIGO-DEMO' });
+    const artefactosOmr = page.getByRole('group', { name: 'Capturas o PDF' });
     await expect(artefactosOmr).toBeVisible();
+    await expect(page.getByRole('group', { name: 'PDF generado del lote (opcional si EvaluaPro no conserva el original)' })).toBeVisible();
     const botonSeleccionarCapturas = page.getByRole('button', { name: 'Seleccionar capturas o PDF' });
     const botonSeleccionarReferencia = page.getByRole('button', { name: 'Seleccionar PDF generado del lote' });
     await expect(botonSeleccionarCapturas).toBeVisible();
@@ -5834,7 +5836,7 @@ test.describe('GUI responsive e2e · docente', () => {
         const geometriaOmr = await page.evaluate(() => {
           const acciones = document.querySelector<HTMLElement>('.plantillas-omr__artifact-actions');
           const pestanas = Array.from(document.querySelectorAll<HTMLElement>('.plantillas-tabs-bar .plantillas-tab-btn'));
-          const alerta = document.querySelector<HTMLElement>('.plantillas-omr__job > .mensaje');
+          const alerta = document.querySelector<HTMLElement>('.plantillas-omr__job [role="alert"]');
           const trabajo = document.querySelector<HTMLElement>('.plantillas-omr__job');
           if (!acciones || !alerta || !trabajo || pestanas.length === 0) return null;
           const limites = acciones.getBoundingClientRect();
@@ -5901,7 +5903,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(trabajoIngestaCompletada.getByRole('button', { name: 'HOJA-OMR-ACEPTADA-DEMO · P1 · Aceptada' })).toBeVisible();
     await trabajoIngestaCompletada.getByRole('button', { name: 'HOJA-OMR-ACEPTADA-DEMO · P1 · Aceptada' }).click();
     const ingestaCompletada = page.locator('.plantillas-omr__review');
-    await expect(ingestaCompletada.getByRole('heading', { name: 'Detalle de página: HOJA-OMR-ACEPTADA-DEMO' })).toBeVisible();
+    await expect(ingestaCompletada.getByRole('heading', { name: 'Revisión de página: HOJA-OMR-ACEPTADA-DEMO' })).toBeVisible();
     await expect(ingestaCompletada.getByText(/Esta página está aceptada/)).toBeVisible();
     await expect(ingestaCompletada.getByRole('button', { name: 'Guardar resolución' })).toHaveCount(0);
     await expect(ingestaCompletada.getByText('Carga la página 1 ya asociada a este examen para compararla con el escaneo.')).toBeVisible();
@@ -5919,7 +5921,7 @@ test.describe('GUI responsive e2e · docente', () => {
       }
     }
     await trabajoIngestaCompletada.getByRole('button', { name: 'HOJA-OMR-RECHAZADA-DEMO · P2 · Rechazada' }).click();
-    await expect(ingestaCompletada.getByRole('heading', { name: 'Detalle de página: HOJA-OMR-RECHAZADA-DEMO' })).toBeVisible();
+    await expect(ingestaCompletada.getByRole('heading', { name: 'Revisión de página: HOJA-OMR-RECHAZADA-DEMO' })).toBeVisible();
     await expect(ingestaCompletada.getByText(/Esta página está rechazada/)).toBeVisible();
     await expect(ingestaCompletada.getByRole('button', { name: 'Guardar resolución' })).toHaveCount(0);
     expect(escriturasBloqueadas, 'la auditoría no debe enviar operaciones que escriban datos').toEqual([]);

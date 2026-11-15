@@ -1347,7 +1347,14 @@ describe('pdf layout visual guard', () => {
             expect(lecturaVacia.pageOrientationDetermined).toBe(true);
             expect(
               lecturaVacia.resumenRespuestas?.examenVacio === true ||
-              lecturaVacia.resumenRespuestas?.examenVacioProbable === true
+                lecturaVacia.resumenRespuestas?.examenVacioProbable === true,
+              `El lote sintético completamente en blanco debe detectarse como vacío: ${JSON.stringify({
+              resumen: lecturaVacia.resumenRespuestas,
+              calidadPagina: lecturaVacia.calidadPagina,
+              geomQuality: lecturaVacia.geomQuality,
+              pageOrientationDetermined: lecturaVacia.pageOrientationDetermined,
+              flags: lecturaVacia.respuestasDetectadas.map(({ numeroPregunta, estadoRespuesta, flags }) => ({ numeroPregunta, estadoRespuesta, flags }))
+              })}`
             ).toBe(true);
             expect(lecturaVacia.resumenRespuestas?.estadoExamen).toMatch(/^vacio_/);
           }

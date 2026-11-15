@@ -1,7 +1,7 @@
 /**
  * Decision OMR v2 para fusionar pasadas con distinto preprocesamiento.
  *
- * La comparacion usa el vector de las cinco opciones de cada reactivo, no
+ * La comparacion usa el vector de opciones disponibles de cada reactivo, no
  * scores absolutos entre imagenes. Esto reduce el sesgo por contraste y
  * conserva una abstencion explicita cuando la evidencia no es separable.
  */

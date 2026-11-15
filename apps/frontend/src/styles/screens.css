@@ -2799,6 +2799,7 @@
 }
 
 .plantillas-omr__artifact-actions {
+  display: grid;
   box-sizing: border-box;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   min-width: 0;
@@ -8874,6 +8875,7 @@
   transition: transform 160ms ease;
 }
 
+.omr-review-card__image--zoom-50 { transform: scale(0.5); }
 .omr-review-card__image--zoom-75 { transform: scale(0.75); }
 .omr-review-card__image--zoom-100 { transform: scale(1); }
 .omr-review-card__image--zoom-125 { transform: scale(1.25); }
@@ -9705,6 +9707,7 @@
   flex-wrap: wrap;
 }
 
+/* WCAG AA: sombra decorativa; la lectura y los estados dependen de texto y bordes contrastados. */
 .calif-captura-card {
   padding: 1.35rem 1.5rem;
   border-radius: 20px;
@@ -10819,7 +10822,7 @@ li.empty-state-card {
 /* ══════════════════════════════════════════════════════════════
    PANORAMIC BENTO STUDIO LAYOUT FOR PLANTILLAS
    ══════════════════════════════════════════════════════════════ */
-.plantillas-form--panoramico {
+.alumnos-form--panoramico {
   margin-bottom: 2rem !important;
 }
 
@@ -10930,22 +10933,22 @@ li.empty-state-card {
 
 /* Este panel conserva su superficie oscura también en tema claro; fija aquí
    todos los textos para que las reglas globales de .nota y .ayuda no los apaguen. */
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box h4.plantillas-temas__title,
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .campo__label-row,
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .campo__label-row span,
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-auto-status {
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box h4.plantillas-temas__title,
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .campo__label-row,
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .campo__label-row span,
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .plantillas-auto-status {
   color: #f8fafc !important;
   text-shadow: none !important;
 }
 
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .nota,
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .ayuda,
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-formato-box__footer {
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .nota,
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .ayuda,
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .plantillas-formato-box__footer {
   color: #cbd5e1 !important;
   text-shadow: none !important;
 }
 
-:root .page--docente .plantillas-form--panoramico .plantillas-formato-box .plantillas-formato-control .campo__label-row b {
+:root .page--docente .alumnos-form--panoramico .plantillas-formato-box .plantillas-formato-control .campo__label-row b {
   color: #67e8f9 !important;
   text-shadow: none !important;
 }
@@ -11369,28 +11372,28 @@ li.empty-state-card {
   background: #67e8f9;
 }
 
-.plantillas-form--panoramico {
+.alumnos-form--panoramico {
   margin-bottom: 0 !important;
   border-color: rgba(56, 189, 248, 0.26) !important;
   background: rgba(15, 23, 42, 0.82) !important;
 }
 
-.plantillas-form--panoramico .alumnos-form__header {
+.alumnos-form--panoramico .alumnos-form__header {
   padding-bottom: 0.8rem;
 }
 
-.plantillas-form--panoramico .alumnos-form__fields {
+.alumnos-form--panoramico .alumnos-form__fields {
   display: grid;
   grid-template-columns: minmax(275px, 0.78fr) minmax(440px, 1.22fr);
   align-items: start;
   gap: 1rem;
 }
 
-.plantillas-form--panoramico .alumnos-form__row--top {
+.alumnos-form--panoramico .alumnos-form__row--top {
   grid-column: 1 / -1;
 }
 
-.plantillas-form--panoramico .plantillas-temas-box {
+.alumnos-form--panoramico .plantillas-temas-box {
   grid-column: 2;
   grid-row: 2;
   height: auto;
@@ -11400,7 +11403,7 @@ li.empty-state-card {
 
 /* WCAG AA: el panel panorámico usa el mismo gradiente oscuro estable; las
    combinaciones de texto se cubren en ui-contrast-audit.mjs (mínimo 4.5:1). */
-.plantillas-form--panoramico .plantillas-formato-box {
+.alumnos-form--panoramico .plantillas-formato-box {
   grid-column: 1;
   grid-row: 2;
   height: auto;
@@ -11412,30 +11415,30 @@ li.empty-state-card {
   color: #e2e8f0;
 }
 
-.plantillas-form--panoramico .plantillas-formato-box__heading {
+.alumnos-form--panoramico .plantillas-formato-box__heading {
   align-items: flex-start;
 }
 
-.plantillas-form--panoramico .plantillas-formato-box__controls {
+.alumnos-form--panoramico .plantillas-formato-box__controls {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
 }
 
-.plantillas-form--panoramico .plantillas-formato-control .ayuda {
+.alumnos-form--panoramico .plantillas-formato-control .ayuda {
   min-height: 2.2em;
 }
 
-.plantillas-form--panoramico .plantillas-formato-box__logos {
+.alumnos-form--panoramico .plantillas-formato-box__logos {
   grid-template-columns: 1fr;
   gap: 0.7rem;
 }
 
-.plantillas-form--panoramico .alumnos-form__footer {
+.alumnos-form--panoramico .alumnos-form__footer {
   grid-column: 1 / -1;
   margin-top: 0;
 }
 
-.plantillas-form--panoramico .alumnos-form__hint {
+.alumnos-form--panoramico .alumnos-form__hint {
   max-width: 52rem;
 }
 
@@ -11684,21 +11687,21 @@ li.empty-state-card {
     grid-template-columns: 1fr;
   }
 
-  .plantillas-form--panoramico .alumnos-form__fields {
+  .alumnos-form--panoramico .alumnos-form__fields {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .plantillas-form--panoramico .alumnos-form__row--top {
+  .alumnos-form--panoramico .alumnos-form__row--top {
     grid-column: 1 / -1;
     grid-row: 1;
   }
 
-  .plantillas-form--panoramico .plantillas-formato-box {
+  .alumnos-form--panoramico .plantillas-formato-box {
     grid-column: 1;
     grid-row: 2;
   }
 
-  .plantillas-form--panoramico .plantillas-temas-box {
+  .alumnos-form--panoramico .plantillas-temas-box {
     grid-column: 2;
     grid-row: 2;
   }
@@ -11750,8 +11753,12 @@ li.empty-state-card {
   }
 
   .plantillas-shell .plantillas-modo-toggle--stack-narrow {
+    box-sizing: border-box;
     flex-direction: column;
     align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .plantillas-shell .plantillas-modo-toggle--stack-narrow > .boton {
@@ -11766,18 +11773,21 @@ li.empty-state-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .plantillas-form--panoramico .plantillas-formato-box__controls {
+  .alumnos-form--panoramico .plantillas-formato-box__controls {
     grid-template-columns: 1fr;
   }
 
-  .plantillas-form--panoramico .alumnos-form__fields {
+  .alumnos-form--panoramico .alumnos-form__fields {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
+    width: 100%;
+    align-items: stretch;
   }
 
-  .plantillas-form--panoramico .alumnos-form__row--top,
-  .plantillas-form--panoramico .plantillas-temas-box,
-  .plantillas-form--panoramico .plantillas-formato-box {
+  .alumnos-form--panoramico .alumnos-form__row--top,
+  .alumnos-form--panoramico .plantillas-temas-box,
+  .alumnos-form--panoramico .plantillas-formato-box {
     grid-column: 1;
     grid-row: auto;
     min-width: 0;

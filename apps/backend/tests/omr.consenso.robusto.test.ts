@@ -20,6 +20,7 @@ import {
   debeAceptarRescateAltaResolucionOmr,
   rescatarMarcaAisladaPorRasgosOmr,
   debeReactivarGeometriaLocalTrasEscalaOmr,
+  debePermitirFallbackEscalaOmr,
   combinarRespuestasOmrSinPerderDeterminadas,
   debeUsarRescateAltaResolucionOmr,
   debeAbstenerseMarcaParcialOmr,
@@ -101,7 +102,7 @@ describe('consenso OMR v2', () => {
     expect(debeAbstenerseMarcaParcialOmr({ ...candidata, permitirConfianzaMarcada: false })).toBe(true);
   });
 
-  it('conserva candidatas para revisión cuando falta orientación, sin habilitar autocalificación', () => {
+  it('conserva candidatas sólidas para revisión cuando falta orientación, sin habilitar autocalificación', () => {
     const resultado = aplicarAbstencionPorOrientacionOmr({
       respuestasDetectadas: [{
         numeroPregunta: 1,
@@ -129,6 +130,7 @@ describe('consenso OMR v2', () => {
     expect(resultado.respuestasDetectadas[0]?.confianza).toBe(0.88);
     expect(resultado.estadoAnalisis).toBe('requiere_revision');
     expect(resultado.resumenRespuestas?.reactivosRespondidos).toBe(1);
+    expect(resultado.respuestasDetectadas[0]?.scoresPorOpcion).toEqual([]);
     expect(resultado.advertencias.join(' ')).toMatch(/no es autocalificable/i);
   });
 
@@ -1047,6 +1049,23 @@ describe('consenso OMR v2', () => {
     expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: true, deshabilitada: true })).toBe(false);
   });
 
+  it('conserva la geometria fuerte y reserva fiduciales locales para una escala seleccionada aunque haya QR', () => {
+    const base = {
+      habilitada: true,
+      deshabilitada: false,
+      referenciaGlobalFuerte: true,
+      transformacion: 'homografia' as const,
+      qrDetectado: true,
+      capturaBajaResolucion: false,
+      forceSimpleScale: false
+    };
+
+    expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: true })).toBe(false);
+    expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: false })).toBe(false);
+    expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: true, deshabilitada: true })).toBe(false);
+    expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: true, forceSimpleScale: true })).toBe(false);
+  });
+
   it('reactiva geometria local si el comparador cambia una homografia por escala', () => {
     const base = {
       transformacionSeleccionada: 'escala' as const,
@@ -1059,6 +1078,36 @@ describe('consenso OMR v2', () => {
     expect(debeReactivarGeometriaLocalTrasEscalaOmr(base)).toBe(true);
     expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, coordenadasEstrictas: true })).toBe(false);
     expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, forceSimpleScale: true })).toBe(false);
+    expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, qrDetectado: true })).toBe(true);
+  });
+
+  it('conserva una referencia de pagina anclada aunque la escala del lienzo puntue mejor', () => {
+    const base = {
+      forceSimpleScale: false,
+      referenciaGlobalAnclada: true,
+      geometriaLocalActiva: false,
+      fiducialesEsquinaFuertes: false,
+      rescateFiducialesDesactivado: false,
+      escalaMuyMejor: true,
+      transformacionHomografica: true,
+      ventajaEscala: 0.4
+    };
+
+    expect(debePermitirFallbackEscalaOmr(base)).toBe(false);
+    expect(debePermitirFallbackEscalaOmr({ ...base, forceSimpleScale: true })).toBe(true);
+  });
+
+  it('permite fallback cuando las referencias de página no están ancladas con calidad suficiente', () => {
+    expect(debePermitirFallbackEscalaOmr({
+      forceSimpleScale: false,
+      referenciaGlobalAnclada: false,
+      geometriaLocalActiva: false,
+      fiducialesEsquinaFuertes: false,
+      rescateFiducialesDesactivado: false,
+      escalaMuyMejor: false,
+      transformacionHomografica: false,
+      ventajaEscala: 0.03
+    })).toBe(true);
   });
 
   it('corrige una captura apaisada sin EXIF y conserva orientaciones EXIF validas', () => {

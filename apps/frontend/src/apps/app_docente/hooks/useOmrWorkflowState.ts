@@ -10,7 +10,6 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import type {
-  EstadoRespuestaOmr,
   ResultadoOmr,
   RevisionExamenOmr,
   RevisionPaginaOmr,
@@ -25,8 +24,7 @@ export type RespuestaOmrItem = {
   numeroPregunta: number;
   opcion: string | null;
   confianza: number;
-  confianzaDisponible?: boolean;
-  estadoRespuesta?: EstadoRespuestaOmr;
+  estadoRespuesta?: 'respondida' | 'sin_marca' | 'ambigua' | 'doble_marca' | 'tachada' | 'manual_review';
 };
 
 export function useOmrWorkflowState() {
@@ -314,10 +312,11 @@ export function useOmrWorkflowState() {
       setRespuestasEditadas((prev) => {
         const siguiente = [...prev];
         const indice = siguiente.findIndex((item) => item.numeroPregunta === numero);
+        const estadoRespuesta = opcion === null ? 'sin_marca' as const : 'respondida' as const;
         if (indice >= 0) {
-          siguiente[indice] = { ...siguiente[indice], opcion, estadoRespuesta: opcion ? 'respondida' : 'sin_marca' };
+          siguiente[indice] = { ...siguiente[indice], opcion, estadoRespuesta };
         } else {
-          siguiente.push({ numeroPregunta: numero, opcion, confianza: 0, confianzaDisponible: false, estadoRespuesta: opcion ? 'respondida' : 'sin_marca' });
+          siguiente.push({ numeroPregunta: numero, opcion, confianza: 0, estadoRespuesta });
         }
         siguiente.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
         if (examenIdOmr && Number.isFinite(Number(paginaOmrActiva))) {

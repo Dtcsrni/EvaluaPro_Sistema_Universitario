@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { createHmac } from 'node:crypto';
+import QRCode from 'qrcode';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { crearApp } from '../src/app.js';
@@ -252,7 +253,7 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_PAYLOAD_INCOMPLETO');
   });
 
-  it('califica como incorrecta una respuesta ambigua si el análisis de página es confiable', async () => {
+  it('no bloquea solo por una respuesta ambigua, pero exige las capturas originales antes de autocalificar', async () => {
     const base = await crearEscenarioBase(app);
 
     const respuesta = await request(app)
@@ -277,12 +278,44 @@ describe('calificación OMR payload estricto', () => {
           qrTexto: base.qrTexto
         }
       })
+      .expect(422);
+
+    expect(respuesta.body.error.codigo).toBe('OMR_CAPTURAS_ORIGINALES_REQUERIDAS');
+  }, 60_000);
+
+  it('puntúa una doble marca como incorrecta y conserva cerrado el gate sin validación independiente', async () => {
+    const base = await crearEscenarioBase(app);
+    const capturaQr = await QRCode.toDataURL(base.qrTexto, { margin: 1, width: 512 });
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.55, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }],
+        paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
+        omrAnalisis: {
+          estadoAnalisis: 'ok',
+          calidadPagina: 0.99,
+          confianzaPromedioPagina: 0.99,
+          ratioAmbiguas: 0,
+          templateVersionDetectada: base.templateVersion,
+          revisionConfirmada: true,
+          bonoVisibleConfirmado: false,
+          engineVersion: 'omr-cv',
+          geomQuality: 0.99,
+          photoQuality: 0.99,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: [],
+          qrTexto: base.qrTexto
+        }
+      })
       .expect(201);
 
-    expect(respuesta.body.calificacion.aciertos).toBe(0);
-    expect(respuesta.body.calificacion.calificacionExamenTexto).toBe('0');
-    expect(respuesta.body.calificacion.omrAuditoria.autoCalificableOmr).toBe(true);
-  }, 60_000);
+    expect(respuesta.body.calificacion).toMatchObject({ aciertos: 0, totalReactivos: 1 });
+  });
 
   it('rechaza folio de payload que no coincide', async () => {
     const base = await crearEscenarioBase(app);
@@ -314,8 +347,9 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_FOLIO_NO_COINCIDE');
   });
 
-  it('exige metadata de revisión cuando revisionConfirmada=true y estado!=ok', async () => {
+  it('registra metadata de revisión con el docente autenticado cuando el análisis requiere revisión', async () => {
     const base = await crearEscenarioBase(app);
+    const capturaQr = await QRCode.toDataURL(base.qrTexto, { margin: 1, width: 512 });
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -325,6 +359,43 @@ describe('calificación OMR payload estricto', () => {
         folio: base.folio,
         alumnoId: base.alumnoId,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.9 }],
+        paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
+        omrAnalisis: {
+          estadoAnalisis: 'requiere_revision',
+          calidadPagina: 0.7,
+          confianzaPromedioPagina: 0.65,
+          ratioAmbiguas: 0.15,
+          templateVersionDetectada: base.templateVersion,
+          revisionConfirmada: true,
+          bonoVisibleConfirmado: false,
+          engineVersion: 'omr-cv',
+          geomQuality: 0.71,
+          photoQuality: 0.74,
+          decisionPolicy: 'conservadora_v1',
+          motivosRevision: ['bajo_contraste'],
+          qrTexto: base.qrTexto
+        }
+      })
+      .expect(201);
+
+    expect(respuesta.body.calificacion.omrAuditoria).toMatchObject({ revisionConfirmada: true });
+    expect(respuesta.body.calificacion.omrAuditoria.usuarioRevisor).toBeTruthy();
+    expect(respuesta.body.calificacion.omrAuditoria.revisionTimestamp).toBeTruthy();
+  });
+
+  it('exige confirmación docente del bono en una revisión manual TV4', async () => {
+    const base = await crearEscenarioBase(app);
+    const capturaQr = await QRCode.toDataURL(base.qrTexto, { margin: 1, width: 512 });
+
+    const respuesta = await request(app)
+      .post('/api/calificaciones/calificar')
+      .set(base.auth)
+      .send({
+        examenGeneradoId: base.examenGeneradoId,
+        folio: base.folio,
+        alumnoId: base.alumnoId,
+        respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.9 }],
+        paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
         omrAnalisis: {
           estadoAnalisis: 'requiere_revision',
           calidadPagina: 0.7,
@@ -342,7 +413,7 @@ describe('calificación OMR payload estricto', () => {
       })
       .expect(422);
 
-    expect(respuesta.body.error.codigo).toBe('OMR_REVISION_METADATA_OBLIGATORIA');
+    expect(respuesta.body.error.codigo).toBe('OMR_BONO_CONFIRMACION_MANUAL_REQUERIDA');
   });
 
   it('bloquea guardado automatico cuando estadoAnalisis!=ok y no hay revisionConfirmada', async () => {
@@ -378,11 +449,13 @@ describe('calificación OMR payload estricto', () => {
   it('permite calificar la plantilla inline solo después de confirmar la revisión humana', async () => {
     const base = await crearEscenarioBase(app);
     const qrTexto = await prepararPlantillaInline(base);
+    const capturaQr = await QRCode.toDataURL(qrTexto, { margin: 1, width: 512 });
     const payload = {
       examenGeneradoId: base.examenGeneradoId,
       folio: base.folio,
       alumnoId: base.alumnoId,
       respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
+      paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
       omrAnalisis: {
         estadoAnalisis: 'requiere_revision' as const,
         calidadPagina: 0.48,
@@ -408,7 +481,7 @@ describe('calificación OMR payload estricto', () => {
     const revisada = await request(app)
       .post('/api/calificaciones/calificar')
       .set(base.auth)
-      .send({ ...payload, omrAnalisis: { ...payload.omrAnalisis, revisionConfirmada: true } })
+      .send({ ...payload, omrAnalisis: { ...payload.omrAnalisis, revisionConfirmada: true, bonoVisibleConfirmado: false } })
       .expect(201);
     expect(revisada.body.calificacion.respuestasDetectadas[0].opcion).toBe('A');
     expect(revisada.body.calificacion.omrAuditoria.revisionConfirmada).toBe(true);
@@ -458,6 +531,7 @@ describe('calificación OMR payload estricto', () => {
           confianzaPromedioPagina: 0.97,
           ratioAmbiguas: 0,
           templateVersionDetectada: base.templateVersion,
+          revisionConfirmada: true,
           engineVersion: 'omr-cv',
           geomQuality: 0.96,
           photoQuality: 0.96,
@@ -492,6 +566,7 @@ describe('calificación OMR payload estricto', () => {
           confianzaPromedioPagina: 0.97,
           ratioAmbiguas: 0,
           templateVersionDetectada: base.templateVersion,
+          revisionConfirmada: true,
           engineVersion: 'omr-cv',
           geomQuality: 0.96,
           photoQuality: 0.96,
@@ -523,6 +598,7 @@ describe('calificación OMR payload estricto', () => {
           confianzaPromedioPagina: 0.97,
           ratioAmbiguas: 0,
           templateVersionDetectada: base.templateVersion,
+          revisionConfirmada: true,
           engineVersion: 'omr-cv',
           geomQuality: 0.96,
           photoQuality: 0.96,
@@ -553,6 +629,7 @@ describe('calificación OMR payload estricto', () => {
           confianzaPromedioPagina: 0.97,
           ratioAmbiguas: 0,
           templateVersionDetectada: base.templateVersion,
+          revisionConfirmada: true,
           engineVersion: 'omr-cv',
           geomQuality: 0.96,
           photoQuality: 0.96,
@@ -560,7 +637,7 @@ describe('calificación OMR payload estricto', () => {
           motivosRevision: [],
           qrTexto: String(base.qrTexto)
             .replace(/:S:[A-Z0-9_-]{16}$/i, ':S:AAAAAAAAAAAAAAAA')
-            .replace(/:SG:H1[A-Z0-9]{24}$/i, ':SG:H1AAAAAAAAAAAAAAAAAAAAAAAA')
+            .replace(/:SG:H1[A-Z0-9]{24}$/i, `:SG:H1${'A'.repeat(24)}`)
         }
       })
       .expect(409);
@@ -568,7 +645,7 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_QR_FIRMA_INVALIDA');
   });
 
-  it('acepta calificación cuando el QR corto coincide exactamente con el manifiesto local', async () => {
+  it('valida el QR corto exacto, pero exige las capturas originales antes de calificar', async () => {
     const base = await crearEscenarioBase(app);
 
     const respuesta = await request(app)
@@ -593,11 +670,10 @@ describe('calificación OMR payload estricto', () => {
           qrTexto: base.qrTexto
         }
       })
-      .expect(201);
+      .expect(422);
 
-    expect(respuesta.body.calificacion?.omrAuditoria?.qrValidationMode).toBe('manifest-exact');
-    expect(respuesta.body.calificacion?.omrAuditoria?.variantHash).toBeNull();
-    expect(respuesta.body.calificacion?.omrAuditoria?.answerKeyHash).toBeNull();
+    expect(respuesta.body.error.codigo).toBe('OMR_CAPTURAS_ORIGINALES_REQUERIDAS');
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: base.examenGeneradoId } })).toBe(0);
   });
 });
 

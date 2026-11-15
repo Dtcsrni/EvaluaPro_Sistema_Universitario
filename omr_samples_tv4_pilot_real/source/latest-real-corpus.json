@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "latest-real-omr-lote-7CC16F5D",
+  "examBatchId": "7CC16F5D",
+  "sourceCapturePdfs": [
+    {
+      "fileName": "CamScanner 07-11-2026 02.33.pdf",
+      "sha256": "13FEFA772B35D5123501A117D20976FB87D6EB5B3B3A04877F4C6C67EA24A712",
+      "bytes": 135988826,
+      "pages": 47
+    },
+    {
+      "fileName": "CamScanner 07-11-2026 03.12.pdf",
+      "sha256": "7CE07F68043B99FC1267A0DB80EB990899E587432E9ED9235E27F54374064212",
+      "bytes": 2216701,
+      "pages": 1
+    }
+  ],
+  "referencePdf": {
+    "fileName": "evaluapro_paquete_examenes_materia-Legalidad_Y_Marketing_En_La_Empresa_plantilla-Examen_Global_-_Legalidad_y_Marketin_total-12_lote-7CC16F5D.pdf",
+    "sha256": "E088EEEBFC54BF3C59585AC0E8A02DEF3E38370EF2CD2265467708C150C6B2E0",
+    "bytes": 8777717,
+    "pages": 48
+  },
+  "expectedScannedPages": 48,
+  "importedJobObservation": {
+    "status": "accepted",
+    "acceptedPages": 48,
+    "pagesRequiringReview": 0,
+    "observedInUiAt": "2026-11-13"
+  },
+  "groundTruth": {
+    "status": "pending_blind_human_review",
+    "predictionsAreGroundTruth": false
+  },
+  "privacy": {
+    "descriptorContainsPersonalData": false,
+    "sourcePdfsMayContainPersonalData": true,
+    "sourcePdfsStoredInRepository": false
+  }
+}

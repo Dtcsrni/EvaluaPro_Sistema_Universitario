@@ -5,7 +5,7 @@ Especificacion operativa del formato de examen y su lectura OMR.
 ## Formato de pagina
 - Carta US (`612x792 pt`).
 - Margen configurable (default 8 mm, minimo operativo 4.5 mm).
-- QR por página con identidad versionada: `EXAMEN:<FOLIO>:P<n>:O1.0.0`.
+- QR por página con identidad versionada: `EXAMEN:<FOLIO>:P<n>:O1.1.0`.
 - Marcas de registro y fiduciales incluidas en el layout OMR 1.0.0, con paridad visual A050929D.
 - Encabezado compacto con acentos de color y alta legibilidad para maximizar area util de preguntas por cara.
 - La identidad visual del examen es canónica y compartida entre renderers:
@@ -16,7 +16,7 @@ Especificacion operativa del formato de examen y su lectura OMR.
 ## Plantilla OMR soportada
 - Plantilla operativa: contrato OMR `1.0.0`.
 - La geometría interna `templateVersion: 4` es un dato de implementación y no la identidad pública del formato.
-- La lectura conserva compatibilidad con códigos `TV4` impresos previamente; los nuevos exámenes usan el marcador SemVer `O1.0.0`.
+- La lectura conserva compatibilidad con códigos `TV4` impresos previamente; los nuevos exámenes usan el marcador SemVer `O1.1.0`.
 
 ## Mapa OMR persistido
 Cada examen generado guarda `mapaOmr` con:

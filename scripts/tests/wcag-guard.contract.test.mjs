@@ -51,7 +51,7 @@ test('los colores agregados en KPI y paneles de formato tienen comentario WCAG y
 
   assert.match(css, /WCAG AA:[\s\S]{0,800}\.banco-mini-kpi--temas \.banco-mini-kpi__num/);
   assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-formato-box\s*\{/);
-  assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.plantillas-form--panoramico \.plantillas-formato-box\s*\{/);
+  assert.match(screensCss, /WCAG AA:[\s\S]{0,500}\.alumnos-form--panoramico \.plantillas-formato-box\s*\{/);
   for (const color of ['#7e22ce', '#0369a1', '#047857', '#4338ca', '#e2e8f0', '#f8fafc', '#cbd5e1', '#67e8f9']) {
     assert.ok(contrastAudit.includes(`foreground: '${color}'`), `falta auditar foreground ${color}`);
   }

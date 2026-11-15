@@ -36,8 +36,8 @@ describe('calificación OMR cuenta respuestas sin opción como incorrectas', () 
     return respuesta.body.token as string;
   }
 
-  it.each(['sin_marca', 'ambigua', 'doble_marca'] as const)(
-    'guarda %s como incorrecta cuando la página supera los controles globales',
+  it.each(['sin_marca', 'doble_marca'] as const)(
+    'exige lectura local original antes de puntuar %s como incorrecta',
     async (estadoRespuesta) => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
@@ -176,18 +176,9 @@ describe('calificación OMR cuenta respuestas sin opción como incorrectas', () 
           qrTexto
         }
       })
-      .expect(201);
+      .expect(422);
 
-    expect(calificacionResp.body.calificacion.aciertos).toBe(0);
-    expect(calificacionResp.body.calificacion.totalReactivos).toBe(1);
-    expect(calificacionResp.body.calificacion.calificacionExamenFinalTexto).toBe('0');
-    expect(calificacionResp.body.calificacion.respuestasDetectadas).toEqual([
-      expect.objectContaining({
-        opcion: null,
-        estadoRespuesta,
-        ...(estadoRespuesta === 'doble_marca' ? { flags: ['doble_marca'] } : {})
-      })
-    ]);
+    expect(calificacionResp.body.error.codigo).toBe('OMR_CAPTURAS_ORIGINALES_REQUERIDAS');
     }
   );
 });

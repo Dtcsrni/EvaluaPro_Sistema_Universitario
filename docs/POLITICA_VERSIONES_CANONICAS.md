@@ -13,8 +13,8 @@ La fuente declarativa de esta política es
 
 - **Producto:** la versión publicada en `package.json` y `config/app-version.json`.
 - **Contrato OMR:** `omr-canonical-1.0.0`.
-- **Etiqueta humana:** `OMR · 1.0.0-dev.1`.
-- **Marcador de datos/QR nuevo:** `O1.0.0`.
+- **Etiqueta humana:** `OMR · 1.1.0-dev.1`.
+- **Marcador de datos/QR nuevo:** `O1.1.0`.
 
 El QR nuevo identifica el layout con una abreviatura estable de SemVer. El lector
 conserva `TV4` solo como alias de entrada para hojas y mapas ya emitidos; no lo
@@ -35,7 +35,7 @@ corresponda: cambios incompatibles elevan `major`, cambios compatibles elevan
    ya impreso; nunca se usa para generar nuevos exámenes.
 4. Todo PDF, mapa, payload, reporte o manifiesto que exponga identidad OMR debe
    conservar el identificador de contrato y la versión de plantilla.
-5. La GUI debe mostrar permanentemente `OMR · 1.0.0-dev.1` en el shell docente,
+5. La GUI debe mostrar permanentemente `OMR · 1.1.0-dev.1` en el shell docente,
    el flujo de plantillas y el centro de versión. La versión de la aplicación
    (`vX.Y.Z`) se muestra en un indicador separado.
 6. Datasets, artefactos y builds antiguos no son fuentes operativas. Si se
@@ -52,4 +52,4 @@ junto con los tests OMR, layout PDF, lint, typecheck y build antes de publicar.
 Una instalación local solo se considera actualizada cuando su build y su
 backend provienen de la misma ejecución de compilación. El indicador de la GUI
 debe permitir distinguir inmediatamente el producto (`vX.Y.Z`) del contrato
-OMR (`OMR · 1.0.0-dev.1`).
+OMR (`OMR · 1.1.0-dev.1`).

@@ -316,7 +316,7 @@ describe('analizarOmr', () => {
       ])
     );
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect([null, 'A', 'B', 'C', 'D', 'E']).toContain(resultado.respuestasDetectadas[0].opcion);
+    expect(resultado.respuestasDetectadas[0].opcion).toBeNull();
     expect(resultado.respuestasDetectadas[0].confianza).toBe(0);
     expect(resultado.templateVersionDetectada).toBe(4);
     expect(resultado.engineRelease).toMatchObject({
@@ -329,60 +329,119 @@ describe('analizarOmr', () => {
     expect(resultado.calidadPagina).toBeLessThanOrEqual(1);
   }, 300_000);
 
-  it('detecta una opcion marcada con referencias de registro', async () => {
+  it.each([
+    { numeroPregunta: 3, respuesta: 'C', opciones: ['A', 'B', 'C'], escala: 1 },
+    { numeroPregunta: 14, respuesta: 'D', opciones: ['B', 'C', 'D', 'E'], escala: 1.25 },
+    { numeroPregunta: 27, respuesta: 'E', opciones: ['A', 'B', 'C', 'D', 'E'], escala: 2 }
+  ] as const)(
+    'adapta la lectura al reactivo $numeroPregunta, opción $respuesta, opciones $opciones y escala $escala',
+    async ({ numeroPregunta, respuesta, opciones: letrasOpciones, escala }) => {
+      const width = 612 * escala;
+      const height = 792 * escala;
+      const buffer = Buffer.alloc(width * height * 3, 255);
+
+      const setPixel = (x: number, y: number, v: number) => {
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        const idx = (y * width + x) * 3;
+        buffer[idx] = v;
+        buffer[idx + 1] = v;
+        buffer[idx + 2] = v;
+      };
+
+      const drawCircle = (cx: number, cy: number, radius: number) => {
+        const r2 = radius * radius;
+        for (let y = -Math.ceil(radius); y <= Math.ceil(radius); y += 1) {
+          for (let x = -Math.ceil(radius); x <= Math.ceil(radius); x += 1) {
+            if (x * x + y * y <= r2) {
+              setPixel(cx + x, cy + y, 0);
+            }
+          }
+        }
+      };
+
+      dibujarFiducialesCanonicos(setPixel, width, height, escala);
+
+      const opciones = letrasOpciones
+        .map((letra, indice) => ({ letra, x: 250, y: 240 - indice * 14 }));
+      const opcionMarcada = opciones.find((opcion) => opcion.letra === respuesta)!;
+      const centroImagen = {
+        x: Math.round(opcionMarcada.x * escala),
+        y: Math.round(height - opcionMarcada.y * escala)
+      };
+      drawCircle(centroImagen.x, centroImagen.y, 7 * escala);
+
+      const imagenBase64 = await sharp(buffer, { raw: { width, height, channels: 3 } })
+        .png()
+        .toBuffer()
+        .then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
+
+      const mapaPagina = {
+        ...crearMapaOmrCanonico(numeroPregunta, `p${numeroPregunta}`, [...opciones]),
+        marcasPagina: metadataFiducialesCanonicos()
+      };
+
+      const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
+
+      expect(resultado.respuestasDetectadas).toHaveLength(1);
+      expect(resultado.respuestasDetectadas[0]).toMatchObject({
+        numeroPregunta,
+        opcion: respuesta,
+        estadoRespuesta: 'respondida'
+      });
+      expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThan(0);
+      expect(resultado.templateVersionDetectada).toBe(4);
+      expect(resultado.calidadPagina).toBeGreaterThan(0);
+    }, 300_000
+  );
+
+  it('conserva B cuando hay solo ruido leve en A', async () => {
     const width = 612;
     const height = 792;
     const buffer = Buffer.alloc(width * height * 3, 255);
-
-    const setPixel = (x: number, y: number, v: number) => {
+    const setPixel = (x: number, y: number, value: number) => {
       if (x < 0 || y < 0 || x >= width || y >= height) return;
       const idx = (y * width + x) * 3;
-      buffer[idx] = v;
-      buffer[idx + 1] = v;
-      buffer[idx + 2] = v;
+      buffer[idx] = value;
+      buffer[idx + 1] = value;
+      buffer[idx + 2] = value;
     };
-
     const drawCircle = (cx: number, cy: number, radius: number) => {
-      const r2 = radius * radius;
       for (let y = -radius; y <= radius; y += 1) {
         for (let x = -radius; x <= radius; x += 1) {
-          if (x * x + y * y <= r2) {
-            setPixel(cx + x, cy + y, 0);
-          }
+          if (x * x + y * y <= radius * radius) setPixel(cx + x, cy + y, 0);
         }
       }
     };
 
     dibujarFiducialesCanonicos(setPixel, width, height);
-
-    const opciones = [
-      { letra: 'A', x: 250, y: 240 },
-      { letra: 'B', x: 250, y: 226 },
-      { letra: 'C', x: 250, y: 212 },
-      { letra: 'D', x: 250, y: 198 },
-      { letra: 'E', x: 250, y: 184 }
-    ] as const;
-    const opcionMarcada = opciones[2];
-    const centroImagen = { x: opcionMarcada.x, y: height - opcionMarcada.y };
-    drawCircle(centroImagen.x, centroImagen.y, 7);
+    const opciones = ['A', 'B', 'C', 'D', 'E'].map((letra, indice) => ({
+      letra,
+      x: 250,
+      y: 240 - indice * 14
+    }));
+    drawCircle(250, height - 226, 7);
+    // Simula polvo de escaneo aislado en la alternativa A, sin relleno de burbuja.
+    for (const [dx, dy] of [[-1, -1], [1, 0], [0, 1]] as const) {
+      setPixel(250 + dx, height - 240 + dy, 185);
+    }
 
     const imagenBase64 = await sharp(buffer, { raw: { width, height, channels: 3 } })
       .png()
       .toBuffer()
       .then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
-
     const mapaPagina = {
-      ...crearMapaOmrCanonico(1, 'p1', [...opciones]),
+      ...crearMapaOmrCanonico(14, 'p14', opciones),
       marcasPagina: metadataFiducialesCanonicos()
     };
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
 
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect([null, 'A', 'B', 'C', 'D', 'E']).toContain(resultado.respuestasDetectadas[0].opcion);
-    expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
-    expect(resultado.templateVersionDetectada).toBe(4);
-    expect(resultado.calidadPagina).toBeGreaterThan(0);
+    expect(resultado.respuestasDetectadas[0]).toMatchObject({
+      numeroPregunta: 14,
+      opcion: 'B',
+      estadoRespuesta: 'respondida'
+    });
   }, 300_000);
 
   it('marca como ambiguo si hay doble respuesta', async () => {
@@ -511,7 +570,7 @@ describe('analizarOmr', () => {
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   }, 300_000);
 
-  it('penaliza trazos lineales y prioriza relleno central real', async () => {
+  it('penaliza trazos lineales y conserva el relleno central para revisión sin orientación verificada', async () => {
     const width = 612;
     const height = 792;
     const buffer = Buffer.alloc(width * height * 3, 255);
@@ -584,9 +643,17 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(['C', 'D'], JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toContain(resultado.respuestasDetectadas[0].opcion);
-    expect(resultado.respuestasDetectadas[0].opcion).not.toBe('A');
-    expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
+    expect(resultado.pageOrientationDetermined).toBe(false);
+    expect(resultado.estadoAnalisis).toBe('requiere_revision');
+    expect(resultado.respuestasDetectadas[0].opcion).toBeNull();
+    expect(resultado.respuestasDetectadas[0].scoresPorOpcion[0]).toMatchObject({
+      opcion: 'D',
+      estadoMarca: 'marcada',
+      fillRatioCore: 1
+    });
+    expect(resultado.respuestasDetectadas[0].scoresPorOpcion.find(({ opcion }) => opcion === 'A')?.estadoMarca)
+      .toBe('parcial');
+    expect(resultado.respuestasDetectadas[0].flags).toContain('parcial_detectada');
   }, 300_000);
 
   it('retiene evidencia de una X centrada y se abstiene si la orientación no es verificable', async () => {
@@ -731,7 +798,7 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0].opcion).toBe('B');
+    expect(resultado.respuestasDetectadas[0].opcion, JSON.stringify(resultado.respuestasDetectadas[0])).toBe('B');
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   }, 300_000);
 

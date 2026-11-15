@@ -25,6 +25,7 @@ const docsDir = path.join(rootDir, 'docs');
 
 const SKIP_DIRS = new Set([
   '.git',
+  '.tmp',
   'node_modules',
   'dist',
   'dist-native',
@@ -54,6 +55,7 @@ async function walkFiles(dir) {
   const files = [];
   for (const entry of entries) {
     if (entry.name.startsWith('.DS_Store')) continue;
+    if (entry.name.startsWith('.tmp-')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;

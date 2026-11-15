@@ -17,8 +17,8 @@ export const TEMPLATE_VERSION_CANONICA: TemplateVersion = 4;
 export const TEMPLATE_VERSION_DEFAULT: TemplateVersion = TEMPLATE_VERSION_CANONICA;
 export const OMR_CANONICAL_CONTRACT_ID = 'omr-canonical-1.0.0';
 export const OMR_CANONICAL_LEGACY_CONTRACT_ID = 'omr-canonical-v4';
-export const OMR_CANONICAL_WIRE_MARKER = 'O1.0.0';
-export const OMR_LAYOUT_RELEASE_VERSION = '1.0.0-dev.1';
+export const OMR_CANONICAL_WIRE_MARKER = 'O1.1.0';
+export const OMR_LAYOUT_RELEASE_VERSION = '1.1.0-dev.1';
 export const OMR_CANONICAL_DISPLAY_LABEL = `OMR · ${OMR_LAYOUT_RELEASE_VERSION}`;
 export const TEMPLATE_ID_OMR_INLINE_EXAM = 'omr-inline-exam-v1' as const;
 
