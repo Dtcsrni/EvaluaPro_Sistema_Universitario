@@ -63,21 +63,20 @@ describe('métricas del evaluador sintético TV4', () => {
     })));
   }, 120_000);
 
-  it('rechaza el solapamiento del panel y conserva señales tenues centradas sin competidora clara', async () => {
-    const datasetRoot = path.resolve(process.cwd(), '../../omr_samples_tv4');
-    const manifest = JSON.parse(
-      await readFile(path.join(datasetRoot, 'manifest.json'), 'utf8')
-    ) as { capturas: Array<{ captureId: string; imagePath: string; mapaOmrPath: string }> };
-    const casos = [
-      { captureId: 'TV4-SYNTH-001-P1', numeroPregunta: 7, opcionEsperada: null },
-      { captureId: 'TV4-SYNTH-004-P2', numeroPregunta: 20, opcionEsperada: 'E' },
-      { captureId: 'TV4-SYNTH-005-P2', numeroPregunta: 16, opcionEsperada: 'A' }
-    ] as const;
-
-    for (const caso of casos) {
+  it.each([
+    { captureId: 'TV4-SYNTH-001-P1', numeroPregunta: 7, opcionEsperada: null },
+    { captureId: 'TV4-SYNTH-004-P2', numeroPregunta: 20, opcionEsperada: 'E' },
+    { captureId: 'TV4-SYNTH-005-P2', numeroPregunta: 16, opcionEsperada: 'A' }
+  ] as const)(
+    'rechaza el solapamiento del panel y conserva señales tenues sin competidora clara: $captureId',
+    async (caso) => {
+      const datasetRoot = path.resolve(process.cwd(), '../../omr_samples_tv4');
+      const manifest = JSON.parse(
+        await readFile(path.join(datasetRoot, 'manifest.json'), 'utf8')
+      ) as { capturas: Array<{ captureId: string; imagePath: string; mapaOmrPath: string }> };
       const captura = manifest.capturas.find((item) => item.captureId === caso.captureId);
       expect(captura, `captura sintética faltante: ${caso.captureId}`).toBeDefined();
-      if (!captura) continue;
+      if (!captura) return;
       const [imageBuffer, mapaRaw] = await Promise.all([
         readFile(path.join(datasetRoot, captura.imagePath)),
         readFile(path.join(datasetRoot, captura.mapaOmrPath), 'utf8')
@@ -101,8 +100,9 @@ describe('métricas del evaluador sintético TV4', () => {
       } else {
         expect(respuesta?.estadoRespuesta).toBe('respondida');
       }
-    }
-  }, 180_000);
+    },
+    180_000
+  );
 
   it('considera rechazo seguro una marca doble aunque exista una opción candidata', () => {
     expect(esRechazoSeguroMarcaInvalida('doble_marca', 'A')).toBe(true);

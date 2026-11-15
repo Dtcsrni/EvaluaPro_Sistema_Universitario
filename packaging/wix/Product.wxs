@@ -60,6 +60,11 @@
     <?if $(var.FlavorId) = docente-local ?>
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
+      <Directory Id="EvaluaProInstallerDataFolder" Name="EvaluaProInstaller">
+        <Directory Id="EvaluaProInstallerHubFolder" Name="installer-hub">
+          <Directory Id="PAYLOADFOLDER" Name="payloads" />
+        </Directory>
+      </Directory>
     </StandardDirectory>
     <?else?>
     <StandardDirectory Id="ProgramFiles64Folder">

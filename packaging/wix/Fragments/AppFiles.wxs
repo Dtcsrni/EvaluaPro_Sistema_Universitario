@@ -4,11 +4,19 @@
     <ComponentGroup Id="CG.AppFiles" Directory="INSTALLFOLDER">
       <?if $(var.FlavorId) = docente-local ?>
       <!-- Bootstrap explícito + payload único. No cosechar el repositorio. -->
-      <Component Id="CMP.AppPayloadArchive" Guid="*">
+      <Component Id="CMP.AppPayloadArchive" Guid="*" Directory="PAYLOADFOLDER">
         <File Id="F.AppPayloadArchive" Source="$(var.PayloadArchive)" Name="$(var.PayloadArchiveFileName)" KeyPath="yes" />
       </Component>
       <Component Id="CMP.RootPackageJson" Guid="*">
         <File Id="F.RootPackageJson" Source="$(var.SourceRoot)/package.json" KeyPath="yes" />
+      </Component>
+      <!-- Los accesos del Escritorio de OneDrive se reconcilian fuera de WiX;
+           conserva los ICO junto al ejecutable para que también sean nítidos. -->
+      <Component Id="CMP.ShortcutDashboardIcon" Guid="*">
+        <File Id="F.ShortcutDashboardIcon" Source="$(var.SourceRoot)/scripts/icons/dashboard-prod.ico" Name="dashboard-prod.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="CMP.ShortcutHubIcon" Guid="*">
+        <File Id="F.ShortcutHubIcon" Source="$(var.SourceRoot)/scripts/icons/installer-canonical.ico" Name="installer-canonical.ico" KeyPath="yes" />
       </Component>
       <Component Id="CMP.BurnHubRequestSchema" Guid="*">
         <File Id="F.BurnHubRequestSchema" Source="$(var.SourceRoot)/contracts/installer-hub/request-envelope-v1.schema.json" Name="request-envelope-v1.schema.json" KeyPath="yes" />

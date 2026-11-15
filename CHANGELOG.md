@@ -2,6 +2,13 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [1.2.23] - 2026-11-15
+
+### Fixed
+- Aísla el ZIP nativo versionado en el directorio del Installer Hub para que la desinstalación de bundles anteriores no elimine el payload pendiente de extraer durante una actualización.
+- La E2E de actualización verifica la presencia del ZIP exacto de la candidata además del runtime instalado.
+- Instala los ICO de 256 × 256 junto a EvaluaPro para que los accesos reconciliados en OneDrive no pierdan su icono de alta resolución.
+
 ## [1.2.22] - 2026-11-15
 
 ### Fixed

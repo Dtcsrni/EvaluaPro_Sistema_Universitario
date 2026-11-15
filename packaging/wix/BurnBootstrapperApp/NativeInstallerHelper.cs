@@ -207,7 +207,15 @@ internal static class NativeInstallerHelper
         ReportProgress(3, "Comprobando procesos de EvaluaPro antes de actualizar.");
         StopOwnedNodeProcesses(targetDir);
 
-        var archivePath = Path.Combine(targetDir, GetVersionedPayloadArchiveName());
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+            throw new InvalidOperationException("Windows no proporcionó LocalApplicationData para el payload versionado del instalador.");
+        var archivePath = Path.Combine(
+            localAppData,
+            "EvaluaProInstaller",
+            "installer-hub",
+            "payloads",
+            GetVersionedPayloadArchiveName());
         if (!File.Exists(archivePath)) throw new FileNotFoundException("El MSI no instaló el archivo de payload nativo requerido.");
         if ((File.GetAttributes(archivePath) & FileAttributes.ReparsePoint) != 0) throw new InvalidOperationException("El archivo de payload es un enlace y se rechaza.");
 

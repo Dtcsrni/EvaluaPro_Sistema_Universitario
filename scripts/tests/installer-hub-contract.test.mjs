@@ -765,6 +765,30 @@ test('MSI docente perUser no escribe marcadores en HKLM', () => {
   assert.match(cleanup, /Root="\$\(var\.ProductRegistryRoot\)"/);
 });
 
+test('MSI docente instala los ICO de alta resolución que usa el reconciliador nativo', () => {
+  const appFiles = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'AppFiles.wxs'), 'utf8');
+  const shortcutReconciler = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'ShortcutReconciler.cs'), 'utf8');
+  const packagedIcons = [
+    { component: 'CMP.ShortcutDashboardIcon', file: 'F.ShortcutDashboardIcon', name: 'dashboard-prod.ico' },
+    { component: 'CMP.ShortcutHubIcon', file: 'F.ShortcutHubIcon', name: 'installer-canonical.ico' },
+  ];
+
+  for (const { component, file, name } of packagedIcons) {
+    assert.ok(appFiles.includes(`<Component Id="${component}" Guid="*">`), `${component} debe instalarse en el payload docente`);
+    assert.ok(appFiles.includes(`<File Id="${file}" Source="$(var.SourceRoot)/scripts/icons/${name}" Name="${name}" KeyPath="yes" />`));
+    const icon = fs.readFileSync(path.join(root, 'scripts', 'icons', name));
+    assert.equal(icon.readUInt16LE(0), 0, `${name}: cabecera ICO reservada`);
+    assert.equal(icon.readUInt16LE(2), 1, `${name}: tipo ICO`);
+    const count = icon.readUInt16LE(4);
+    assert.ok(count > 0, `${name}: debe incluir al menos un frame`);
+    const has256Frame = Array.from({ length: count }, (_, index) => 6 + index * 16)
+      .some((offset) => icon[offset] === 0 && icon[offset + 1] === 0);
+    assert.ok(has256Frame, `${name}: debe incluir frame de 256 x 256 px`);
+  }
+
+  assert.match(shortcutReconciler, /Path\.Combine\(root, iconName\)/);
+});
+
 test('build MSI elimina avisos Prisma del esquema SQL nativo', () => {
   const build = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   assert.match(build, /schemaSqlText = \$sqlLines -join/);
@@ -3395,6 +3419,31 @@ test('SPEC-102 REQ-004: el backup de desinstalación respeta la opción GUI y co
   assert.match(e2e, /backup-private-acl/);
   assert.match(e2e, /broadAllowSids/);
   assert.doesNotMatch(e2e, /C:\\\\Users\\\\Public\\\\Documents\\\\EvaluaPro_Backup/);
+});
+
+test('SPEC-INSTALL-PAYLOAD-UPGRADE: el ZIP nativo sobrevive al cleanup de bundles anteriores', () => {
+  const product = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
+  const appFiles = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'AppFiles.wxs'), 'utf8');
+  const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  const e2e = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const waitInstalledPayload = e2e.match(/function Wait-InstalledPayload\s*\{[\s\S]*?\n\}/)?.[0] || '';
+  const spec = fs.readFileSync(path.join(root, 'docs', 'specs', 'payload-nativo-aislado-upgrade.spec.md'), 'utf8');
+
+  assert.match(product, /Directory Id="EvaluaProInstallerDataFolder" Name="EvaluaProInstaller"[\s\S]*Directory Id="EvaluaProInstallerHubFolder" Name="installer-hub"[\s\S]*Directory Id="PAYLOADFOLDER" Name="payloads"/);
+  assert.match(appFiles, /Component Id="CMP\.AppPayloadArchive" Guid="\*" Directory="PAYLOADFOLDER"/);
+  assert.match(helper, /Environment\.SpecialFolder\.LocalApplicationData[\s\S]*"EvaluaProInstaller"[\s\S]*"installer-hub"[\s\S]*"payloads"[\s\S]*GetVersionedPayloadArchiveName\(\)/);
+  assert.doesNotMatch(helper, /Path\.Combine\(targetDir, GetVersionedPayloadArchiveName\(\)\)/);
+  assert.match(waitInstalledPayload, /\[switch\]\$RequireVersionedArchive/);
+  assert.match(waitInstalledPayload, /if \(\$RequireVersionedArchive\)[\s\S]*?\$required \+= Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads/);
+  const baselineUpgradeFlow = e2e.match(/function Invoke-UpgradeBaselineFlow\s*\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(baselineUpgradeFlow, /Install-OfficialUpgradeBaselineMsi[\s\S]*?Wait-InstalledPayload -TimeoutSec 240\s*\r?\n/);
+  assert.match(baselineUpgradeFlow, /Invoke-PreviousVersionRelatedBundleUpgrade\s*\r?\n\s*Wait-InstalledPayload -TimeoutSec 240 -RequireVersionedArchive/);
+  assert.match(e2e, /Invoke-PreviousVersionRelatedBundleUpgrade\s*\r?\n\s*Wait-InstalledPayload -TimeoutSec 240 -RequireVersionedArchive/);
+  assert.match(e2e, /evaluapro-native-dist-\{0\}-\{1\}\.zip" -f \[string\]\$releaseManifest\.appVersion, \[string\]\$releaseManifest\.version/);
+  assert.match(e2e, /Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads\\\$payloadArchiveName"/);
+  assert.match(e2e, /El ZIP nativo no debe quedar en el directorio compartido que limpia un bundle anterior/);
+  assert.match(spec, /REQ-001/);
+  assert.match(spec, /REQ-004/);
 });
 
 test('SPEC-099 REQ-001/002/003: el helper tolera la salida concurrente y protege contra reutilización de PID', () => {
