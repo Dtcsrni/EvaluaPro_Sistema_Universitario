@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
+import { obtenerOpcionPuntuableOmr, omrRequiereResolucionManual } from '../src/modulos/modulo_calificacion/respuestaPuntuableOmr.js';
 import {
   evidenciaOmrNoDiscriminante,
   evaluarAutoCalificableOmr,
@@ -146,6 +147,9 @@ describe('politicaAutoCalificacionOmr', () => {
           : { opcion, score: 0.02, fillRatioCore: 0.05, nucleusFillRatio: 0, centroidOffsetRatio: 0.2, markConfidence: 0.04, shapeCompactness: 0.02, contraste: 0.02, estadoMarca: 'no_marcada' })
     };
     expect(opcionParcialDominanteRecuperable(respuesta)).toBe('B');
+    const recuperada = { ...respuesta, opcion: 'B' as const, estadoRespuesta: 'respondida' as const };
+    expect(obtenerOpcionPuntuableOmr(recuperada)).toBe('B');
+    expect(omrRequiereResolucionManual(recuperada)).toBe(false);
     expect(opcionParcialDominanteRecuperable({
       ...respuesta,
       estadoRespuesta: 'doble_marca',
@@ -704,6 +708,8 @@ describe('politicaAutoCalificacionOmr', () => {
       ]
     };
     expect(opcionParcialDominanteRecuperable(respuesta)).toBe('B');
+    expect(obtenerOpcionPuntuableOmr(respuesta)).toBe('B');
+    expect(omrRequiereResolucionManual(respuesta)).toBe(false);
 
     const resultado = evaluarAutoCalificableOmr({
       estadoAnalisis: 'ok',
@@ -730,6 +736,8 @@ describe('politicaAutoCalificacionOmr', () => {
     };
 
     expect(opcionParcialDominanteRecuperable(sinMarca)).toBeNull();
+    expect(obtenerOpcionPuntuableOmr(sinMarca)).toBeNull();
+    expect(omrRequiereResolucionManual(sinMarca)).toBe(false);
     const resultado = evaluarAutoCalificableOmr({
       estadoAnalisis: 'ok',
       calidadPagina: 0.99,

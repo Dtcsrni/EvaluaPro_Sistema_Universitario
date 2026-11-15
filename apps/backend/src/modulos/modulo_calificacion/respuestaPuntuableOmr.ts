@@ -21,6 +21,9 @@ export function obtenerOpcionPuntuableOmr(respuesta: RespuestaOmrPuntuable) {
 export function omrRequiereResolucionManual(respuesta?: RespuestaOmrPuntuable) {
   if (!respuesta) return true;
   if (obtenerOpcionPuntuableOmr(respuesta) === null) return false;
+  const marcasSinResolver = respuesta.flags?.filter((flag) =>
+    !(respuesta.estadoRespuesta === 'respondida' && flag === 'parcial_detectada')
+  );
   return (respuesta.estadoRespuesta !== undefined && respuesta.estadoRespuesta !== 'respondida') ||
-    Boolean(respuesta.flags?.length);
+    Boolean(marcasSinResolver?.length);
 }

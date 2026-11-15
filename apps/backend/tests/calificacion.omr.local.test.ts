@@ -86,6 +86,9 @@ describe('calificacion OMR local desde capturas originales', () => {
     expect(obtenerOpcionPuntuableOmr({ opcion: 'B', estadoRespuesta: 'respondida' })).toBe('B');
     expect(omrRequiereResolucionManual({ opcion: null, estadoRespuesta: 'ambigua' })).toBe(false);
     expect(omrRequiereResolucionManual({ opcion: 'B', estadoRespuesta: 'ambigua' })).toBe(false);
+    expect(omrRequiereResolucionManual({ opcion: 'B', estadoRespuesta: 'respondida', flags: ['parcial_detectada'] })).toBe(false);
+    expect(obtenerOpcionPuntuableOmr({ opcion: 'B', estadoRespuesta: 'respondida', flags: ['parcial_detectada'] })).toBe('B');
+    expect(obtenerOpcionPuntuableOmr({ opcion: null, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] })).toBeNull();
     expect(omrRequiereResolucionManual(undefined)).toBe(true);
   });
 
