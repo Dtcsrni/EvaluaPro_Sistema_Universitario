@@ -12,6 +12,7 @@ const PREVIEW_DPI_DEFAULT = 144;
 const MAX_PREVIEW_PAGES = 20;
 const RASTER_BUDGET_MS = 15_000;
 const POPPLER_PROCESS_TIMEOUT_MS = 6_000;
+const CHROMIUM_LAUNCH_TIMEOUT_MS = 10_000;
 const CHROMIUM_OPERATION_TIMEOUT_MS = 5_000;
 const previewsEnCurso = new Map<string, Promise<{
   paginas: PaginaPdfPreviewVisual[];
@@ -223,7 +224,7 @@ async function rasterizarConChromium(buffer: Buffer, paginasTotales: number, des
   try {
     const ejecutable = await resolverEjecutableChromium();
     asegurarPresupuesto(deadline, 'chromium');
-    const timeout = Math.max(1, Math.min(CHROMIUM_OPERATION_TIMEOUT_MS, deadline - Date.now()));
+    const timeout = Math.max(1, Math.min(CHROMIUM_LAUNCH_TIMEOUT_MS, deadline - Date.now()));
     log('info', 'Rasterizado PDF preview: inicia etapa', { etapa: 'rasterizar', renderer: 'chromium' });
     browser = await chromium.launch(ejecutable ? { executablePath: ejecutable, headless: true, timeout } : { headless: true, timeout });
     await fs.writeFile(rutaPdf, buffer);
