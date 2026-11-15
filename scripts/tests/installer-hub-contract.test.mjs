@@ -3402,12 +3402,15 @@ test('SPEC-INSTALL-PAYLOAD-UPGRADE: el ZIP nativo sobrevive al cleanup de bundle
   const appFiles = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Fragments', 'AppFiles.wxs'), 'utf8');
   const helper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
   const e2e = fs.readFileSync(installerHubE2eDocentePath, 'utf8');
+  const waitInstalledPayload = e2e.match(/function Wait-InstalledPayload\s*\{[\s\S]*?\n\}/)?.[0] || '';
   const spec = fs.readFileSync(path.join(root, 'docs', 'specs', 'payload-nativo-aislado-upgrade.spec.md'), 'utf8');
 
   assert.match(product, /Directory Id="EvaluaProInstallerDataFolder" Name="EvaluaProInstaller"[\s\S]*Directory Id="EvaluaProInstallerHubFolder" Name="installer-hub"[\s\S]*Directory Id="PAYLOADFOLDER" Name="payloads"/);
   assert.match(appFiles, /Component Id="CMP\.AppPayloadArchive" Guid="\*" Directory="PAYLOADFOLDER"/);
   assert.match(helper, /Environment\.SpecialFolder\.LocalApplicationData[\s\S]*"EvaluaProInstaller"[\s\S]*"installer-hub"[\s\S]*"payloads"[\s\S]*GetVersionedPayloadArchiveName\(\)/);
   assert.doesNotMatch(helper, /Path\.Combine\(targetDir, GetVersionedPayloadArchiveName\(\)\)/);
+  assert.match(waitInstalledPayload, /\$payloadArchivePath = Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads/);
+  assert.match(waitInstalledPayload, /\$payloadArchivePath/);
   assert.match(e2e, /evaluapro-native-dist-\{0\}-\{1\}\.zip" -f \[string\]\$releaseManifest\.appVersion, \[string\]\$releaseManifest\.version/);
   assert.match(e2e, /Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads\\\$payloadArchiveName"/);
   assert.match(e2e, /El ZIP nativo no debe quedar en el directorio compartido que limpia un bundle anterior/);

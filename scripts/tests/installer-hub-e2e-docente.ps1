@@ -1489,8 +1489,6 @@ function Invoke-PreviousVersionRelatedBundleUpgrade {
 
 function Wait-NativeDashboardHealth {
   param([int]$TimeoutSec = 240)
-  $payloadArchiveName = "evaluapro-native-dist-{0}-{1}.zip" -f [string]$releaseManifest.appVersion, [string]$releaseManifest.version
-  $payloadArchivePath = Join-Path $env:LOCALAPPDATA "EvaluaProInstaller\installer-hub\payloads\$payloadArchiveName"
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   $lastError = 'sin respuesta HTTP'
   do {
@@ -1667,6 +1665,8 @@ function Write-VisualFlowManifest {
 
 function Wait-InstalledPayload {
   param([int]$TimeoutSec = 240)
+  $payloadArchiveName = "evaluapro-native-dist-{0}-{1}.zip" -f [string]$releaseManifest.appVersion, [string]$releaseManifest.version
+  $payloadArchivePath = Join-Path $env:LOCALAPPDATA "EvaluaProInstaller\installer-hub\payloads\$payloadArchiveName"
   $required = @(
     (Join-Path $installedRoot 'package.json'),
     (Join-Path $installedRoot 'EvaluaPro.exe'),
