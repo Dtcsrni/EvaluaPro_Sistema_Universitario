@@ -82,6 +82,20 @@ describe('OAuth Desktop para login docente', () => {
 
     const respuesta = await callback(redirectUri!, authUrl.searchParams.get('state')!);
     expect(respuesta.status).toBe(200);
+    const html = await respuesta.text();
+    const nonce = html.match(/<style nonce="([A-Za-z0-9+/=]+)">/)?.[1];
+    expect(respuesta.headers.get('content-type')).toContain('text/html; charset=utf-8');
+    expect(respuesta.headers.get('cache-control')).toBe('no-store');
+    expect(respuesta.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(respuesta.headers.get('content-security-policy')).toContain(`'nonce-${nonce}'`);
+    expect(html).toContain('Autorización completada');
+    expect(html).toContain('Cerrar ventana');
+    expect(html).toContain('Si la pestaña sigue abierta, ciérrala y regresa a EvaluaPro.');
+    expect(html).toContain('prefers-reduced-motion');
+    expect(html).toContain('history.replaceState(null, document.title, location.pathname)');
+    expect(html).not.toContain('authorization-code');
+    expect(html).not.toContain(authUrl.searchParams.get('state'));
+    expect(html).not.toContain('verified-id-token');
     expect(oauth.getToken).toHaveBeenCalledWith({
       code: 'authorization-code',
       codeVerifier: 'pkce-verifier',
@@ -138,7 +152,10 @@ describe('OAuth Desktop para login docente', () => {
     const respuesta = await callback(redirectUri, authUrl.searchParams.get('state')!);
 
     expect(respuesta.status).toBe(400);
-    expect(await respuesta.text()).not.toContain('client_secret is missing.');
+    const html = await respuesta.text();
+    expect(html).toContain('No se pudo completar el acceso');
+    expect(html).toContain('role="alert"');
+    expect(html).not.toContain('client_secret is missing.');
     expect(obtenerResultadoOAuthGoogleDesktop(flujo.flowId)).toMatchObject({ estado: 'error', codigo: 'GOOGLE_DESKTOP_INVALID_REQUEST' });
     expect(logger.log).toHaveBeenCalledWith('warn', 'Falló el callback OAuth Desktop de Google.', {
       etapa: 'canje_codigo', codigo: 'GOOGLE_DESKTOP_INVALID_REQUEST', causa: 'autenticacion_cliente'

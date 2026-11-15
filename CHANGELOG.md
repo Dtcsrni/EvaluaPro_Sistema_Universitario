@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Changed
+- Moderniza el callback OAuth Desktop con estados accesibles y responsive, cierre con alternativa manual, CSP de nonce y limpieza inmediata de parámetros sensibles de la URL.
 - Equilibra el texto editorial del examen en CMY y reduce su negro de proceso a 2%; reserva K puro para QR/OMR/fiduciales/referencias OCR. La separación se verifica en el PDF, pero el consumo físico depende de la configuración de impresión Epson.
 - Refuerza la cabecera PDF con una malla geométrica y rosetones vectoriales de dos tonos, manteniendo las reservas blancas de QR, fiduciales y OMR.
 - Da a la plantilla un marco angular de baja cobertura con circuitos cian/magenta y acentos laterales en el título; conserva Ecofont para texto humano y la fuente dedicada en referencias OCR.

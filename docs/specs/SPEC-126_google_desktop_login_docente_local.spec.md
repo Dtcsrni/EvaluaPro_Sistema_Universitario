@@ -1,8 +1,8 @@
 ---
 id: SPEC-126
 titulo: Login docente-local con OAuth Desktop y PKCE
-version: 1.0.0
-fecha: 2026-11-06
+version: 1.0.1
+fecha: 2026-11-14
 autor: Codex / EvaluaPro
 modulo: modulo_autenticacion
 estado: approved
@@ -22,6 +22,7 @@ La instalación limpia de `docente-local` no incluye el Client ID web de Google 
 - **REQ-006 (UX de autorización):** La acción del docente abre el navegador de sistema desde un gesto explícito, muestra espera/cancelación/error accesibles y recupera el resultado sin depender de `window.opener` ni de Google Identity Services.
 - **REQ-007 (Compatibilidad):** El login Google web ya configurado puede conservarse como compatibilidad para otros entornos. En `docente-local`, la ruta Desktop se ofrece sin configuración manual; el login con contraseña conserva su política actual.
 - **REQ-008 (Diagnóstico):** Capacidades públicas distinguen login Desktop, login web GIS y Classroom. El diagnóstico no revela secretos, credenciales ni identificadores de flujo reutilizables. El host propaga al backend el secreto Desktop almacenado en el entorno de usuario Windows sin escribirlo a logs.
+- **REQ-009 (Retorno OAuth legible y limpio):** La respuesta de callback ofrece estados de éxito/error con diseño responsive, jerarquía visual y controles accesibles; aplica CSP con nonce, no carga recursos externos y retira inmediatamente `code`, `state` y otros parámetros de la barra/historial sin afectar el resultado OAuth guardado en memoria. El cierre automático conserva una acción manual para volver a EvaluaPro.
 
 ## Criterios de Aceptación
 
@@ -33,6 +34,7 @@ La instalación limpia de `docente-local` no incluye el Client ID web de Google 
 6. Los flujos de login y registro existentes reciben el credential validado y mantienen sus reglas de identidad, licencia, permisos y contraseñas.
 7. Tests de servicio/controlador/frontend e instalador verifican capacidades limpias; build docente, typecheck, lint, guard WCAG y gates de release aplicables pasan.
 8. El E2E real de Classroom posterior confirma que `googleSub` coincide con la identidad login y que curso, tema, actividades, fechas, roster y entregas siguen siendo de solo lectura.
+9. El callback presenta estados éxito/error sin exponer valores OAuth en su HTML; respuesta no almacenable, sin recursos externos, con CSP nonce, controles operables por teclado, reflow y movimiento reducido; limpia los parámetros de la URL y permite cerrar la ventana manualmente o por temporizador.
 
 ## Matriz de Trazabilidad
 
@@ -43,6 +45,7 @@ La instalación limpia de `docente-local` no incluye el Client ID web de Google 
 | REQ-006, REQ-007 | Acción, navegador del sistema en WebView2, cancelación y recuperación de sesión | `apps/frontend/tests/seccionAutenticacion.desktopOAuth.test.tsx`; `scripts/tests/installer-hub-contract.test.mjs` | Implementado; build WPF correcto, falta E2E instalada |
 | REQ-008 | Capacidades y rutas Desktop sin configuración web, con origen permitido | `apps/backend/tests/integracion/autenticacion.googleOnly.test.ts` | Implementado; prueba de integración focal pasa |
 | REQ-001, REQ-008 | Client ID Desktop alineado entre host/backend; secreto leído solo desde entorno de usuario | `apps/backend/src/configuracion.ts`; `packaging/app-host/MainWindow.xaml.cs`; `apps/backend/tests/googleOauthDesktopNoSecret.test.ts` | Validado en instalación local 1.2.13; falta gate remoto y empaquetado de la provisión para una release global |
+| REQ-009 | Callback de éxito/error con diseño responsive, política CSP nonce, limpieza de query OAuth, cierre manual/automático y datos sensibles ausentes | `apps/backend/tests/servicioGoogleDesktop.test.ts` | Prueba focal 5/5, lint global, typecheck global, auditoría SDD y guard WCAG pasan; CI de la rama pendiente |
 
 ## Riesgos y límites
 
