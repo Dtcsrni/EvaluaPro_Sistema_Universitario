@@ -3433,8 +3433,12 @@ test('SPEC-INSTALL-PAYLOAD-UPGRADE: el ZIP nativo sobrevive al cleanup de bundle
   assert.match(appFiles, /Component Id="CMP\.AppPayloadArchive" Guid="\*" Directory="PAYLOADFOLDER"/);
   assert.match(helper, /Environment\.SpecialFolder\.LocalApplicationData[\s\S]*"EvaluaProInstaller"[\s\S]*"installer-hub"[\s\S]*"payloads"[\s\S]*GetVersionedPayloadArchiveName\(\)/);
   assert.doesNotMatch(helper, /Path\.Combine\(targetDir, GetVersionedPayloadArchiveName\(\)\)/);
-  assert.match(waitInstalledPayload, /\$payloadArchivePath = Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads/);
-  assert.match(waitInstalledPayload, /\$payloadArchivePath/);
+  assert.match(waitInstalledPayload, /\[switch\]\$RequireVersionedArchive/);
+  assert.match(waitInstalledPayload, /if \(\$RequireVersionedArchive\)[\s\S]*?\$required \+= Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads/);
+  const baselineUpgradeFlow = e2e.match(/function Invoke-UpgradeBaselineFlow\s*\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(baselineUpgradeFlow, /Install-OfficialUpgradeBaselineMsi[\s\S]*?Wait-InstalledPayload -TimeoutSec 240\s*\r?\n/);
+  assert.match(baselineUpgradeFlow, /Invoke-PreviousVersionRelatedBundleUpgrade\s*\r?\n\s*Wait-InstalledPayload -TimeoutSec 240 -RequireVersionedArchive/);
+  assert.match(e2e, /Invoke-PreviousVersionRelatedBundleUpgrade\s*\r?\n\s*Wait-InstalledPayload -TimeoutSec 240 -RequireVersionedArchive/);
   assert.match(e2e, /evaluapro-native-dist-\{0\}-\{1\}\.zip" -f \[string\]\$releaseManifest\.appVersion, \[string\]\$releaseManifest\.version/);
   assert.match(e2e, /Join-Path \$env:LOCALAPPDATA "EvaluaProInstaller\\installer-hub\\payloads\\\$payloadArchiveName"/);
   assert.match(e2e, /El ZIP nativo no debe quedar en el directorio compartido que limpia un bundle anterior/);

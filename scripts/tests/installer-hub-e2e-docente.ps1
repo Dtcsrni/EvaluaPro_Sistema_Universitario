@@ -1664,9 +1664,7 @@ function Write-VisualFlowManifest {
 }
 
 function Wait-InstalledPayload {
-  param([int]$TimeoutSec = 240)
-  $payloadArchiveName = "evaluapro-native-dist-{0}-{1}.zip" -f [string]$releaseManifest.appVersion, [string]$releaseManifest.version
-  $payloadArchivePath = Join-Path $env:LOCALAPPDATA "EvaluaProInstaller\installer-hub\payloads\$payloadArchiveName"
+  param([int]$TimeoutSec = 240, [switch]$RequireVersionedArchive)
   $required = @(
     (Join-Path $installedRoot 'package.json'),
     (Join-Path $installedRoot 'EvaluaPro.exe'),
@@ -1675,15 +1673,20 @@ function Wait-InstalledPayload {
     (Join-Path $installedRoot 'apps\backend\dist\index.js'),
     (Join-Path $installedRoot 'apps\frontend\dist-docente\index.html'),
     (Join-Path $installedRoot 'logs\installation.manifest.json'),
-    (Join-Path $installedRoot 'config\update-config.json'),
-    $payloadArchivePath
+    (Join-Path $installedRoot 'config\update-config.json')
   )
+  if ($RequireVersionedArchive) {
+    $payloadArchiveName = "evaluapro-native-dist-{0}-{1}.zip" -f [string]$releaseManifest.appVersion, [string]$releaseManifest.version
+    $required += Join-Path $env:LOCALAPPDATA "EvaluaProInstaller\installer-hub\payloads\$payloadArchiveName"
+  }
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   do {
     if (@($required | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -eq 0) {
-      $legacyArchives = @(Get-ChildItem -LiteralPath $installedRoot -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue)
-      if ($legacyArchives.Count -gt 0) {
-        throw "El ZIP nativo no debe quedar en el directorio compartido que limpia un bundle anterior: $($legacyArchives[0].Name)"
+      if ($RequireVersionedArchive) {
+        $legacyArchives = @(Get-ChildItem -LiteralPath $installedRoot -File -Filter 'evaluapro-native-dist-*.zip' -ErrorAction SilentlyContinue)
+        if ($legacyArchives.Count -gt 0) {
+          throw "El ZIP nativo no debe quedar en el directorio compartido que limpia un bundle anterior: $($legacyArchives[0].Name)"
+        }
       }
       return
     }
@@ -2223,7 +2226,7 @@ function Invoke-UpgradeBaselineFlow {
   try {
     Invoke-SameVersionRelatedBundleConflict -DatabaseMarker $marker
     Invoke-PreviousVersionRelatedBundleUpgrade
-    Wait-InstalledPayload -TimeoutSec 240
+    Wait-InstalledPayload -TimeoutSec 240 -RequireVersionedArchive
     $candidateVersion = Get-InstalledProductVersion
     $versionAdvanced = $candidateVersion -gt $baselineVersion
     Add-Result -Area 'upgrade' -Item 'candidate-version-advanced' -Ok $versionAdvanced -Detail "baseline=$baselineVersion candidate=$candidateVersion"
@@ -2767,7 +2770,7 @@ try {
   if ([string]::IsNullOrWhiteSpace($BaselineBundlePath)) {
     Invoke-SameVersionRelatedBundleConflict
     Invoke-PreviousVersionRelatedBundleUpgrade
-    Wait-InstalledPayload -TimeoutSec 240
+    Wait-InstalledPayload -TimeoutSec 240 -RequireVersionedArchive
     Set-QAIsolatedSqlite | Out-Null
     Test-InstalledState -Phase 'post-install'
   } else {
