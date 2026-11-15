@@ -2,7 +2,7 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
-## [Unreleased]
+## [1.2.21] - 2026-11-14
 
 ### Changed
 - Moderniza el callback OAuth Desktop con estados accesibles y responsive, cierre con alternativa manual, CSP de nonce y limpieza inmediata de parámetros sensibles de la URL.
@@ -13,6 +13,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ### Fixed
 - El ajuste local OMR admite subconjuntos de fiduciales con consenso robusto; con una esquina global ausente registra la cobertura parcial y usa el QR como referencia independiente cuando está disponible.
 - La reserva de grapado conserva el despeje validado en anverso y reverso sin invadir logo, QR ni fiduciales.
+
+## [Unreleased]
 
 ## [1.2.14] - 2026-11-09
 
