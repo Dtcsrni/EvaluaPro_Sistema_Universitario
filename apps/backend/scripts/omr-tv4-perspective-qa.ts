@@ -27,7 +27,7 @@ type GroundTruth = {
   captureId: string;
   numeroPregunta: number;
   opcionEsperada: Opcion | null;
-  markType: 'valid' | 'blank' | 'double' | 'smudge';
+  markType: 'valid' | 'weak' | 'blank' | 'double' | 'smudge';
 };
 
 function resolverSistema(matriz: number[][], valores: number[]) {
@@ -171,7 +171,9 @@ async function main() {
     for (const row of truthByCapture.get(capture.captureId) ?? []) {
       total += 1;
       const detectada = detectadas.get(row.numeroPregunta) ?? null;
-      const coincide = row.markType === 'valid' ? detectada === row.opcionEsperada : detectada === null;
+      const coincide = row.markType === 'valid' || row.markType === 'weak'
+        ? detectada === row.opcionEsperada
+        : detectada === null;
       if (coincide) correct += 1;
       else {
         mismatches += 1;

@@ -16,7 +16,7 @@ import { rasterizarPdfParaPreview } from '../src/modulos/modulo_generacion_pdf/i
 import type { MapaVariante, PaginaOmr, PreguntaBase } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
 
 type Opcion = 'A' | 'B' | 'C' | 'D' | 'E';
-type MarkType = 'valid' | 'blank' | 'double' | 'smudge';
+type MarkType = 'valid' | 'weak' | 'blank' | 'double' | 'smudge';
 
 type EvalThresholds = {
   precisionMin: number;
@@ -101,7 +101,7 @@ type PerCaptureEval = {
   estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
   autoCalificableOmr: boolean;
   motivosAutoCalificacion: string[];
-  clearlyEligible: boolean;
+  groundTruthComplete: boolean;
   policyDiagnostics: Array<{
     numeroPregunta: number;
     opcion: string | null;
@@ -180,7 +180,7 @@ type CanonicalReport = {
     autoGradeTrustRate: number;
     autoCoverageRate: number;
     autoEligibleCaptures: number;
-    clearlyEligibleCaptures: number;
+    groundTruthCompleteCaptures: number;
     automaticGradeDiscordances: number;
     totalCapturas: number;
     totalPreguntas: number;
@@ -332,7 +332,7 @@ function buildExamInputs(totalQuestions: number) {
 
 function decideMarkType(rng: Rng): MarkType {
   const roll = rng.next();
-  if (roll < 0.02) return 'smudge';
+  if (roll < 0.02) return 'weak';
   if (roll < 0.06) return 'blank';
   if (roll < 0.1) return 'double';
   return 'valid';
@@ -346,7 +346,7 @@ function buildStudentSelection(
 ) {
   if (markType === 'blank') return [] as Opcion[];
   const correct = answerKey[questionNumber] ?? 'A';
-  if (markType === 'smudge') return [correct];
+  if (markType === 'weak') return [correct];
   if (markType === 'double') {
     const wrong = LETTERS.find((option) => option !== correct) ?? 'B';
     return [correct, wrong];
@@ -383,7 +383,7 @@ async function renderPageImage(args: {
           const cy = (792 - option.y) * scaleY;
           const isSelected = selected.includes(option.letra as Opcion);
           if (!isSelected) return '';
-          if (markType === 'smudge') {
+          if (markType === 'weak') {
             const offset = bubbleRadius * 0.2;
             return `<ellipse cx="${(cx + offset).toFixed(2)}" cy="${(cy - offset).toFixed(2)}" rx="${(bubbleRadius * 0.62).toFixed(2)}" ry="${(bubbleRadius * 0.42).toFixed(2)}" fill="#050505" fill-opacity="0.34"/>`;
           }
@@ -505,21 +505,21 @@ export function debeIncluirIssueSintetico(markType: MarkType, expected: Opcion |
 }
 
 export function resumirConfianzaCoberturaAutoCalificacion(capturas: ReadonlyArray<{
-  claramenteElegible: boolean;
+  groundTruthComplete: boolean;
   autoCalificable: boolean;
   calificacionCoincide: boolean;
 }>) {
-  const claramenteElegibles = capturas.filter((captura) => captura.claramenteElegible).length;
+  const groundTruthCompleteCaptures = capturas.filter((captura) => captura.groundTruthComplete).length;
   const autocalificables = capturas.filter((captura) => captura.autoCalificable);
-  const cubiertasElegibles = capturas.filter((captura) => captura.claramenteElegible && captura.autoCalificable).length;
+  const coveredCaptures = capturas.filter((captura) => captura.groundTruthComplete && captura.autoCalificable).length;
   const discordancias = autocalificables.filter((captura) =>
-    !captura.claramenteElegible || !captura.calificacionCoincide
+    !captura.groundTruthComplete || !captura.calificacionCoincide
   ).length;
   const calificacionesCorrectas = autocalificables.length - discordancias;
   return {
     autoEligibleCaptures: autocalificables.length,
-    clearlyEligibleCaptures: claramenteElegibles,
-    autoCoverageRate: claramenteElegibles > 0 ? cubiertasElegibles / claramenteElegibles : 0,
+    groundTruthCompleteCaptures,
+    autoCoverageRate: groundTruthCompleteCaptures > 0 ? coveredCaptures / groundTruthCompleteCaptures : 0,
     autoGradeTrustRate: autocalificables.length > 0 ? calificacionesCorrectas / autocalificables.length : 1,
     automaticGradeDiscordances: discordancias
   };
@@ -601,7 +601,7 @@ export async function generateSyntheticTv4Dataset(options: GenerateDatasetOption
         groundTruthRows.push({
           captureId: `${folio}-P${page.numeroPagina}`,
           numeroPregunta: question.numeroPregunta,
-          opcionEsperada: markType === 'valid' ? selected[0] ?? null : null,
+          opcionEsperada: markType === 'valid' || markType === 'weak' ? selected[0] ?? null : null,
           markType,
           selectedOptions: selected
         });
@@ -714,7 +714,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
   let pagePasses = 0;
   let gradeConsistency = 0;
   let gradeConsistencyCaptures = 0;
-  const autoGradeOutcomes: Array<{ claramenteElegible: boolean; autoCalificable: boolean; calificacionCoincide: boolean }> = [];
+  const autoGradeOutcomes: Array<{ groundTruthComplete: boolean; autoCalificable: boolean; calificacionCoincide: boolean }> = [];
   const errors: Record<string, number> = {
     mismatch_option: 0,
     missed_mark: 0,
@@ -845,12 +845,20 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
     const totalQuestions = truthForCapture.size;
     const expectedGrade = calcularCalificacionExacta(expectedScore, totalQuestions, 0).calificacionFinalTexto;
     const detectedGrade = calcularCalificacionExacta(detectedScore, totalQuestions, 0).calificacionFinalTexto;
-    const clearlyEligible = [...truthForCapture.values()].every((truth) => truth.markType === 'valid' || truth.markType === 'blank');
+    const groundTruthComplete = [...truthForCapture.values()].every((truth) => {
+      if (truth.markType === 'valid' || truth.markType === 'weak') {
+        return truth.opcionEsperada !== null && truth.selectedOptions.length === 1 &&
+          truth.selectedOptions[0] === truth.opcionEsperada;
+      }
+      if (truth.markType === 'blank') return truth.opcionEsperada === null && truth.selectedOptions.length === 0;
+      if (truth.markType === 'double' || truth.markType === 'smudge') return truth.opcionEsperada === null;
+      return false;
+    });
     const calificacionCoincide = expectedGrade === detectedGrade;
     gradeConsistencyCaptures += 1;
     if (calificacionCoincide) gradeConsistency += 1;
     autoGradeOutcomes.push({
-      claramenteElegible: clearlyEligible,
+      groundTruthComplete,
       autoCalificable: autoDecision.autoCalificableOmr,
       calificacionCoincide
     });
@@ -867,7 +875,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       estadoAnalisis: detectionResult.estadoAnalisis,
       autoCalificableOmr: autoDecision.autoCalificableOmr,
       motivosAutoCalificacion: autoDecision.motivos,
-      clearlyEligible,
+      groundTruthComplete,
       policyDiagnostics: autoDecision.autoCalificableOmr ? [] : detectionResult.respuestasDetectadas
         .filter((respuesta) =>
           respuesta.flags?.includes('parcial_detectada') ||
@@ -949,7 +957,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       autoGradeTrustRate: round6(autoMetrics.autoGradeTrustRate),
       autoCoverageRate: round6(autoMetrics.autoCoverageRate),
       autoEligibleCaptures: autoMetrics.autoEligibleCaptures,
-      clearlyEligibleCaptures: autoMetrics.clearlyEligibleCaptures,
+      groundTruthCompleteCaptures: autoMetrics.groundTruthCompleteCaptures,
       automaticGradeDiscordances: autoMetrics.automaticGradeDiscordances,
       totalCapturas: perCapture.length,
       totalPreguntas: total
