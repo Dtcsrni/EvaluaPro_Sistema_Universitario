@@ -910,7 +910,7 @@ export function PlantillasOmrWorkflow({
       {jobOmr && (
         <>
           <div className="resultado plantillas-omr__job">
-            <h4>Job OMR</h4>
+            <h4>Trabajo OMR</h4>
             <div className="item-meta" role="status">
               <span>Estado: {etiquetaEstadoJobOmr(jobOmr.status)}</span>
               {esIngestaOmr ? (
