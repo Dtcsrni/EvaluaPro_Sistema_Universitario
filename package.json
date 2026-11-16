@@ -255,7 +255,7 @@
     "@types/node": "^26.6.6",
     "@types/supertest": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^8.72.0",
-    "@typescript-eslint/parser": "^8.72.0",
+    "@typescript-eslint/parser": "^8.72.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.14.0",
