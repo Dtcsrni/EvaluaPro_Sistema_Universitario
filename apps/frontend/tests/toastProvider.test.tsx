@@ -673,6 +673,29 @@ describe('ToastProvider', () => {
     expect(accion).toHaveBeenCalledOnce();
   });
 
+  it('promueve el error de una acción a la única posición visible en móvil', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 });
+    const accion = vi.fn(async () => { throw new Error('detalle interno'); });
+    render(<ToastProvider><button type="button">Volver al panel</button></ToastProvider>);
+    act(() => emitToast({
+      level: 'info',
+      title: 'Sesión por vencer',
+      message: 'Renueva el acceso para continuar.',
+      persistent: true,
+      action: { label: 'Renovar sesión', onClick: accion }
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Renovar sesión' }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(screen.queryByRole('group', { name: 'Sesión por vencer' })).not.toBeInTheDocument();
+    const error = screen.getByRole('group', { name: 'No se pudo completar la acción' });
+    expect(error).toHaveClass('persistent');
+    expect(error).toHaveTextContent('Verifica el resultado antes de volver a intentarlo');
+    expect(error).not.toHaveTextContent('detalle interno');
+    expect(accion).toHaveBeenCalledOnce();
+  });
+
   it('no expone el mensaje arbitrario de una acción que falla sincrónicamente', () => {
     const detalleInterno = 'C:\\private\\installer\\token=secreto';
     const accion = vi.fn(() => { throw new Error(detalleInterno); });

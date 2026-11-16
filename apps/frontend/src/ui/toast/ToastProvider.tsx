@@ -672,16 +672,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       if (resultado && typeof (resultado as Promise<unknown>).then === 'function') {
         accionesEnCurso.current.add(key);
         marcarAccionEnCurso(key);
-        void Promise.resolve(resultado).catch(() => {
+        void Promise.resolve(resultado).then(() => {
+          dismiss(key, true);
+        }, () => {
+          // Libera la plaza móvil antes de insertar el error; así no queda
+          // detrás del mismo aviso cuya acción acaba de fallar.
+          dismiss(key, true);
           push({ level: 'error', title: 'No se pudo completar la acción', message: MENSAJE_ACCION_FALLIDA, persistent: true });
         }).finally(() => {
           accionesEnCurso.current.delete(key);
-          dismiss(key, true);
         });
         return;
       }
     } catch {
+      dismiss(key, true);
       push({ level: 'error', title: 'No se pudo completar la acción', message: MENSAJE_ACCION_FALLIDA, persistent: true });
+      return;
     }
     dismiss(key, true);
   }, [dismiss, marcarAccionEnCurso, push]);

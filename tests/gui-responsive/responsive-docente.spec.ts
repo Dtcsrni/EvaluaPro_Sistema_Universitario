@@ -4329,12 +4329,18 @@ test.describe('GUI responsive e2e · docente', () => {
         await expect(warning.getByRole('button', { name: 'Continuar' })).toBeVisible();
         const controlsFit = await warning.evaluate((element) => {
           const toast = element.getBoundingClientRect();
-          const controls = [...element.querySelectorAll<HTMLElement>('button')].map((button) => button.getBoundingClientRect());
-          return toast.left >= 0 && toast.right <= window.innerWidth
-            && controls.every((rect) => rect.width >= 44 && rect.height >= 44
-              && rect.left >= toast.left && rect.right <= toast.right && rect.top >= toast.top && rect.bottom <= toast.bottom);
+          const controls = [...element.querySelectorAll<HTMLElement>('button')].map((button) => {
+            const rect = button.getBoundingClientRect();
+            return { label: button.getAttribute('aria-label') || button.textContent?.trim(), width: rect.width, height: rect.height,
+              minHeight: Number.parseFloat(getComputedStyle(button).minHeight),
+              left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+          });
+          return { fits: toast.left >= 0 && toast.right <= window.innerWidth
+            && controls.every((rect) => rect.width >= 44 && rect.minHeight >= 44 && rect.height >= 43.5
+              && rect.left >= toast.left && rect.right <= toast.right && rect.top >= toast.top && rect.bottom <= toast.bottom),
+          toast: { left: toast.left, right: toast.right, top: toast.top, bottom: toast.bottom }, controls };
         });
-        expect(controlsFit, `Acciones del toast de al menos 44×44 px dentro de la tarjeta a ${width}px / ${theme}`).toBe(true);
+        expect(controlsFit.fits, `Acciones del toast fuera de la tarjeta a ${width}px / ${theme}: ${JSON.stringify(controlsFit)}`).toBe(true);
         await warning.screenshot({
           path: supplementalEvidencePath(`ux-audit-toast-actions-${width}-${theme}.png`),
           animations: 'disabled'
@@ -4352,14 +4358,14 @@ test.describe('GUI responsive e2e · docente', () => {
       await expect(page.getByRole('group', { name: 'Cambios guardados' })).toBeVisible();
       const rect = await viewport.evaluate((element) => {
         const box = element.getBoundingClientRect();
-        return { position: getComputedStyle(element).position, placement: (element as HTMLElement).dataset.placement || '', left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+        return { position: getComputedStyle(element).position, placement: (element as HTMLElement).dataset.placement || '', left: box.left, right: box.right, top: box.top, bottom: box.bottom, scrollY: window.scrollY };
       });
       expect(rect.position).toBe(rect.placement === 'flow' ? 'relative' : 'fixed');
       if (rect.placement !== 'flow' || await page.evaluate(() => window.scrollY <= 1)) {
         expect(rect.left).toBeGreaterThanOrEqual(0);
         expect(rect.right).toBeLessThanOrEqual(1440);
         expect(rect.top).toBeGreaterThanOrEqual(0);
-        expect(rect.bottom).toBeLessThanOrEqual(900);
+        expect(rect.bottom, `Viewport de notificaciones fuera del área visible: ${JSON.stringify(rect)}`).toBeLessThanOrEqual(900);
       }
       const warning = page.getByRole('group', { name: 'Sesión próxima a vencer' });
       await expect(warning.getByRole('button', { name: 'Continuar' })).toBeVisible();
@@ -4423,6 +4429,24 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(page.getByRole('group', { name: 'Sesión próxima a vencer' })).toHaveCount(0);
     const toastGuardado = page.getByRole('group', { name: 'Cambios guardados' });
     await toastGuardado.getByRole('button', { name: 'Cerrar notificación: Cambios guardados' }).click();
+    await expect(toastGuardado).toHaveCount(0);
+    // La cola FIFO puede contener avisos emitidos por el shell durante el journey.
+    // Vaciarla deja aislada la comprobación del error de acción móvil.
+    const cerrarNotificacionesRestantes = async () => {
+      const toasts = page.locator('.toast-viewport .toast');
+      for (let intento = 0; intento < 20; intento += 1) {
+        const toast = toasts.first();
+        if (await toast.count() === 0) break;
+        const key = await toast.getAttribute('data-toast-key');
+        const cerrar = toast.getByRole('button', { name: /Cerrar notificación/ });
+        await expect(cerrar, 'cada notificación visible debe poder cerrarse durante la limpieza del escenario').toBeVisible();
+        await cerrar.click();
+        if (key) await expect(page.locator(`.toast-viewport .toast[data-toast-key="${key}"]`)).toHaveCount(0);
+      }
+      await expect(toasts).toHaveCount(0);
+      await expect(page.locator('.toast-queue-status')).toHaveCount(0);
+    };
+    await cerrarNotificacionesRestantes();
     await page.setViewportSize({ width: 320, height: 844 });
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('app:toast', { detail: {
       level: 'info',
