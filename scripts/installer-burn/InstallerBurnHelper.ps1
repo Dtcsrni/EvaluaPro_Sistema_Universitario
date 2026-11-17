@@ -551,11 +551,19 @@ function Write-InstallerRuntimeEnv {
     if ($databaseFilePath.StartsWith('\') -and $databaseFilePath -match '^\\([A-Za-z]:\\)') {
       $databaseFilePath = $databaseFilePath.Substring(1)
     }
-    if (-not [IO.Path]::IsPathRooted($databaseFilePath)) {
-      $databaseFilePath = Join-Path $targetFullPath $databaseFilePath
+    $isWindowsRootedPath = $databaseFilePath -match '^[A-Za-z]:\\|^\\\\'
+    if ($isWindowsRootedPath) {
+      $lastSeparator = $databaseFilePath.LastIndexOf('\')
+      $sqliteDirectory = $databaseFilePath.Substring(0, $lastSeparator)
+      $sqliteFileName = $databaseFilePath.Substring($lastSeparator + 1)
+    } else {
+      if (-not [IO.Path]::IsPathRooted($databaseFilePath)) {
+        $databaseFilePath = Join-Path $targetFullPath $databaseFilePath
+      }
+      $resolvedDatabaseFilePath = [IO.Path]::GetFullPath($databaseFilePath)
+      $sqliteDirectory = Split-Path -Parent $resolvedDatabaseFilePath
+      $sqliteFileName = Split-Path -Leaf $resolvedDatabaseFilePath
     }
-    $sqliteDirectory = Split-Path -Parent ([IO.Path]::GetFullPath($databaseFilePath))
-    $sqliteFileName = Split-Path -Leaf $databaseFilePath
     if ([string]::IsNullOrWhiteSpace($sqliteDirectory) -or [string]::IsNullOrWhiteSpace($sqliteFileName)) {
       throw 'No se pudo resolver el directorio SQLite para el contenedor docente.'
     }
