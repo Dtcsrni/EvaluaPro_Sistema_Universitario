@@ -16,6 +16,10 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+export function normalizarSaltosLinea(source) {
+  return source.replace(/\r\n?/g, '\n');
+}
+
 async function listTypeScriptFiles(directory) {
   const files = [];
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
@@ -49,7 +53,7 @@ export async function calcularHuellaCodigoEvaluador() {
     const source = await fs.readFile(filePath, 'utf8');
     return {
       file,
-      sha256: sha256(source.replace(/\r\n?/g, '\n'))
+      sha256: sha256(normalizarSaltosLinea(source))
     };
   }));
   return sha256(JSON.stringify(codeHashes));
@@ -65,7 +69,7 @@ if (mode === '--write') {
 } else if (mode === '--check') {
   const expected = moduleSource(await calcularHuellaCodigoEvaluador());
   const actual = await fs.readFile(fingerprintModulePath, 'utf8').catch(() => '');
-  if (actual !== expected) {
+  if (normalizarSaltosLinea(actual) !== expected) {
     console.error('La huella del evaluador OMR está desactualizada; ejecuta npm -C apps/backend run omr:fingerprint:write.');
     process.exitCode = 1;
   }
