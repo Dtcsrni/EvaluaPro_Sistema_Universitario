@@ -7757,6 +7757,11 @@ test.describe('GUI responsive e2e · docente', () => {
           expect(guardadosRegla).toBe(guardadosPrevios + 1);
           await expect(page.locator('.asistencias-regla-card')).toContainText('Acción: Bloquear examen');
           await expect(page.locator('.toast-viewport .toast-text')).toContainText('Acción: bloquear examen');
+          const notificaciones = page.locator('.toast-viewport');
+          if (await notificaciones.getAttribute('data-placement') === 'flow') {
+            await expect(notificaciones.locator('.toast')).toHaveCSS('pointer-events', 'none');
+            await expect(notificaciones.locator('.toast-btn').first()).toHaveCSS('pointer-events', 'auto');
+          }
         }
         if (width === 320) {
           const retardoLabel = await page.locator('.asistencias-checkbox-label').evaluate((label) => {
