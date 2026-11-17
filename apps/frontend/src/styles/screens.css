@@ -12488,11 +12488,33 @@ li.empty-state-card {
     min-width: 0;
     padding-left: 2.5rem !important;
     padding-right: 0.5rem !important;
+    font-size: 0.875rem;
     width: 100%;
   }
 
   .cuenta-panel .cuenta-sincronizacion__form input {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .alumnos-panel .campo--search .auth-input-box input {
+    font-size: 0.75rem;
+  }
+
+  .alumnos-form--panoramico .campo .auth-input-box__icon {
+    display: none;
+  }
+
+  .alumnos-form--panoramico .campo .auth-input-box input {
+    min-width: 0;
+    padding-inline: 0.55rem !important;
+    font-size: 0.8rem;
+    width: 100%;
+  }
+
+  .alumnos-form--panoramico .campo--correo .auth-input-box input,
+  .alumnos-form.alumnos-form--editando.alumnos-form--panoramico .campo--correo .auth-input-box input {
+    padding-inline: 0.4rem !important;
+    font-size: 0.75rem;
   }
 
   .asistencias-field-col--tema .asistencias-input {
