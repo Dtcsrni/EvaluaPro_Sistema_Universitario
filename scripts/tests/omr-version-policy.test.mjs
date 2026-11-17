@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { normalizarSaltosLinea } from '../../apps/backend/scripts/omr-evaluator-code-hash.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -24,6 +25,12 @@ const omrWorkflow = leer('apps/frontend/src/apps/app_docente/features/plantillas
 const omrActions = leer('apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasOmrActions.ts');
 const packageJson = leerJson('package.json');
 const syntheticManifest = leerJson('omr_samples_tv4/manifest.json');
+
+test('la huella OMR canoniza CRLF/LF y saltos finales para ser reproducible', () => {
+  assert.equal(normalizarSaltosLinea('contenido\r\n\r\n'), 'contenido\n');
+  assert.equal(normalizarSaltosLinea('contenido\n'), 'contenido\n');
+  assert.equal(normalizarSaltosLinea('sin salto'), 'sin salto');
+});
 
 test('la política declara una única identidad OMR canónica', () => {
   assert.equal(policy.active.templateVersion, 4);
@@ -118,3 +125,4 @@ test('el fixture sintético activo conserva la geometría OMR canónica', () => 
     assert.ok(Math.abs(mapa.qr.size - mmToPt(31)) < 0.001, capture.captureId);
   }
 });
+
