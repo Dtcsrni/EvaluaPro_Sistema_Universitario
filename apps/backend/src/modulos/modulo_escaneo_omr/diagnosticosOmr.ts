@@ -6,4 +6,3 @@ export function diagnosticoGatePilotoRealOmr(disponible: boolean): string | null
     ? null
     : 'La autocalificación requiere la validación independiente del piloto real del motor OMR.';
 }
-

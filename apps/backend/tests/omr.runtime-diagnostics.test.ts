@@ -20,4 +20,3 @@ describe('diagnósticos visibles de versión OMR', () => {
     expect(MENSAJE_PLANTILLA_OMR_NO_COMPATIBLE).not.toMatch(/TV4|OMR v4/i);
   });
 });
-

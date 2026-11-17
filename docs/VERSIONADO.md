@@ -48,4 +48,3 @@ Consulta [estado de releases](RELEASE_STATUS.md), [política de tags](TAGGING_PO
 - Los prereleases llevan sufijo (`-alpha`, `-beta`, `-rc`) y no se presentan como una release estable.
 - Si cambia el contrato de datos, instalador o actualizador, documenta el efecto en notas y evidencias de release.
 - Las actualizaciones no sustituyen un respaldo previo de los datos docentes.
-

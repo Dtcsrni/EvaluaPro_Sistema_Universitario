@@ -44,4 +44,3 @@ Stop before confirmation/publication if source coverage is unresolved, the answe
 - Item contract and topic assignment: `docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md` and `docs/contracts/reactivos-xlsx.v1.md`.
 - PDF batch, recovery, layout and Edge evidence: `docs/specs/SPEC-068_generacion_lotes_pdf_integridad.spec.md`.
 - Read the relevant stage-specific skill for detailed work; do not load every reference unless the current request needs it.
-
