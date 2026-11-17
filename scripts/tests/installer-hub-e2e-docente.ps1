@@ -1446,11 +1446,30 @@ function Invoke-PreviousVersionRelatedBundleUpgrade {
       throw "El fixture previo debe quedar como único bundle relacionado registrado. count=$($relatedEntries.Count) fixtureCount=$($fixtureEntries.Count)"
     }
     $fixtureProviderKey = [string]$fixtureEntries[0].providerKey
+    $preservedUserData = @(
+      @{ RelativePath = 'validation\upgrade-preserve-sentinel.txt'; Content = 'validation-user-data-preserved' },
+      @{ RelativePath = 'backups\upgrade-preserve-sentinel.txt'; Content = 'backup-user-data-preserved' }
+    )
+    foreach ($sentinel in $preservedUserData) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      New-Item -ItemType Directory -Path (Split-Path -Parent $sentinelPath) -Force | Out-Null
+      [IO.File]::WriteAllText($sentinelPath, $sentinel.Content, [Text.Encoding]::UTF8)
+    }
     $operationStartedAt = Get-Date
     Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
     $remainingRelated = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
     $oldBundleRemoved = @($remainingRelated | Where-Object { [string]$_.providerKey -eq $fixtureProviderKey }).Count -eq 0
     if (-not $oldBundleRemoved) { throw 'El upgrade terminó, pero el fixture relacionado anterior sigue registrado.' }
+    foreach ($sentinel in $preservedUserData) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      if (-not (Test-Path -LiteralPath $sentinelPath -PathType Leaf)) {
+        throw "El upgrade eliminó datos locales que debía conservar: $($sentinel.RelativePath)"
+      }
+      $actualContent = [IO.File]::ReadAllText($sentinelPath)
+      if ($actualContent -ne $sentinel.Content) {
+        throw "El upgrade alteró datos locales que debía conservar: $($sentinel.RelativePath)"
+      }
+    }
 
     $baLogRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
     $fixtureBundleCode = [guid]::Empty
@@ -1474,7 +1493,7 @@ function Invoke-PreviousVersionRelatedBundleUpgrade {
     if ($perUserDetectLines.Count -lt 2) { throw "El fixture no reprodujo detección doble con alcance PerUser: detections=$($perUserDetectLines.Count)" }
     if ($duplicatePlanLines.Count -lt 1) { throw 'El log BA no confirma que Burn omitió la desinstalación planificada por segunda vez.' }
     if ($ignoredDuplicateLines.Count -gt 0) { throw 'Burn intentó iniciar el bundle después de suprimir la segunda desinstalación.' }
-    Add-Result -Area 'previous-version-related-bundle' -Item 'duplicate-detection-handled' -Ok $true -Detail "perUserDetections=$($perUserDetectLines.Count) suppressedDuplicatePlans=$($duplicatePlanLines.Count) oldBundleRemoved=$oldBundleRemoved"
+    Add-Result -Area 'previous-version-related-bundle' -Item 'duplicate-detection-handled' -Ok $true -Detail "perUserDetections=$($perUserDetectLines.Count) suppressedDuplicatePlans=$($duplicatePlanLines.Count) oldBundleRemoved=$oldBundleRemoved preservedUserData=$($preservedUserData.Count)"
   } finally {
     if ($fixtureInstallAttempted) {
       $matchesFixture = { param($entry); if ($fixtureProviderKey) { return [string]$entry.providerKey -eq $fixtureProviderKey }; return $entry.displayName -eq 'QA Bundle Relation Fixture' -and [version]::Parse([string]$entry.version) -eq $fixtureVersion }

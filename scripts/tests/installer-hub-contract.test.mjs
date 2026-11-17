@@ -3428,6 +3428,10 @@ test('SPEC-102 REQ-004: el backup de desinstalación respeta la opción GUI y co
   assert.match(bootstrapper, /\["dataDir"\] = currentRequest\.DataDir/);
   assert.match(uninstall, /var exportData = GetBool\(payload, "exportData"\)/);
   assert.match(uninstall, /StopOwnedNodeProcesses\(targetDir\);[\s\S]*CreateDataBackup\(dataDir\)/);
+  assert.match(helper, /PreservedRootEntries[\s\S]*"data"[\s\S]*"validation"[\s\S]*"backups"/,
+    'la desinstalación debe conservar las carpetas locales de datos, validación y respaldos');
+  assert.match(uninstall, /!PreservedRootEntries\.Contains\(name\)/,
+    'la limpieza no debe mover bases de validación ni respaldos aunque no se solicite exportación');
   assert.match(uninstall, /\["exportedBackup"\] = exportedBackup/);
   assert.match(helper, /var appDataDir = Path\.Combine\(localAppData, "EvaluaPro"\)[\s\S]*var backupDir = Path\.Combine\(appDataDir, "Backups"\)/);
   assert.match(helper, /ApplyPrivateBackupAcl\(backupDir\)/);

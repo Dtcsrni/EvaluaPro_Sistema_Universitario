@@ -13,6 +13,12 @@ namespace EvaluaPro.BurnBootstrapperApp;
 
 internal static class NativeInstallerHelper
 {
+    private static readonly HashSet<string> PreservedRootEntries = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "data",
+        "validation",
+        "backups"
+    };
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -340,7 +346,7 @@ internal static class NativeInstallerHelper
         var entries = Directory.EnumerateFileSystemEntries(targetDir)
             .Select(Path.GetFileName)
             .Where(name => !string.IsNullOrWhiteSpace(name)
-                && !string.Equals(name, "data", StringComparison.OrdinalIgnoreCase)
+                && !PreservedRootEntries.Contains(name)
                 && !string.Equals(name, ".evaluapro-payload-transaction", StringComparison.OrdinalIgnoreCase))
             .Cast<string>()
             .Select(name => new TransactionEntry(name, Existed: true, Snapshot: false))
