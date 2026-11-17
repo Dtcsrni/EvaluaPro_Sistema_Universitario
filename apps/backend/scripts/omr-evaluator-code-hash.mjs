@@ -70,10 +70,11 @@ if (mode === '--write') {
   const expected = moduleSource(await calcularHuellaCodigoEvaluador());
   const actual = await fs.readFile(fingerprintModulePath, 'utf8').catch(() => '');
   if (normalizarSaltosLinea(actual) !== expected) {
-    console.error('La huella del evaluador OMR está desactualizada; ejecuta npm -C apps/backend run omr:fingerprint:write.');
+    console.error('La huella del evaluador OMR está desactualizada; ejecuta npm -C apps/backend run omr:fingerprint:write.', JSON.stringify({ expected, actual }));
     process.exitCode = 1;
   }
 } else if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   console.error('Uso: node scripts/omr-evaluator-code-hash.mjs <--write|--check>');
   process.exitCode = 2;
 }
+
