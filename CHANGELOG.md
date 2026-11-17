@@ -2,6 +2,16 @@
 
 Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
+## [Unreleased]
+
+## [1.2.24] - 2026-11-17
+
+### Fixed
+- Empaqueta el Prisma Client generado y las migraciones SQLite en la imagen runtime; agrega smoke de identidad de versión y commit para evitar que la API arranque con un cliente vacío.
+- Configura la imagen API/web de acuerdo con la versión instalada y monta la carpeta SQLite del host en Docker, resolviendo rutas Windows y UNC sin tratarlas como relativas en runners Linux.
+- Recupera marcas OMR débiles aisladas solo con evidencia morfológica; residuos mínimos y dobles marcas claras continúan sin crédito.
+- Regenera los diagramas Mermaid renderizados para que correspondan con sus fuentes actuales.
+
 ## [1.2.23] - 2026-11-15
 
 ### Fixed
@@ -28,11 +38,6 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ### Fixed
 - El ajuste local OMR admite subconjuntos de fiduciales con consenso robusto; con una esquina global ausente registra la cobertura parcial y usa el QR como referencia independiente cuando está disponible.
 - La reserva de grapado conserva el despeje validado en anverso y reverso sin invadir logo, QR ni fiduciales.
-
-## [Unreleased]
-
-### Fixed
-- El lector OMR conserva una única marca tenue con evidencia morfológica y orientación verificada cuando las alternativas son residuos débiles; las señales mínimas y las dobles claras siguen sin crédito. El corpus sintético y sus métricas distinguen respuestas débiles de manchas o blancos.
 
 ## [1.2.14] - 2026-11-09
 

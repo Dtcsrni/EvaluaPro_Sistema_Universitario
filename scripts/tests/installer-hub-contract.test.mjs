@@ -2708,7 +2708,8 @@ test('configuracion operativa escribe .env y update-config endurecido para docen
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-'));
   const installDir = path.join(tempRoot, 'EvaluaPro');
   fs.mkdirSync(path.join(installDir, 'config'), { recursive: true });
-  fs.writeFileSync(path.join(installDir, 'package.json'), JSON.stringify({ version: '1.2.23' }), 'utf8');
+  const installedPackageVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  fs.writeFileSync(path.join(installDir, 'package.json'), JSON.stringify({ version: installedPackageVersion }), 'utf8');
 
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
@@ -2767,8 +2768,8 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /BACKEND_SQLITE_DATA_DIR_DOCKER=C:\/ProgramData\/EvaluaPro\/data/);
     assert.match(envRaw, /DATABASE_URL_DOCKER=file:\/app\/data\/sqlite\/evaluapro\.db/);
     assert.match(envRaw, /BACKEND_DATABASE_URL_DOCKER=file:\/app\/data\/sqlite\/evaluapro\.db/);
-    assert.match(envRaw, /EVALUAPRO_API_DOCENTE_IMAGE=ghcr\.io\/dtcsrni\/evaluapro-api-docente:1\.2\.23/);
-    assert.match(envRaw, /EVALUAPRO_WEB_DOCENTE_IMAGE=ghcr\.io\/dtcsrni\/evaluapro-web-docente:1\.2\.23/);
+    assert.match(envRaw, new RegExp(`EVALUAPRO_API_DOCENTE_IMAGE=ghcr\\.io/dtcsrni/evaluapro-api-docente:${installedPackageVersion.replaceAll('.', '\\.')}`));
+    assert.match(envRaw, new RegExp(`EVALUAPRO_WEB_DOCENTE_IMAGE=ghcr\\.io/dtcsrni/evaluapro-web-docente:${installedPackageVersion.replaceAll('.', '\\.')}`));
     assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
     assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=synthetic-test-portalAlumnoApiKey/);
     assert.match(envRaw, /PORTAL_API_KEY=synthetic-test-portalApiKey/);
