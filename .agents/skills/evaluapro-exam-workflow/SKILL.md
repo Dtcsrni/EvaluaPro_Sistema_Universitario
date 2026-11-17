@@ -25,7 +25,8 @@ If the task needs the local UI/browser or an interactive teacher login, first us
 - Every item maps to one explicit canonical theme. Multi-theme import requires a theme ID on every item; never assign every item to every selected theme.
 - Only formats EvaluaPro can score automatically may enter an automatically graded exam. Current OMR contract is one correct choice among A–E; represent reasoning in the stem/options, not an unscorable response field.
 - Keep the scan signals distinct: QR verifies a signed exam/folio/page association against the persisted map; OMR reads marked choices from the original page; OCR may suggest handwritten/printed identity but is not proof of identity or an answer key. A QR geometry recovery does not authorize rotating/reusing that recovered image for OMR. Hold uncertain/mismatched identity or answers for human review; never turn OCR suggestions into a grade.
-- Resolve the active OMR contract from the version-matched `config/omr-version-policy.json` and runtime/template metadata. The v1.2.13 local UI showed canonical v4 / `TV4`; treat that as observed evidence for that build, not a permanent constant. Reject unsupported legacy or experimental layouts when the active policy is canonical-only.
+- Resolve the active OMR contract from the version-matched `config/omr-version-policy.json` and runtime/template metadata. Report its semantic layout version separately from the application version. `TV4` is only a historical read-compatibility identifier; never present it as the current layout or use it in active diagnostics. Reject unsupported legacy or experimental layouts when the active policy is canonical-only.
+- Keep the application and Installer Hub versions unchanged while fixing the same unreleased candidate; increment once when the stabilized candidate reaches its release milestone. Never replace assets under an already published tag.
 - A callback page saying Google authorization completed is not an exam workflow readiness signal; require the authenticated EvaluaPro UI and a fresh course/period read before proceeding.
 - A preview is read-only and does not authorize final generation. Confirmed item versions, blueprint hash, template/layout, roster snapshot, batch ID, and resulting PDF hash must remain traceable.
 - Generation, concatenation, download, and print-readiness are distinct states. Claim each only from evidence at that stage.
@@ -43,3 +44,4 @@ Stop before confirmation/publication if source coverage is unresolved, the answe
 - Item contract and topic assignment: `docs/specs/SPEC-061_banco_reactivos_ia_versionado.spec.md` and `docs/contracts/reactivos-xlsx.v1.md`.
 - PDF batch, recovery, layout and Edge evidence: `docs/specs/SPEC-068_generacion_lotes_pdf_integridad.spec.md`.
 - Read the relevant stage-specific skill for detailed work; do not load every reference unless the current request needs it.
+
