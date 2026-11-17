@@ -17,7 +17,7 @@ function sha256(value) {
 }
 
 export function normalizarSaltosLinea(source) {
-  return source.replace(/\r\n?/g, '\n');
+  return source.replace(/\r\n?/g, '\n').replace(/\n+$/, '\n');
 }
 
 async function listTypeScriptFiles(directory) {
