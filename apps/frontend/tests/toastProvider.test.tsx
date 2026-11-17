@@ -757,4 +757,3 @@ describe('ToastProvider', () => {
     expect(accion).toHaveBeenCalledOnce();
   });
 });
-
