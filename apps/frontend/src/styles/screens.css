@@ -12488,11 +12488,16 @@ li.empty-state-card {
     min-width: 0;
     padding-left: 2.5rem !important;
     padding-right: 0.5rem !important;
+    font-size: 0.875rem;
     width: 100%;
   }
 
   .cuenta-panel .cuenta-sincronizacion__form input {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .alumnos-panel .campo--search .auth-input-box input {
+    font-size: 0.8rem;
   }
 
   .asistencias-field-col--tema .asistencias-input {
