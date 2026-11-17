@@ -35,6 +35,7 @@ import { recuperarQrIngestaPorGeometria } from './recuperarQrIngesta.js';
 import { segmentarCopiasFormulario, type CopiaFormulario } from './copiasFormularioOmr.js';
 import { rasterizarBloqueIngestaOmr } from './infra/rasterizadorIngestaPdfOmr.js';
 import { evaluarAutoCalificableOmr, OMR_TV4_REAL_PILOT_GATE_PASSED } from './politicaAutoCalificacionOmr.js';
+import { diagnosticoGatePilotoRealOmr, MENSAJE_PLANTILLA_OMR_NO_COMPATIBLE } from './diagnosticosOmr.js';
 const PAGE_BLOCK_SIZE = 4;
 const RASTER_DPI = 144;
 const UMBRAL_CONFIANZA_RECUPERACION_FOLIO_OCR = 30;
@@ -712,7 +713,7 @@ function serializarEstado(job: { id: string; estado: string; totalHojas: number;
     sharedSubmissions: meta.sharedSubmissions ?? [],
     autoGrading: meta.autoGrading,
     autoGradingAvailable: OMR_TV4_REAL_PILOT_GATE_PASSED,
-    autoGradingGateReason: OMR_TV4_REAL_PILOT_GATE_PASSED ? null : 'Piloto TV4 real pendiente de validación independiente.',
+    autoGradingGateReason: diagnosticoGatePilotoRealOmr(OMR_TV4_REAL_PILOT_GATE_PASSED),
     errors: meta.errors,
     files: meta.files.map(({ id, nombre, bytes, pages, sha256: digest }) => ({ id, nombre, bytes, pages, sha256: digest })),
     startedAt: meta.startedAt,
@@ -1001,7 +1002,7 @@ export async function crearIngestaPdfOmr(req: SolicitudDocente, res: Response) {
     const mapa = json<any>(exam.mapaOmr, null);
     if (Number(exam.omrRuntimeVersion ?? mapa?.templateVersion ?? 0) !== 4 || Number(mapa?.templateVersion ?? 0) !== 4) {
       await limpiarArchivosCargados(archivosCargados);
-      throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El lote contiene una plantilla que no es compatible con OMR v4', 422);
+      throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', MENSAJE_PLANTILLA_OMR_NO_COMPATIBLE, 422);
     }
   }
 

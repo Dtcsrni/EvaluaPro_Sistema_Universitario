@@ -2,6 +2,13 @@
 
 EvaluaPro usa versiones SemVer (`MAJOR.MINOR.PATCH`). La versión del repositorio, el tag de Git, la release pública y la versión instalada son estados diferentes; no se deben inferir unos de otros.
 
+## Cuándo incrementar la versión
+
+- Durante el trabajo sobre una candidata no se incrementa la versión por cada corrección, commit o ejecución de pruebas. Las correcciones que pertenecen al mismo ciclo de estabilización conservan el mismo número.
+- Se incrementa una sola vez cuando el conjunto de cambios supera el umbral de estabilidad definido para el siguiente hito (por ejemplo, candidato de release) y se prepara su publicación.
+- Una versión ya publicada identifica un payload inmutable. Si se necesita publicar otra corrección después de esa release, se prepara una versión nueva; no se reemplazan assets bajo el mismo tag.
+- La aplicación y el Installer Hub mantienen ciclos separados: solo se avanza la versión del componente cuyo payload cambia.
+
 ## Versiones independientes
 
 - EvaluaPro (aplicación): `config/app-version.json` y versiones de paquetes/lockfiles. Se etiqueta `app-vX.Y.Z`; esas tags activan la publicación de imágenes Docker.
