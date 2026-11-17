@@ -807,16 +807,6 @@ button:hover svg[data-icono="ok"].icono,
   pointer-events: auto;
 }
 
-/* El fallback puede quedar sobre contenido que se desplaza bajo una notificación.
-   El mensaje no debe bloquear la pantalla; solo sus acciones reciben puntero. */
-.toast-viewport[data-placement="flow"] .toast {
-  pointer-events: none;
-}
-
-.toast-viewport[data-placement="flow"] .toast-btn {
-  pointer-events: auto;
-}
-
 .toast-queue-status {
   display: inline-flex;
   align-items: center;
@@ -5976,4 +5966,13 @@ p {
   .runtime-ribbon__note {
     font-size: 0.55rem;
   }
+}
+
+/* Fallback no modal: la tarjeta no bloquea acciones del contenido subyacente. */
+.toast-viewport[data-placement="flow"] .toast {
+  pointer-events: none;
+}
+
+.toast-viewport[data-placement="flow"] .toast-btn {
+  pointer-events: auto;
 }
