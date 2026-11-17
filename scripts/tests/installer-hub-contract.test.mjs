@@ -2040,6 +2040,9 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /New-InstallerSecret/);
   assert.match(helper, /DATABASE_URL/);
   assert.match(helper, /BACKEND_DATABASE_URL/);
+  assert.match(helper, /EVALUAPRO_API_DOCENTE_IMAGE/);
+  assert.match(helper, /BACKEND_SQLITE_DATA_DIR_DOCKER/);
+  assert.match(helper, /BACKEND_DATABASE_URL_DOCKER/);
   assert.doesNotMatch(helper, /EVALUAPRO_IMAGE_TAG/);
   assert.match(helper, /Write-InstallerEnvMap/);
   assert.match(helper, /Import-Module \$operationalConfigModule(?: -DisableNameChecking)? -Force/);
@@ -2377,6 +2380,8 @@ test('Compose legacy conserva image-first y fallback build separado fuera del Hu
   assert.match(compose, /web_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
   assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-api-docente/);
   assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-web-docente/);
+  assert.match(compose, /BACKEND_DATABASE_URL=\$\{BACKEND_DATABASE_URL_DOCKER:-file:\/app\/data\/sqlite\/evaluapro\.db\}/);
+  assert.match(compose, /BACKEND_SQLITE_DATA_DIR_DOCKER:-\.\/apps\/backend\/data\/sqlite/);
   assert.match(compose, /EVALUAPRO_IMAGE_TAG:-1\.2\.4/);
   assert.doesNotMatch(compose, /api_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
   assert.doesNotMatch(compose, /web_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
@@ -2391,6 +2396,8 @@ test('Compose legacy conserva image-first y fallback build separado fuera del Hu
 
 test('package workflow publica imagenes docente GHCR versionadas', () => {
   const workflow = fs.readFileSync(packageWorkflowPath, 'utf8');
+  const backendDockerfile = fs.readFileSync(path.join(root, 'apps', 'backend', 'Dockerfile'), 'utf8');
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
   assert.match(workflow, /packages:\s*write/);
   assert.match(workflow, /docker\/login-action@[0-9a-f]{40} # v3/);
@@ -2400,6 +2407,13 @@ test('package workflow publica imagenes docente GHCR versionadas', () => {
   assert.match(workflow, /WEB_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.web_image \}\}/);
   assert.match(workflow, /docker push "\$API_IMAGE:\$IMAGE_VERSION"/);
   assert.match(workflow, /docker push "\$WEB_IMAGE:\$IMAGE_VERSION"/);
+  assert.match(backendDockerfile, /COPY --from=builder \/app\/node_modules\/\.prisma \/app\/node_modules\/\.prisma/);
+  assert.match(backendDockerfile, /COPY scripts\/migrate-\*\.mjs \.\/apps\/backend\/scripts\//);
+  assert.match(backendDockerfile, /COPY --from=builder \/app\/apps\/backend\/scripts \.\/apps\/backend\/scripts/);
+  assert.match(backendDockerfile, /COPY --from=builder \/app\/config\/app-version\.json \/app\/config\/version-catalog\.json \.\/config/);
+  assert.match(backendDockerfile, /ARG BUILD_COMMIT=local[\s\S]*?ENV GITHUB_SHA=\$\{BUILD_COMMIT\}/);
+  assert.match(backendDockerfile, new RegExp(`npm install -g npm@${packageJson.packageManager.replace('npm@', '')}`, 'g'));
+  assert.match(workflow, /Smoke de Prisma Client en imagen runtime[\s\S]*?PrismaClient no está disponible en la imagen runtime[\s\S]*?La versión de API no coincide con el tag de imagen[\s\S]*?El commit de API no coincide con el SHA del build/);
   assert.doesNotMatch(workflow, /docker push \$\{\{/);
 });
 
@@ -2694,6 +2708,7 @@ test('configuracion operativa escribe .env y update-config endurecido para docen
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-'));
   const installDir = path.join(tempRoot, 'EvaluaPro');
   fs.mkdirSync(path.join(installDir, 'config'), { recursive: true });
+  fs.writeFileSync(path.join(installDir, 'package.json'), JSON.stringify({ version: '1.2.23' }), 'utf8');
 
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
@@ -2733,12 +2748,12 @@ $r | ConvertTo-Json -Depth 8
     }
     const parsed = parseJsonOutput(result.stdout);
     if (parsed && Object.prototype.hasOwnProperty.call(parsed, 'ok')) {
-      assert.equal(parsed.ok, true);
+      assert.equal(parsed.ok, true, JSON.stringify(parsed));
     }
     const envPath = typeof parsed?.envPath === 'string' && parsed.envPath
       ? parsed.envPath
       : path.join(installDir, '.env');
-    assert.equal(fs.existsSync(envPath), true);
+    assert.equal(fs.existsSync(envPath), true, JSON.stringify({ stdout: result.stdout, stderr: result.stderr }));
 
     const envRaw = fs.readFileSync(envPath, 'utf8');
     assert.match(envRaw, /DATABASE_URL=/);
@@ -2749,6 +2764,11 @@ $r | ConvertTo-Json -Depth 8
     assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
     assert.match(envRaw, /BACKEND_DATA_DIR_DEV=\.\/apps\/backend\/data\/examenes_dev/);
     assert.match(envRaw, /BACKEND_DATA_DIR_PROD=\.\/apps\/backend\/data\/examenes_prod/);
+    assert.match(envRaw, /BACKEND_SQLITE_DATA_DIR_DOCKER=C:\/ProgramData\/EvaluaPro\/data/);
+    assert.match(envRaw, /DATABASE_URL_DOCKER=file:\/app\/data\/sqlite\/evaluapro\.db/);
+    assert.match(envRaw, /BACKEND_DATABASE_URL_DOCKER=file:\/app\/data\/sqlite\/evaluapro\.db/);
+    assert.match(envRaw, /EVALUAPRO_API_DOCENTE_IMAGE=ghcr\.io\/dtcsrni\/evaluapro-api-docente:1\.2\.23/);
+    assert.match(envRaw, /EVALUAPRO_WEB_DOCENTE_IMAGE=ghcr\.io\/dtcsrni\/evaluapro-web-docente:1\.2\.23/);
     assert.match(envRaw, /PORTAL_SYNC_REQUIRED=1/);
     assert.match(envRaw, /PORTAL_ALUMNO_API_KEY=synthetic-test-portalAlumnoApiKey/);
     assert.match(envRaw, /PORTAL_API_KEY=synthetic-test-portalApiKey/);

@@ -109,6 +109,8 @@ services:
       - .env
     environment:
       - MONGODB_URI=${MONGODB_URI_PROD:-mongodb://mongo_local:27017/evaluapro_prod}
+      - DATABASE_URL=${DATABASE_URL_DOCKER:-file:/app/data/sqlite/evaluapro.db}
+      - BACKEND_DATABASE_URL=${BACKEND_DATABASE_URL_DOCKER:-file:/app/data/sqlite/evaluapro.db}
       - PUERTO_API=${PUERTO_API:-4000}
       - PORTAL_ALUMNO_URL=${PORTAL_ALUMNO_URL_DOCKER:-http://host.docker.internal:8080}
       - PORTAL_ALUMNO_API_KEY=${PORTAL_ALUMNO_API_KEY:-local-piloto-api-key}
@@ -120,6 +122,9 @@ services:
     volumes:
       - ./logos:/app/logos:ro
       - ${BACKEND_DATA_DIR_PROD:-./apps/backend/data/examenes_prod}:/app/data/examenes
+      - type: bind
+        source: ${BACKEND_SQLITE_DATA_DIR_DOCKER:-./apps/backend/data/sqlite}
+        target: /app/data/sqlite
     depends_on:
       mongo_local:
         condition: service_healthy

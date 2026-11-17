@@ -427,6 +427,35 @@ function Invoke-EvaluaProOperationalConfiguration {
   Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_FLAVOR' -Value $normalized.flavorId
   Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATA_DIR_DEV' -Value './apps/backend/data/examenes_dev'
   Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATA_DIR_PROD' -Value './apps/backend/data/examenes_prod'
+  if ($normalized.flavorId -eq 'docente-local') {
+    $appVersion = Get-InstalledPackageVersion -InstallDir $InstallDir
+    Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_API_DOCENTE_IMAGE' -Value "ghcr.io/dtcsrni/evaluapro-api-docente:$appVersion"
+    Set-OrReplaceEnvLine -Map $envMap -Key 'EVALUAPRO_WEB_DOCENTE_IMAGE' -Value "ghcr.io/dtcsrni/evaluapro-web-docente:$appVersion"
+    $databaseFilePath = ([string]$normalized.databaseUrl -replace '^file:', '').Split('?')[0] -replace '/', '\'
+    if ($databaseFilePath.StartsWith('\') -and $databaseFilePath -match '^\\([A-Za-z]:\\)') {
+      $databaseFilePath = $databaseFilePath.Substring(1)
+    }
+    $isWindowsRootedPath = $databaseFilePath -match '^[A-Za-z]:\\|^\\\\'
+    if ($isWindowsRootedPath) {
+      $lastSeparator = $databaseFilePath.LastIndexOf('\')
+      $sqliteDirectory = $databaseFilePath.Substring(0, $lastSeparator)
+      $sqliteFileName = $databaseFilePath.Substring($lastSeparator + 1)
+    } else {
+      if (-not [IO.Path]::IsPathRooted($databaseFilePath)) {
+        $databaseFilePath = Join-Path ([IO.Path]::GetFullPath($InstallDir)) $databaseFilePath
+      }
+      $resolvedDatabaseFilePath = [IO.Path]::GetFullPath($databaseFilePath)
+      $sqliteDirectory = Split-Path -Parent $resolvedDatabaseFilePath
+      $sqliteFileName = Split-Path -Leaf $resolvedDatabaseFilePath
+    }
+    if ([string]::IsNullOrWhiteSpace($sqliteDirectory) -or [string]::IsNullOrWhiteSpace($sqliteFileName)) {
+      throw 'No se pudo resolver el directorio local de SQLite para el contenedor docente.'
+    }
+    $dockerDatabaseUrl = 'file:/app/data/sqlite/' + [Uri]::EscapeDataString($sqliteFileName)
+    Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_SQLITE_DATA_DIR_DOCKER' -Value ($sqliteDirectory -replace '\\', '/')
+    Set-OrReplaceEnvLine -Map $envMap -Key 'DATABASE_URL_DOCKER' -Value $dockerDatabaseUrl
+    Set-OrReplaceEnvLine -Map $envMap -Key 'BACKEND_DATABASE_URL_DOCKER' -Value $dockerDatabaseUrl
+  }
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_SYNC_REQUIRED' -Value ($(if ($normalized.deferPortalIntegration) { '0' } else { '1' }))
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_ALUMNO_URL' -Value $normalized.portalAlumnoUrl
   Set-OrReplaceEnvLine -Map $envMap -Key 'PORTAL_ALUMNO_API_KEY' -Value $normalized.portalAlumnoApiKey
