@@ -543,6 +543,27 @@ function Write-InstallerRuntimeEnv {
   Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_FLAVOR' -Value (Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATA_DIR_DEV' -Value './apps/backend/data/examenes_dev'
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATA_DIR_PROD' -Value './apps/backend/data/examenes_prod'
+  if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {
+    $appVersion = Get-InstalledPackageVersion -TargetDir $TargetDir
+    Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_API_DOCENTE_IMAGE' -Value "ghcr.io/dtcsrni/evaluapro-api-docente:$appVersion"
+    Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_WEB_DOCENTE_IMAGE' -Value "ghcr.io/dtcsrni/evaluapro-web-docente:$appVersion"
+    $databaseFilePath = ($requestedDatabaseUrl -replace '^file:', '').Split('?')[0] -replace '/', '\'
+    if ($databaseFilePath.StartsWith('\') -and $databaseFilePath -match '^\\([A-Za-z]:\\)') {
+      $databaseFilePath = $databaseFilePath.Substring(1)
+    }
+    if (-not [IO.Path]::IsPathRooted($databaseFilePath)) {
+      $databaseFilePath = Join-Path $targetFullPath $databaseFilePath
+    }
+    $sqliteDirectory = Split-Path -Parent ([IO.Path]::GetFullPath($databaseFilePath))
+    $sqliteFileName = Split-Path -Leaf $databaseFilePath
+    if ([string]::IsNullOrWhiteSpace($sqliteDirectory) -or [string]::IsNullOrWhiteSpace($sqliteFileName)) {
+      throw 'No se pudo resolver el directorio SQLite para el contenedor docente.'
+    }
+    $dockerDatabaseUrl = 'file:/app/data/sqlite/' + [Uri]::EscapeDataString($sqliteFileName)
+    Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_SQLITE_DATA_DIR_DOCKER' -Value ($sqliteDirectory -replace '\\', '/')
+    Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL_DOCKER' -Value $dockerDatabaseUrl
+    Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL_DOCKER' -Value $dockerDatabaseUrl
+  }
   Write-InstallerEnvMap -Path $envPath -Map $envMap
   $writtenEnv = Read-InstallerEnvMap -Path $envPath
   if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local') {

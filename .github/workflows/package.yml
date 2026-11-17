@@ -64,6 +64,7 @@ jobs:
             exit 1
           fi
           docker build -f apps/backend/Dockerfile \
+            --build-arg BUILD_COMMIT="$IMAGE_SHA" \
             -t "$API_IMAGE:$IMAGE_VERSION" \
             -t "$API_IMAGE:$IMAGE_SHA" \
             -t "$API_IMAGE:$IMAGE_SHA_SHORT" .
@@ -73,6 +74,20 @@ jobs:
             -t "$WEB_IMAGE:$IMAGE_VERSION" \
             -t "$WEB_IMAGE:$IMAGE_SHA" \
             -t "$WEB_IMAGE:$IMAGE_SHA_SHORT" .
+
+      - name: Smoke de Prisma Client en imagen runtime
+        env:
+          API_IMAGE: ${{ steps.meta.outputs.api_image }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+          IMAGE_SHA: ${{ github.sha }}
+        run: >-
+          docker run --rm --entrypoint node --env IMAGE_VERSION="$IMAGE_VERSION" --env IMAGE_SHA="$IMAGE_SHA" "$API_IMAGE:$IMAGE_VERSION"
+          --input-type=module -e "import { PrismaClient } from '@prisma/client';
+          import fs from 'node:fs';
+          const meta = JSON.parse(fs.readFileSync('/app/config/app-version.json', 'utf8'));
+          if (typeof PrismaClient !== 'function') throw new Error('PrismaClient no está disponible en la imagen runtime');
+          if (meta.version !== process.env.IMAGE_VERSION) throw new Error('La versión de API no coincide con el tag de imagen');
+          if (process.env.GITHUB_SHA !== process.env.IMAGE_SHA) throw new Error('El commit de API no coincide con el SHA del build')"
 
       - name: Publicar imágenes GHCR
         env:
