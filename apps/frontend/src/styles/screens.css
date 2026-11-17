@@ -12500,6 +12500,17 @@ li.empty-state-card {
     font-size: 0.75rem;
   }
 
+  .alumnos-form--panoramico .campo--matricula .auth-input-box__icon {
+    display: none;
+  }
+
+  .alumnos-form--panoramico .campo--matricula .auth-input-box input {
+    min-width: 0;
+    padding-inline: 0.55rem !important;
+    font-size: 0.8rem;
+    width: 100%;
+  }
+
   .asistencias-field-col--tema .asistencias-input {
     font-size: 0.75rem;
     padding-left: 2.6rem !important;
