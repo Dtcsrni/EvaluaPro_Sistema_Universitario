@@ -190,7 +190,7 @@ describe('ToastProvider', () => {
     expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveAttribute('data-placement', 'top-center');
   });
 
-  it('usa el flujo cuando las nueve posiciones flotantes se solapan con texto', () => {
+  it('usa el flujo junto al ancla cuando las nueve posiciones flotantes se solapan con texto', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
     const { container } = render(
@@ -226,12 +226,12 @@ describe('ToastProvider', () => {
     expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveAttribute('data-placement', 'flow');
     const host = document.querySelector<HTMLElement>('.toast-host');
     expect(host?.dataset.placement).toBe('flow');
-    expect(host?.parentElement).toBe(textos[4]?.parentElement);
-    expect(host?.previousElementSibling).toBe(textos[4]);
-    expect(host?.nextElementSibling).toBe(textos[5]);
+    expect(host?.parentElement).toBe(document.body);
+    expect(document.body.firstElementChild).toBe(host);
+    expect(host?.nextElementSibling).toBe(container);
   });
 
-  it('inserta el fallback al inicio del contenido docente, debajo de la cabecera', () => {
+  it('mantiene el fallback fuera del árbol React durante la navegación docente', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
     const { container } = render(
@@ -268,10 +268,48 @@ describe('ToastProvider', () => {
 
     const host = document.querySelector<HTMLElement>('.toast-host');
     expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveAttribute('data-placement', 'flow');
-    expect(host?.parentElement).toBe(contenido);
-    expect(contenido.firstElementChild).toBe(host);
-    expect(host?.nextElementSibling).toHaveTextContent('Texto visible 1.');
+    expect(host?.parentElement).toBe(document.body);
+    expect(document.body.firstElementChild).toBe(host);
+    expect(host?.nextElementSibling).toBe(container);
     expect(container.querySelector('.shell-docente__header')).toHaveTextContent('Cuenta');
+  });
+
+  it('mantiene el fallback fuera del árbol React dentro de un formulario largo', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    const { container } = render(
+      <ToastProvider>
+        <main>
+          <form>{Array.from({ length: 9 }, (_, index) => <span key={index}>Texto visible {index + 1}.</span>)}</form>
+          <section>Contenido posterior</section>
+        </main>
+      </ToastProvider>
+    );
+    const textos = Array.from(container.querySelectorAll('span'));
+    const rectangulos = [
+      new DOMRect(590, 504, 420, 250), new DOMRect(14, 504, 420, 250),
+      new DOMRect(590, 14, 420, 250), new DOMRect(14, 14, 420, 250),
+      new DOMRect(302, 14, 420, 250), new DOMRect(302, 504, 420, 250),
+      new DOMRect(14, 259, 420, 250), new DOMRect(590, 259, 420, 250),
+      new DOMRect(302, 259, 420, 250)
+    ];
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => textos[4]!
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      const index = textos.indexOf(this as HTMLSpanElement);
+      if (index >= 0) return rectangulos[index]!;
+      if (this.classList?.contains('toast-viewport')) return rectangulos[0]!;
+      return new DOMRect();
+    });
+
+    act(() => emitToast({ level: 'info', title: 'Aviso', message: 'La operación terminó.' }));
+
+    const host = document.querySelector<HTMLElement>('.toast-host');
+    expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveAttribute('data-placement', 'flow');
+    expect(host?.parentElement).toBe(document.body);
+    expect(host?.nextElementSibling).toBe(container);
   });
 
   it('devuelve a body el host de flujo vacío al cerrar la última notificación', () => {
@@ -290,8 +328,9 @@ describe('ToastProvider', () => {
         </main>
       </ToastProvider>
     );
-    const header = container.querySelector('.auth-card-header')!;
     const anchor = container.querySelector('.auth-card-header__anchor')!;
+    const header = container.querySelector('.auth-card-header')!;
+    const main = container.querySelector('main')!;
     const textos = Array.from(container.querySelectorAll('span'));
     const rectangulos = [
       new DOMRect(590, 504, 420, 250),
@@ -306,9 +345,9 @@ describe('ToastProvider', () => {
     ];
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
       const indiceTexto = textos.indexOf(this as HTMLSpanElement);
-      if (this === document.querySelector('main')) return new DOMRect(0, 0, 1024, 768);
-      if (this === header) return new DOMRect(0, 0, 1024, 768);
-      if (this === anchor) return new DOMRect(0, 0, 900, 700);
+      if (this === main) return new DOMRect(0, 0, 1024, 768);
+      if (this === header) return new DOMRect(0, 0, 960, 720);
+      if (this === anchor) return new DOMRect(32, 32, 900, 650);
       if (indiceTexto >= 0) return rectangulos[indiceTexto]!;
       if (this.classList?.contains('toast-viewport')) return new DOMRect(590, 504, 420, 250);
       return new DOMRect();
@@ -317,7 +356,8 @@ describe('ToastProvider', () => {
     act(() => emitToast({ level: 'info', title: 'Aviso de prueba', message: 'La operación terminó.' }));
     const host = document.querySelector<HTMLElement>('.toast-host');
     expect(screen.getByRole('region', { name: 'Notificaciones' })).toHaveAttribute('data-placement', 'flow');
-    expect(host?.parentElement).toBe(header);
+    expect(host?.parentElement).toBe(document.body);
+    expect(host?.nextElementSibling).toBe(container);
 
     fireEvent.click(within(screen.getByRole('group', { name: 'Aviso de prueba' }))
       .getByRole('button', { name: 'Cerrar notificación: Aviso de prueba' }));
@@ -326,7 +366,7 @@ describe('ToastProvider', () => {
     expect(host?.parentElement).toBe(document.body);
     expect(host?.dataset.placement).toBeUndefined();
     expect(host?.getAttribute('style')).toBeNull();
-    expect(header.querySelector('.toast-host')).toBeNull();
+    expect(container.querySelector('.toast-host')).toBeNull();
   });
 
   it('pone las notificaciones en el flujo cuando cualquier esquina ocultaría el control enfocado', () => {

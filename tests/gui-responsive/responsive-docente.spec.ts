@@ -4285,7 +4285,7 @@ test.describe('GUI responsive e2e · docente', () => {
         expect(geometria.dentroViewport, `el aviso debe quedar visible cuando está fijado o la página está al inicio: ${JSON.stringify(geometria)}`).toBe(true);
       }
       expect(geometria.focoCubierto, 'el aviso móvil no debe ocultar por completo el foco').toBeLessThan(0.99);
-      expect(geometria.controlesCubiertos, 'el aviso móvil no debe ocultar controles visibles').toEqual([]);
+      expect(geometria.controlesCubiertos, `el aviso móvil no debe ocultar controles visibles: ${JSON.stringify(geometria)}`).toEqual([]);
     };
 
     for (const width of [320, 390]) {
@@ -4428,8 +4428,9 @@ test.describe('GUI responsive e2e · docente', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByRole('group', { name: 'Sesión próxima a vencer' })).toHaveCount(0);
     const toastGuardado = page.getByRole('group', { name: 'Cambios guardados' });
+    const toastGuardadoKey = await toastGuardado.getAttribute('data-toast-key');
     await toastGuardado.getByRole('button', { name: 'Cerrar notificación: Cambios guardados' }).click();
-    await expect(toastGuardado).toHaveCount(0);
+    if (toastGuardadoKey) await expect(page.locator(`.toast[data-toast-key="${toastGuardadoKey}"]`)).toHaveCount(0);
     // La cola FIFO puede contener avisos emitidos por el shell durante el journey.
     // Vaciarla deja aislada la comprobación del error de acción móvil.
     const cerrarNotificacionesRestantes = async () => {
@@ -4470,6 +4471,7 @@ test.describe('GUI responsive e2e · docente', () => {
     }
 
     await errorAccionToast.getByRole('button', { name: /Cerrar notificación/ }).click();
+    await cerrarNotificacionesRestantes();
 
     await page.locator('#navegacion-docente-movil').selectOption('calificaciones');
     await expect(page.getByRole('heading', { name: 'Calificaciones' })).toBeVisible();
@@ -4506,12 +4508,12 @@ test.describe('GUI responsive e2e · docente', () => {
       return {
         top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height,
         altoViewport: window.innerHeight,
-        hostDentroDeCalificaciones: Boolean(host.closest('.calificaciones-experience')),
+        portalEstableFueraDeReact: Boolean(host.isConnected && host.parentElement === document.body && host.nextElementSibling?.id === 'root'),
         controlesCubiertos: controlesCubiertos.map((control) => control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName)
       };
     });
-    expect(geometriaFlujoCalificaciones, 'el fallback debe tener un host dentro del contenido docente visible').not.toBeNull();
-    expect(geometriaFlujoCalificaciones!.hostDentroDeCalificaciones).toBe(true);
+    expect(geometriaFlujoCalificaciones, 'el fallback debe quedar junto al contenido docente visible').not.toBeNull();
+    expect(geometriaFlujoCalificaciones!.portalEstableFueraDeReact).toBe(true);
     expect(geometriaFlujoCalificaciones!.top, 'el toast en flujo debe aparecer en el viewport actual').toBeGreaterThanOrEqual(0);
     expect(geometriaFlujoCalificaciones!.bottom, 'el toast en flujo debe caber en el viewport actual').toBeLessThanOrEqual(geometriaFlujoCalificaciones!.altoViewport);
     expect(geometriaFlujoCalificaciones!.controlesCubiertos, 'el host en flujo no debe cubrir controles').toEqual([]);
@@ -7755,6 +7757,11 @@ test.describe('GUI responsive e2e · docente', () => {
           expect(guardadosRegla).toBe(guardadosPrevios + 1);
           await expect(page.locator('.asistencias-regla-card')).toContainText('Acción: Bloquear examen');
           await expect(page.locator('.toast-viewport .toast-text')).toContainText('Acción: bloquear examen');
+          const notificaciones = page.locator('.toast-viewport');
+          if (await notificaciones.getAttribute('data-placement') === 'flow') {
+            await expect(notificaciones.locator('.toast')).toHaveCSS('pointer-events', 'none');
+            await expect(notificaciones.locator('.toast-btn').first()).toHaveCSS('pointer-events', 'auto');
+          }
         }
         if (width === 320) {
           const retardoLabel = await page.locator('.asistencias-checkbox-label').evaluate((label) => {

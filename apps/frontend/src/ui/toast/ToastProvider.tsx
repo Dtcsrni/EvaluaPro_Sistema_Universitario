@@ -33,51 +33,6 @@ export type ToastApi = {
   push: (payload: ToastPayload) => void;
 };
 
-const ELEMENTOS_SIN_BLOQUES_HIJOS = new Set(['A', 'BUTTON', 'FIELDSET', 'FORM', 'LABEL', 'LI', 'OL', 'P', 'SELECT', 'SPAN', 'TABLE', 'TBODY', 'TD', 'TEXTAREA', 'TH', 'TR', 'UL']);
-
-function esVisibleEnViewport(elemento: HTMLElement) {
-  const rect = elemento.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight;
-}
-
-function obtenerPuntoAnclaje(regionPrincipal: HTMLElement | null) {
-  const region = regionPrincipal?.getBoundingClientRect();
-  const top = Math.max(0, region?.top ?? 0);
-  const bottom = Math.min(window.innerHeight - 1, region?.bottom ?? window.innerHeight - 1);
-  const visible = top <= bottom;
-  return {
-    x: Math.round(window.innerWidth / 2),
-    y: Math.max(visible ? top : 0, Math.min(visible ? bottom : window.innerHeight - 1, Math.round(window.innerHeight * 0.3)))
-  };
-}
-
-function encontrarElementoAncla(regionPrincipal: HTMLElement | null, x: number, y: number) {
-  const candidatos = Array.from(regionPrincipal?.querySelectorAll<HTMLElement>('section, article, div, form, fieldset') ?? [])
-    .filter((elemento) => {
-      if (elemento.closest('.toast-host')) return false;
-      const estilo = getComputedStyle(elemento);
-      const rect = elemento.getBoundingClientRect();
-      return estilo.display !== 'none' && estilo.visibility !== 'hidden' && Number(estilo.opacity) !== 0 &&
-        rect.width > 0 && rect.height > 0 && rect.left <= x && rect.right >= x && rect.top <= y && rect.bottom >= y;
-    })
-    .sort((a, b) => a.getBoundingClientRect().width * a.getBoundingClientRect().height - b.getBoundingClientRect().width * b.getBoundingClientRect().height);
-  const bajoPunto = candidatos[0] ?? document.elementFromPoint?.(x, y) ?? null;
-  if (bajoPunto instanceof HTMLElement && esVisibleEnViewport(bajoPunto)) return bajoPunto;
-  const activo = document.activeElement;
-  return activo instanceof HTMLElement && activo !== document.body && esVisibleEnViewport(activo) ? activo : null;
-}
-
-function buscarContenedorInsercion(elemento: HTMLElement | null) {
-  let actual = elemento?.closest<HTMLElement>('a[href], button, fieldset, form, label, ol, select, table, textarea, ul') ?? elemento;
-  while (actual && actual !== document.documentElement && actual !== document.body) {
-    const padre = actual.parentElement;
-    if (!padre || padre === document.body) return null;
-    if (!ELEMENTOS_SIN_BLOQUES_HIJOS.has(padre.tagName) && getComputedStyle(padre).display !== 'contents') return { padre, referencia: actual };
-    actual = padre;
-  }
-  return null;
-}
-
 function configurarHostFlujo(host: HTMLDivElement) {
   host.dataset.placement = 'flow';
   host.style.width = '100%';
@@ -86,25 +41,71 @@ function configurarHostFlujo(host: HTMLDivElement) {
   host.style.flex = '0 0 100%';
 }
 
+function colocarAntesDeLaAplicacion(host: HTMLDivElement) {
+  const root = document.querySelector<HTMLElement>('#root');
+  if (root?.parentElement) root.parentElement.insertBefore(host, root);
+  else document.body.insertBefore(host, document.body.firstChild);
+}
+
 function ubicarHostFlujo(host: HTMLDivElement) {
-  const regionPrincipal = document.querySelector<HTMLElement>('.shell-docente__content, main.page, main, [role="main"]');
-  if (regionPrincipal?.matches('.shell-docente__content')) {
-    regionPrincipal.insertBefore(host, regionPrincipal.firstChild);
-    configurarHostFlujo(host);
-    return;
-  }
-  const punto = obtenerPuntoAnclaje(regionPrincipal);
-  const ancla = encontrarElementoAncla(regionPrincipal, punto.x, punto.y);
-  const insercion = buscarContenedorInsercion(ancla);
-  // Insertar antes del ancla visible activa el scroll anchoring del navegador:
-  // el aviso puede terminar fuera del viewport aunque el ancla siga visible.
-  if (insercion) insercion.padre.insertBefore(host, insercion.referencia.nextSibling);
-  else {
-    const root = document.querySelector<HTMLElement>('#root');
-    if (root?.parentElement) root.parentElement.insertBefore(host, root);
-    else document.body.appendChild(host);
-  }
+  // Mantener el portal fuera del árbol React evita que una navegación
+  // desconecte el host. Se fija en el espacio menos intrusivo del viewport.
+  colocarAntesDeLaAplicacion(host);
   configurarHostFlujo(host);
+  // Sacarlo del flujo antes de medir evita que su propio alto desplace la app
+  // y haga que el cálculo elija una coordenada que luego tapa la cabecera.
+  Object.assign(host.style, { position: 'fixed', top: '0', left: '0', width: '100vw', zIndex: '9999' });
+  const viewport = host.querySelector<HTMLElement>('.toast-viewport');
+  if (!viewport) return;
+  const cajaToast = viewport.getBoundingClientRect();
+  const ancho = cajaToast.width || Math.min(420, window.innerWidth - 20);
+  const alto = cajaToast.height || Math.min(200, window.innerHeight * 0.4);
+  const posicionesIzquierda = [...new Set([
+    10,
+    Math.max(10, (window.innerWidth - ancho) / 2),
+    Math.max(10, window.innerWidth - ancho - 10)
+  ])];
+  const controles = Array.from(document.querySelectorAll<HTMLElement>(
+    'button, input, select, textarea, a[href], [role="button"], [role="link"], [tabindex]:not([tabindex="-1"])'
+  )).filter((elemento) => {
+    if (viewport.contains(elemento)) return false;
+    const estilo = getComputedStyle(elemento);
+    if (estilo.display === 'none' || estilo.visibility === 'hidden' || Number(estilo.opacity) === 0) return false;
+    const rect = elemento.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth &&
+      rect.bottom > 0 && rect.top < window.innerHeight;
+  }).map((elemento) => elemento.getBoundingClientRect());
+  const cabecera = document.querySelector<HTMLElement>('.shell-docente__header');
+  if (cabecera) {
+    const rect = cabecera.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) controles.push(rect);
+  }
+  const contenido = Array.from(document.querySelectorAll<HTMLElement>(
+    'h1, h2, h3, h4, h5, h6, p, label, legend, summary, li, dt, dd, figcaption, blockquote, span, small, strong, em, b, td, th, output, code, .ayuda, [class*="__hint"], [class*="-hint"], [role="status"], [role="alert"]'
+  )).filter((elemento) => {
+    if (viewport.contains(elemento) || elemento.closest('[aria-hidden="true"]') || elemento.closest('button, a[href], [role="button"], [role="link"]')) return false;
+    const estilo = getComputedStyle(elemento);
+    if (estilo.display === 'none' || estilo.visibility === 'hidden' || Number(estilo.opacity) === 0) return false;
+    const rect = elemento.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth &&
+      rect.bottom > 0 && rect.top < window.innerHeight && Boolean(elemento.textContent?.trim());
+  }).map((elemento) => elemento.getBoundingClientRect());
+  const posicionesVerticales = Array.from({ length: Math.max(1, Math.floor((window.innerHeight - alto - 20) / 8) + 1) }, (_, indice) =>
+    Math.max(10, Math.min(window.innerHeight - alto - 10, 10 + indice * 8)));
+  const mejor = posicionesIzquierda.flatMap((left) => posicionesVerticales.map((top) => ({
+    left,
+    top,
+    maxControl: maximaProporcionContenidoCubierto(controles, { left, top, width: ancho, height: alto }),
+    totalControl: areaTotalContenidoCubierto(controles, { left, top, width: ancho, height: alto }),
+    maxTexto: maximaProporcionContenidoCubierto(contenido, { left, top, width: ancho, height: alto }),
+    totalTexto: areaTotalContenidoCubierto(contenido, { left, top, width: ancho, height: alto })
+  }))).sort((a, b) => a.totalControl - b.totalControl || a.maxControl - b.maxControl ||
+    a.totalTexto - b.totalTexto || a.maxTexto - b.maxTexto || a.top - b.top || a.left - b.left)[0];
+  host.style.position = 'fixed';
+  host.style.top = `${Math.max(0, (mejor?.top ?? 10) - 14)}px`;
+  host.style.left = `${mejor?.left ?? 10}px`;
+  host.style.width = `${ancho}px`;
+  host.style.zIndex = '9999';
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -345,6 +346,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const recalcularUbicacionToast = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
+    if (document.activeElement instanceof Node && viewport.contains(document.activeElement)) return;
     const estiloOriginal = viewport.getAttribute('style');
     if (ubicacionToast === 'flow') {
       Object.assign(viewport.style, {
@@ -408,6 +410,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       if (frame) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         frame = 0;
+        if (ubicacionToast === 'flow' && toastHost?.dataset.placement === 'flow') {
+          ubicarHostFlujo(toastHost);
+        }
         recalcularUbicacionToast();
       });
     });
@@ -416,17 +421,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       observer.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [hayNotificaciones, recalcularUbicacionToast]);
+  }, [hayNotificaciones, recalcularUbicacionToast, toastHost, ubicacionToast]);
 
   useEffect(() => {
     let timer: number | null = null;
-    const alCambiarFoco = () => {
-      if (ubicacionToast === 'flow' && toastHost?.dataset.placement === 'flow') {
-        const rect = toastHost.getBoundingClientRect();
-        const visible = rect.right > 0 && rect.left < window.innerWidth && rect.bottom > 0 && rect.top < window.innerHeight;
-        if (!visible) ubicarHostFlujo(toastHost);
+    let frame = 0;
+    const alCambiarFoco = (event?: Event) => {
+      const focoEnToast = event?.type === 'focusin' && event.target instanceof Node && viewportRef.current?.contains(event.target);
+      if (focoEnToast) return;
+      const actualizar = () => {
+        if (ubicacionToast === 'flow' && toastHost?.dataset.placement === 'flow') {
+          ubicarHostFlujo(toastHost);
+        }
+        recalcularUbicacionToast();
+      };
+      if (event?.type !== 'scroll') {
+        actualizar();
+        return;
       }
-      recalcularUbicacionToast();
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        actualizar();
+      });
     };
     const alPerderFoco = () => {
       if (timer !== null) window.clearTimeout(timer);
@@ -444,6 +461,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('scroll', alCambiarFoco, true);
       document.removeEventListener('focusin', alCambiarFoco);
       document.removeEventListener('focusout', alPerderFoco);
+      if (frame) window.cancelAnimationFrame(frame);
       if (timer !== null) window.clearTimeout(timer);
     };
   }, [recalcularUbicacionToast, toastHost, ubicacionToast]);
@@ -840,3 +858,4 @@ export function useToasts() {
   if (!ctx) throw new Error('useToasts debe usarse dentro de <ToastProvider>');
   return ctx;
 }
+

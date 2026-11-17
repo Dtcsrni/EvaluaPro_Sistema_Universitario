@@ -5967,3 +5967,12 @@ p {
     font-size: 0.55rem;
   }
 }
+
+/* Fallback no modal: la tarjeta no bloquea acciones del contenido subyacente. */
+.toast-viewport[data-placement="flow"] .toast {
+  pointer-events: none;
+}
+
+.toast-viewport[data-placement="flow"] .toast-btn {
+  pointer-events: auto;
+}
