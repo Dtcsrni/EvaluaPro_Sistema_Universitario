@@ -1,2 +1,2 @@
 /** Generado por scripts/omr-evaluator-code-hash.mjs; no editar a mano. */
-export const EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 = 'ba0abb55485856b843113a0c30fab7d7466249702a732a99fb5b6496c9439d3c';
+export const EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 = 'ccb290caf1b00deb4b9457c159e23b74840fa5e1ade85aa4c99f31ceec6c40d1';
