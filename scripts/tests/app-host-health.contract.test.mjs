@@ -48,6 +48,16 @@ test('la regeneración nativa genera los dos accesos y refresca Explorer', () =>
   assert.match(accountSection, /Regenerar accesos e iconos/);
 });
 
+test('el host busca los ICO de 256 px en la raíz y en scripts/icons', () => {
+  const resolver = shortcutReconciler.slice(
+    shortcutReconciler.indexOf('private static string ResolveIcon'),
+    shortcutReconciler.indexOf('private static bool Has256PixelFrame')
+  );
+  assert.match(resolver, /Path\.Combine\(root, iconName\)/);
+  assert.match(resolver, /Path\.Combine\(root, "scripts", "icons", iconName\)/);
+  assert.match(resolver, /Has256PixelFrame\(iconPath\)/);
+});
+
 test('el acceso Hub acepta el tag hub-v y arranca desde SHA-256 oficial cuando no hay Hub instalado', () => {
   const trustRegistration = source.slice(source.indexOf('private static void RegisterTrustedInstallerHub'), source.indexOf('private static bool IsTrustedInstallerHub'));
   assert.match(source, /TryParseHubReleaseTag\(tag, out var releaseVersion\)/);

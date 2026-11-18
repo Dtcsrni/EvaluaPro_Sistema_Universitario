@@ -76,8 +76,16 @@ internal static class ShortcutReconciler
 
     private static string ResolveIcon(string root, string iconName, string executable)
     {
-        var iconPath = Path.Combine(root, iconName);
-        return File.Exists(iconPath) && Has256PixelFrame(iconPath) ? iconPath : executable;
+        var iconPaths = new[]
+        {
+            Path.Combine(root, iconName),
+            Path.Combine(root, "scripts", "icons", iconName)
+        };
+        foreach (var iconPath in iconPaths)
+        {
+            if (File.Exists(iconPath) && Has256PixelFrame(iconPath)) return iconPath;
+        }
+        return executable;
     }
 
     private static bool Has256PixelFrame(string iconPath)
