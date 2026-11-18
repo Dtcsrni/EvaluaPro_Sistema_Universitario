@@ -4,6 +4,12 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [1.2.25] - 2026-11-18
+
+### Fixed
+- La cobertura OMR exige una respuesta válida por cada reactivo esperado y rechaza duplicados o faltantes como cobertura completa.
+- Los accesos del instalador usan únicamente iconos ICO verificados de 256 × 256 px, y el toast conserva visible el control enfocado.
+
 ## [1.2.24] - 2026-11-17
 
 ### Fixed
