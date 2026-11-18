@@ -3438,7 +3438,9 @@ test('SPEC-102 REQ-004: el backup de desinstalación respeta la opción GUI y co
   assert.match(helper, /ZipFile\.CreateFromDirectory\(dataDir, backupPath/);
   assert.match(e2e, /ExportDataCheckBox debe estar visible y accesible/);
   assert.match(e2e, /no expone TogglePattern/);
-  assert.match(e2e, /payload-removed-data-preserved/);
+  assert.match(e2e, /payload-removed-user-data-preserved/);
+  assert.match(e2e, /validation\\uninstall-preserve-sentinel\.txt[\s\S]*backups\\uninstall-preserve-sentinel\.txt/,
+    'el uninstall E2E debe comprobar que validation y backups conservan sus datos');
   assert.match(e2e, /privateBackupDir/);
   assert.match(e2e, /contains_database/);
   assert.match(e2e, /backup-private-acl/);

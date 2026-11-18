@@ -2846,6 +2846,15 @@ try {
     Add-Result -Area 'upgrade-existing-install' -Item 'installation-retained' -Ok (Test-Path -LiteralPath (Join-Path $installedRoot 'EvaluaPro.exe') -PathType Leaf) -Detail $installedRoot
     if (-not ($singleCurrentRegistration -and $versionMatches)) { throw 'La actualización estable no dejó una sola entrada registrada en la versión esperada.' }
   } else {
+    $uninstallPreservationSentinels = @(
+      @{ RelativePath = 'validation\uninstall-preserve-sentinel.txt'; Content = 'validation-user-data-preserved-on-uninstall' },
+      @{ RelativePath = 'backups\uninstall-preserve-sentinel.txt'; Content = 'backup-user-data-preserved-on-uninstall' }
+    )
+    foreach ($sentinel in $uninstallPreservationSentinels) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      New-Item -ItemType Directory -Path (Split-Path -Parent $sentinelPath) -Force | Out-Null
+      [IO.File]::WriteAllText($sentinelPath, $sentinel.Content, [Text.Encoding]::UTF8)
+    }
     Invoke-InstallerHubMode -Mode 'uninstall' | Out-Null
     $remainingEntries = @(Get-EvaluaProUninstallEntries)
     Export-JsonArtifact -Name 'post-uninstall-entries.json' -Data $remainingEntries | Out-Null
@@ -2859,9 +2868,17 @@ try {
     if (Test-Path -LiteralPath $installedRoot -PathType Container) {
       $remainingInstallEntries = @(Get-ChildItem -LiteralPath $installedRoot -Force -ErrorAction Stop | Select-Object -ExpandProperty Name)
     }
-    $payloadRemoved = $remainingInstallEntries.Count -eq 1 -and $remainingInstallEntries[0] -eq 'data'
+    $preservedRootEntries = @('data', 'validation', 'backups')
+    $unexpectedRemainingEntries = @($remainingInstallEntries | Where-Object { $preservedRootEntries -notcontains $_ })
+    $payloadRemoved = $unexpectedRemainingEntries.Count -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $installedRoot 'EvaluaPro.exe') -PathType Leaf)
     $localDataPreserved = Test-Path -LiteralPath (Join-Path $installedRoot 'data\evaluapro.db') -PathType Leaf
-    Add-Result -Area 'post-uninstall' -Item 'payload-removed-data-preserved' -Ok ($payloadRemoved -and $localDataPreserved) -Detail ("root={0} remaining={1} databasePreserved={2}" -f $installedRoot,($remainingInstallEntries -join ','),$localDataPreserved)
+    $sentinelsPreserved = $true
+    foreach ($sentinel in $uninstallPreservationSentinels) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      $sentinelContent = if (Test-Path -LiteralPath $sentinelPath -PathType Leaf) { [IO.File]::ReadAllText($sentinelPath) } else { '' }
+      if ($sentinelContent -ne $sentinel.Content) { $sentinelsPreserved = $false }
+    }
+    Add-Result -Area 'post-uninstall' -Item 'payload-removed-user-data-preserved' -Ok ($payloadRemoved -and $localDataPreserved -and $sentinelsPreserved) -Detail ("root={0} remaining={1} unexpected={2} databasePreserved={3} sentinelsPreserved={4}" -f $installedRoot,($remainingInstallEntries -join ','),($unexpectedRemainingEntries -join ','),$localDataPreserved,$sentinelsPreserved)
     Assert-SharedProgramDataSqliteUnchanged
 
     $backupArchives = @(
