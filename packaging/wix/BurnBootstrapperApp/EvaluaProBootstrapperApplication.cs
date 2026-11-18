@@ -967,10 +967,14 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
 
         var prerequisitesHealthy = payload.Prerequisites is not null
             && payload.Prerequisites.All(prerequisite => prerequisite.Installed);
+        var remediationHealthy = payload.Remediation is null
+            || (!payload.Remediation.RequiresRestart
+                && (!payload.Remediation.Attempted || payload.Remediation.Ok));
         var diagnosticsHealthy = payload.Ready
             && payload.System?.Issues is { Count: 0 }
             && string.Equals(payload.Lifecycle?.State, "repairable", StringComparison.OrdinalIgnoreCase)
-            && prerequisitesHealthy;
+            && prerequisitesHealthy
+            && remediationHealthy;
         var hasOlderRelatedBundle = olderRelatedBundleVersion is not null;
         var defaultMode = hasOlderRelatedBundle && diagnosticsHealthy ? "install" : "repair";
 
