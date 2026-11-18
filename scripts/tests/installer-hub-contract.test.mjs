@@ -882,7 +882,7 @@ test('build-msi bloquea helper Burn obsoleto en el staging del bundle', () => {
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
   assert.match(buildMsi, /staging contiene acceso obsoleto/);
   assert.match(buildMsi, /stagedBurnSource -match '\\\$requestJson\\\.TargetDir'/);
-  assert.ok(buildMsi.includes("Get-RequestValue\\s+-Request\\s+\\$Request"));
+  assert.ok(buildMsi.includes("Get-RequestValue\s+-Request\s+\\$Request"));
   assert.match(buildMsi, /Add-DocenteNativeCompiledPayload/);
   assert.match(buildMsi, /apps\/frontend\/dist-docente/);
   assert.match(buildMsi, /apps\/backend\/dist/);
@@ -954,6 +954,12 @@ test('Installer Hub usa superficies legibles, controles accesibles y estados anu
   assert.ok(contrastRatio(text, comboHighlighted) >= 4.5, 'Opción enfocada: texto con contraste AA mínimo');
   assert.ok(contrastRatio(text, primaryButton) >= 4.5, 'Opción seleccionada: texto con contraste AA mínimo');
   assert.ok(contrastRatio(focus, comboBackground) >= 3, 'Selector: indicador de foco con contraste no textual mínimo');
+  const disabledComboBackground = '#FF0C1728';
+  const disabledComboText = '#FFF8FAFC';
+  const disabledComboBorder = '#FF70849A';
+  assert.ok(contrastRatio(disabledComboText, disabledComboBackground) >= 4.5, 'Selector deshabilitado: texto con contraste AA mínimo');
+  assert.ok(contrastRatio(disabledComboBorder, disabledComboBackground) >= 3, 'Selector deshabilitado: borde no textual mínimo');
+  assert.match(xaml, /<Style TargetType="ComboBox">[\s\S]*?<Trigger Property="IsEnabled" Value="False">[\s\S]*?Background" Value="#FF0C1728"[\s\S]*?Foreground" Value="#FFF8FAFC"[\s\S]*?Opacity" Value="1"/);
   assert.match(xaml, /x:Key="SecondaryButtonStyle"[\s\S]*?MinHeight" Value="40"/);
   assert.match(xaml, /<Style TargetType="CheckBox">[\s\S]*?MinHeight" Value="40"/);
   assert.match(xaml, /<Style TargetType="TextBox">[\s\S]*?IsKeyboardFocused[\s\S]*?FocusBrush/);
@@ -1171,7 +1177,11 @@ test('bootstrapper Burn WPF implementa resiliencia ante errores, msiInstalled y 
   assert.match(mainWindowCode, /AssemblyInformationalVersionAttribute/);
   assert.match(bootstrapperCode, /OnDetectPackageComplete/);
   assert.match(bootstrapperCode, /PackageState\.Present/);
-  assert.match(bootstrapperCode, /(?:isGenuinelyInstalled|msiInstalled) \? "repair" : payload\.RecommendedMode/);
+  assert.match(bootstrapperCode, /olderRelatedBundleVersion/);
+  assert.match(bootstrapperCode, /private string ResolveOperationMode\(DetectionPayload payload, bool isGenuinelyInstalled\)/);
+  assert.match(bootstrapperCode, /payload\.Ready[\s\S]*payload\.System\?\.Issues is \{ Count: 0 \}[\s\S]*Lifecycle\?\.State, "repairable"[\s\S]*payload\.Prerequisites\.All\(prerequisite => prerequisite\.Installed\)/);
+  assert.match(bootstrapperCode, /hasOlderRelatedBundle && diagnosticsHealthy \? "install" : "repair"/);
+  assert.match(bootstrapperCode, /ResolveOperationMode\(payload, isGenuinelyInstalledHeadless\)/);
   assert.match(bootstrapperCode, /DispatcherUnhandledException/);
   assert.match(bootstrapperCode, /UnhandledException/);
   assert.match(bootstrapperCode, /MessageBox\.Show/);
@@ -1315,7 +1325,7 @@ test('Installer Hub cumple contrato DESIGN.md de layout y accesibilidad WPF', ()
     'RestartNowButton',
     'CloseButton'
   ]) {
-    const controlPattern = new RegExp(`x:Name="${controlName}"[\\s\\S]*?AutomationProperties\\.Name=`);
+    const controlPattern = new RegExp(`x:Name="${controlName}"[\s\S]*?AutomationProperties\\.Name=`);
     assert.match(mainWindowXaml, controlPattern, `${controlName} debe tener AutomationProperties.Name`);
   }
 
@@ -2126,7 +2136,7 @@ test('smoke del bundle Burn publico queda declarado en workflows post-build', ()
   assert.match(stableWorkflow, /SMOKE_BURN_FAILURE:/);
   assert.match(stableWorkflow, /SMOKE_BURN_SESSION_LOG:/);
   assert.match(stableWorkflow, /SMOKE_BURN_DIAGNOSTIC_CAPTURE_FAILURE:/);
-  assert.match(stableWorkflow, /resume\\s\*token.*REDACTED/);
+  assert.match(stableWorkflow, /resume\s\*token.*REDACTED/);
   assert.match(stableWorkflow, /EvaluaPro-InstallerHub-fatal\.log/);
 });
 
@@ -3001,8 +3011,8 @@ test('runner E2E exige resultado terminal visible incluso cuando el helper repor
   assert.match(runner, /La operaci\[oó\]n termin\[oó\] y el resultado queda disponible para revisi\[oó\]n/);
   assert.doesNotMatch(runner, /\$uiReportsCompleted[\s\S]{0,260}El flujo finaliz\[oó\] correctamente/);
   assert.match(runner, /Operaci\[oó\]n finalizada correctamente/);
-  assert.match(runner, /Paso\\s\+5\\s\+de\\s\+5\\s\*\[·\\-\]\\s\*Resultado/);
-  assert.doesNotMatch(runner, /5 Resultado\\s\*\[·\\-\]\\s\*activo/);
+  assert.match(runner, /Paso\s\+5\s\+de\s\+5\s\*\[·\\-\]\s\*Resultado/);
+  assert.doesNotMatch(runner, /5 Resultado\s\*\[·\\-\]\s\*activo/);
   const start = runner.indexOf('function Wait-InstallerStableState');
   const end = runner.indexOf('function Get-LatestInstallerHelperState', start);
   const stableWait = runner.slice(start, end);
@@ -3046,7 +3056,7 @@ test('runner E2E no confunde una etapa previa con "ok" con la finalización', ()
   assert.doesNotMatch(stableWait, /instalaci[oó]n\.\*ok/i);
   assert.match(stableWait, /\$uiReportsCompleted/);
   assert.match(stableWait, /Estado completado/);
-  assert.match(stableWait, /Paso\\s\+5\\s\+de\\s\+5\\s\*\[·\\-\]\\s\*Resultado/);
+  assert.match(stableWait, /Paso\s\+5\s\+de\s\+5\s\*\[·\\-\]\s\*Resultado/);
   assert.match(stableWait, /Installer Hub desapareció antes de mostrar el resultado terminal/);
 });
 
