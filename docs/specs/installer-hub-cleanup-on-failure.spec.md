@@ -32,6 +32,7 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 - REQ-016: La reconciliación opcional de accesos directos tiene un límite de 90 segundos, captura salida acotada y nunca bloquea el payload funcional, SQLite ni el manifiesto del actualizador; si se excede, queda registrada como degradación.
 - REQ-017: La prueba de upgrade conserva y valida el bundle oficial v1.2.3 por SHA-256, extrae el payload MSI con WiX y lo identifica por la firma OLE Compound File aunque Burn le asigne un nombre opaco, comprueba que la instalación registrada sea 1.2.3 y usa esa instalación junto con una SQLite QA aislada como baseline antes de instalar el bundle candidato.
 - REQ-018: Antes de configurar o reemplazar el payload durante `post-install`, el helper obtiene el modo de ciclo de vida (`install` o `repair`) del JSON de solicitud, no del argumento CLI (`post-install`); para esos modos detiene y verifica la terminación de los procesos `node.exe` cuya línea de comandos o runtime pertenezcan a la raíz de esa instalación. Si queda alguno activo, falla con los PID pendientes antes de expandir el ZIP y sin detener procesos de otras aplicaciones.
+- REQ-019: La limpieza de un bundle relacionado anterior conserva siempre las carpetas locales `data`, `validation` y `backups` en la raíz de instalación, incluso cuando no se solicita exportar la base. El E2E de actualización coloca centinelas en `validation` y `backups`, instala un bundle posterior y comprueba que contenido y archivos siguen intactos.
 
 ## Criterios de Aceptación
 - Fallos en post-install no dejan archivos huerfanos.
@@ -77,3 +78,4 @@ Si el proceso de instalacion de EvaluaPro se interrumpe, cancela o falla en cual
 | REQ-016 | Timeout y degradación de reconciliación opcional de accesos | `scripts/tests/installer-hub-contract.test.mjs` | Contrato aprobado; E2E Windows pendiente |
 | REQ-017 | Upgrade desde MSI extraído del bundle oficial v1.2.3 | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Contrato aprobado; E2E Windows pendiente |
 | REQ-018 | Modo de ciclo de vida leído del request CLI y cierre verificado de procesos propios antes de aplicar payload | `scripts/tests/installer-hub-contract.test.mjs`, `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Fix local; E2E Windows pendiente |
+| REQ-019 | Conservación de datos de usuario en `validation` y `backups` durante la limpieza de bundle relacionado | `scripts/tests/installer-hub-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementación local; E2E Windows pendiente |

@@ -1446,11 +1446,30 @@ function Invoke-PreviousVersionRelatedBundleUpgrade {
       throw "El fixture previo debe quedar como único bundle relacionado registrado. count=$($relatedEntries.Count) fixtureCount=$($fixtureEntries.Count)"
     }
     $fixtureProviderKey = [string]$fixtureEntries[0].providerKey
+    $preservedUserData = @(
+      @{ RelativePath = 'validation\upgrade-preserve-sentinel.txt'; Content = 'validation-user-data-preserved' },
+      @{ RelativePath = 'backups\upgrade-preserve-sentinel.txt'; Content = 'backup-user-data-preserved' }
+    )
+    foreach ($sentinel in $preservedUserData) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      New-Item -ItemType Directory -Path (Split-Path -Parent $sentinelPath) -Force | Out-Null
+      [IO.File]::WriteAllText($sentinelPath, $sentinel.Content, [Text.Encoding]::UTF8)
+    }
     $operationStartedAt = Get-Date
     Invoke-InstallerHubMode -Mode 'install' -BundlePath $script:bundlePath | Out-Null
     $remainingRelated = @(Get-BurnBundleRegistryEntriesByUpgradeCode -UpgradeCode $bundleUpgradeCode)
     $oldBundleRemoved = @($remainingRelated | Where-Object { [string]$_.providerKey -eq $fixtureProviderKey }).Count -eq 0
     if (-not $oldBundleRemoved) { throw 'El upgrade terminó, pero el fixture relacionado anterior sigue registrado.' }
+    foreach ($sentinel in $preservedUserData) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      if (-not (Test-Path -LiteralPath $sentinelPath -PathType Leaf)) {
+        throw "El upgrade eliminó datos locales que debía conservar: $($sentinel.RelativePath)"
+      }
+      $actualContent = [IO.File]::ReadAllText($sentinelPath)
+      if ($actualContent -ne $sentinel.Content) {
+        throw "El upgrade alteró datos locales que debía conservar: $($sentinel.RelativePath)"
+      }
+    }
 
     $baLogRoot = Join-Path $env:ProgramData 'EvaluaPro\installer-hub\logs'
     $fixtureBundleCode = [guid]::Empty
@@ -1474,7 +1493,7 @@ function Invoke-PreviousVersionRelatedBundleUpgrade {
     if ($perUserDetectLines.Count -lt 2) { throw "El fixture no reprodujo detección doble con alcance PerUser: detections=$($perUserDetectLines.Count)" }
     if ($duplicatePlanLines.Count -lt 1) { throw 'El log BA no confirma que Burn omitió la desinstalación planificada por segunda vez.' }
     if ($ignoredDuplicateLines.Count -gt 0) { throw 'Burn intentó iniciar el bundle después de suprimir la segunda desinstalación.' }
-    Add-Result -Area 'previous-version-related-bundle' -Item 'duplicate-detection-handled' -Ok $true -Detail "perUserDetections=$($perUserDetectLines.Count) suppressedDuplicatePlans=$($duplicatePlanLines.Count) oldBundleRemoved=$oldBundleRemoved"
+    Add-Result -Area 'previous-version-related-bundle' -Item 'duplicate-detection-handled' -Ok $true -Detail "perUserDetections=$($perUserDetectLines.Count) suppressedDuplicatePlans=$($duplicatePlanLines.Count) oldBundleRemoved=$oldBundleRemoved preservedUserData=$($preservedUserData.Count)"
   } finally {
     if ($fixtureInstallAttempted) {
       $matchesFixture = { param($entry); if ($fixtureProviderKey) { return [string]$entry.providerKey -eq $fixtureProviderKey }; return $entry.displayName -eq 'QA Bundle Relation Fixture' -and [version]::Parse([string]$entry.version) -eq $fixtureVersion }
@@ -2827,6 +2846,15 @@ try {
     Add-Result -Area 'upgrade-existing-install' -Item 'installation-retained' -Ok (Test-Path -LiteralPath (Join-Path $installedRoot 'EvaluaPro.exe') -PathType Leaf) -Detail $installedRoot
     if (-not ($singleCurrentRegistration -and $versionMatches)) { throw 'La actualización estable no dejó una sola entrada registrada en la versión esperada.' }
   } else {
+    $uninstallPreservationSentinels = @(
+      @{ RelativePath = 'validation\uninstall-preserve-sentinel.txt'; Content = 'validation-user-data-preserved-on-uninstall' },
+      @{ RelativePath = 'backups\uninstall-preserve-sentinel.txt'; Content = 'backup-user-data-preserved-on-uninstall' }
+    )
+    foreach ($sentinel in $uninstallPreservationSentinels) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      New-Item -ItemType Directory -Path (Split-Path -Parent $sentinelPath) -Force | Out-Null
+      [IO.File]::WriteAllText($sentinelPath, $sentinel.Content, [Text.Encoding]::UTF8)
+    }
     Invoke-InstallerHubMode -Mode 'uninstall' | Out-Null
     $remainingEntries = @(Get-EvaluaProUninstallEntries)
     Export-JsonArtifact -Name 'post-uninstall-entries.json' -Data $remainingEntries | Out-Null
@@ -2840,9 +2868,17 @@ try {
     if (Test-Path -LiteralPath $installedRoot -PathType Container) {
       $remainingInstallEntries = @(Get-ChildItem -LiteralPath $installedRoot -Force -ErrorAction Stop | Select-Object -ExpandProperty Name)
     }
-    $payloadRemoved = $remainingInstallEntries.Count -eq 1 -and $remainingInstallEntries[0] -eq 'data'
+    $preservedRootEntries = @('data', 'validation', 'backups')
+    $unexpectedRemainingEntries = @($remainingInstallEntries | Where-Object { $preservedRootEntries -notcontains $_ })
+    $payloadRemoved = $unexpectedRemainingEntries.Count -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $installedRoot 'EvaluaPro.exe') -PathType Leaf)
     $localDataPreserved = Test-Path -LiteralPath (Join-Path $installedRoot 'data\evaluapro.db') -PathType Leaf
-    Add-Result -Area 'post-uninstall' -Item 'payload-removed-data-preserved' -Ok ($payloadRemoved -and $localDataPreserved) -Detail ("root={0} remaining={1} databasePreserved={2}" -f $installedRoot,($remainingInstallEntries -join ','),$localDataPreserved)
+    $sentinelsPreserved = $true
+    foreach ($sentinel in $uninstallPreservationSentinels) {
+      $sentinelPath = Join-Path $installedRoot $sentinel.RelativePath
+      $sentinelContent = if (Test-Path -LiteralPath $sentinelPath -PathType Leaf) { [IO.File]::ReadAllText($sentinelPath) } else { '' }
+      if ($sentinelContent -ne $sentinel.Content) { $sentinelsPreserved = $false }
+    }
+    Add-Result -Area 'post-uninstall' -Item 'payload-removed-user-data-preserved' -Ok ($payloadRemoved -and $localDataPreserved -and $sentinelsPreserved) -Detail ("root={0} remaining={1} unexpected={2} databasePreserved={3} sentinelsPreserved={4}" -f $installedRoot,($remainingInstallEntries -join ','),($unexpectedRemainingEntries -join ','),$localDataPreserved,$sentinelsPreserved)
     Assert-SharedProgramDataSqliteUnchanged
 
     $backupArchives = @(

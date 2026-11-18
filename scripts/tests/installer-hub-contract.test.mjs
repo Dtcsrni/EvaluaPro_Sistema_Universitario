@@ -3428,13 +3428,19 @@ test('SPEC-102 REQ-004: el backup de desinstalación respeta la opción GUI y co
   assert.match(bootstrapper, /\["dataDir"\] = currentRequest\.DataDir/);
   assert.match(uninstall, /var exportData = GetBool\(payload, "exportData"\)/);
   assert.match(uninstall, /StopOwnedNodeProcesses\(targetDir\);[\s\S]*CreateDataBackup\(dataDir\)/);
+  assert.match(helper, /PreservedRootEntries[\s\S]*"data"[\s\S]*"validation"[\s\S]*"backups"/,
+    'la desinstalación debe conservar las carpetas locales de datos, validación y respaldos');
+  assert.match(uninstall, /!PreservedRootEntries\.Contains\(name\)/,
+    'la limpieza no debe mover bases de validación ni respaldos aunque no se solicite exportación');
   assert.match(uninstall, /\["exportedBackup"\] = exportedBackup/);
   assert.match(helper, /var appDataDir = Path\.Combine\(localAppData, "EvaluaPro"\)[\s\S]*var backupDir = Path\.Combine\(appDataDir, "Backups"\)/);
   assert.match(helper, /ApplyPrivateBackupAcl\(backupDir\)/);
   assert.match(helper, /ZipFile\.CreateFromDirectory\(dataDir, backupPath/);
   assert.match(e2e, /ExportDataCheckBox debe estar visible y accesible/);
   assert.match(e2e, /no expone TogglePattern/);
-  assert.match(e2e, /payload-removed-data-preserved/);
+  assert.match(e2e, /payload-removed-user-data-preserved/);
+  assert.match(e2e, /validation\\uninstall-preserve-sentinel\.txt[\s\S]*backups\\uninstall-preserve-sentinel\.txt/,
+    'el uninstall E2E debe comprobar que validation y backups conservan sus datos');
   assert.match(e2e, /privateBackupDir/);
   assert.match(e2e, /contains_database/);
   assert.match(e2e, /backup-private-acl/);
