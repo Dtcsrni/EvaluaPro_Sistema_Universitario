@@ -27,7 +27,7 @@ describe('clasificación de autocalificación en jobs OMR', () => {
           { numeroPregunta: 5, opcion: 'D', confianza: 0.99, estadoRespuesta: 'respondida' }
         ]
       }
-    }, undefined, false, 5, identidadCompleta, true, qrValido);
+    }, undefined, false, [1, 2, 3, 4, 5], identidadCompleta, true, qrValido);
 
     expect(pagina.scanStatus).toBe('accepted');
     expect(pagina.autoGradable).toBe(true);
@@ -44,7 +44,7 @@ describe('clasificación de autocalificación en jobs OMR', () => {
           { numeroPregunta: 2, opcion: null, confianza: 0.99, estadoRespuesta: 'sin_marca' }
         ]
       }
-    }, undefined, false, 2, [1, 2], true, qrValido);
+    }, undefined, false, [1, 2], [1, 2], true, qrValido);
 
     expect(pagina.scanStatus).toBe('accepted');
     expect(pagina.autoGradable).toBe(true);
@@ -57,7 +57,7 @@ describe('clasificación de autocalificación en jobs OMR', () => {
         ...metricasConfiables,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' }]
       }
-    }, undefined, true, 1, [1], true, qrValido);
+    }, undefined, true, [1], [1], true, qrValido);
 
     expect(pagina.scanStatus).toBe('needs_review');
     expect(pagina.autoGradable).toBe(false);
@@ -71,7 +71,23 @@ describe('clasificación de autocalificación en jobs OMR', () => {
         qrTexto: 'QR:otro-examen:pagina:1',
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' }]
       }
-    }, undefined, false, 2, [1, 2], true, qrValido);
+    }, undefined, false, [1, 2], [1, 2], true, qrValido);
+
+    expect(pagina.scanStatus).toBe('needs_review');
+    expect(pagina.autoGradable).toBe(false);
+  });
+
+  it('no permite autocalificar con una pregunta duplicada aunque coincida el total', () => {
+    const pagina = convertirResultadoAPagina('folio', 1, {
+      resultado: {
+        ...metricasConfiables,
+        qrTexto: qrValido,
+        respuestasDetectadas: [
+          { numeroPregunta: 1, opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' },
+          { numeroPregunta: 1, opcion: 'B', confianza: 0.99, estadoRespuesta: 'respondida' }
+        ]
+      }
+    }, undefined, false, [1, 2], [1, 2], true, qrValido);
 
     expect(pagina.scanStatus).toBe('needs_review');
     expect(pagina.autoGradable).toBe(false);

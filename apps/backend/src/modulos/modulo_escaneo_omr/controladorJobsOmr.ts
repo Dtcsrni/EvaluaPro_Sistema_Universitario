@@ -15,7 +15,7 @@ import { analizarImagen } from './controladorEscaneoOmr.js';
 import { esquemaListarJobsOmr } from './validacionesOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
 import { resolverPaginaCapturableOmr } from './paginasCapturablesOmr.js';
-import { evaluarAutoCalificableOmr } from './politicaAutoCalificacionOmr.js';
+import { evaluarAutoCalificableOmr, respuestasCubrenReactivosEsperadosOmr } from './politicaAutoCalificacionOmr.js';
 import { calificarGrupoIngestaOmr, type ResultadoAutoCalificacionOmr } from './controladorIngestaPdfOmr.js';
 
 type CapturaOmr = { nombreArchivo?: string; imagenBase64: string };
@@ -154,7 +154,7 @@ export function convertirResultadoAPagina(
   payload: any,
   sourceFileName?: string,
   forzarRevisionManual = false,
-  totalPreguntasEsperadas = 0,
+  reactivosEsperados: ReadonlyArray<number> = [],
   expectedQuestionNumbers: number[] = [],
   identityVerified = false,
   expectedQrText?: string
@@ -170,7 +170,7 @@ export function convertirResultadoAPagina(
   const confidence = Number(resultado.confianzaPromedioPagina ?? 0);
   const calidadPagina = Number(resultado.calidadPagina ?? 0);
   const ratioAmbiguas = Number(resultado.ratioAmbiguas ?? 1);
-  const coberturaDeteccion = totalPreguntasEsperadas > 0 ? respuestasDetectadas.length / totalPreguntasEsperadas : 0;
+  const coberturaDeteccion = respuestasCubrenReactivosEsperadosOmr(respuestasDetectadas, reactivosEsperados) ? 1 : 0;
   const decision = evaluarAutoCalificableOmr({
     estadoAnalisis: estado as 'ok' | 'rechazado_calidad' | 'requiere_revision',
     calidadPagina,
@@ -374,7 +374,6 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
   const examen = await prisma.examenGenerado.findFirst({ where: { id: body.generatedAssessmentId, docenteId } });
   if (!examen) throw new ErrorAplicacion('EXAMEN_NO_ENCONTRADO', 'Examen generado no encontrado', 404);
   const mapaOmr = parseJsonSafe<any>(examen.mapaOmr, null);
-  const mapaVariante = parseJsonSafe<any>(examen.mapaVariante, null);
   if (Number(examen.omrRuntimeVersion ?? mapaOmr?.templateVersion ?? 0) !== 4 && Number(mapaOmr?.templateVersion ?? 0) !== 4) {
     throw new ErrorAplicacion('OMR_TEMPLATE_NO_COMPATIBLE', 'El examen no corresponde al contrato OMR canónico', 422);
   }
@@ -485,7 +484,9 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
         payload,
         entrada.nombreArchivo,
         mapaOmr?.templateId === 'omr-inline-exam-v1',
-        Array.isArray(mapaVariante?.ordenPreguntas) ? mapaVariante.ordenPreguntas.length : 0,
+        Array.isArray(paginaMapa?.preguntas)
+          ? paginaMapa.preguntas.map((pregunta: { numeroPregunta?: unknown }) => Number(pregunta.numeroPregunta))
+          : [],
         expectedQuestionNumbers,
         Boolean(examen.alumnoId && identityVerified),
         expectedQrText

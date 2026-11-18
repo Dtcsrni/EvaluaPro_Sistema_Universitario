@@ -16,7 +16,7 @@ import { obtenerDocenteId, type SolicitudDocente } from '../modulo_autenticacion
 import { extraerResumenQrExamen } from '../modulo_generacion_pdf/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { analizarOmr, leerQrDesdeImagen } from './servicioOmr.js';
-import { evaluarAutoCalificableOmr } from './politicaAutoCalificacionOmr.js';
+import { evaluarAutoCalificableOmr, respuestasCubrenReactivosEsperadosOmr } from './politicaAutoCalificacionOmr.js';
 import { OMR_ENGINE_RELEASE } from './omr/engineRelease.js';
 
 function parseJsonSafe<T>(val: unknown): T | null {
@@ -166,9 +166,12 @@ export async function analizarImagen(req: SolicitudDocente, res: Response) {
     calidadPagina: resultado.calidadPagina,
     confianzaPromedioPagina: resultado.confianzaPromedioPagina,
     ratioAmbiguas: resultado.ratioAmbiguas,
-    coberturaDeteccion: Array.isArray(mapaOmr.preguntas) && mapaOmr.preguntas.length > 0
-      ? resultado.respuestasDetectadas.length / mapaOmr.preguntas.length
-      : 0,
+    coberturaDeteccion: respuestasCubrenReactivosEsperadosOmr(
+      resultado.respuestasDetectadas,
+      Array.isArray(mapaOmr.preguntas)
+        ? mapaOmr.preguntas.map((pregunta: { numeroPregunta?: unknown }) => Number(pregunta.numeroPregunta))
+        : []
+    ) ? 1 : 0,
     respuestasDetectadas: resultado.respuestasDetectadas
   });
   resultado = { ...resultado, autoCalificableOmr: decisionAutoCalificacion.autoCalificableOmr };

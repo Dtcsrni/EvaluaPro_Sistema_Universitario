@@ -1,4 +1,8 @@
-type PaginaMapaOmr = { numeroPagina: number; tipoPagina?: 'examen' | 'reverso-vacio' };
+type PaginaMapaOmr = {
+  numeroPagina: number;
+  tipoPagina?: 'examen' | 'reverso-vacio';
+  preguntas?: ReadonlyArray<{ numeroPregunta: number }>;
+};
 
 /**
  * Las capturas sueltas representan caras con respuestas; los PDF conservan
