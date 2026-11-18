@@ -329,7 +329,7 @@ jobs:
         run: |
           set -euo pipefail
           export BACKEND_DATABASE_URL='file:./data/evaluapro_ci.db'
-          export JWT_SECRETO="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(48).toString("hex"))')"
+          export JWT_SECRETO="$(node -e 'const { randomBytes } = require("node:crypto"); let secret; do { secret = randomBytes(48).toString("hex"); } while (secret.includes("1234")); process.stdout.write(secret);')"
           export PORTAL_ALUMNO_API_KEY="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
           npm run security:env:check
           npm audit --omit=dev --audit-level=critical --json > npm-audit-report.json
