@@ -24,6 +24,9 @@ El asistente WPF del Installer Hub ya guía instalación, reparación, actualiza
 - REQ-008: Sustituir las cinco tarjetas de progreso visibles por un indicador único con etapa y avance, sin eliminar la trazabilidad de estados ni los identificadores usados por automatización.
 - REQ-009: Mostrar solo las acciones de navegación aplicables a la etapa activa; el paso Revisar no permite saltarse la validación de requisitos mediante Siguiente.
 
+- REQ-010: El selector de modo conserva contraste legible cuando está deshabilitado, con colores explícitos para fondo, texto, borde y opacidad.
+- REQ-011: Si Burn detecta un bundle relacionado de versión anterior y el diagnóstico confirma instalación reparable/sana, prerequisitos instalados y cero incidencias, el modo predeterminado es instalar/actualizar; ante cualquier señal de problema, el predeterminado es reparar. Se respetan las acciones Repair/Uninstall explícitas y el modo de reanudación.
+
 ## Criterios de Aceptación
 
 - La ventana y tarjetas usan fondos opacos de respaldo; texto principal/secundario conserva contraste legible y la interfaz ya no depende de patrones decorativos ni del backdrop del sistema.
@@ -32,6 +35,8 @@ El asistente WPF del Installer Hub ya guía instalación, reparación, actualiza
 - La GUI compilada conserva nombres/IDs observados por el E2E, representa las cinco etapas con un único indicador compacto, inicia en 1320×880 DIP cuando hay espacio, ajusta su tamaño al área de trabajo, conserva un mínimo de 980×700 DIP cuando el monitor lo permite y mantiene los mismos flujos y términos.
 - En Revisar no se muestra Siguiente, por lo que no es posible avanzar a Ejecutar sin la acción explícita Iniciar.
 - La pantalla inicial presenta Términos directamente, conserva el encabezado compacto y destina el espacio liberado a leer las condiciones y sus aceptaciones.
+- El selector de modo deshabilitado usa texto/fondo con contraste mínimo 4.5:1 y borde con contraste mínimo 3:1.
+- Con un bundle relacionado anterior, la detección sana sugiere actualizar; con diagnóstico no listo, incidencias del sistema, prerequisitos faltantes o estado distinto de `repairable`, sugiere reparar. La decisión es idéntica en GUI y modo headless; las acciones explícitas Repair/Uninstall y la reanudación prevalecen.
 - El contrato de UI y build nativo pasan; se inspeccionan capturas actuales y teclado en runtime cuando el entorno permite abrir el Hub.
 
 ## Matriz de Trazabilidad
@@ -42,6 +47,8 @@ El asistente WPF del Installer Hub ya guía instalación, reparación, actualiza
 | REQ-003, REQ-004 | Foco, nombres accesibles y anuncios de estado UIA | `scripts/tests/installer-hub-contract.test.mjs`; `scripts/tests/installer-hub-ui-lifecycle.ps1` | Verificado por contrato; UIA runtime pendiente |
 | REQ-006 | Contratos de operación y preservación del flujo | `scripts/tests/installer-hub-lifecycle-contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Parcial: instalación QA completada; repair/uninstall pendientes |
 | REQ-007 | Entrada directa y reducción de contenido repetido | `scripts/tests/installer-hub-contract.test.mjs`; captura WPF del paso Términos | Verificado |
+| REQ-010 | Contraste en estado deshabilitado | `scripts/tests/installer-hub-contract.test.mjs` | Implementado; CI pendiente |
+| REQ-011 | Modo predeterminado GUI/headless según versión relacionada y diagnóstico | `scripts/tests/installer-hub-contract.test.mjs`; build Burn | Implementado; CI pendiente |
 | REQ-008, REQ-009 | Progreso compacto, ajuste al monitor y acciones válidas por etapa | `scripts/tests/installer-hub-contract.test.mjs`; `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Build y contrato verificados; captura runtime pendiente |
 
 ## Evidencia de Validación
