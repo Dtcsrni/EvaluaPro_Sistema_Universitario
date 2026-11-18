@@ -11,6 +11,27 @@ import { EVALUAPRO_OMR_EVALUATOR_CODE_SHA256 } from './evaluatorCodeFingerprint.
  */
 type EstadoAnalisisOmr = 'ok' | 'rechazado_calidad' | 'requiere_revision';
 const OPCIONES_OMR = new Set(['A', 'B', 'C', 'D', 'E']);
+
+/**
+ * La cantidad de respuestas no demuestra cobertura: una pregunta duplicada
+ * puede ocultar otra ausente. Compara los identificadores exactos del mapa.
+ */
+export function respuestasCubrenReactivosEsperadosOmr(
+  respuestas: ReadonlyArray<{ numeroPregunta?: number | null }>,
+  reactivosEsperados: ReadonlyArray<number>
+) {
+  if (reactivosEsperados.length === 0 || respuestas.length !== reactivosEsperados.length) return false;
+  const esperados = new Set(reactivosEsperados);
+  if (
+    esperados.size !== reactivosEsperados.length ||
+    reactivosEsperados.some((numero) => !Number.isSafeInteger(numero) || numero <= 0)
+  ) return false;
+  const detectados = respuestas.map((respuesta) => respuesta.numeroPregunta);
+  const unicos = new Set(detectados);
+  return unicos.size === esperados.size && detectados.every((numero) =>
+    typeof numero === 'number' && Number.isSafeInteger(numero) && numero > 0 && esperados.has(numero)
+  );
+}
 type SenalOpcionOmr = NonNullable<NonNullable<EntradaAutoCalificacionOmr['respuestasDetectadas']>[number]['scoresPorOpcion']>[number];
 type SenalDistribuidaOmr = Pick<SenalOpcionOmr, 'score' | 'fillRatioCore' | 'nucleusFillRatio' | 'markConfidence'> & {
   contrasteCromaticoLocal?: number;
