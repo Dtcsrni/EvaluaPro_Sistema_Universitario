@@ -1183,6 +1183,7 @@ test('bootstrapper Burn WPF implementa resiliencia ante errores, msiInstalled y 
   assert.ok(bootstrapperCode.includes('payload.System?.Issues is { Count: 0 }'));
   assert.ok(bootstrapperCode.includes('payload.Lifecycle?.State, "repairable"'));
   assert.ok(bootstrapperCode.includes('payload.Prerequisites.All(prerequisite => prerequisite.Installed)'));
+  assert.ok(bootstrapperCode.includes('var remediationHealthy = payload.Remediation is null'));
   assert.match(bootstrapperCode, /hasOlderRelatedBundle && diagnosticsHealthy \? "install" : "repair"/);
   assert.match(bootstrapperCode, /ResolveOperationMode\(payload, isGenuinelyInstalledHeadless\)/);
   assert.match(bootstrapperCode, /DispatcherUnhandledException/);
