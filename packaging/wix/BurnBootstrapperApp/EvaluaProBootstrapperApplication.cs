@@ -64,6 +64,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
     private bool autoResumeRequested;
     private bool applySawPackageFailure;
     private bool hasSameVersionRelatedBundle;
+    private Version? olderRelatedBundleVersion;
     private Version? newerRelatedBundleVersion;
     private bool relatedBundleCleanupFailed;
     private int requestedExitCode;
@@ -169,6 +170,17 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
                 Log(
                     "warn",
                     $"Se detectó un bundle relacionado de la misma versión; instalar/actualizar se bloqueará antes de Apply y reparar conservará el bundle para proteger el MSI compartido. bundle={args.ProductCode} version={args.Version}");
+            }
+            else if (relatedVersion < candidateVersion)
+            {
+                if (olderRelatedBundleVersion is null || relatedVersion > olderRelatedBundleVersion)
+                {
+                    olderRelatedBundleVersion = relatedVersion;
+                }
+
+                Log(
+                    "info",
+                    $"Se detectó una versión relacionada anterior; se evaluará actualizar solo si el diagnóstico de la instalación está sano. bundle={args.ProductCode} candidate={candidateVersion} installed={relatedVersion}");
             }
             else if (relatedVersion > candidateVersion)
             {
@@ -932,13 +944,41 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
         }
 
         var isGenuinelyInstalled = msiInstalled || HasInstalledPayloadFiles(installDir);
+        return ResolveOperationMode(payload, isGenuinelyInstalled);
+    }
 
-        return NormalizeMode(command?.Action switch
+    private string ResolveOperationMode(DetectionPayload payload, bool isGenuinelyInstalled)
+    {
+        var requestedMode = command?.Action switch
         {
             LaunchAction.Repair => "repair",
             LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-            _ => isGenuinelyInstalled ? "repair" : payload.RecommendedMode
-        });
+            _ => string.Empty
+        };
+        if (!string.IsNullOrWhiteSpace(requestedMode))
+        {
+            return NormalizeMode(requestedMode);
+        }
+
+        if (!isGenuinelyInstalled)
+        {
+            return NormalizeMode(string.IsNullOrWhiteSpace(payload.RecommendedMode) ? "install" : payload.RecommendedMode);
+        }
+
+        var prerequisitesHealthy = payload.Prerequisites is not null
+            && payload.Prerequisites.All(prerequisite => prerequisite.Installed);
+        var diagnosticsHealthy = payload.Ready
+            && payload.System?.Issues is { Count: 0 }
+            && string.Equals(payload.Lifecycle?.State, "repairable", StringComparison.OrdinalIgnoreCase)
+            && prerequisitesHealthy;
+        var hasOlderRelatedBundle = olderRelatedBundleVersion is not null;
+        var defaultMode = hasOlderRelatedBundle && diagnosticsHealthy ? "install" : "repair";
+
+        Log(
+            diagnosticsHealthy ? "info" : "warn",
+            $"Modo predeterminado resuelto: {(defaultMode == "install" ? "actualizar" : "reparar")}; instalado={isGenuinelyInstalled} bundleAnterior={olderRelatedBundleVersion?.ToString() ?? "no"} diagnosticoSano={diagnosticsHealthy} prerequisitos={payload.Prerequisites?.Count ?? 0} incidencias={payload.System?.Issues?.Count ?? 0} estado={payload.Lifecycle?.State ?? "desconocido"}");
+
+        return NormalizeMode(defaultMode);
     }
 
     private static bool HasInstalledPayloadFiles(string installDir)
@@ -1001,12 +1041,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             FlavorId = payload.Flavor?.FlavorId ?? "docente-local",
             Mode = !string.IsNullOrWhiteSpace(resumeState?.Mode)
                 ? NormalizeMode(resumeState.Mode)
-                : NormalizeMode(command?.Action switch
-                {
-                    LaunchAction.Repair => "repair",
-                    LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-                    _ => isGenuinelyInstalledHeadless ? "repair" : payload.RecommendedMode
-                }),
+                : ResolveOperationMode(payload, isGenuinelyInstalledHeadless),
             InstallDir = installDir,
             InstallDesktopShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_DESKTOP_SHORTCUTS")),
             InstallStartMenuShortcuts = !IsFalsy(Environment.GetEnvironmentVariable("EVALUAPRO_INSTALL_STARTMENU_SHORTCUTS")),
@@ -1954,12 +1989,7 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             payload.Installation.Installed = true;
         }
 
-        var detectedMode = command?.Action switch
-        {
-            LaunchAction.Repair => "repair",
-            LaunchAction.Uninstall or LaunchAction.UnsafeUninstall => "uninstall",
-            _ => isGenuinelyInstalled ? "repair" : (string.IsNullOrWhiteSpace(payload.RecommendedMode) ? "install" : payload.RecommendedMode)
-        };
+        var detectedMode = ResolveOperationMode(payload, isGenuinelyInstalled);
         var blockedByOlderBundle = newerRelatedBundleVersion is not null;
 
         var model = new WindowDetectionModel
