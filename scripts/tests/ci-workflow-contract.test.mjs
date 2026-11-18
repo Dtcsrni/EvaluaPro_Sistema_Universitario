@@ -71,6 +71,7 @@ test('security-scan usa SQLite local y credenciales efímeras sin leer secretos 
 
   assert.match(block, /BACKEND_DATABASE_URL='file:\.\/data\/evaluapro_ci\.db'/);
   assert.match(block, /JWT_SECRETO=.*randomBytes\(48\)/);
+  assert.match(block, /while\s*\(secret\.includes\(['"]1234['"]\)\)/);
   assert.match(block, /PORTAL_ALUMNO_API_KEY=.*randomBytes\(32\)/);
   assert.doesNotMatch(block, /MONGODB_URI|CI_MONGODB_URI|secrets\./);
   assert.doesNotMatch(block, /JWT_SECRETO:.*\|\||PORTAL_ALUMNO_API_KEY:.*\|\|/);
