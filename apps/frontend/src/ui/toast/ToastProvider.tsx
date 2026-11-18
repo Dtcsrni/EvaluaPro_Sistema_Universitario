@@ -60,6 +60,10 @@ function ubicarHostFlujo(host: HTMLDivElement) {
   const cajaToast = viewport.getBoundingClientRect();
   const ancho = cajaToast.width || Math.min(420, window.innerWidth - 20);
   const alto = cajaToast.height || Math.min(200, window.innerHeight * 0.4);
+  const focoActivo = document.activeElement;
+  const rectFoco = focoActivo instanceof HTMLElement && focoActivo !== document.body && !viewport.contains(focoActivo)
+    ? focoActivo.getBoundingClientRect()
+    : null;
   const posicionesIzquierda = [...new Set([
     10,
     Math.max(10, (window.innerWidth - ancho) / 2),
@@ -99,10 +103,14 @@ function ubicarHostFlujo(host: HTMLDivElement) {
     totalControl: areaTotalContenidoCubierto(controles, { left, top, width: ancho, height: alto }),
     maxTexto: maximaProporcionContenidoCubierto(contenido, { left, top, width: ancho, height: alto }),
     totalTexto: areaTotalContenidoCubierto(contenido, { left, top, width: ancho, height: alto })
-  }))).sort((a, b) => a.totalControl - b.totalControl || a.maxControl - b.maxControl ||
+  }))).sort((a, b) =>
+    (rectFoco ? proporcionCubierta(rectFoco, { left: a.left, top: a.top, width: ancho, height: alto }) : 0) -
+      (rectFoco ? proporcionCubierta(rectFoco, { left: b.left, top: b.top, width: ancho, height: alto }) : 0) ||
+    a.totalControl - b.totalControl || a.maxControl - b.maxControl ||
     a.totalTexto - b.totalTexto || a.maxTexto - b.maxTexto || a.top - b.top || a.left - b.left)[0];
   host.style.position = 'fixed';
-  host.style.top = `${Math.max(0, (mejor?.top ?? 10) - 14)}px`;
+  const margenSuperior = Number.parseFloat(getComputedStyle(viewport).marginTop) || 0;
+  host.style.top = `${Math.max(0, (mejor?.top ?? 10) - margenSuperior)}px`;
   host.style.left = `${mejor?.left ?? 10}px`;
   host.style.width = `${ancho}px`;
   host.style.zIndex = '9999';
