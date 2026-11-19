@@ -959,7 +959,8 @@ test('Installer Hub usa superficies legibles, controles accesibles y estados anu
   const disabledComboBorder = '#FF70849A';
   assert.ok(contrastRatio(disabledComboText, disabledComboBackground) >= 4.5, 'Selector deshabilitado: texto con contraste AA mínimo');
   assert.ok(contrastRatio(disabledComboBorder, disabledComboBackground) >= 3, 'Selector deshabilitado: borde no textual mínimo');
-  assert.match(xaml, /<Style TargetType="ComboBox">[\s\S]*?<Trigger Property="IsEnabled" Value="False">[\s\S]*?Background" Value="#FF0C1728"[\s\S]*?Foreground" Value="#FFF8FAFC"[\s\S]*?Opacity" Value="1"/);
+  assert.match(xaml, /<Style TargetType="ComboBox">[\s\S]*?<ControlTemplate TargetType="ComboBox">[\s\S]*?x:Name="SelectionPresenter"[\s\S]*?TextElement\.Foreground="\{TemplateBinding Foreground\}"/);
+  assert.match(xaml, /<ControlTemplate\.Triggers>[\s\S]*?<Trigger Property="IsEnabled" Value="False">[\s\S]*?TargetName="SelectionBorder" Property="Background" Value="#FF0C1728"[\s\S]*?TargetName="SelectionPresenter" Property="TextElement\.Foreground" Value="#FFF8FAFC"[\s\S]*?TargetName="SelectionPresenter" Property="Opacity" Value="1"/);
   assert.match(xaml, /x:Key="SecondaryButtonStyle"[\s\S]*?MinHeight" Value="40"/);
   assert.match(xaml, /<Style TargetType="CheckBox">[\s\S]*?MinHeight" Value="40"/);
   assert.match(xaml, /<Style TargetType="TextBox">[\s\S]*?IsKeyboardFocused[\s\S]*?FocusBrush/);
