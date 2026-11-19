@@ -126,6 +126,12 @@
                     <Setter Property="BorderBrush" Value="{StaticResource FocusBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                 </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#FF0C1728" />
+                    <Setter Property="Foreground" Value="#FFF8FAFC" />
+                    <Setter Property="BorderBrush" Value="#FF70849A" />
+                    <Setter Property="Opacity" Value="1" />
+                </Trigger>
             </Style.Triggers>
         </Style>
 
