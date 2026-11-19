@@ -2,7 +2,7 @@
 id: SPEC-065
 titulo: Ciclo de vida de servicios locales del App Host
 version: 1.2.1
-fecha: 2026-09-25
+fecha: 2026-11-18
 autor: Erick Vega / Codex
 modulo: app-host
 estado: approved
@@ -35,7 +35,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - Las pruebas de contrato detectan una regresión en la ruta temprana de servicios sanos y en el cierre del árbol.
 - Una segunda ejecución recupera una instancia huérfana sin ventana solo cuando coincide el ejecutable, la sesión y la antigüedad mínima; no termina una instalación distinta ni una instancia aún en arranque.
 - Un arranque frío que requiere hasta 60 segundos no queda en error prematuro, pero un servicio que no responde después del límite sí produce diagnóstico y error visible.
-- El E2E de Windows elige «No», comprueba que el App Host cierre con código cero y que API/web sigan sanos, vuelve a abrir la ventana y después verifica el cierre normal de los servicios.
+- El E2E de Windows elige «No», verifica que el App Host cierre con código cero sin registrar excepciones, que API/web sigan sanos, vuelve a abrir la ventana y después verifica el cierre normal de los servicios.
 
 ## Matriz de Trazabilidad
 

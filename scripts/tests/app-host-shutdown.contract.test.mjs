@@ -90,6 +90,10 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
   assert.match(installerE2ESource, /close-confirmation-yes/);
   assert.match(installerE2ESource, /close-confirmation-no/);
+  assert.match(installerE2ESource, /GetExitCodeProcess\(\$processHandle, \[ref\]\$nativeExitCode\)/);
+  assert.match(installerE2ESource, /app-host-error\.log/);
+  assert.match(installerE2ESource, /\$errorLogLengthAfterClose -gt \$errorLogLengthBeforeClose/);
+  assert.match(installerE2ESource, /close-window-process-exit/);
   assert.match(installerE2ESource, /close-window-only'[\s\S]*?reopen-dashboard-/);
   assert.match(installerE2ESource, /no-keeps-services-healthy/);
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
