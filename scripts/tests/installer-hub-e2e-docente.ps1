@@ -78,15 +78,16 @@ public static class EvaluaProE2ENativeWindow {
   [DllImport("user32.dll", SetLastError=true)]
   private static extern IntPtr SendMessageTimeout(
     IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeoutMs, out IntPtr result);
+  [DllImport("user32.dll", SetLastError=true)]
+  private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
   public static bool ClickButton(IntPtr hWnd, uint timeoutMs) {
     if (hWnd == IntPtr.Zero) return false;
     IntPtr result;
     return SendMessageTimeout(hWnd, 0x00F5, IntPtr.Zero, IntPtr.Zero, 0x0002, timeoutMs, out result) != IntPtr.Zero;
   }
-  public static bool RequestClose(IntPtr hWnd, uint timeoutMs) {
+  public static bool RequestClose(IntPtr hWnd) {
     if (hWnd == IntPtr.Zero) return false;
-    IntPtr result;
-    return SendMessageTimeout(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero, 0x0002, timeoutMs, out result) != IntPtr.Zero;
+    return PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero);
   }
   [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
   public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
@@ -640,7 +641,7 @@ function Request-AppHostWindowClose {
 
   foreach ($window in @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)) {
     if ($window.Name -eq 'EvaluaPro · Cerrar' -or $window.NativeTitle -eq 'EvaluaPro · Cerrar') { continue }
-    if ([EvaluaProE2ENativeWindow]::RequestClose([IntPtr]([int64]$window.Handle), 5000)) { return $true }
+    if ([EvaluaProE2ENativeWindow]::RequestClose([IntPtr]([int64]$window.Handle))) { return $true }
   }
   return $false
 }

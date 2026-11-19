@@ -85,7 +85,8 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Get-AppHostTopLevelWindows/);
   assert.match(installerE2ESource, /function Request-AppHostWindowClose/);
-  assert.match(installerE2ESource, /RequestClose\(\[IntPtr\]\(\[int64\]\$window\.Handle\), 5000\)/);
+  assert.match(installerE2ESource, /PostMessage\(hWnd, 0x0010, IntPtr\.Zero, IntPtr\.Zero\)/);
+  assert.match(installerE2ESource, /RequestClose\(\[IntPtr\]\(\[int64\]\$window\.Handle\)\)/);
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationNo/);
