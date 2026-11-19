@@ -240,7 +240,7 @@ jobs:
           if-no-files-found: warn
 
   publish_after_go:
-    name: Ejecutar publicación y E2E completa tras Go
+    name: Publicar release con E2E draft y verificación de assets públicos
     runs-on: ubuntu-latest
     timeout-minutes: 360
     needs: stable_gate
@@ -255,7 +255,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Despachar pipeline de release con E2E draft y pública
+      - name: Despachar pipeline de release con E2E draft y verificación pública
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_VERSION: ${{ needs.stable_gate.outputs.target_version }}
@@ -302,7 +302,7 @@ jobs:
             fi
             sleep 20
           done
-          echo 'Timeout esperando publicación y E2E pública del instalador.' >&2
+          echo 'Timeout esperando publicación y verificación pública de los assets del instalador.' >&2
           exit 1
 
   mark_latest:

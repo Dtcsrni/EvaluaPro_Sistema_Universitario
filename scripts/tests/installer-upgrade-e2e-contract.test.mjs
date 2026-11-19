@@ -116,10 +116,10 @@ test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de ig
   assert.match(fixtureBuilder, /FixtureExePath=\$comSpec/);
   assert.match(fixtureBuilder, /EnvironmentVariableName = 'SAME_VERSION_RELATED_BUNDLE_PATH'/);
   assert.match(fixtureBuilder, /\$requestedFixtureVersion\s*=\s*\$FixtureVersion[\s\S]*?IsNullOrWhiteSpace\(\$requestedFixtureVersion\)[\s\S]*?TryParse\(\$requestedFixtureVersion/);
-  assert.equal((workflow.match(/build-same-version-related-bundle-fixture\.ps1/g) ?? []).length, 6, 'fixtures de misma versión y versión previa se compilan para los assets local, draft y público');
-  assert.equal((workflow.match(/'-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el conflicto');
-  assert.equal((workflow.match(/'-PreviousVersionRelatedBundlePath', \$env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 3, 'los flujos local, draft y público prueban el bundle anterior');
-  assert.equal((workflow.match(/Falta el fixture Burn relacionado de versión previa/g) ?? []).length, 3, 'cada flujo falla cerrado si no recibe el fixture previo');
+  assert.equal((workflow.match(/build-same-version-related-bundle-fixture\.ps1/g) ?? []).length, 4, 'los fixtures relacionados se compilan para los flujos local y draft que ejecutan la E2E completa');
+  assert.equal((workflow.match(/'-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 2, 'los flujos local y draft prueban el conflicto');
+  assert.equal((workflow.match(/'-PreviousVersionRelatedBundlePath', \$env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH/g) ?? []).length, 2, 'los flujos local y draft prueban el bundle anterior');
+  assert.equal((workflow.match(/Falta el fixture Burn relacionado de versión previa/g) ?? []).length, 2, 'cada flujo E2E completa falla cerrado si no recibe el fixture previo');
   assert.match(workflow, /\$runnerArgs \+= @\('-SameVersionRelatedBundlePath', \$env:SAME_VERSION_RELATED_BUNDLE_PATH\)/);
   assert.match(e2e, /\[string\]\$PreviousVersionRelatedBundlePath\s*=\s*''/);
   assert.match(e2e, /function Invoke-PreviousVersionRelatedBundleUpgrade/);
@@ -243,8 +243,7 @@ test('Burn no lanza el helper post-install si falla la limpieza de un bundle rel
 test('todos los flujos Installer Hub generan reportes bajo el perfil y publican la ruta calculada', () => {
   const flows = [
     ['installer-hub-e2e-docente-ci-', 'installer-hub-e2e-${{ github.run_id }}'],
-    ['installer-hub-e2e-published-ci-', 'installer-hub-published-e2e-${{ github.run_id }}'],
-    ['installer-hub-e2e-public-ci-', 'installer-hub-public-e2e-${{ github.run_id }}']
+    ['installer-hub-e2e-published-ci-', 'installer-hub-published-e2e-${{ github.run_id }}']
   ];
 
   for (const [folder, artifact] of flows) {
@@ -258,10 +257,10 @@ test('todos los flujos Installer Hub generan reportes bajo el perfil y publican 
 
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*["']reports[\\/]/);
   assert.doesNotMatch(workflow, /\$reportDir\s*=\s*Join-Path \$env:RUNNER_TEMP/);
-  assert.equal((workflow.match(/id: preparar_reporte_e2e/g) ?? []).length, 3, 'cada flujo calcula una ruta privada una sola vez');
-  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 4, 'los tres flujos Installer Hub y el E2E PDF consumen el reporte calculado');
+  assert.equal((workflow.match(/id: preparar_reporte_e2e/g) ?? []).length, 2, 'cada E2E completa calcula una ruta privada una sola vez');
+  assert.equal((workflow.match(/E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/g) ?? []).length, 3, 'los flujos local y draft y el E2E PDF consumen el reporte calculado');
   const evidenceUploads = workflow.match(/- name: Publicar evidencia[^\n]*\n\s+if: ([^\n]*)\n\s+uses: actions\/upload-artifact[^\n]*\n\s+with:\n\s+name: installer-hub-[^\n]*\n\s+path: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}\//g) ?? [];
-  assert.equal(evidenceUploads.length, 3, 'los tres flujos conservan su upload de evidencia');
+  assert.equal(evidenceUploads.length, 2, 'los dos flujos E2E completos conservan su upload de evidencia');
   assert.ok(evidenceUploads.every((block) => block.includes("steps.preparar_reporte_e2e.outputs.report_dir != ''")), 'nunca se pasa una ruta vacía al uploader de artefactos');
   assert.match(e2e, /Import-Module -Name \$reportDirectoryModule -Force -ErrorAction Stop/);
   assert.doesNotMatch(e2e, /Import-Module -LiteralPath/);
@@ -508,8 +507,8 @@ test('runner consume la ruta exacta del manifiesto validado y rechaza ausencia o
   assert.match(e2e, /No existe el manifiesto de release validado/);
   assert.match(e2e, /no cumple el esquema esperado \(version\/build\/flavors\)/);
   assert.match(workflow, /'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE 'dist\\installer\\EvaluaPro-release-manifest\.json'\)/);
-  assert.equal((workflow.match(/'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE/g) ?? []).length, 3,
-    'los tres E2E consumen la ruta única del manifiesto del bundle probado');
+  assert.equal((workflow.match(/'-ReleaseManifestPath', \(Join-Path \$env:GITHUB_WORKSPACE/g) ?? []).length, 2,
+    'las dos E2E completas consumen la ruta única del manifiesto del bundle probado');
 });
 
 test('runner acepta el EXE publicado con SHA obligatorio y CRC32 opcional', () => {
@@ -610,8 +609,7 @@ test('release valida el asset descargado desde GitHub antes de hacer público el
 test('las E2E de release descargan y validan el manifiesto antes de invocar el runner', () => {
   const jobs = workflow.split(/(?=^  [a-z0-9_]+:)/m);
   const cases = [
-    ['post_publish_installer_e2e', 'Descargar y verificar EXE y sidecar desde el release draft'],
-    ['verify_public_installer_e2e', 'Descargar y verificar el asset público por su URL de release']
+    ['post_publish_installer_e2e', 'Descargar y verificar EXE y sidecar desde el release draft']
   ];
 
   for (const [jobName, stepName] of cases) {
@@ -634,9 +632,9 @@ test('las E2E de release descargan y validan el manifiesto antes de invocar el r
   }
 });
 
-test('las E2E del asset de borrador y público instalan WiX para extraer el baseline', () => {
+test('la E2E completa del borrador instala WiX para extraer el baseline', () => {
   const jobs = workflow.split(/(?=^  [a-z0-9_]+:)/m);
-  for (const jobName of ['post_publish_installer_e2e', 'verify_public_installer_e2e']) {
+  for (const jobName of ['post_publish_installer_e2e']) {
     const job = jobs.find((section) => section.startsWith(`  ${jobName}:`));
     assert.ok(job, `Debe existir el job ${jobName}`);
     assert.match(job, /actions\/setup-dotnet@[a-f0-9]{40}/);

@@ -378,18 +378,24 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(publisher, /needs: \[installer_windows_build, reuse_installer_candidate\]/);
   assert.match(publisher, /inputs\.candidate_run_id \|\| github\.run_id/);
   assert.match(draft, /actualHash -eq \$env:CANDIDATE_SHA256/);
+  assert.match(draft, /sidecarDigest\.Groups\[1\]\.Value\.ToLowerInvariant\(\) -ne \$sidecarFileHash/);
   assert.match(draft, /needs\.reuse_installer_candidate\.outputs\.bundle_sha256 \|\| needs\.installer_windows_build\.outputs\.bundle_sha256/);
   assert.match(draft, /if: \$\{\{ always\(\) && !cancelled\(\)[\s\S]*needs\.publish_installer_release\.result == 'success'/);
   assert.match(draft, /needs\.installer_windows\.result == 'success'/);
   assert.match(draft, /needs\.reuse_installer_candidate\.result == 'success' \|\| needs\.installer_windows_build\.result == 'success'/);
   assert.match(draft, /if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
-  assert.match(publicE2e, /VERIFIED_DRAFT_SHA256: \$\{\{\s*needs\.post_publish_installer_e2e\.outputs\.draft_sha256\s*\}\}/);
-  assert.match(publicE2e, /actualHash -ne \$env:VERIFIED_DRAFT_SHA256\.ToLowerInvariant\(\)/);
-  assert.doesNotMatch(publicE2e, /run_e2e|if: steps\.public_asset\.outputs/);
-  assert.match(publicE2e, /E2E completa sobre el instalador descargado del release público/);
-  assert.match(publicE2e, /installer-hub-e2e-docente\.ps1 @runnerArgs/);
+  assert.match(draft, /candidate_id: \$\{\{ steps\.draft_asset\.outputs\.candidate_id \}\}/);
+  assert.match(draft, /sidecar_digest: \$\{\{ steps\.draft_asset\.outputs\.sidecar_digest \}\}/);
+  assert.match(publicE2e, /VERIFIED_CANDIDATE_ID: \$\{\{ needs\.post_publish_installer_e2e\.outputs\.candidate_id \}\}/);
+  assert.match(publicE2e, /verify_asset "\$exe_name"/);
+  assert.match(publicE2e, /verify_asset "\$sidecar_name"/);
+  assert.match(publicE2e, /verify_asset "\$manifest_name"/);
+  assert.match(publicE2e, /curl .*--head/);
+  assert.match(publicE2e, /--retry 3 --retry-all-errors/);
+  assert.match(publicE2e, /browser_download_url/);
+  assert.doesNotMatch(publicE2e, /actions\/checkout|setup-dotnet|setup-node|npm ci|playwright install|BASELINE_BUNDLE_PATH|installer-hub-e2e-docente\.ps1|ExpectedSha256/);
+  assert.match(publicE2e, /runs-on: ubuntu-latest[\s\S]*timeout-minutes: 10/);
   assert.match(draft, /sha256=\$actualHash/);
-  assert.match(publicE2e, /sha256=\$actualHash/);
 });
 
 test('E2E del release draft delimita variable PowerShell seguida de dos puntos', () => {
@@ -652,7 +658,7 @@ test('qa:full usa el runner fail-closed que conserva diagnósticos y valida repo
   assert.doesNotMatch(runner, /break;|return 1;\s*\/\/ stop/);
 });
 
-test('release stable gate consume build inmutable y delega la publicación a la E2E completa', () => {
+test('release stable gate consume build inmutable y delega E2E única más validación pública ligera', () => {
   const workflow = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const downloadIndex = workflow.indexOf('name: Descargar artefacto inmutable del build candidato');
   const manifestIndex = workflow.indexOf('dist/installer/EvaluaPro-release-manifest.json');
@@ -841,7 +847,7 @@ test('Dockerfile frontend incluye el wrapper y la política de configuración de
   assert.ok(buildIndex > omrPolicyIndex, 'frontend build debe ejecutarse despues de copiar la politica OMR');
 });
 
-test('release estable valida el asset desde su URL pública y lo oculta si falla la E2E', () => {
+test('release estable conserva identidad del asset verificado y lo oculta si falla la publicación', () => {
   const installer = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const stableGate = fs.readFileSync(path.join(workflowDir, 'release-stable-gate.yml'), 'utf8');
   const finalizeIndex = installer.indexOf('finalize_installer_release:');
@@ -854,16 +860,20 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.ok(finalizeIndex >= 0, 'debe existir el job que hace público el release');
   assert.ok(publicE2eIndex > finalizeIndex, 'la E2E debe correr despues de que el release sea público');
   assert.match(finalize, /if:\s*\$\{\{\s*always\(\)\s*&&\s*!cancelled\(\)[\s\S]*needs\.publish_installer_release\.result == 'success'[\s\S]*needs\.post_publish_installer_e2e\.result == 'success'/, 'la promoción debe ejecutarse al reutilizar el candidato, solo tras publicar y validar el draft');
-  assert.match(publicE2e, /if:\s*\$\{\{\s*always\(\)\s*&&\s*!cancelled\(\)[\s\S]*needs\.finalize_installer_release\.result == 'success'[\s\S]*needs\.post_publish_installer_e2e\.result == 'success'/, 'la E2E pública debe ejecutarse tras promoción exitosa aun con build omitido');
+  assert.match(publicE2e, /if:\s*\$\{\{\s*always\(\)\s*&&\s*!cancelled\(\)[\s\S]*needs\.finalize_installer_release\.result == 'success'[\s\S]*needs\.post_publish_installer_e2e\.result == 'success'/, 'la verificación pública corre tras promoción exitosa aunque el build se haya reutilizado');
   assert.match(publicE2e, /needs:\s*\[?finalize_installer_release/);
   assert.match(publicE2e, /contents:\s*read/);
   assert.match(publicE2e, /\.browser_download_url/);
-  assert.match(publicE2e, /releases\/download\/\$tag\/\$candidateName/);
-  assert.match(publicE2e, /sidecarAsset\.browser_download_url/);
-  assert.match(publicE2e, /ExpectedSha256/);
-  assert.match(publicE2e, /installer-hub-e2e-docente\.ps1/);
-  assert.match(publicE2e, /BASELINE_BUNDLE_PATH/);
-  assert.match(publicE2e, /-SeedDummyData/);
+  assert.match(publicE2e, /releases\/download\/\$tag\/\$exe_name/);
+  assert.match(publicE2e, /verify_asset "\$sidecar_name"/);
+  assert.match(publicE2e, /VERIFIED_CANDIDATE_DIGEST/);
+  assert.match(publicE2e, /VERIFIED_SIDECAR_DIGEST/);
+  assert.match(publicE2e, /VERIFIED_MANIFEST_DIGEST/);
+  assert.match(publicE2e, /"\$id" == "\$expected_id"/);
+  assert.match(publicE2e, /"\$size" == "\$expected_size"/);
+  assert.match(publicE2e, /"\$digest" == "\$expected_digest"/);
+  assert.match(publicE2e, /curl .*--head/);
+  assert.doesNotMatch(publicE2e, /windows-latest|npm ci|playwright install|download-github-release-asset|installer-hub-e2e-docente\.ps1/);
   assert.match(rollback, /needs:\s*verify_public_installer_e2e/);
   assert.match(rollback, /needs\.verify_public_installer_e2e\.result != 'success'/);
   assert.match(rollback, /contents:\s*write/);
@@ -881,7 +891,7 @@ test('release estable valida el asset desde su URL pública y lo oculta si falla
   assert.match(installer, /inputs\.release_tag != ''/);
   assert.match(installer, /tag_name: \$\{\{ inputs\.release_tag \|\| github\.ref_name \}\}/);
   assert.match(installer, /target_commitish: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/);
-  assert.match(installer, /ref: \$\{\{ inputs\.release_tag \|\| github\.ref \}\}/);
+  assert.doesNotMatch(publicE2e, /actions\/checkout/);
 });
 test('smoke Windows fija la identidad antes de la primera acción del broker', () => {
   const smoke = fs.readFileSync(path.join(root, 'scripts', 'tests', 'windows-release-smoke.test.mjs'), 'utf8');

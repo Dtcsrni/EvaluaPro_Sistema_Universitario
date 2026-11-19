@@ -3246,7 +3246,9 @@ test('workflow adjunta certificado público, hash e instrucciones y limpia la co
   assert.match(workflow, /dist\/installer\/EvaluaPro-CodeSigning-Certificate\.cer/);
   assert.match(workflow, /dist\/installer\/EvaluaPro-CodeSigning-Certificate\.cer\.sha256/);
   assert.match(workflow, /dist\/installer\/FIRMA-LEEME\.md/);
-  assert.equal((workflow.match(/Limpiar confianza temporal de firma en runner/g) || []).length, 3);
+  // La confianza temporal solo se agrega en los dos runners Windows que
+  // validan los assets antes de publicar; la verificación pública es ligera.
+  assert.equal((workflow.match(/Limpiar confianza temporal de firma en runner/g) || []).length, 2);
   assert.match(workflow, /\$trustHelper -TargetPath \$candidatePath -CertificatePath \$certificatePath/);
 });
 
