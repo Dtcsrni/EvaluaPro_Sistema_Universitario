@@ -87,6 +87,9 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Request-AppHostWindowClose/);
   assert.match(installerE2ESource, /PostMessage\(hWnd, 0x0010, IntPtr\.Zero, IntPtr\.Zero\)/);
   assert.match(installerE2ESource, /RequestClose\(\[IntPtr\]\(\[int64\]\$window\.Handle\)\)/);
+  assert.match(installerE2ESource, /GetCurrentPattern\(\[System\.Windows\.Automation\.WindowPattern\]::Pattern\)/);
+  assert.match(installerE2ESource, /windowPattern\.Close\(\)/);
+  assert.match(installerE2ESource, /No se pudo solicitar el cierre del App Host PID=/);
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationNo/);

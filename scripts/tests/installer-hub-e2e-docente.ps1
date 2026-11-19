@@ -639,10 +639,31 @@ function Request-AppHostWindowClose {
     } catch {}
   }
 
-  foreach ($window in @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)) {
-    if ($window.Name -eq 'EvaluaPro · Cerrar' -or $window.NativeTitle -eq 'EvaluaPro · Cerrar') { continue }
-    if ([EvaluaProE2ENativeWindow]::RequestClose([IntPtr]([int64]$window.Handle))) { return $true }
+  $mainWindowHandle = [IntPtr]$Process.MainWindowHandle
+  if ($mainWindowHandle -ne [IntPtr]::Zero -and
+      [EvaluaProE2ENativeWindow]::RequestClose($mainWindowHandle)) {
+    Write-E2ELog "Cierre normal del App Host solicitado por MainWindowHandle PID=$ProcessId hwnd=0x$($mainWindowHandle.ToInt64().ToString('X'))"
+    return $true
   }
+
+  $windows = @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)
+  foreach ($window in $windows) {
+    if ($window.Name -eq 'EvaluaPro · Cerrar' -or $window.NativeTitle -eq 'EvaluaPro · Cerrar') { continue }
+    if ([EvaluaProE2ENativeWindow]::RequestClose([IntPtr]([int64]$window.Handle))) {
+      Write-E2ELog "Cierre normal del App Host solicitado por HWND enumerado PID=$ProcessId hwnd=0x$(([int64]$window.Handle).ToString('X'))"
+      return $true
+    }
+    if ($window.Element) {
+      try {
+        $windowPattern = $window.Element.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+        $windowPattern.Close()
+        Write-E2ELog "Cierre normal del App Host solicitado por UI Automation PID=$ProcessId hwnd=0x$(([int64]$window.Handle).ToString('X'))"
+        return $true
+      } catch {}
+    }
+  }
+  $windowSummary = @($windows | ForEach-Object { "hwnd=0x$($_.Handle.ToString('X')) title='$($_.NativeTitle)' name='$($_.Name)' enabled=$($_.Enabled)" }) -join '; '
+  Write-E2ELog "No se pudo solicitar el cierre del App Host PID=$ProcessId mainWindowHandle=0x$($mainWindowHandle.ToInt64().ToString('X')) ventanas=[$windowSummary]"
   return $false
 }
 
