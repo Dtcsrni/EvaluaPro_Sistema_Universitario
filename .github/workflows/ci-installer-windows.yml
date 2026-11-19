@@ -925,6 +925,15 @@ jobs:
     needs: [installer_windows, publish_installer_release, reuse_installer_candidate, installer_windows_build]
     outputs:
       draft_sha256: ${{ steps.draft_asset.outputs.sha256 }}
+      candidate_id: ${{ steps.draft_asset.outputs.candidate_id }}
+      candidate_size: ${{ steps.draft_asset.outputs.candidate_size }}
+      candidate_digest: ${{ steps.draft_asset.outputs.candidate_digest }}
+      sidecar_id: ${{ steps.draft_asset.outputs.sidecar_id }}
+      sidecar_size: ${{ steps.draft_asset.outputs.sidecar_size }}
+      sidecar_digest: ${{ steps.draft_asset.outputs.sidecar_digest }}
+      manifest_id: ${{ steps.draft_asset.outputs.manifest_id }}
+      manifest_size: ${{ steps.draft_asset.outputs.manifest_size }}
+      manifest_digest: ${{ steps.draft_asset.outputs.manifest_digest }}
     if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.publish_installer_release.result == 'success' && needs.installer_windows.result == 'success' && (needs.reuse_installer_candidate.result == 'success' || needs.installer_windows_build.result == 'success') }}
     runs-on: windows-latest
     timeout-minutes: 180
@@ -1019,10 +1028,11 @@ jobs:
           $sidecarPath = $candidatePath + '.sha256'
           $releaseManifestPath = Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'
           $manifestDigest = [regex]::Match([string]$manifestAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
+          $sidecarDigest = [regex]::Match([string]$sidecarAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
           $certificateDigest = [regex]::Match([string]$certificateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
           $certificateShaDigest = [regex]::Match([string]$certificateShaAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
           $trustGuideDigest = [regex]::Match([string]$trustGuideAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          if (-not $manifestDigest.Success -or -not $certificateDigest.Success -or -not $certificateShaDigest.Success -or -not $trustGuideDigest.Success) {
+          if (-not $manifestDigest.Success -or -not $sidecarDigest.Success -or -not $certificateDigest.Success -or -not $certificateShaDigest.Success -or -not $trustGuideDigest.Success) {
             throw 'La API de GitHub no reportó digest SHA-256 válido para alguno de los assets de release.'
           }
           New-Item -ItemType Directory -Path (Split-Path -Parent $releaseManifestPath) -Force | Out-Null
@@ -1056,9 +1066,11 @@ jobs:
           $sidecarMatch = [regex]::Match($sidecarText, '(?i)^\s*([0-9a-f]{64})\s+')
           if (-not $sidecarMatch.Success) { throw 'El sidecar SHA-256 publicado no tiene el formato esperado.' }
           $sidecarHash = $sidecarMatch.Groups[1].Value.ToLowerInvariant()
+          $sidecarFileHash = (Get-FileHash -LiteralPath $sidecarPath -Algorithm SHA256).Hash.ToLowerInvariant()
           $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
           $apiHash = $digestMatch.Groups[1].Value.ToLowerInvariant()
           if ($sidecarHash -ne $actualHash) { throw 'El SHA-256 del EXE descargado no coincide con el sidecar publicado.' }
+          if ($sidecarDigest.Groups[1].Value.ToLowerInvariant() -ne $sidecarFileHash) { throw 'El digest SHA-256 de GitHub no coincide con el sidecar descargado.' }
           if ($apiHash -ne $actualHash) { throw 'SHA-256 del EXE no coincide con el digest de GitHub.' }
           $runE2E = 'true'
           if (-not [string]::IsNullOrWhiteSpace($env:CANDIDATE_SHA256)) {
@@ -1066,6 +1078,15 @@ jobs:
             if ($actualHash -eq $env:CANDIDATE_SHA256.ToLowerInvariant()) { $runE2E = 'false' }
           }
           "sha256=$actualHash" >> $env:GITHUB_OUTPUT
+          "candidate_id=$($candidateAsset.id)" >> $env:GITHUB_OUTPUT
+          "candidate_size=$($candidateAsset.size)" >> $env:GITHUB_OUTPUT
+          "candidate_digest=$($candidateAsset.digest.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "sidecar_id=$($sidecarAsset.id)" >> $env:GITHUB_OUTPUT
+          "sidecar_size=$($sidecarAsset.size)" >> $env:GITHUB_OUTPUT
+          "sidecar_digest=$($sidecarAsset.digest.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "manifest_id=$($manifestAsset.id)" >> $env:GITHUB_OUTPUT
+          "manifest_size=$($manifestAsset.size)" >> $env:GITHUB_OUTPUT
+          "manifest_digest=$($manifestAsset.digest.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           "run_e2e=$runE2E" >> $env:GITHUB_OUTPUT
           "certificate_path=$certificatePath" >> $env:GITHUB_OUTPUT
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
@@ -1206,236 +1227,64 @@ jobs:
           fi
 
   verify_public_installer_e2e:
-    name: E2E del asset público descargado desde GitHub
+    name: Verificar publicación pública del instalador
     needs: [finalize_installer_release, post_publish_installer_e2e]
     if: ${{ always() && !cancelled() && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) && needs.finalize_installer_release.result == 'success' && needs.post_publish_installer_e2e.result == 'success' }}
-    runs-on: windows-latest
-    timeout-minutes: 180
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
 
     steps:
-      - name: Descargar código de la tag
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ inputs.release_tag || github.ref }}
-
-      - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Instalar WiX CLI estable para la E2E
-        shell: powershell
-        run: |
-          dotnet tool install --global wix --version 7.0.0
-          wix eula accept wix7
-          $dotnetToolsDir = Join-Path $env:USERPROFILE ".dotnet\tools"
-          if (-not (Test-Path $dotnetToolsDir)) { throw "No se encontró la carpeta de herramientas .NET global ($dotnetToolsDir)." }
-          "$dotnetToolsDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $wixPath = Join-Path $dotnetToolsDir "wix.exe"
-          if (-not (Test-Path $wixPath)) { throw "No se encontró wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)." }
-          $wixVersion = (& $wixPath --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^7\.0\.\d+(?:[+\-].*)?$') { throw "Versión WiX no permitida: $wixVersion. Se requiere 7.0.x." }
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Instalar dependencias de la E2E
-        shell: powershell
-        run: |
-          npm install --global npm@12.2.1
-          npm ci --foreground-scripts
-          npx prisma generate --config=apps/backend/prisma.config.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npx playwright install chromium
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Descargar y verificar el asset público por su URL de release
-        id: public_asset
-        shell: powershell
+      - name: Comprobar que el release público conserva los assets E2E aprobados
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-          VERIFIED_DRAFT_SHA256: ${{ needs.post_publish_installer_e2e.outputs.draft_sha256 }}
+          VERIFIED_CANDIDATE_ID: ${{ needs.post_publish_installer_e2e.outputs.candidate_id }}
+          VERIFIED_CANDIDATE_SIZE: ${{ needs.post_publish_installer_e2e.outputs.candidate_size }}
+          VERIFIED_CANDIDATE_DIGEST: ${{ needs.post_publish_installer_e2e.outputs.candidate_digest }}
+          VERIFIED_SIDECAR_ID: ${{ needs.post_publish_installer_e2e.outputs.sidecar_id }}
+          VERIFIED_SIDECAR_SIZE: ${{ needs.post_publish_installer_e2e.outputs.sidecar_size }}
+          VERIFIED_SIDECAR_DIGEST: ${{ needs.post_publish_installer_e2e.outputs.sidecar_digest }}
+          VERIFIED_MANIFEST_ID: ${{ needs.post_publish_installer_e2e.outputs.manifest_id }}
+          VERIFIED_MANIFEST_SIZE: ${{ needs.post_publish_installer_e2e.outputs.manifest_size }}
+          VERIFIED_MANIFEST_DIGEST: ${{ needs.post_publish_installer_e2e.outputs.manifest_digest }}
         run: |
-          $repository = $env:RELEASE_REPOSITORY
-          $tag = $env:RELEASE_TAG
-          if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repositorio inválido.' }
-          if ($tag -notmatch '^hub-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$') { throw 'Tag de release inválida.' }
-          $packageVersion = [string](Get-Content -Raw -LiteralPath 'config/hub-version.json' | ConvertFrom-Json).version
-          if ("hub-v$packageVersion" -ne $tag) { throw "La versión del Hub ($packageVersion) no coincide con la tag ($tag)." }
-          $release = gh api "repos/$repository/releases/tags/$tag" | ConvertFrom-Json
-          if ($release.draft -or $release.tag_name -ne $tag) { throw "El release $tag no está publicado." }
-          $candidateName = "EvaluaPro-InstallerHub-docente-local-v$packageVersion.exe"
-          $candidateAsset = @($release.assets | Where-Object { $_.name -eq $candidateName }) | Select-Object -First 1
-          $sidecarAsset = @($release.assets | Where-Object { $_.name -eq ($candidateName + '.sha256') }) | Select-Object -First 1
-          $manifestAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-release-manifest.json' }) | Select-Object -First 1
-          $certificateAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-CodeSigning-Certificate.cer' }) | Select-Object -First 1
-          $certificateShaAsset = @($release.assets | Where-Object { $_.name -eq 'EvaluaPro-CodeSigning-Certificate.cer.sha256' }) | Select-Object -First 1
-          $trustGuideAsset = @($release.assets | Where-Object { $_.name -eq 'FIRMA-LEEME.md' }) | Select-Object -First 1
-          if (-not $candidateAsset -or -not $sidecarAsset -or -not $manifestAsset -or -not $certificateAsset -or -not $certificateShaAsset -or -not $trustGuideAsset) {
-            throw "El release público no contiene el EXE, sidecar, manifiesto y material de confianza manual esperado para $tag."
+          set -euo pipefail
+          repository="$RELEASE_REPOSITORY"
+          tag="$RELEASE_TAG"
+          [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo 'Repositorio inválido.' >&2; exit 1; }
+          [[ "$tag" =~ ^hub-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]] || { echo 'Tag de release inválida.' >&2; exit 1; }
+          [[ "$VERIFIED_CANDIDATE_ID" =~ ^[0-9]+$ && "$VERIFIED_CANDIDATE_SIZE" =~ ^[0-9]+$ ]] || { echo 'La evidencia de EXE borrador está incompleta.' >&2; exit 1; }
+          release="$(gh api "repos/$repository/releases/tags/$tag")"
+          jq -e --arg tag "$tag" '.draft == false and .tag_name == $tag' <<<"$release" >/dev/null || { echo 'El release/tag todavía no está publicado.' >&2; exit 1; }
+          version="${tag#hub-v}"
+          exe_name="EvaluaPro-InstallerHub-docente-local-v${version}.exe"
+          sidecar_name="${exe_name}.sha256"
+          manifest_name='EvaluaPro-release-manifest.json'
+          asset() { jq -ce --arg name "$1" '[.assets[] | select(.name == $name)] | if length == 1 then .[0] else empty end' <<<"$release"; }
+          verify_asset() {
+            local name="$1" expected_id="$2" expected_size="$3" expected_digest="$4" canonical_url="$5" item id size digest url status
+            item="$(asset "$name")" || { echo "Falta o está duplicado el asset $name." >&2; return 1; }
+            id="$(jq -r '.id' <<<"$item")"
+            size="$(jq -r '.size' <<<"$item")"
+            digest="$(jq -r '.digest // empty' <<<"$item" | tr '[:upper:]' '[:lower:]')"
+            url="$(jq -r '.browser_download_url // empty' <<<"$item")"
+            [[ "$id" == "$expected_id" && "$size" == "$expected_size" && "$digest" == "$expected_digest" ]] || { echo "El asset público $name no coincide con la evidencia aprobada del borrador." >&2; return 1; }
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Digest público inválido para $name." >&2; return 1; }
+            [[ "$url" == "$canonical_url" ]] || { echo "URL pública no canónica para $name." >&2; return 1; }
+            status="$(curl --silent --show-error --location --fail --head --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 30 --max-time 45 --output /dev/null --write-out '%{http_code}' "$url")"
+            [[ "$status" =~ ^2[0-9]{2}$ ]] || { echo "URL pública de $name respondió HTTP $status." >&2; return 1; }
+            echo "Verificado asset público: $name (HTTP $status, $size bytes, $digest)"
           }
-          $expectedUrl = "https://github.com/$repository/releases/download/$tag/$candidateName"
-          if ([string]$candidateAsset.browser_download_url -ne $expectedUrl) { throw 'La URL pública del asset no coincide con la ruta canónica del release.' }
-          if ([string]$sidecarAsset.browser_download_url -ne ($expectedUrl + '.sha256')) { throw 'La URL pública del sidecar no coincide con el instalador.' }
-          $expectedManifestUrl = "https://github.com/$repository/releases/download/$tag/EvaluaPro-release-manifest.json"
-          if ([string]$manifestAsset.browser_download_url -ne $expectedManifestUrl) { throw 'La URL pública del manifiesto no coincide con la ruta canónica del release.' }
-          $expectedCertificateUrl = "https://github.com/$repository/releases/download/$tag/EvaluaPro-CodeSigning-Certificate.cer"
-          if ([string]$certificateAsset.browser_download_url -ne $expectedCertificateUrl) { throw 'La URL pública del certificado no coincide con la ruta canónica del release.' }
-          $digestMatch = [regex]::Match([string]$candidateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          if (-not $digestMatch.Success) { throw "GitHub no reportó digest SHA-256 válido para $candidateName." }
-          $downloadDir = Join-Path $env:RUNNER_TEMP ('public-installer-' + [guid]::NewGuid().ToString('N'))
-          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
-          $candidatePath = Join-Path $downloadDir $candidateName
-          $sidecarPath = $candidatePath + '.sha256'
-          $releaseManifestPath = Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'
-          $manifestDigest = [regex]::Match([string]$manifestAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          $certificateDigest = [regex]::Match([string]$certificateAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          $certificateShaDigest = [regex]::Match([string]$certificateShaAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          $trustGuideDigest = [regex]::Match([string]$trustGuideAsset.digest, '(?i)^sha256:([0-9a-f]{64})$')
-          if (-not $manifestDigest.Success -or -not $certificateDigest.Success -or -not $certificateShaDigest.Success -or -not $trustGuideDigest.Success) {
-            throw 'La API de GitHub no reportó digest SHA-256 válido para alguno de los assets públicos.'
-          }
-          New-Item -ItemType Directory -Path (Split-Path -Parent $releaseManifestPath) -Force | Out-Null
-          $certificatePath = Join-Path $downloadDir 'EvaluaPro-CodeSigning-Certificate.cer'
-          $certificateShaPath = $certificatePath + '.sha256'
-          $trustGuidePath = Join-Path $downloadDir 'FIRMA-LEEME.md'
-          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
-          & $downloadScript -Uri ([uri]$expectedUrl) -Destination $candidatePath -ExpectedLength ([long]$candidateAsset.size) -ExpectedSha256 $digestMatch.Groups[1].Value
-          & $downloadScript -Uri ([uri][string]$sidecarAsset.browser_download_url) -Destination $sidecarPath -ExpectedLength ([long]$sidecarAsset.size)
-          & $downloadScript -Uri ([uri][string]$manifestAsset.browser_download_url) -Destination $releaseManifestPath -ExpectedLength ([long]$manifestAsset.size) -ExpectedSha256 $manifestDigest.Groups[1].Value
-          & $downloadScript -Uri ([uri][string]$certificateAsset.browser_download_url) -Destination $certificatePath -ExpectedLength ([long]$certificateAsset.size) -ExpectedSha256 $certificateDigest.Groups[1].Value
-          & $downloadScript -Uri ([uri][string]$certificateShaAsset.browser_download_url) -Destination $certificateShaPath -ExpectedLength ([long]$certificateShaAsset.size) -ExpectedSha256 $certificateShaDigest.Groups[1].Value
-          & $downloadScript -Uri ([uri][string]$trustGuideAsset.browser_download_url) -Destination $trustGuidePath -ExpectedLength ([long]$trustGuideAsset.size) -ExpectedSha256 $trustGuideDigest.Groups[1].Value
-          $certificateSidecar = [regex]::Match((Get-Content -Raw -LiteralPath $certificateShaPath), '(?i)^\s*([0-9a-f]{64})\s+')
-          if (-not $certificateSidecar.Success -or $certificateSidecar.Groups[1].Value.ToLowerInvariant() -ne $certificateDigest.Groups[1].Value.ToLowerInvariant()) {
-            throw 'El sidecar del certificado público no coincide con el digest publicado.'
-          }
-          $trustHelper = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/trust-release-signing-certificate.ps1'
-          & $trustHelper -TargetPath $candidatePath -CertificatePath $certificatePath -ExpectedCertificateSha256 $certificateDigest.Groups[1].Value
-          $releaseManifest = Get-Content -Raw -LiteralPath $releaseManifestPath | ConvertFrom-Json
-          if ([string]$releaseManifest.version -ne $packageVersion -or
-              [string]$releaseManifest.hubVersion -ne $packageVersion -or
-              [string]$releaseManifest.appVersion -ne [string](Get-Content -Raw -LiteralPath 'config/app-version.json' | ConvertFrom-Json).version -or
-              [string]$releaseManifest.build.version -ne $packageVersion -or
-              [string]$releaseManifest.build.commit -ne [string]$release.target_commitish -or
-              @($releaseManifest.flavors).Count -ne 1 -or
-              [string]$releaseManifest.flavors[0].flavorId -ne 'docente-local') {
-            throw 'El manifiesto descargado no corresponde a la versión, SHA y flavor del release público.'
-          }
-          $sidecarMatch = [regex]::Match((Get-Content -Raw -LiteralPath $sidecarPath), '(?i)^\s*([0-9a-f]{64})\s+')
-          $actualHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
-          if (-not $sidecarMatch.Success -or $sidecarMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con su sidecar.' }
-          if ($digestMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) { throw 'El SHA-256 del EXE público no coincide con el digest de GitHub.' }
-          if ($env:VERIFIED_DRAFT_SHA256 -notmatch '^(?i)[0-9a-f]{64}$') { throw 'El digest del asset draft no es válido.' }
-          if ($actualHash -ne $env:VERIFIED_DRAFT_SHA256.ToLowerInvariant()) { throw 'El EXE público no coincide con el asset draft previamente verificado.' }
-          "sha256=$actualHash" >> $env:GITHUB_OUTPUT
-          "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
-          Write-Host "Asset público descargado por browser_download_url; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
-
-      - name: Descargar y verificar baseline oficial v1.2.3
-        shell: powershell
-        env:
-          BASELINE_BUNDLE_NAME: EvaluaPro-InstallerHub-docente-local-v1.2.3.exe
-        run: |
-          $baselineDir = Join-Path $env:RUNNER_TEMP 'evaluapro-upgrade-baseline-v1.2.3'
-          New-Item -ItemType Directory -Path $baselineDir -Force | Out-Null
-          $baselinePath = Join-Path $baselineDir $env:BASELINE_BUNDLE_NAME
-          $baselineUrl = 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/download/v1.2.3/' + $env:BASELINE_BUNDLE_NAME
-          $expectedHash = '644984c84fc05c4ec1f3804bda9d20666d229f7bab23caeb3a9c767179c82913'
-          $downloadScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/ci/download-github-release-asset.ps1'
-          & $downloadScript -Uri $baselineUrl -Destination $baselinePath -ExpectedLength 249491600 -ExpectedSha256 $expectedHash
-          & $downloadScript -Uri ($baselineUrl + '.sha256') -Destination ($baselinePath + '.sha256') -MaxAttempts 3
-          $sidecar = [regex]::Match((Get-Content -Raw -LiteralPath ($baselinePath + '.sha256')), '(?i)^\s*([0-9a-f]{64})\s+')
-          $actualHash = (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).Hash.ToLowerInvariant()
-          if (-not $sidecar.Success -or $sidecar.Groups[1].Value.ToLowerInvariant() -ne $expectedHash -or $actualHash -ne $expectedHash) { throw 'El baseline oficial v1.2.3 no coincide con el SHA-256 fijado.' }
-          "BASELINE_BUNDLE_PATH=$baselinePath" >> $env:GITHUB_ENV
-
-      - name: Compilar fixture Burn para el asset público
-        shell: powershell
-        env:
-          CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
-        run: |
-          $fixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-SameVersionRelatedBundle.exe'
-          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $fixtureOutput
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $previousFixtureOutput = Join-Path $env:RUNNER_TEMP 'EvaluaPro-QA-PreviousVersionRelatedBundle.exe'
-          & scripts/tests/build-same-version-related-bundle-fixture.ps1 -CandidateBundlePath $env:CANDIDATE_BUNDLE_PATH -OutputPath $previousFixtureOutput -FixtureVersion '1.2.0.0' -EnvironmentVariableName 'PREVIOUS_VERSION_RELATED_BUNDLE_PATH'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Preparar ruta privada para evidencia E2E pública
-        id: preparar_reporte_e2e
-        shell: powershell
-        env:
-          INSTALLER_CI_RUN_ID: ${{ github.run_id }}
-          INSTALLER_CI_RUN_ATTEMPT: ${{ github.run_attempt }}
-        run: |
-          if ($env:INSTALLER_CI_RUN_ID -notmatch '^[0-9]+$' -or $env:INSTALLER_CI_RUN_ATTEMPT -notmatch '^[0-9]+$') { throw 'Identificadores de ejecución inválidos.' }
-          if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) { throw 'El runner no expuso su perfil de usuario.' }
-          $reportDir = Join-Path $env:USERPROFILE ('installer-hub-e2e-public-ci-' + $env:INSTALLER_CI_RUN_ID + '-' + $env:INSTALLER_CI_RUN_ATTEMPT)
-          "report_dir=$reportDir" >> $env:GITHUB_OUTPUT
-
-      - name: E2E completa sobre el instalador descargado del release público
-        shell: powershell
-        env:
-          EVALUAPRO_INSTALLER_SIMULATE_WSL_BOOTSTRAP: '1'
-          EVALUAPRO_INSTALLER_SIMULATE_AUTO_BOOTSTRAP: '1'
-          EVALUAPRO_INSTALLER_AUTO_BOOTSTRAP_WSL: '1'
-          EVALUAPRO_LICENSE_ACTIVATION_SIMULATE: '1'
-          CANDIDATE_BUNDLE_PATH: ${{ steps.public_asset.outputs.candidate_path }}
-          INSTALLER_CI_RUN_ID: ${{ github.run_id }}
-          E2E_REPORT_DIR: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}
-        run: |
-          if (-not (Test-Path -LiteralPath $env:CANDIDATE_BUNDLE_PATH)) { throw 'Falta el EXE descargado del release público.' }
-          if (-not (Test-Path -LiteralPath $env:BASELINE_BUNDLE_PATH)) { throw 'Falta el baseline oficial v1.2.3.' }
-          if ([string]::IsNullOrWhiteSpace($env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH)) { throw 'Falta el fixture Burn relacionado de versión previa.' }
-          $runnerArgs = @(
-            '-RootPath', $env:GITHUB_WORKSPACE,
-            '-ReleaseManifestPath', (Join-Path $env:GITHUB_WORKSPACE 'dist\installer\EvaluaPro-release-manifest.json'),
-            '-ReportDir', $env:E2E_REPORT_DIR,
-            '-InstallDir', (Join-Path $env:LOCALAPPDATA 'EvaluaPro-QA-Isolated-public-release-e2e'),
-            '-CandidateBundlePath', $env:CANDIDATE_BUNDLE_PATH,
-            '-BaselineBundlePath', $env:BASELINE_BUNDLE_PATH,
-            '-SameVersionRelatedBundlePath', $env:SAME_VERSION_RELATED_BUNDLE_PATH,
-            '-PreviousVersionRelatedBundlePath', $env:PREVIOUS_VERSION_RELATED_BUNDLE_PATH,
-            '-Port', '4521',
-            '-IUnderstandThisMutatesPc',
-            '-SeedDummyData'
-          )
-          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/installer-hub-e2e-docente.ps1 @runnerArgs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Publicar evidencia E2E del release público
-        if: always() && steps.preparar_reporte_e2e.outputs.report_dir != ''
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: installer-hub-public-e2e-${{ github.run_id }}
-          path: ${{ steps.preparar_reporte_e2e.outputs.report_dir }}/
-          if-no-files-found: warn
-          retention-days: 90
-
-      - name: Limpiar confianza temporal de firma en runner
-        if: ${{ always() && env.EVALUAPRO_TEMP_TRUST_THUMBPRINT != '' }}
-        shell: powershell
-        run: |
-          $thumbprint = $env:EVALUAPRO_TEMP_TRUST_THUMBPRINT
-          if ($thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Thumbprint temporal inválido durante limpieza.' }
-          $rootCertificate = "Cert:\CurrentUser\Root\$thumbprint"
-          if (Test-Path -LiteralPath $rootCertificate) { Remove-Item -LiteralPath $rootCertificate -Force }
-
+          verify_asset "$exe_name" "$VERIFIED_CANDIDATE_ID" "$VERIFIED_CANDIDATE_SIZE" "$VERIFIED_CANDIDATE_DIGEST" "https://github.com/$repository/releases/download/$tag/$exe_name"
+          verify_asset "$sidecar_name" "$VERIFIED_SIDECAR_ID" "$VERIFIED_SIDECAR_SIZE" "$VERIFIED_SIDECAR_DIGEST" "https://github.com/$repository/releases/download/$tag/$sidecar_name"
+          verify_asset "$manifest_name" "$VERIFIED_MANIFEST_ID" "$VERIFIED_MANIFEST_SIZE" "$VERIFIED_MANIFEST_DIGEST" "https://github.com/$repository/releases/download/$tag/$manifest_name"
+          echo "Validación pública ligera aprobada: $tag conserva los mismos assets probados en el borrador." >> "$GITHUB_STEP_SUMMARY"
   redraft_failed_public_installer_release:
-    name: Ocultar release si falla la E2E del asset público
+    name: Ocultar release si falla la verificación pública de assets
     needs: verify_public_installer_e2e
     if: ${{ always() && needs.verify_public_installer_e2e.result != 'success' && needs.verify_public_installer_e2e.result != 'skipped' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/hub-v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) }}
     runs-on: ubuntu-latest

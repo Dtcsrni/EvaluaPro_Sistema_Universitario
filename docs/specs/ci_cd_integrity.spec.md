@@ -1,11 +1,11 @@
 ---
 id: SPEC-CI-CD-INTEGRITY
 titulo: Integridad y seguridad de ciclos CI/CD
-version: 1.2.6
-fecha: 2026-10-22
+version: 1.2.7
+fecha: 2026-11-19
 autor: Codex / Agente IA
 modulo: devops
-estado: implemented
+estado: approved
 ---
 
 # Integridad y seguridad de ciclos CI/CD
@@ -21,7 +21,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **REQ-005:** El guard de tags acepta únicamente SemVer canónico sin ceros iniciales para versión ni identificador numérico de alpha/beta/rc; su limpieza protege tags válidas y solo elimina una tag inválida cuando el nombre de repositorio también es válido.
 - **REQ-006:** El workflow beta automático se dispara cuando termina `CI Checks` para `main`, pero solo evalúa/publica cuando ese workflow concluyó exitosamente y el SHA corresponde a `main`.
 - **REQ-007:** `CI Checks` selecciona en PR pruebas focales por módulo: backend usa perfiles explícitos fuente→tests y ejecuta `Vitest --changed` solo cuando no existe un perfil confiable; frontend/portal usan `--changed`. Cambios de dependencias/configuración sin una selección segura y una base Git no resoluble caen a la suite completa del módulo. La cobertura instrumentada completa se ejecuta solo mediante dispatch completo explícito.
-- **REQ-008:** Una release estable del instalador solo permanece pública si una E2E completa descarga el EXE por su URL pública canónica, verifica tamaño y SHA-256 contra el digest de la API de GitHub y el sidecar, y ejecuta install/repair/upgrade/dashboard/uninstall sobre un runner Windows aislado. Si esa E2E falla, el workflow vuelve el release a borrador.
+- **REQ-008:** La E2E completa de instalación/repair/upgrade/dashboard/uninstall se ejecuta una vez en el asset de borrador verificado. Tras publicar, un gate ligero valida que EXE, sidecar y manifiesto mantienen los mismos IDs, tamaños y digests SHA-256 del borrador, que las URL públicas son canónicas y responden HTTP 2xx, y que el release/tag están publicados. Si el gate falla, el workflow vuelve el release a borrador. No repite instalación ni descarga archivos binarios pesados.
 - **REQ-009:** El Dockerfile del backend copia `apps/backend/prisma.config.mjs` dentro de la etapa `builder` antes de ejecutar `npm --workspace apps/backend run build`, que invoca `prisma generate --config prisma.config.mjs`.
 - **REQ-010:** La cobertura porcentual de diff se informa solo como diagnóstico salvo que una invocación declare explícitamente un umbral; ningún umbral global arbitrario bloquea PR. Las suites completas permanecen en schedule/dispatch completo; los reportes integrales de cobertura quedan solo en dispatch completo explícito.
 - **REQ-011:** En PR, los gates funcionales extendidos se activan por grupo de rutas que corresponda al comportamiento modificado; cambios de CI/política ejecutan contratos de CI sin escalar automáticamente a toda la suite. OMR, calificación, PDF, privacidad, rendimiento y arquitectura deben tener grupos independientes. Los cambios de runtime compartido conservan la escalación `full-core`; schedule y `force_full_ci` conservan la validación integral.
@@ -35,7 +35,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 - **AC-005 (REQ-005):** La prueba de contrato ejecuta la expresión del guard contra versiones válidas y casos con ceros iniciales/sufijos no admitidos; confirma que cleanup rechaza una tag válida o repositorio inválido y permite limpiar tags de formato inválido.
 - **AC-006 (REQ-006):** La prueba de contrato confirma el trigger `workflow_run` de `CI Checks` completado sobre `main` y la defensa adicional por conclusión exitosa y rama `main`.
 - **AC-007 (REQ-007):** Las pruebas confirman selección backend desde perfiles fuente→tests, `--changed` para módulos sin mapa, fallback seguro a suite completa y cobertura instrumentada solo en dispatch completo explícito.
-- **AC-008 (REQ-008):** La prueba de contrato confirma que el job E2E depende del job que publica el release, usa `browser_download_url`/la URL canónica pública, valida hashes, exige que el EXE público coincida con el borrador verificado, descarga el baseline v1.2.3 y ejecuta siempre el runner E2E completo sobre el asset público, incluso cuando los hashes del borrador y del release coinciden; ante fallo, vuelve a borrador el release.
+- **AC-008 (REQ-008):** Las pruebas de contrato confirman que la E2E Windows completa depende de la verificación del borrador y corre una sola vez; el gate público usa un runner Linux corto, valida estado/tag, identidad/tamaño/digest de EXE, sidecar y manifiesto contra los outputs verificados del borrador, comprueba las URL canónicas con HTTP 2xx, no instala dependencias ni descarga el EXE/baseline, y vuelve el release a borrador ante fallo.
 - **AC-009 (REQ-009):** La prueba de contrato falla si el Dockerfile backend omite la copia del archivo de configuración Prisma o si esa copia aparece después del build.
 - **AC-010 (REQ-010):** Los contratos comprueban que la cobertura del diff corre sin umbral por defecto y que el workflow de PR no define un gate porcentual; los umbrales solo se aplican cuando se pasan explícitamente.
 - **AC-011 (REQ-011):** Pruebas del mapa affected verifican que CI/release y backend no relacionado no activan gates funcionales globales, que cada grupo especializado ejecuta sus gates y que runtime compartido/schedule retienen escalación completa.
@@ -52,7 +52,7 @@ Los workflows de CI/CD deben limitar el token a la función del job y evitar que
 | REQ-005 | Rechazar tags no canónicas de forma consistente | `scripts/tests/installer-hub-contract.test.mjs` | Implementado |
 | REQ-006 | Activar publicación beta automática después de CI verde en main | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-007 | Ejecutar pruebas afectadas por módulo y dejar cobertura global para corridas completas | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/backend-test-batches.test.mjs` | Implementado |
-| REQ-008 | E2E completa del EXE descargado del release público y rollback si falla | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
+| REQ-008 | E2E única en draft y verificación pública ligera de identidad/digest/disponibilidad con rollback | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Aprobado |
 | REQ-009 | Copiar configuración Prisma antes del build Docker backend | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-010 | Cobertura diagnóstica sin umbral universal; umbral únicamente explícito | `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
 | REQ-011 | Ejecutar gates extendidos solo para módulos afectados y mantener full-core en runtime compartido | `scripts/tests/affected-ci-resolver.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | Implementado |
