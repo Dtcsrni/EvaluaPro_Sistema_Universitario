@@ -627,13 +627,16 @@ function Get-AppHostTopLevelWindows {
 function Request-AppHostWindowClose {
   param(
     [Parameter(Mandatory = $true)][int]$ProcessId,
-    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process
+    [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+    [switch]$NativeFallbackOnly
   )
   $Process.Refresh()
   if ($Process.HasExited) { return $true }
-  try {
-    if ($Process.CloseMainWindow()) { return $true }
-  } catch {}
+  if (-not $NativeFallbackOnly) {
+    try {
+      if ($Process.CloseMainWindow()) { return $true }
+    } catch {}
+  }
 
   foreach ($window in @(Get-AppHostTopLevelWindows -ProcessId $ProcessId)) {
     if ($window.Name -eq 'EvaluaPro · Cerrar' -or $window.NativeTitle -eq 'EvaluaPro · Cerrar') { continue }
@@ -1828,7 +1831,11 @@ function Invoke-InstalledAppHost {
       } else { 0L }
       $processHandle = [IntPtr]::Zero
       try { $processHandle = [IntPtr]$process.Handle } catch {}
-      if (-not (Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process)) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
+      $closeRequested = $process.CloseMainWindow()
+      if (-not $closeRequested) {
+        $closeRequested = Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process -NativeFallbackOnly
+      }
+      if (-not $closeRequested) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
       $dialog = Wait-AppHostCloseConfirmation -ProcessId ([int]$identity.Id) -Process $process -TimeoutSec 15
       if (-not $dialog) { throw "El App Host PID $($identity.Id) no mostró la confirmación de cierre para probar No." }
       $choice = Invoke-AppHostCloseConfirmationNo -Dialog $dialog
@@ -1889,7 +1896,11 @@ namespace EvaluaPro {
     $process = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
     if ($process) {
       try {
-        if (-not (Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process)) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
+        $closeRequested = $process.CloseMainWindow()
+        if (-not $closeRequested) {
+          $closeRequested = Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process -NativeFallbackOnly
+        }
+        if (-not $closeRequested) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
         $dialog = Wait-AppHostCloseConfirmation -ProcessId ([int]$identity.Id) -Process $process -TimeoutSec 15
         $process.Refresh()
         if ($dialog) {
