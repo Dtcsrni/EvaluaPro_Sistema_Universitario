@@ -86,8 +86,12 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Get-AppHostTopLevelWindows/);
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
+  assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationNo/);
   assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
   assert.match(installerE2ESource, /close-confirmation-yes/);
+  assert.match(installerE2ESource, /close-confirmation-no/);
+  assert.match(installerE2ESource, /close-window-only'[\s\S]*?reopen-dashboard-/);
+  assert.match(installerE2ESource, /no-keeps-services-healthy/);
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 
@@ -154,5 +158,4 @@ test('la ventana nativa inicia grande, centrada y redimensionable para cubrir el
   assert.match(hostSource, /1040/);
   assert.match(windowSource, /WindowStyle="SingleBorderWindow"/);
 });
-
 

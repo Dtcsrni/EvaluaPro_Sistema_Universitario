@@ -1379,4 +1379,3 @@ public partial class MainWindow : Window
         _ = Dispatcher.BeginInvoke(new Action(Close));
     }
 }
-

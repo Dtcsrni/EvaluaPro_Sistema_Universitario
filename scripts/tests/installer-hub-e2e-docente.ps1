@@ -1,4 +1,4 @@
-﻿# installer-hub-e2e-docente.ps1
+# installer-hub-e2e-docente.ps1
 #
 # Responsabilidad: Modulo interno del sistema.
 # Limites: Mantener contrato y comportamiento observable del modulo.
@@ -663,6 +663,28 @@ function Invoke-AppHostCloseConfirmationYes {
     }
   }
   throw 'La confirmación de cierre no expuso el botón Sí/Yes mediante UI Automation.'
+}
+
+function Invoke-AppHostCloseConfirmationNo {
+  param([Parameter(Mandatory = $true)][System.Windows.Automation.AutomationElement]$Dialog)
+  foreach ($name in @('No')) {
+    $button = Find-ByName -RootElement $Dialog -Name $name -TimeoutSec 1
+    if ($button) {
+      $buttonHandle = [IntPtr]([int]$button.Current.NativeWindowHandle)
+      if ($buttonHandle -ne [IntPtr]::Zero -and
+          [EvaluaProE2ENativeWindow]::ClickButton($buttonHandle, 5000)) {
+        return $name
+      }
+      try {
+        Invoke-Control -Element $button
+        return $name
+      } catch {
+        throw ("No se pudo activar la opción de cierre '{0}'; HWND=0x{1:X}: {2}" -f
+          $name, $button.Current.NativeWindowHandle, $_.Exception.Message)
+      }
+    }
+  }
+  throw 'La confirmación de cierre no expuso el botón No mediante UI Automation.'
 }
 
 function Wait-ControlEnabled {
@@ -1771,6 +1793,31 @@ function Invoke-InstalledAppHost {
     }
   }
 
+  if ($Action -eq 'close-window-only') {
+    $identity = $script:activeNativeAppHost
+    if (-not $identity) { throw 'No hay un App Host de esta ejecución para probar el cierre sin detener servicios.' }
+    $process = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
+    if (-not $process) { throw "El App Host PID $($identity.Id) terminó antes de probar la opción No." }
+    try {
+      if (-not $process.CloseMainWindow()) { throw "Windows no aceptó cierre controlado del App Host PID $($identity.Id)." }
+      $dialog = Wait-AppHostCloseConfirmation -ProcessId ([int]$identity.Id) -Process $process -TimeoutSec 15
+      if (-not $dialog) { throw "El App Host PID $($identity.Id) no mostró la confirmación de cierre para probar No." }
+      $choice = Invoke-AppHostCloseConfirmationNo -Dialog $dialog
+      Add-Result -Area 'native-app-host' -Item 'close-confirmation-no' -Ok $true -Detail "choice=$choice pid=$($identity.Id) runId=$RunId"
+      if (-not $process.WaitForExit($TimeoutSec * 1000)) {
+        throw "El App Host PID $($identity.Id) no cerró su ventana después de elegir No; no se forzará el cierre."
+      }
+      $process.Refresh()
+      if ($process.ExitCode -ne 0) { throw "El App Host terminó con código $($process.ExitCode) al elegir No." }
+      $remainingNode = @(Get-InstalledNodeProcesses)
+      if ($remainingNode.Count -eq 0) { throw 'La opción No cerró los servicios Node; debía dejar el runtime en segundo plano.' }
+      $health = Wait-NativeDashboardHealth -TimeoutSec 15
+      $script:activeNativeAppHost = $null
+      Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
+      return $health
+    } finally { $process.Dispose() }
+  }
+
   if ($Action -eq 'stop-all') {
     $identity = $script:activeNativeAppHost
     if (-not $identity) {
@@ -2829,6 +2876,9 @@ try {
   Test-UpdateSmoke -BaseUrl $dashboardBase
 
   Write-E2ELog "Deteniendo tareas nativas antes de continuar con reparacion y desinstalacion..."
+  Invoke-InstalledAppHost -Action 'close-window-only' -RunId ("close-window-only-{0}" -f ([Guid]::NewGuid().ToString('N')))
+  $reopenedState = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId ("reopen-dashboard-{0}" -f ([Guid]::NewGuid().ToString('N'))) -TimeoutSec 60
+  if ($reopenedState.state -ne 'healthy') { throw "El App Host no reutilizó servicios sanos tras cerrar solo la ventana: $($reopenedState.state)." }
   Invoke-InstalledAppHost -Action 'stop-all' -RunId ("stop-native-{0}" -f ([Guid]::NewGuid().ToString('N')))
 
   Invoke-InstallerHubMode -Mode 'repair' | Out-Null

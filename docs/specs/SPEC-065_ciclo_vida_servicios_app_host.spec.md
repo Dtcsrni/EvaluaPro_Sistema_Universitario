@@ -1,7 +1,7 @@
 ---
 id: SPEC-065
 titulo: Ciclo de vida de servicios locales del App Host
-version: 1.2.0
+version: 1.2.1
 fecha: 2026-09-25
 autor: Erick Vega / Codex
 modulo: app-host
@@ -13,6 +13,8 @@ EvaluaPro puede reutilizar servicios locales ya activos durante el arranque. El 
 
 Una instancia del App Host también puede quedar viva después de perder su ventana. El mutex singleton bloquea entonces nuevas ejecuciones y el usuario observa que EvaluaPro no abre, aunque la aplicación no tenga una ventana utilizable.
 
+El diálogo de cierre distingue entre detener los servicios locales y cerrar solo la ventana, dejando el runtime identificado activo para que una nueva instancia pueda adoptarlo. La segunda opción no debe volver a invocar el cierre de la ventana dentro del evento WPF `Closing` que todavía está activo.
+
 El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar SQLite antes de responder salud. Un límite demasiado corto deja una ventana nativa en error aunque los servicios terminen sanos inmediatamente después.
 
 ## Requisitos Funcionales
@@ -23,6 +25,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - REQ-005: Si web/API responden pero el host no puede identificar el dashboard propio, no declara lista la aplicación ni reutiliza esos servicios independientes.
 - REQ-006: Si el mutex singleton está ocupado por el mismo ejecutable y sesión, pero la instancia no tiene ventana después de una gracia mínima de arranque, el host recupera únicamente ese árbol y reintenta adquirir el mutex; una instancia válida se enfoca y una ruta de instalación distinta no se termina.
 - REQ-007: El host espera los servicios web y API durante un límite finito de 60 segundos en arranque frío; solo declara lista la aplicación cuando ambos responden correctamente y registra un diagnóstico si vence el límite.
+- REQ-008: Al elegir «No», el host cierra solo la ventana después de terminar el evento WPF `Closing`, mantiene sanos los servicios identificados y permite que una instancia posterior los adopte; no muestra una excepción ni fuerza el cierre.
 
 ## Criterios de Aceptación
 - Si web/API ya responden desde el dashboard de la instalación, el host registra el proceso antes del retorno de éxito.
@@ -32,6 +35,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - Las pruebas de contrato detectan una regresión en la ruta temprana de servicios sanos y en el cierre del árbol.
 - Una segunda ejecución recupera una instancia huérfana sin ventana solo cuando coincide el ejecutable, la sesión y la antigüedad mínima; no termina una instalación distinta ni una instancia aún en arranque.
 - Un arranque frío que requiere hasta 60 segundos no queda en error prematuro, pero un servicio que no responde después del límite sí produce diagnóstico y error visible.
+- El E2E de Windows elige «No», comprueba que el App Host cierre con código cero y que API/web sigan sanos, vuelve a abrir la ventana y después verifica el cierre normal de los servicios.
 
 ## Matriz de Trazabilidad
 
@@ -44,3 +48,4 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 | REQ-005 | Servicios sanos sin propietario identificado no se reutilizan | `scripts/tests/app-host-shutdown.contract.test.mjs` | Completado |
 | REQ-006 | El singleton recupera solo un App Host huérfano y reintenta la adquisición | `scripts/tests/app-host-shutdown.contract.test.mjs` | Completado |
 | REQ-007 | El arranque frío usa un timeout finito de 60 s y exige salud web/API | `scripts/tests/app-host-health.contract.test.mjs` | Completado |
+| REQ-008 | Cierre diferido de solo ventana, persistencia del runtime y reapertura/adopción | `scripts/tests/app-host-shutdown.contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; requiere E2E Windows |
