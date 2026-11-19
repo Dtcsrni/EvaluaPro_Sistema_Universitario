@@ -46,18 +46,20 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
   const closingHandler = hostSource.match(/private async void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
   assert.ok(closingHandler, 'debe existir el manejador de cierre del App Host');
   assert.match(hostSource, /private bool closeAuthorized;/);
+  assert.match(hostSource, /private bool closePromptPending;/);
 
   const shutdownReentryCheck = closingHandler.indexOf('if (shutdownCompleted) return;');
   const hubCloseCheck = closingHandler.indexOf('if (App.IsInstallerHubInvocation) return;');
   const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
-  const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
+  const duplicateRequestCheck = closingHandler.indexOf('if (isStopping || closePromptPending) return;');
   const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
   const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
   const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
+  const noChoiceClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))', noChoice);
   const cleanup = closingHandler.indexOf('stopped = await ShutdownServicesAsync();');
   const cleanupFailure = closingHandler.indexOf('if (!stopped)');
-  const finalClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))');
+  const finalClose = closingHandler.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
 
   assert.ok(shutdownReentryCheck >= 0 && shutdownReentryCheck < hubCloseCheck && hubCloseCheck < authorizeCheck,
     'el cierre repetido y el modo Hub oculto deben terminar sin abrir la confirmación docente');
@@ -67,6 +69,12 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
   assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
     'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
+  assert.ok(noChoiceClose > noChoice && noChoiceClose < cleanup,
+    'la opción No debe diferir Close hasta que termine el evento Closing activo');
+  assert.doesNotMatch(closingHandler.slice(noChoice, cleanup), /\n\s*Close\(\);/,
+    'la opción No no debe reentrar en Close dentro del evento Closing');
+  assert.match(closingHandler, /if \(isStopping \|\| closePromptPending\) return;/,
+    'el diálogo de cierre no debe abrirse de nuevo mientras sigue pendiente');
   assert.ok(cleanup < cleanupFailure && cleanupFailure < finalClose,
     'el cierre final se difiere al Dispatcher después de limpiar servicios');
   assert.match(closingHandler, /if \(!stopped\)[\s\S]*?return;/,
@@ -76,10 +84,27 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
 
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Get-AppHostTopLevelWindows/);
+  assert.match(installerE2ESource, /function Request-AppHostWindowClose/);
+  assert.match(installerE2ESource, /PostMessage\(hWnd, 0x0010, IntPtr\.Zero, IntPtr\.Zero\)/);
+  assert.match(installerE2ESource, /RequestClose\(\[IntPtr\]\(\[int64\]\$window\.Handle\)\)/);
+  assert.match(installerE2ESource, /GetCurrentPattern\(\[System\.Windows\.Automation\.WindowPattern\]::Pattern\)/);
+  assert.match(installerE2ESource, /windowPattern\.Close\(\)/);
+  assert.match(installerE2ESource, /No se pudo solicitar el cierre del App Host PID=/);
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
+  assert.match(installerE2ESource, /function Wait-AppHostMainWindow/);
+  assert.match(installerE2ESource, /Wait-AppHostMainWindow -ProcessId \$process\.Id/);
+  assert.match(installerE2ESource, /App Host diagnostic:/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
+  assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationNo/);
   assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
   assert.match(installerE2ESource, /close-confirmation-yes/);
+  assert.match(installerE2ESource, /close-confirmation-no/);
+  assert.match(installerE2ESource, /GetExitCodeProcess\(\$processHandle, \[ref\]\$nativeExitCode\)/);
+  assert.match(installerE2ESource, /app-host-error\.log/);
+  assert.match(installerE2ESource, /\$errorLogLengthAfterClose -gt \$errorLogLengthBeforeClose/);
+  assert.match(installerE2ESource, /close-window-process-exit/);
+  assert.match(installerE2ESource, /close-window-only'[\s\S]*?reopen-dashboard-/);
+  assert.match(installerE2ESource, /no-keeps-services-healthy/);
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 

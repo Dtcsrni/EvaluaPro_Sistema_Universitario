@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private Process? dashboardProcess;
     private DateTime? dashboardProcessStartTimeUtc;
     private bool isStopping;
+    private bool closePromptPending;
     private bool closeAuthorized;
     private bool shutdownCompleted;
     private string appRoot = string.Empty;
@@ -1332,7 +1333,8 @@ public partial class MainWindow : Window
 
         // Cancel every close request until the user chooses what to do with services.
         e.Cancel = true;
-        if (isStopping) return;
+        if (isStopping || closePromptPending) return;
+        closePromptPending = true;
         WriteStartupDiagnostic("Se va a mostrar la confirmación de cierre.");
         var choice = WpfMessageBox.Show(
             this,
@@ -1340,13 +1342,14 @@ public partial class MainWindow : Window
             "EvaluaPro · Cerrar",
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
+        closePromptPending = false;
         WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
 
         if (choice == MessageBoxResult.Cancel) return;
         if (choice == MessageBoxResult.No)
         {
             closeAuthorized = true;
-            Close();
+            _ = Dispatcher.BeginInvoke(new Action(Close));
             return;
         }
 
