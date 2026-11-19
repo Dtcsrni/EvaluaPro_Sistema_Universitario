@@ -199,7 +199,7 @@
                     <Setter Property="Opacity" Value="1" />
                 </Trigger>
             </Style.Triggers>
-        </Style></Style>
+        </Style>
 
         <Style x:Key="HighContrastFocusVisual" TargetType="Control">
             <Setter Property="Template">
