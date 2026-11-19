@@ -662,9 +662,61 @@ function Request-AppHostWindowClose {
       } catch {}
     }
   }
+
+  try {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+      [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $ProcessId)
+    $uiaWindows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+      [System.Windows.Automation.TreeScope]::Children, $condition)
+    for ($index = 0; $index -lt $uiaWindows.Count; $index++) {
+      $element = $uiaWindows.Item($index)
+      if ([string]$element.Current.Name -eq 'EvaluaPro · Cerrar') { continue }
+      try {
+        $windowPattern = $element.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+        $windowPattern.Close()
+        Write-E2ELog "Cierre normal del App Host solicitado por UI Automation global PID=$ProcessId hwnd=0x$(([int64]$element.Current.NativeWindowHandle).ToString('X'))"
+        return $true
+      } catch {}
+    }
+  } catch {}
+
   $windowSummary = @($windows | ForEach-Object { "hwnd=0x$($_.Handle.ToString('X')) title='$($_.NativeTitle)' name='$($_.Name)' enabled=$($_.Enabled)" }) -join '; '
   Write-E2ELog "No se pudo solicitar el cierre del App Host PID=$ProcessId mainWindowHandle=0x$($mainWindowHandle.ToInt64().ToString('X')) ventanas=[$windowSummary]"
   return $false
+}
+
+function Wait-AppHostMainWindow {
+  param(
+    [Parameter(Mandatory = $true)][int]$ProcessId,
+    [int]$TimeoutSec = 15
+  )
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  do {
+    $windows = @(Get-AppHostTopLevelWindows -ProcessId $ProcessId | Where-Object {
+      $_.Name -ne 'EvaluaPro · Cerrar' -and $_.NativeTitle -ne 'EvaluaPro · Cerrar'
+    })
+    if ($windows.Count -gt 0) { return $windows[0] }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+
+  $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
+  $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+  $mainWindowHandle = if ($process) { [int64]$process.MainWindowHandle } else { 0L }
+  $details = @(
+    "mainWindowHandle=0x$($mainWindowHandle.ToString('X'))",
+    "commandLine='$($processInfo.CommandLine)'"
+  ) -join ' '
+  foreach ($logPath in @(
+    (Join-Path $installedRoot 'logs\app-host.log'),
+    (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host.log'),
+    (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host-error.log')
+  ) | Select-Object -Unique) {
+    if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) { continue }
+    Copy-ArtifactIfExists -Path $logPath | Out-Null
+    $tail = @(Get-Content -LiteralPath $logPath -Tail 30 -ErrorAction SilentlyContinue)
+    foreach ($line in $tail) { Write-E2ELog "App Host diagnostic: $line" }
+  }
+  throw "El App Host PID $ProcessId no mostró una ventana visible tras iniciar; $details"
 }
 
 function Wait-AppHostCloseConfirmation {
@@ -1829,6 +1881,7 @@ function Invoke-InstalledAppHost {
       $script:activeNativeAppHost = [pscustomobject]@{ Id = $process.Id; StartedAtUtc = $startedAtUtc; Path = $appHostPath }
       $null = Get-VerifiedInstalledAppHostProcess -ProcessId $process.Id -StartedAtUtc $startedAtUtc
       $state = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
+      $null = Wait-AppHostMainWindow -ProcessId $process.Id -TimeoutSec 15
       Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($process.Id) state=healthy runId=$RunId"
       return $state
     } catch {
