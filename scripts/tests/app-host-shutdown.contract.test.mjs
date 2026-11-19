@@ -46,18 +46,20 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
   const closingHandler = hostSource.match(/private async void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
   assert.ok(closingHandler, 'debe existir el manejador de cierre del App Host');
   assert.match(hostSource, /private bool closeAuthorized;/);
+  assert.match(hostSource, /private bool closePromptPending;/);
 
   const shutdownReentryCheck = closingHandler.indexOf('if (shutdownCompleted) return;');
   const hubCloseCheck = closingHandler.indexOf('if (App.IsInstallerHubInvocation) return;');
   const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
-  const duplicateRequestCheck = closingHandler.indexOf('if (isStopping) return;');
+  const duplicateRequestCheck = closingHandler.indexOf('if (isStopping || closePromptPending) return;');
   const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
   const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
   const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
+  const noChoiceClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))', noChoice);
   const cleanup = closingHandler.indexOf('stopped = await ShutdownServicesAsync();');
   const cleanupFailure = closingHandler.indexOf('if (!stopped)');
-  const finalClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))');
+  const finalClose = closingHandler.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
 
   assert.ok(shutdownReentryCheck >= 0 && shutdownReentryCheck < hubCloseCheck && hubCloseCheck < authorizeCheck,
     'el cierre repetido y el modo Hub oculto deben terminar sin abrir la confirmación docente');
@@ -67,6 +69,12 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
   assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
     'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
+  assert.ok(noChoiceClose > noChoice && noChoiceClose < cleanup,
+    'la opción No debe diferir Close hasta que termine el evento Closing activo');
+  assert.doesNotMatch(closingHandler.slice(noChoice, cleanup), /\n\s*Close\(\);/,
+    'la opción No no debe reentrar en Close dentro del evento Closing');
+  assert.match(closingHandler, /if \(isStopping \|\| closePromptPending\) return;/,
+    'el diálogo de cierre no debe abrirse de nuevo mientras sigue pendiente');
   assert.ok(cleanup < cleanupFailure && cleanupFailure < finalClose,
     'el cierre final se difiere al Dispatcher después de limpiar servicios');
   assert.match(closingHandler, /if \(!stopped\)[\s\S]*?return;/,
@@ -146,4 +154,5 @@ test('la ventana nativa inicia grande, centrada y redimensionable para cubrir el
   assert.match(hostSource, /1040/);
   assert.match(windowSource, /WindowStyle="SingleBorderWindow"/);
 });
+
 
