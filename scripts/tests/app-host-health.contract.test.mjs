@@ -30,8 +30,9 @@ test('AppHost prioriza la instalación canónica y reconcilia accesos antes del 
   assert.match(app, /ShortcutReconciler\.EnsureCurrent\(\)/);
   assert.doesNotMatch(source, /ReconcileShortcutsAsync|create-shortcuts\.ps1/i);
   const trayEnsure = source.match(/private void EnsureTrayStarted\(int dashboardPort\)[\s\S]*?\n    private void StartDashboard\(\)/)?.[0] || '';
-  assert.match(trayEnsure, /launcher-tray\.ps1/i);
-  assert.match(trayEnsure, /-EnsureOnly/);
+  assert.match(trayEnsure, /Forms\.NotifyIcon/);
+  assert.match(trayEnsure, /NotifyIcon visible PID=/);
+  assert.doesNotMatch(trayEnsure, /powershell\.exe|launcher-tray\.ps1|-ExecutionPolicy/i);
   assert.match(source, /app-host\.log/);
 });
 

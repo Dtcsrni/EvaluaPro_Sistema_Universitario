@@ -719,6 +719,21 @@ function Wait-AppHostMainWindow {
   throw "El App Host PID $ProcessId no mostró una ventana visible tras iniciar; $details"
 }
 
+function Wait-AppHostWindowHidden {
+  param([Parameter(Mandatory = $true)][int]$ProcessId, [int]$TimeoutSec = 15)
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  do {
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $process) { throw "El App Host PID $ProcessId salió; ocultar la ventana no debe terminar el proceso." }
+    try {
+      $process.Refresh()
+      if (@(Get-AppHostTopLevelWindows -ProcessId $ProcessId).Count -eq 0) { return $true }
+    } finally { $process.Dispose() }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  throw "La ventana del App Host PID $ProcessId no se ocultó dentro de ${TimeoutSec}s."
+}
+
 function Wait-AppHostCloseConfirmation {
   param(
     [Parameter(Mandatory = $true)][int]$ProcessId,
@@ -1861,7 +1876,7 @@ function Get-VerifiedInstalledAppHostProcess {
 
 function Wait-InstalledTrayReady {
   param([int]$TimeoutSec = 20)
-  $trayLogPath = Join-Path $installedRoot 'logs\tray.log'
+  $trayLogPath = Join-Path $installedRoot 'logs\app-host.log'
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   do {
     if (Test-Path -LiteralPath $trayLogPath -PathType Leaf) {
@@ -1900,7 +1915,21 @@ function Invoke-InstalledAppHost {
   if ($Action -eq 'open-dashboard') {
     $appHostPath = [IO.Path]::GetFullPath((Join-Path $installedRoot 'EvaluaPro.exe'))
     if (-not (Test-Path -LiteralPath $appHostPath -PathType Leaf)) { throw "No existe el App Host instalado: $appHostPath" }
-    if ($script:activeNativeAppHost) { throw 'El App Host ya tiene una instancia propiedad de este E2E.' }
+    if ($script:activeNativeAppHost) {
+      $identity = $script:activeNativeAppHost
+      $existing = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
+      if (-not $existing) { throw 'La instancia App Host que debía restaurarse ya no está activa.' }
+      try {
+        $reopen = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
+        $reopen.Dispose()
+        $null = Wait-AppHostMainWindow -ProcessId ([int]$identity.Id) -TimeoutSec 15
+        $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
+        if ($trayPid.Id -ne [int]$identity.Id) { throw "La bandeja restaurada cambió de PID; esperado=$($identity.Id) actual=$($trayPid.Id)." }
+        $health = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
+        Add-Result -Area 'native-app-host' -Item $Action -Ok ($health.state -eq 'healthy') -Detail "restoredExistingPid=$($identity.Id) trayPid=$($trayPid.Id) state=$($health.state) runId=$RunId"
+        return $health
+      } finally { $existing.Dispose() }
+    }
     $process = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
     try {
       $startedAtUtc = $process.StartTime.ToUniversalTime()
@@ -1911,6 +1940,7 @@ function Invoke-InstalledAppHost {
       $trayPid = $null
       if ($RequireTray) {
         $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
+        if ($trayPid.Id -ne $process.Id) { throw "NotifyIcon usa PID $($trayPid.Id), se esperaba el App Host PID $($process.Id)." }
         Add-Result -Area 'native-app-host' -Item 'tray-icon-ready' -Ok $true -Detail "trayPid=$($trayPid.Id) state=healthy runId=$RunId"
       }
       $trayDetail = if ($trayPid) { " trayPid=$($trayPid.Id)" } else { '' }
@@ -1933,12 +1963,11 @@ function Invoke-InstalledAppHost {
     if (-not $process) { throw "El App Host PID $($identity.Id) terminó antes de probar la opción No." }
     try {
       $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
+      if ($trayPid.Id -ne [int]$identity.Id) { throw "La bandeja no pertenece al App Host esperado; PID=$($trayPid.Id), esperado=$($identity.Id)." }
       $appHostErrorLog = Join-Path $env:LOCALAPPDATA 'EvaluaPro\logs\app-host-error.log'
       $errorLogLengthBeforeClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
-      $processHandle = [IntPtr]::Zero
-      try { $processHandle = [IntPtr]$process.Handle } catch {}
       $closeRequested = $process.CloseMainWindow()
       if (-not $closeRequested) {
         $closeRequested = Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process -NativeFallbackOnly
@@ -1948,60 +1977,30 @@ function Invoke-InstalledAppHost {
       if (-not $dialog) { throw "El App Host PID $($identity.Id) no mostró la confirmación de cierre para probar No." }
       $choice = Invoke-AppHostCloseConfirmationNo -Dialog $dialog
       Add-Result -Area 'native-app-host' -Item 'close-confirmation-no' -Ok $true -Detail "choice=$choice pid=$($identity.Id) runId=$RunId"
-      if (-not $process.WaitForExit($TimeoutSec * 1000)) {
-        throw "El App Host PID $($identity.Id) no cerró su ventana después de elegir No; no se forzará el cierre."
-      }
+      $null = Wait-AppHostWindowHidden -ProcessId ([int]$identity.Id) -TimeoutSec 15
       $process.Refresh()
-      $exitCode = $process.ExitCode
-      if ($null -eq $exitCode) {
-        if (-not $process.HasExited) { throw 'No se pudo determinar ExitCode: el App Host todavía aparece activo.' }
-        if ($processHandle -eq [IntPtr]::Zero) { throw 'No se pudo determinar ExitCode: no se conservó el handle del App Host.' }
-        if (-not ('EvaluaPro.NativeProcessExitCode' -as [type])) {
-          Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-namespace EvaluaPro {
-  public static class NativeProcessExitCode {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool GetExitCodeProcess(IntPtr processHandle, out uint exitCode);
-  }
-}
-'@
-        }
-        [uint32]$nativeExitCode = 0
-        if (-not [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($processHandle, [ref]$nativeExitCode)) {
-          $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-          throw "No se pudo recuperar ExitCode mediante GetExitCodeProcess (Win32=$nativeError)."
-        }
-        $exitCode = [int]$nativeExitCode
-        Write-E2ELog "ExitCode del App Host recuperado con GetExitCodeProcess: $exitCode"
-      }
-      if ([int]$exitCode -ne 0) {
-        throw "El App Host terminó con código $exitCode al elegir No."
-      }
+      if ($process.HasExited) { throw "El App Host PID $($identity.Id) terminó al ocultar la ventana." }
       $errorLogLengthAfterClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
       if ($errorLogLengthAfterClose -gt $errorLogLengthBeforeClose) {
-        throw 'El App Host registró una excepción al cerrar la ventana con la opción No.'
+        throw 'El App Host registró una excepción al ocultar la ventana con la opción No.'
       }
       $remainingNode = @(Get-InstalledNodeProcesses)
-      if ($remainingNode.Count -eq 0) { throw 'La opción No cerró los servicios Node; debía dejar el runtime en segundo plano.' }
+      if ($remainingNode.Count -eq 0) { throw 'La opción No detuvo los servicios Node; debían seguir activos en segundo plano.' }
       $remainingTray = Get-Process -Id $trayPid.Id -ErrorAction SilentlyContinue
       if (-not $remainingTray -or [Math]::Abs(($remainingTray.StartTime.ToUniversalTime() - [datetime]$trayPid.StartedAtUtc).TotalSeconds) -gt 1) {
         if ($remainingTray) { $remainingTray.Dispose() }
-        throw "La opción No detuvo o sustituyó el proceso de bandeja PID $($trayPid.Id)."
+        throw "La opción No detuvo o sustituyó el proceso App Host/bandeja PID $($trayPid.Id)."
       }
       $remainingTray.Dispose()
       $health = Wait-NativeDashboardHealth -TimeoutSec 15
-      $script:activeNativeAppHost = $null
-      Add-Result -Area 'native-app-host' -Item 'close-window-process-exit' -Ok $true -Detail "pid=$($identity.Id) exitCode=$exitCode exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
-      Add-Result -Area 'native-app-host' -Item 'no-keeps-tray-alive' -Ok $true -Detail "trayPid=$($trayPid.Id) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'close-window-hidden' -Ok $true -Detail "pid=$($identity.Id) trayPid=$($trayPid.Id) exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'no-keeps-app-host-and-tray-alive' -Ok $true -Detail "appHostPid=$($identity.Id) trayPid=$($trayPid.Id) runId=$RunId"
       Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
       return $health
     } finally { $process.Dispose() }
   }
-
   if ($Action -eq 'stop-all') {
     $identity = $script:activeNativeAppHost
     if (-not $identity) {
@@ -2813,7 +2812,6 @@ function Test-InstalledState {
       $requiredCriticalPaths = if ($isLegacyBaseline) {
         @(
           'scripts\launcher-broker.ps1',
-          'scripts\launcher-tray.ps1',
           'scripts\launcher-tray-hidden.vbs',
           'scripts\create-shortcuts.ps1',
           'config\shortcuts-manifest.json',

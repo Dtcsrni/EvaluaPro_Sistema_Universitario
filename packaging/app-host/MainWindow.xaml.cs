@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
 using Forms = System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
@@ -31,6 +32,9 @@ public partial class MainWindow : Window
     private bool closeAuthorized;
     private bool shutdownCompleted;
     private string appRoot = string.Empty;
+    private Forms.NotifyIcon? trayIcon;
+    private Forms.ContextMenuStrip? trayContextMenu;
+    private HwndSource? windowMessageSource;
     private const int DashboardPortFallback = 4519;
     private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
     private const string GoogleDesktopClientId = "1088901330711-al2jgfs5njms9oq7vgkv9r408vbs8g00.apps.googleusercontent.com";
@@ -40,6 +44,8 @@ public partial class MainWindow : Window
         ConfigureInitialWindowBounds();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
+        Closed += MainWindow_Closed;
+        SourceInitialized += MainWindow_SourceInitialized;
     }
 
     private void ConfigureInitialWindowBounds()
@@ -584,40 +590,85 @@ public partial class MainWindow : Window
 
     private void EnsureTrayStarted(int dashboardPort)
     {
-        var trayScript = Path.Combine(appRoot, "scripts", "launcher-tray.ps1");
-        var powershellPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-            "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (!File.Exists(trayScript) || !File.Exists(powershellPath))
-        {
-            WriteStartupDiagnostic("No se pudo asegurar la bandeja: falta launcher-tray.ps1 o Windows PowerShell.");
-            return;
-        }
+        if (trayIcon is { Visible: true }) return;
 
         try
         {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = powershellPath,
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File \"{trayScript}\" -Mode prod -Port {dashboardPort} -NoOpen -Attach -EnsureOnly",
-                WorkingDirectory = appRoot,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-            var trayProcess = Process.Start(startInfo);
-            if (trayProcess is null)
-            {
-                WriteStartupDiagnostic("Windows PowerShell no inició el proceso de bandeja.");
-                return;
-            }
+            trayContextMenu = new Forms.ContextMenuStrip();
+            trayContextMenu.Items.Add("Abrir EvaluaPro", null, (_, _) => ShowWindowFromTray());
+            trayContextMenu.Items.Add(new Forms.ToolStripSeparator());
+            trayContextMenu.Items.Add("Cerrar EvaluaPro", null, (_, _) => CloseFromTray());
 
-            WriteStartupDiagnostic($"Se solicitó asegurar el inicio de la bandeja local (pid={trayProcess.Id}, port={dashboardPort}).");
-            trayProcess.Dispose();
+            using var iconResource = System.Windows.Application.GetResourceStream(
+                new Uri("pack://application:,,,/dashboard-prod.ico", UriKind.Absolute))?.Stream;
+            using var loadedIcon = iconResource is null ? null : new System.Drawing.Icon(iconResource);
+            var icon = loadedIcon ?? System.Drawing.SystemIcons.Application;
+            trayIcon = new Forms.NotifyIcon
+            {
+                Icon = (System.Drawing.Icon)icon.Clone(),
+                Text = "EvaluaPro · API activa",
+                ContextMenuStrip = trayContextMenu,
+                Visible = true
+            };
+            trayIcon.DoubleClick += (_, _) => ShowWindowFromTray();
+            WriteStartupDiagnostic($"NotifyIcon visible PID={Environment.ProcessId} port={dashboardPort}.");
         }
         catch (Exception ex)
         {
-            WriteStartupDiagnostic($"No se pudo iniciar la bandeja local: {ex.GetType().Name}.");
+            trayIcon?.Dispose();
+            trayIcon = null;
+            trayContextMenu?.Dispose();
+            trayContextMenu = null;
+            WriteStartupDiagnostic($"No se pudo crear la bandeja nativa: {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    private void ShowWindowFromTray()
+    {
+        ShowInTaskbar = true;
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        App.SetDesktopWindowHiddenToTray(false);
+    }
+
+    private void CloseFromTray()
+    {
+        ShowWindowFromTray();
+        Dispatcher.BeginInvoke(new Action(Close));
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        if (windowMessageSource is not null)
+        {
+            windowMessageSource.RemoveHook(MainWindowWindowProc);
+            windowMessageSource = null;
+        }
+        App.SetDesktopWindowHiddenToTray(false);
+        if (trayIcon is not null)
+        {
+            trayIcon.Visible = false;
+            trayIcon.Dispose();
+            trayIcon = null;
+        }
+        trayContextMenu?.Dispose();
+        trayContextMenu = null;
+    }
+
+    private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        windowMessageSource = HwndSource.FromHwnd(handle);
+        windowMessageSource?.AddHook(MainWindowWindowProc);
+    }
+
+    private IntPtr MainWindowWindowProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (!App.IsDesktopShowWindowMessage(message)) return IntPtr.Zero;
+        ShowWindowFromTray();
+        handled = true;
+        return IntPtr.Zero;
     }
 
     private void StartDashboard()
@@ -1381,7 +1432,7 @@ public partial class MainWindow : Window
         WriteStartupDiagnostic("Se va a mostrar la confirmación de cierre.");
         var choice = WpfMessageBox.Show(
             this,
-            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
+            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y salir.\nNo: ocultar la ventana y mantener EvaluaPro activo en la bandeja.\nCancelar: volver a EvaluaPro.",
             "EvaluaPro · Cerrar",
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
@@ -1391,10 +1442,30 @@ public partial class MainWindow : Window
         if (choice == MessageBoxResult.Cancel) return;
         if (choice == MessageBoxResult.No)
         {
-            closeAuthorized = true;
-            // Continuing the current Closing event closes only this window and
-            // avoids re-entering WPF while it is already processing Close().
-            e.Cancel = false;
+            if (trayIcon is not { Visible: true })
+            {
+                WpfMessageBox.Show(
+                    this,
+                    "No pude activar el icono de EvaluaPro en la bandeja. La ventana permanecerá abierta para mantener accesible la aplicación.",
+                    "EvaluaPro · Bandeja no disponible",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!App.SetDesktopWindowHiddenToTray(true))
+            {
+                WpfMessageBox.Show(
+                    this,
+                    "No pude registrar la ventana en segundo plano de forma segura. EvaluaPro permanecerá visible.",
+                    "EvaluaPro · No se pudo ocultar",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+            ShowInTaskbar = false;
+            Hide();
+            WriteStartupDiagnostic("Ventana oculta en la bandeja; App Host y servicios siguen activos.");
             return;
         }
 

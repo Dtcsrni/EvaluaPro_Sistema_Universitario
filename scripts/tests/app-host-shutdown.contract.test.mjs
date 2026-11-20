@@ -56,7 +56,7 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
   const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
   const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
   const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
-  const noChoiceAllowClose = closingHandler.indexOf('e.Cancel = false;', noChoice);
+  const noChoiceHide = closingHandler.indexOf('Hide();', noChoice);
   const cleanup = closingHandler.indexOf('stopped = await ShutdownServicesAsync();');
   const cleanupFailure = closingHandler.indexOf('if (!stopped)');
   const finalClose = closingHandler.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
@@ -69,8 +69,8 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
   assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
     'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
-  assert.ok(noChoiceAllowClose > noChoice && noChoiceAllowClose < cleanup,
-    'la opción No debe permitir que termine el evento Closing actual sin reentrar en Close');
+  assert.ok(noChoiceHide > noChoice && noChoiceHide < cleanup,
+    'la opción No debe ocultar la ventana dentro del cierre cancelado y mantener activo el App Host');
   assert.doesNotMatch(closingHandler.slice(noChoice, cleanup), /\n\s*Close\(\);/,
     'la opción No no debe reentrar en Close dentro del evento Closing');
   assert.match(closingHandler, /if \(isStopping \|\| closePromptPending\) return;/,
@@ -92,6 +92,7 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /No se pudo solicitar el cierre del App Host PID=/);
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
   assert.match(installerE2ESource, /function Wait-AppHostMainWindow/);
+  assert.match(installerE2ESource, /function Wait-AppHostWindowHidden/);
   assert.match(installerE2ESource, /function Wait-InstalledTrayReady/);
   assert.match(installerE2ESource, /\[switch\]\$RequireTray/);
   assert.match(installerE2ESource, /if \(\$RequireTray\)[\s\S]*?Wait-InstalledTrayReady -TimeoutSec 20/);
@@ -107,16 +108,15 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
   assert.match(installerE2ESource, /close-confirmation-yes/);
   assert.match(installerE2ESource, /close-confirmation-no/);
-  assert.match(installerE2ESource, /GetExitCodeProcess\(\$processHandle, \[ref\]\$nativeExitCode\)/);
   assert.match(installerE2ESource, /app-host-error\.log/);
   assert.match(installerE2ESource, /\$errorLogLengthAfterClose -gt \$errorLogLengthBeforeClose/);
-  assert.match(installerE2ESource, /close-window-process-exit/);
+  assert.match(installerE2ESource, /close-window-hidden/);
   assert.match(installerE2ESource, /close-window-only'[\s\S]*?reopen-dashboard-/);
   assert.match(installerE2ESource, /no-keeps-services-healthy/);
-  assert.match(installerE2ESource, /no-keeps-tray-alive/);
+  assert.match(installerE2ESource, /no-keeps-app-host-and-tray-alive/);
   assert.match(installerE2ESource, /NotifyIcon visible PID=/);
   assert.match(installerE2ESource, /StartedAtUtc = \$startedAtUtc/);
-  assert.match(installerE2ESource, /La opción No detuvo o sustituyó el proceso de bandeja PID/);
+  assert.match(installerE2ESource, /La opción No detuvo o sustituyó el proceso App Host\/bandeja PID/);
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 
@@ -149,12 +149,15 @@ test('el host adopta servicios sanos antes del retorno temprano y solo si coinci
   assert.match(hostSource, /sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos/);
   assert.match(hostSource, /if \(dashboardProcess != null && await VerifyDashboardIdentityAsync\(dashboardProcess, dashboardPort\)\)[\s\S]*?EnsureTrayStarted\(dashboardPort\);[\s\S]*?return true;/);
   assert.match(hostSource, /EnsureTrayStarted\(dashboardPort\);[\s\S]*?return true;/);
-  assert.match(hostSource, /-EnsureOnly/);
+  assert.match(hostSource, /Forms\.NotifyIcon/);
+  assert.match(hostSource, /Forms\.ContextMenuStrip/);
+  assert.doesNotMatch(hostSource, /powershell\.exe|launcher-tray\.ps1|-ExecutionPolicy/i);
   assert.match(hostSource, /private void EnsureTrayStarted\(int dashboardPort\)/);
-  assert.match(hostSource, /Se solicitó asegurar el inicio de la bandeja local/);
-  const traySource = fs.readFileSync(path.join(root, 'scripts', 'launcher-tray.ps1'), 'utf8');
-  assert.match(traySource, /\[switch\]\$EnsureOnly/);
-  assert.match(traySource, /if \(\$EnsureOnly\)[\s\S]*?EnsureOnly conserva la bandeja sin abrir dashboard[\s\S]*?return/);
+  assert.match(hostSource, /NotifyIcon visible PID=/);
+  assert.match(hostSource, /Ventana oculta en la bandeja; App Host y servicios siguen activos/);
+  assert.match(appSource, /DesktopHiddenTrayMarkerPrefix/);
+  assert.match(appSource, /IsDesktopWindowHiddenToTray\(existingProcess\.Id\)/);
+  assert.match(appSource, /FindProcessWindowHandle\(existingProcess\.Id\)/);
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {
@@ -165,6 +168,10 @@ test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente',
   assert.match(appSource, /Shutdown\(\)/);
   assert.match(appSource, /Process\.GetProcessesByName\("EvaluaPro"\)/);
   assert.match(appSource, /ShowWindow\(handle, SwRestore\)/);
+  assert.match(appSource, /PostMessage\(handle, desktopShowWindowMessageId/);
+  assert.match(appSource, /EvaluaPro · Plataforma Docente/);
+  assert.match(hostSource, /MainWindowWindowProc[\s\S]*?ShowWindowFromTray\(\)/);
+  assert.match(hostSource, /App\.IsDesktopShowWindowMessage\(message\)/);
   assert.match(appSource, /SetForegroundWindow\(handle\)/);
   assert.match(appSource, /ReleaseDesktopSingleton\(\)/);
 });
