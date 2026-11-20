@@ -4,6 +4,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 
 ## [Unreleased]
 
+## [Hub 1.2.27] - 2026-11-19
+
 ### Fixed
 - El selector de modo del Installer Hub conserva contraste explícito cuando está deshabilitado.
 - El modo predeterminado sugiere actualizar ante un bundle anterior con diagnóstico sano y reparar cuando detecta incidencias; GUI y ejecución headless comparten la misma decisión.
