@@ -36,6 +36,21 @@ export function rutaPermitidaParaApiDelegada(req: SolicitudDocente, permisos: Re
   if (rutasOmr.some(([method, pattern]) => req.method === method && pattern.test(ruta))) {
     return permisos.has('omr:analizar');
   }
+  const rutasClassroom: Array<[string, RegExp]> = [
+    ['GET', /^\/evaluaciones\/v2\/classroom\/(?:estado|cursos|importaciones\/historial|mapeos)$/],
+    ['GET', /^\/evaluaciones\/v2\/classroom\/cursos\/[^/]+\/(?:actividades|alumnos)$/],
+    ['POST', /^\/evaluaciones\/v2\/classroom\/cursos\/[^/]+\/importar-alumnos$/],
+    ['PUT', /^\/evaluaciones\/v2\/classroom\/cursos\/[^/]+\/mapeo-alumnos$/],
+    ['GET', /^\/evaluaciones\/v2\/classroom\/alumnos\/[^/]+\/(?:cortes\/\d+\/historial|entregas\/[^/]+\/historial)$/],
+    ['GET', /^\/evaluaciones\/v2\/classroom\/historial-cortes\/[^/]+\/captura$/],
+    ['POST', /^\/evaluaciones\/v2\/classroom\/importaciones\/(?:preview|jobs|ejecutar)$/],
+    ['GET', /^\/evaluaciones\/v2\/classroom\/importaciones\/jobs\/[^/]+$/],
+    ['GET', /^\/integraciones\/classroom\/mapear$/],
+    ['POST', /^\/integraciones\/classroom\/(?:mapear|pull)$/]
+  ];
+  if (rutasClassroom.some(([method, pattern]) => req.method === method && pattern.test(ruta))) {
+    return permisos.has('classroom:pull');
+  }
   const prefijos: Array<[string, string[]]> = [
     ['/periodos', ['periodos:leer', 'periodos:gestionar', 'periodos:archivar']],
     ['/alumnos', ['alumnos:leer', 'alumnos:gestionar']],
