@@ -330,6 +330,13 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   credenciales API delegadas aceptan `classroom:pull` y lo limitan a rutas de los
   routers Classroom; no conceden acceso a OAuth ni a otros recursos de evaluaciones.
   No se requiere navegador real para automatizar operaciones que el API documenta.
+- **AC-037:** Las solicitudes de clientes API locales validan sus scopes contra un
+  catálogo explícito. `periodos:leer`, `periodos:gestionar`, `periodos:archivar`,
+  `alumnos:gestionar` y `classroom:pull` pueden solicitarse; cada ruta mantiene su
+  guard RBAC y el preflight del SDK informa de forma no mutante los scopes ausentes.
+  Ningún error de renovación Classroom registra mensajes/cuerpos crudos, tokens,
+  secretos OAuth o PII; los logs locales conservan únicamente códigos y estados
+  saneados suficientes para clasificar errores del proveedor y de red.
 - **AC-008:** Las solicitudes sin bearer válido, permiso o lease requerido se
   rechazan de forma consistente y no producen escrituras. Los payloads
   desconocidos/malformados devuelven error de validación con campo identificable.
@@ -564,6 +571,7 @@ implica que ya satisfagan todos los criterios nuevos.
 | REQ-033 / AC-032 | Portada binaria con permisos, límite, normalización y paridad API/GUI | `SPEC-073_portada_materia_api_gui.spec.md`; `apps/backend/tests/integracion/periodosPortada.test.ts`; `apps/frontend/tests/seccionPeriodos.portada.test.tsx`; `scripts/api/check-openapi-contract.mjs` | API 5/5, GUI 3/3, OpenAPI y paridad de listado/fallback verificados en foco |
 | REQ-036 / AC-035 | Cohorte ordinaria por grupo, validación de pertenencia y hash de reanudación | `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts`; `apps/frontend/tests/plantillas.refactor.test.tsx`; `scripts/api/check-openapi-contract.mjs` | Backend 8/8 y GUI 20/20 focales aprobadas; contrato pendiente de regenerar/auditar |
 | REQ-037 / AC-036 | Exportación protegida de dataset OMR con etiquetas humanas y fuentes verificadas | `apps/backend/tests/omrDatasetExport.test.ts`; `apps/backend/tests/integracion/omrDatasetExportApi.test.ts`; `apps/frontend/tests/plantillasOmrWorkflow.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/check-openapi-contract.mjs` | Implementación y pruebas focales pendientes |
+| AC-037 | Scopes explícitos para clientes API, preflight no mutante y diagnóstico local de renovación Classroom sin secretos | `apps/backend/tests/autenticacionApiDelegado.test.ts`; `apps/backend/tests/integracion/autenticacionApiBootstrap.test.ts`; `apps/backend/tests/servicioClassroomGoogle.test.ts`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/api/generate-openapi.mjs` | Implementado; validación focal pendiente |
 
 ## Análisis de cobertura del flujo de listas
 

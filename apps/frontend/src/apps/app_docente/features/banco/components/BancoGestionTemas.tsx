@@ -101,12 +101,12 @@ export function BancoGestionTemas({
   const etiquetaConteoPreguntas = (tema: string) => {
     const total = conteoPorTema.get(tema) ?? 0;
     if (cargandoPreguntas) {
-      return hayPreguntasPrevias ? `Preguntas (última carga): ${total}` : 'Preguntas: Cargando…';
+      return hayPreguntasPrevias ? `Publicadas (última carga): ${total}` : 'Publicadas: Cargando…';
     }
     if (errorCargaPreguntas) {
-      return hayPreguntasPrevias ? `Preguntas (última carga): ${total}` : 'Preguntas: No disponible';
+      return hayPreguntasPrevias ? `Publicadas (última carga): ${total}` : 'Publicadas: No disponible';
     }
-    return `Preguntas: ${total}`;
+    return `Publicadas: ${total}`;
   };
 
   return (

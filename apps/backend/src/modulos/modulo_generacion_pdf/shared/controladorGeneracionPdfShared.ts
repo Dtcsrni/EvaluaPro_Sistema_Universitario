@@ -13,6 +13,8 @@ import { barajar } from '../../../compartido/utilidades/aleatoriedad.js';
 import { ErrorAplicacion } from '../../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../../configuracion.js';
 import { normalizarParaNombreArchivo } from '../../../compartido/utilidades/texto.js';
+import { construirInicialesIdentidadAlumno } from '../../../compartido/inicialesAlumno.js';
+export { construirInicialesAlumno } from '../../../compartido/inicialesAlumno.js';
 import { construirFirmaVisualPdf } from '../infra/pdfVisualBaseline.js';
 import {
   construirMapaVarianteUsadaCanonica,
@@ -344,24 +346,6 @@ export function resolverTemplateVersionOmr(params: { docenteId: unknown; periodo
  * Se omiten partículas habituales de nombres hispanos para no desperdiciar
  * espacio (p. ej. "de la"), conservando como máximo seis iniciales.
  */
-export function construirInicialesAlumno(nombreCompleto: unknown, preservarInicialesAisladas = false): string {
-  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
-  const palabras = String(nombreCompleto ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase()
-    .match(/[a-z0-9]+/g) ?? [];
-  const significativas = palabras.filter((palabra) =>
-    (preservarInicialesAisladas && palabra.length === 1) || !particulas.has(palabra)
-  );
-  const iniciales = (significativas.length > 0 ? significativas : palabras)
-    .map((palabra) => palabra.charAt(0))
-    .join('')
-    .toUpperCase();
-  if (iniciales.length <= 6) return iniciales;
-  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
-}
-
 function construirIdentidadCortaAlumno(params: {
   nombreCompleto?: unknown;
   nombres?: unknown;
@@ -379,20 +363,10 @@ function construirIdentidadCortaAlumno(params: {
       ? tokensCompletos.slice(2)
       : tokensCompletos.slice(0, 1);
   const primerNombreOriginal = tokensNombre[0] ?? '';
-  const tokensRestantes = tieneNombresEstructurados
-    ? [...nombres.slice(1), ...apellidos]
-    : tokensCompletos.length >= 3
-      ? [...tokensCompletos.slice(3), ...tokensCompletos.slice(0, 2)]
-      : tokensCompletos.slice(1);
   const primerNombre = primerNombreOriginal
     ? `${primerNombreOriginal.charAt(0).toLocaleUpperCase('es-MX')}${primerNombreOriginal.slice(1).toLocaleLowerCase('es-MX')}`
     : '';
-  const inicialesPrimerNombre = construirInicialesAlumno(primerNombreOriginal).slice(0, 1);
-  const inicialesRestantes = construirInicialesAlumno(
-    tokensRestantes.join(' '),
-    !tieneNombresEstructurados && tokensCompletos.length >= 3
-  );
-  return { primerNombre, iniciales: `${inicialesPrimerNombre}${inicialesRestantes}` };
+  return { primerNombre, iniciales: construirInicialesIdentidadAlumno(params) };
 }
 
 export function construirEncabezadoPdf(params: {

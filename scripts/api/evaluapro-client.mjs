@@ -259,15 +259,22 @@ export class EvaluaproClient {
     return data.docente;
   }
 
-  async preflight({ comprobarClassroom = false, periodoId } = {}) {
+  async preflight({ comprobarClassroom = false, periodoId, requiredPermissions = [] } = {}) {
+    if (!Array.isArray(requiredPermissions) || requiredPermissions.some((permission) => typeof permission !== 'string' || !permission.trim())) {
+      throw new TypeError('requiredPermissions debe ser una lista de permisos no vacíos');
+    }
+    const required = [...new Set(requiredPermissions.map((permission) => permission.trim()))];
     const [ready, version] = await Promise.all([
       this.request('/salud/ready').then(({ data }) => data),
       this.request('/version').then(({ data }) => data)
     ]);
-    const result = { ready, version, authenticated: false, permissions: [], lease: { state: 'not_checked' }, periodo: { state: 'not_checked' } };
+    const result = { ready, version, authenticated: false, permissions: [], permissionCheck: { state: 'not_checked', required, missing: required }, lease: { state: 'not_checked' }, periodo: { state: 'not_checked' } };
     if (!this.token) return result;
     const { data: preflight } = await this.request('/preflight');
     aplicarEstadoPreflight(result, preflight);
+    const granted = new Set(result.permissions);
+    const missing = required.filter((permission) => !granted.has(permission));
+    result.permissionCheck = { state: missing.length ? 'missing' : 'satisfied', required, missing };
     if (periodoId && result.permissions.includes('periodos:leer')) {
       const { data: periodosResponse } = await this.request('/periodos');
       const periodos = Array.isArray(periodosResponse) ? periodosResponse : periodosResponse?.periodos ?? [];

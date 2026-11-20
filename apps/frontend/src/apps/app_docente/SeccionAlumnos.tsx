@@ -1167,7 +1167,7 @@ export function SeccionAlumnos({
                   <div className="item-glass alumnos-lista__item anim-card-hover">
                     <div className="alumnos-card__body">
                       {/* Avatar con Iniciales y anillo de grupo */}
-                      <div className={`alumno-avatar alumno-avatar--${claseBadgeGrupo(alumno.grupo || '')}`} aria-hidden="true">
+                      <div className={`alumno-avatar alumno-avatar--${claseBadgeGrupo(alumno.grupo || '')}`} data-initial-count={iniciales.length} aria-hidden="true">
                         <span>{iniciales}</span>
                       </div>
 

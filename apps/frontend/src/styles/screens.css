@@ -4636,6 +4636,11 @@
   box-shadow: 0 0 14px rgba(0, 210, 255, 0.2);
 }
 
+.alumno-avatar[data-initial-count='4'] { font-size: 0.78rem; letter-spacing: 0.035em; }
+.alumno-avatar[data-initial-count='5'] { font-size: 0.68rem; letter-spacing: 0.025em; }
+.alumno-avatar[data-initial-count='6'],
+.alumno-avatar[data-initial-count='7'] { font-size: 0.58rem; letter-spacing: 0.01em; }
+
 .alumno-info {
   flex: 1;
   display: flex;
@@ -7563,6 +7568,7 @@
 
 /* Opciones A-E Grid */
 .banco-opciones-container {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -7578,9 +7584,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .banco-opcion-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -7622,6 +7633,14 @@
 
 .banco-opcion-card__input-wrap {
   flex: 1;
+  min-width: 0;
+}
+
+.banco-opcion-card__input-wrap .rich-editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .banco-opcion-input {
@@ -7636,8 +7655,12 @@
 
 .banco-opcion-pill {
   display: inline-flex;
+  box-sizing: border-box;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.05));
@@ -7647,6 +7670,7 @@
   color: var(--text-muted, #94a3b8);
   cursor: pointer;
   user-select: none;
+  white-space: normal;
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
@@ -7678,6 +7702,49 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* En el panel lateral el viewport puede ser ancho aunque el formulario sea estrecho. */
+@container (max-width: 680px) {
+  .banco-opcion-card {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: start;
+    gap: 0.55rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .banco-opcion-card__letter {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .banco-opcion-card__input-wrap {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .banco-opcion-card > .banco-opcion-pill {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .banco-opcion-pill > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .rich-editor__toolbar {
+    flex-wrap: wrap;
+  }
 }
 
 /* Editor enriquecido ligero y seguro para enunciados/opciones. */
@@ -7726,7 +7793,7 @@
 
   .banco-opcion-card {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 32px minmax(0, 1fr);
     align-items: start;
     gap: 0.55rem;
     padding: 0.5rem 0.6rem;
@@ -7748,6 +7815,17 @@
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .banco-opcion-pill > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 

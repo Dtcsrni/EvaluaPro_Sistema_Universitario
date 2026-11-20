@@ -30,6 +30,16 @@ const permisos: PermisosUI = {
 };
 
 describe('GUI responsive contract', () => {
+  it('ajusta las opciones del Banco al ancho del panel aunque el viewport sea más ancho', async () => {
+    const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
+    const css = await fs.readFile(cssPath, 'utf8');
+    expect(css).toMatch(/\.banco-opciones-container\s*\{[^}]*container-type:\s*inline-size;/);
+    expect(css).toMatch(/@container\s*\(max-width:\s*680px\)\s*\{[\s\S]*?\.banco-opcion-card\s*\{[^}]*grid-template-columns:\s*32px\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/\.banco-opcion-card__input-wrap\s*\{[^}]*min-width:\s*0;/);
+    expect(css).toMatch(/@media\s*\(max-width:\s*480px\)\s*\{[\s\S]*?\.banco-opcion-card\s*\{[^}]*grid-template-columns:\s*32px\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/\.banco-opcion-pill\s*>\s*span:last-child\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  });
+
   it('login prioriza el formulario en móvil y conserva el bloque informativo después', async () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/screens.css');
     const css = await fs.readFile(cssPath, 'utf8');

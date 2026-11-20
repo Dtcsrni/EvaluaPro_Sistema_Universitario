@@ -305,6 +305,33 @@ describe('servicioClassroomGoogle', () => {
     );
   });
 
+  it('registra diagnóstico OAuth saneado para depurar un 503 sin exponer secretos', async () => {
+    const { mod, logMock } = await cargarModulo({
+      oauth: {
+        getAccessToken: vi.fn().mockRejectedValue({
+          response: { status: 401, data: { error: 'invalid_client', error_description: 'private OAuth detail' } },
+          code: 'ERR_AUTH_FAILED',
+          message: 'refresh-token-secret must never be logged'
+        })
+      },
+      integracion: {
+        findOne: vi.fn().mockResolvedValue({ _id: 'int-oauth-error', googleSub: 'google-user-77', refreshTokenCifrado: 'dpapi:test:refresh-secret', activo: true })
+      }
+    });
+
+    await expect(mod.obtenerTokenAccesoClassroom('docente-oauth-error')).rejects.toMatchObject({
+      codigo: 'CLASSROOM_TOKEN_RENOVACION_ERROR', estadoHttp: 503,
+      message: 'No se pudo renovar la autorización de Google Classroom.'
+    });
+    expect(logMock).toHaveBeenCalledWith('error', 'Falló la renovación OAuth de Google Classroom', {
+      event: 'classroom_oauth_refresh_failed', category: 'provider', providerCode: 'invalid_client', providerStatus: 401, networkCode: 'ERR_AUTH_FAILED'
+    });
+    const logs = JSON.stringify(logMock.mock.calls);
+    expect(logs).not.toContain('private OAuth detail');
+    expect(logs).not.toContain('refresh-token-secret');
+    expect(logs).not.toContain('refresh-secret');
+  });
+
   it('classroomGet construye query y falla con mensaje de API', async () => {
     vi.stubGlobal(
       'fetch',

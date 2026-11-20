@@ -66,6 +66,25 @@ async function crearXlsxReactivos(batch: ReturnType<typeof loteValido>) {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+async function auditarYPublicarReactivo(page: import('@playwright/test').Page) {
+  const flujo = page.getByRole('region', { name: 'Flujo de revisión manual' });
+  await flujo.getByRole('button', { name: 'Enviar a revisión (1)', exact: true }).click();
+  const revision = flujo.locator('.banco-manual-audit').filter({ hasText: 'Auditar contenido en revisión (1)' });
+  await expect(revision).toBeVisible();
+  if (!await revision.locator(':scope > ol').isVisible()) await revision.locator(':scope > summary').click();
+  const reactivo = revision.locator('ol > li').first().locator('details');
+  await reactivo.locator(':scope > summary').click();
+  const opciones = reactivo.locator('ol[type="A"] > li');
+  await expect(opciones).toHaveCount(5);
+  await expect(opciones.filter({ hasText: 'Clave oficial' })).toHaveCount(1);
+  const publicar = flujo.getByRole('button', { name: 'Publicar revisados (1)', exact: true });
+  await expect(publicar).toBeDisabled();
+  await reactivo.getByRole('checkbox', { name: /Confirmo que revisé este enunciado/i }).check();
+  await expect(publicar).toBeEnabled();
+  await publicar.click();
+  await expect(page.getByText('Reactivos revisados y publicados.', { exact: true })).toBeVisible({ timeout: 20_000 });
+}
+
 test.describe('Banco de reactivos', () => {
   test.setTimeout(120_000);
 
@@ -130,15 +149,39 @@ test.describe('Banco de reactivos', () => {
     const enunciado = page.getByPlaceholder('Redacta una pregunta clara y directa.');
     await enunciado.fill('¿Qué caracteriza mejor a una organización con cultura del dato?');
     const opciones = page.getByRole('textbox', { name: /^Texto de la opción [A-E]$/ });
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 480, height: 800 },
+      { width: 714, height: 354 },
+      { width: 860, height: 600 },
+      { width: 1280, height: 800 }
+    ]) {
+      await page.setViewportSize(viewport);
+      const opcionE = page.locator('.banco-opcion-card--e');
+      const controlOpcionE = opcionE.locator('.banco-opcion-pill');
+      await expect(opcionE.getByRole('textbox', { name: 'Texto de la opción E' })).toBeVisible();
+      await expect(controlOpcionE).toContainText('Opción');
+      const tarjeta = await opcionE.boundingBox();
+      const control = await controlOpcionE.boundingBox();
+      const editor = await opcionE.getByRole('textbox', { name: 'Texto de la opción E' }).boundingBox();
+      expect(tarjeta).not.toBeNull();
+      expect(control).not.toBeNull();
+      expect(editor).not.toBeNull();
+      expect(control!.x).toBeGreaterThanOrEqual(tarjeta!.x);
+      expect(control!.x + control!.width).toBeLessThanOrEqual(tarjeta!.x + tarjeta!.width + 1);
+      expect(editor!.x).toBeGreaterThanOrEqual(tarjeta!.x);
+      expect(editor!.x + editor!.width).toBeLessThanOrEqual(tarjeta!.x + tarjeta!.width + 1);
+      expect(await opcionE.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+      const toolbar = opcionE.locator('.rich-editor__toolbar');
+      expect(await toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    }
+    await page.setViewportSize({ width: 1920, height: 1080 });
     for (const [index, value] of ['Usa evidencia para decidir', 'Ignora las métricas', 'Decide solo por intuición', 'Evita medir resultados', 'Oculta sus datos'].entries()) {
       await opciones.nth(index).fill(value);
     }
     await page.getByRole('button', { name: 'Validar y guardar borrador', exact: true }).click();
     await expect(page.getByText('Reactivo validado y guardado como borrador. Envíalo a revisión antes de publicarlo.', { exact: true })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Enviar a revisión (1)', exact: true }).click();
-    await expect(page.getByText('Reactivos enviados a revisión.', { exact: true })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Publicar revisados (1)', exact: true }).click();
-    await expect(page.getByText('Reactivos revisados y publicados.', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await auditarYPublicarReactivo(page);
     await page.screenshot({ path: test.info().outputPath('banco-reactivos-publicado.png'), fullPage: true });
 
     const listadoManual = await request.get(`${base}/banco-preguntas?periodoId=${encodeURIComponent(periodoId)}`, { headers });
@@ -156,10 +199,7 @@ test.describe('Banco de reactivos', () => {
     await formularioEdicion.getByRole('textbox', { name: 'Texto de la opción A' }).fill('Con evidencia verificable');
     await formularioEdicion.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
     await expect(page.getByText('Nueva versión guardada como borrador; requiere revisión antes de publicarse.', { exact: true })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Enviar a revisión (1)', exact: true }).click();
-    await expect(page.getByText('Reactivos enviados a revisión.', { exact: true })).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Publicar revisados (1)', exact: true }).click();
-    await expect(page.getByText('Reactivos revisados y publicados.', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await auditarYPublicarReactivo(page);
     const listadoEditado = await request.get(`${base}/banco-preguntas?periodoId=${encodeURIComponent(periodoId)}`, { headers });
     preguntasManuales = (await listadoEditado.json()).preguntas ?? [];
     const manualEditado = preguntasManuales.find((pregunta: { reactivoId?: string; enunciado?: string; versiones?: Array<{ enunciado?: string }> }) =>
@@ -214,11 +254,17 @@ test.describe('Banco de reactivos', () => {
     await expect(page.getByText('1 reactivo nuevo', { exact: true })).toBeVisible();
     await importacion.getByRole('button', { name: 'Confirmar importación', exact: true }).click();
     const resultadoImportacion = importacion.locator('.banco-reactivos-import__message');
-    await expect(resultadoImportacion).toContainText('Importación confirmada: 1 reactivo(s) esperan revisión.', { timeout: 20_000 });
-    await importacion.getByRole('button', { name: 'Enviar a revisión (1)', exact: true }).click();
-    await expect(resultadoImportacion).toContainText('Reactivos enviados a revisión.', { timeout: 20_000 });
-    await importacion.getByRole('button', { name: 'Publicar revisados (1)', exact: true }).click();
-    await expect(resultadoImportacion).toContainText('Reactivos publicados y disponibles para el banco OMR.', { timeout: 20_000 });
+    await expect(resultadoImportacion).toContainText('Importación confirmada: 1 reactivo(s) quedaron en borrador.', { timeout: 20_000 });
+    await page.reload();
+    await page.getByRole('button', { name: 'Banco', exact: true }).click();
+    await expect(page.getByRole('heading', { name: /Banco de preguntas/i })).toBeVisible();
+    const flujoRevision = page.getByRole('region', { name: 'Flujo de revisión manual' });
+    await expect(flujoRevision).toContainText('1 borrador y 0 reactivos en revisión', { timeout: 20_000 });
+    await expect(page.getByText('Disponibles', { exact: true })).toBeVisible();
+    const auditoriaBorrador = flujoRevision.locator('.banco-manual-audit').filter({ hasText: 'Auditar contenido en borrador (1)' });
+    await auditoriaBorrador.locator(':scope > summary').click();
+    await expect(auditoriaBorrador).toContainText('¿Qué caracteriza una decisión basada en datos?', { timeout: 20_000 });
+    await auditarYPublicarReactivo(page);
 
     expect(importedReactivoId).toBeTruthy();
     const versiones = await request.get(`${base}/banco-preguntas/reactivos/${importedReactivoId}/versiones`, { headers });
