@@ -537,7 +537,11 @@ public partial class MainWindow : Window
         var apiResponds = await ProbePortAsync(apiHealthUrl);
         if (webResponds && apiResponds)
         {
-            if (dashboardProcess != null && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort)) return true;
+            if (dashboardProcess != null && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
+            {
+                EnsureTrayStarted(dashboardPort);
+                return true;
+            }
             WriteStartupDiagnostic("Web/API responden sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos.");
             return false;
         }
@@ -568,6 +572,7 @@ public partial class MainWindow : Window
             if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl) &&
                 dashboardProcess != null && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
             {
+                EnsureTrayStarted(dashboardPort);
                 return true;
             }
             await Task.Delay(300);
@@ -575,6 +580,44 @@ public partial class MainWindow : Window
 
         WriteStartupDiagnostic("Timeout esperando web/API locales.");
         return false;
+    }
+
+    private void EnsureTrayStarted(int dashboardPort)
+    {
+        var trayScript = Path.Combine(appRoot, "scripts", "launcher-tray.ps1");
+        var powershellPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (!File.Exists(trayScript) || !File.Exists(powershellPath))
+        {
+            WriteStartupDiagnostic("No se pudo asegurar la bandeja: falta launcher-tray.ps1 o Windows PowerShell.");
+            return;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = powershellPath,
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File \"{trayScript}\" -Mode prod -Port {dashboardPort} -NoOpen -Attach -EnsureOnly",
+                WorkingDirectory = appRoot,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            var trayProcess = Process.Start(startInfo);
+            if (trayProcess is null)
+            {
+                WriteStartupDiagnostic("Windows PowerShell no inició el proceso de bandeja.");
+                return;
+            }
+
+            WriteStartupDiagnostic($"Se solicitó asegurar el inicio de la bandeja local (pid={trayProcess.Id}, port={dashboardPort}).");
+            trayProcess.Dispose();
+        }
+        catch (Exception ex)
+        {
+            WriteStartupDiagnostic($"No se pudo iniciar la bandeja local: {ex.GetType().Name}.");
+        }
     }
 
     private void StartDashboard()

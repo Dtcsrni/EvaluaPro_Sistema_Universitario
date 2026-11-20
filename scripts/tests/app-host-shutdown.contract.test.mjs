@@ -138,8 +138,16 @@ test('el host adopta servicios sanos antes del retorno temprano y solo si coinci
   assert.match(hostSource, /statusPort != dashboardPort/);
   assert.match(hostSource, /dashboardProcess = process/);
   assert.match(hostSource, /dashboardProcess = Process\.Start\(psi\)/);
-  assert.match(hostSource, /dashboardProcess != null && await VerifyDashboardIdentityAsync\(dashboardProcess, dashboardPort\)\) return true/);
+  assert.match(hostSource, /if \(dashboardProcess != null && await VerifyDashboardIdentityAsync\(dashboardProcess, dashboardPort\)\)[\s\S]*?EnsureTrayStarted\(dashboardPort\);[\s\S]*?return true;/);
   assert.match(hostSource, /sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos/);
+  assert.match(hostSource, /if \(dashboardProcess != null && await VerifyDashboardIdentityAsync\(dashboardProcess, dashboardPort\)\)[\s\S]*?EnsureTrayStarted\(dashboardPort\);[\s\S]*?return true;/);
+  assert.match(hostSource, /EnsureTrayStarted\(dashboardPort\);[\s\S]*?return true;/);
+  assert.match(hostSource, /-EnsureOnly/);
+  assert.match(hostSource, /private void EnsureTrayStarted\(int dashboardPort\)/);
+  assert.match(hostSource, /Se solicitó asegurar el inicio de la bandeja local/);
+  const traySource = fs.readFileSync(path.join(root, 'scripts', 'launcher-tray.ps1'), 'utf8');
+  assert.match(traySource, /\[switch\]\$EnsureOnly/);
+  assert.match(traySource, /if \(\$EnsureOnly\)[\s\S]*?EnsureOnly conserva la bandeja sin abrir dashboard[\s\S]*?return/);
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {

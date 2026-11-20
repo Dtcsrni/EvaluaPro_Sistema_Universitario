@@ -3389,7 +3389,11 @@ test('SPEC-094 REQ-005: el launcher Hub nativo usa timeout y fallback verificado
 
 test('SPEC-094 REQ-003: el arranque docente no lanza PowerShell para reconciliar accesos', () => {
   const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
-  assert.doesNotMatch(appHost, /ReconcileShortcutsAsync|powershell\.exe|create-shortcuts\.ps1/i);
+  const trayEnsure = appHost.match(/private void EnsureTrayStarted\(int dashboardPort\)[\s\S]*?\n    private void StartDashboard\(\)/)?.[0] || '';
+  assert.match(trayEnsure, /powershell\.exe/i);
+  assert.match(trayEnsure, /launcher-tray\.ps1/i);
+  assert.match(trayEnsure, /-EnsureOnly/);
+  assert.doesNotMatch(appHost.replace(trayEnsure, ''), /ReconcileShortcutsAsync|powershell\.exe|create-shortcuts\.ps1/i);
   assert.match(appHost, /start-docente-native\.mjs/);
 });
 

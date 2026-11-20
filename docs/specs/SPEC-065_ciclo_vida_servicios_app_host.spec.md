@@ -15,7 +15,7 @@ Una instancia del App Host también puede quedar viva después de perder su vent
 
 El diálogo de cierre distingue entre detener los servicios locales y cerrar solo la ventana, dejando el runtime identificado activo para que una nueva instancia pueda adoptarlo. La segunda opción no debe volver a invocar el cierre de la ventana dentro del evento WPF `Closing` que todavía está activo.
 
-El dashboard inicia el proceso de bandeja en segundo plano. Antes de dar por válido el cierre de solo ventana, el E2E nativo confirma que `NotifyIcon` quedó visible y que el proceso responsable sigue vivo junto con la API.
+El dashboard inicia el proceso de bandeja en segundo plano y el App Host también lo asegura cuando adopta servicios que ya estaban activos. Antes de dar por válido el cierre de solo ventana, el E2E nativo confirma que `NotifyIcon` quedó visible y que el proceso responsable sigue vivo junto con la API.
 
 El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar SQLite antes de responder salud. Un límite demasiado corto deja una ventana nativa en error aunque los servicios terminen sanos inmediatamente después.
 
@@ -28,7 +28,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - REQ-006: Si el mutex singleton está ocupado por el mismo ejecutable y sesión, pero la instancia no tiene ventana después de una gracia mínima de arranque, el host recupera únicamente ese árbol y reintenta adquirir el mutex; una instancia válida se enfoca y una ruta de instalación distinta no se termina.
 - REQ-007: El host espera los servicios web y API durante un límite finito de 60 segundos en arranque frío; solo declara lista la aplicación cuando ambos responden correctamente y registra un diagnóstico si vence el límite.
 - REQ-008: Al elegir «No», el host permite que la solicitud actual del evento WPF `Closing` cierre solo la ventana, mantiene sanos los servicios identificados y permite que una instancia posterior los adopte; no invoca `Close()` de nuevo desde el mismo cierre ni muestra una excepción.
-- REQ-009: El launcher de bandeja registra su PID cuando `NotifyIcon` queda visible; el E2E de cierre de solo ventana verifica ese proceso antes y después del cierre, además de comprobar salud web/API.
+- REQ-009: El App Host asegura el proceso de bandeja tras validar/adoptar servicios sanos; `launcher-tray.ps1 -EnsureOnly` conserva una instancia existente sin abrir otra ventana. El launcher registra su PID cuando `NotifyIcon` queda visible; el E2E de cierre de solo ventana verifica ese proceso antes y después del cierre, además de comprobar salud web/API.
 
 ## Criterios de Aceptación
 - Si web/API ya responden desde el dashboard de la instalación, el host registra el proceso antes del retorno de éxito.

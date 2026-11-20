@@ -8,7 +8,8 @@ param(
   [string]$Mode = 'none',
   [int]$Port = 4519,
   [switch]$NoOpen,
-  [switch]$Attach
+  [switch]$Attach,
+  [switch]$EnsureOnly
 )
 
 Set-StrictMode -Version Latest
@@ -480,6 +481,10 @@ try {
 }
 
 if (-not $createdNew) {
+  if ($EnsureOnly) {
+    Log("Tray singleton: instancia ya existe (mutex=$mutexName); EnsureOnly conserva la bandeja sin abrir dashboard.")
+    return
+  }
   Log("Tray singleton: instancia ya existe (mutex=$mutexName). Abriendo dashboard y saliendo.")
   $openPort = $Port
   $lockPort = Read-LockPort
