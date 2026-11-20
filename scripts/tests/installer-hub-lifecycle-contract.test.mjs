@@ -369,7 +369,7 @@ test('runner limita broker y mata solo su árbol al vencer timeout', () => {
   assert.match(runner, /AutomationElement\]::FromHandle/);
   assert.match(runner, /CopyFromScreen/);
   assert.match(runner, /state = 'healthy'/);
-  assert.match(runner, /closed and installed Node tree absent/);
+  assert.match(runner, /allInstalledAppHostsAbsent=true installedNodeTreeAbsent=true/);
 });
 
 test('MSI docente usa un CAB embebido y el build valida su extracción administrativa con límite', () => {

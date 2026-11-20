@@ -120,6 +120,21 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 
+test('el cleanup E2E cierra de forma normal todas las instancias del ejecutable QA antes de repair', () => {
+  assert.ok(installerE2ESource.includes('function Get-InstalledAppHostIdentities'));
+  assert.ok(installerE2ESource.includes('Get-CimInstance Win32_Process -Filter "Name=\'EvaluaPro.exe\'"'));
+  assert.ok(installerE2ESource.includes('[StringComparison]::OrdinalIgnoreCase'));
+  const cleanup = installerE2ESource.slice(installerE2ESource.indexOf("if ($Action -eq 'stop-all') {"), installerE2ESource.indexOf("throw \"Acción nativa E2E no soportada"));
+  assert.ok(cleanup.includes('Get-InstalledAppHostIdentities'));
+  assert.ok(cleanup.includes('$process.CloseMainWindow()'));
+  assert.ok(cleanup.includes('Invoke-AppHostCloseConfirmationYes'));
+  assert.ok(cleanup.includes('Persisten App Hosts de esta instalación QA'));
+  assert.ok(cleanup.includes('no se iniciará repair/uninstall'));
+  assert.ok(cleanup.includes('allInstalledAppHostsAbsent=true installedNodeTreeAbsent=true'));
+  assert.ok(!cleanup.includes('taskkill.exe') && !cleanup.includes('process.Kill('));
+  assert.ok(installerE2ESource.includes("if ($script:activeNativeAppHost -or ($installedRoot -and (Test-Path -LiteralPath (Join-Path $installedRoot 'EvaluaPro.exe') -PathType Leaf)))"));
+});
+
 test('el App Host omite candidatos obsoletos y busca un Hub local registrado por hash', () => {
   const resolver = hostSource.match(/private string ResolveHubPathForLaunch\(\)[\s\S]*?\n    \}/)?.[0];
   assert.ok(resolver, 'debe existir el resolver del Installer Hub');
