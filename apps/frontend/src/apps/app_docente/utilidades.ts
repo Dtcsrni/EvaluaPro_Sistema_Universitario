@@ -66,13 +66,21 @@ const VISTAS_VALIDAS = new Set([
 export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\p{Pd}_.()#&/]*$/u;
 
 /** Usa la misma regla y los mismos datos de identidad que la plantilla del examen. */
-export function obtenerInicialesAlumno(nombreCompleto?: string): string {
-  return construirInicialesIdentidadAlumno({ nombreCompleto });
+export type IdentidadInicialesAlumno = {
+  nombreCompleto?: string;
+  nombres?: string;
+  apellidos?: string;
+};
+
+export function obtenerInicialesAlumno(identidad?: string | IdentidadInicialesAlumno): string {
+  return construirInicialesIdentidadAlumno(
+    typeof identidad === 'string' ? { nombreCompleto: identidad } : identidad ?? {}
+  );
 }
 
 /** Alias de compatibilidad; el avatar muestra las mismas iniciales que el examen. */
-export function obtenerInicialesAvatarAlumno(nombreCompleto?: string): string {
-  return obtenerInicialesAlumno(nombreCompleto);
+export function obtenerInicialesAvatarAlumno(identidad?: string | IdentidadInicialesAlumno): string {
+  return obtenerInicialesAlumno(identidad);
 }
 
 export function obtenerVistaInicial(): string {

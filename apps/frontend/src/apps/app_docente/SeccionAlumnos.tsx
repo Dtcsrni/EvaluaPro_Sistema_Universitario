@@ -1157,7 +1157,11 @@ export function SeccionAlumnos({
             alumnosFiltrados.map((alumno) => {
               const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
               const sinDerecho = faltas >= 4;
-              const iniciales = obtenerInicialesAvatarAlumno(alumno.nombreCompleto);
+              const iniciales = obtenerInicialesAvatarAlumno({
+                nombreCompleto: alumno.nombreCompleto,
+                nombres: alumno.nombres,
+                apellidos: alumno.apellidos
+              });
 
               return (
                 <li

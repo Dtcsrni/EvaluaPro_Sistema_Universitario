@@ -61,6 +61,13 @@ describe('utilidades app docente', () => {
     expect(obtenerInicialesAvatarAlumno()).toBe('');
   });
 
+  it('usa nombres y apellidos estructurados como la plantilla cuando están disponibles', () => {
+    const identidad = { nombreCompleto: 'Ana María Gómez Ruiz', nombres: 'Ana María', apellidos: 'Gómez Ruiz' };
+    const esperadas = construirInicialesIdentidadAlumno(identidad);
+    expect(obtenerInicialesAlumno(identidad)).toBe(esperadas);
+    expect(obtenerInicialesAvatarAlumno(identidad)).toBe(esperadas);
+  });
+
   it('obtenerVistaInicial respeta vistas validas y aliases', () => {
     window.history.pushState({}, '', '/?vista=banco');
     expect(obtenerVistaInicial()).toBe('banco');
