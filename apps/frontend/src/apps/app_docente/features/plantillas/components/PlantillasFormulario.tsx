@@ -33,7 +33,6 @@ export function PlantillasFormulario({
   setTemasSeleccionados,
   totalDisponiblePorTemas,
   numeroPaginas,
-  setNumeroPaginas,
   reactivosObjetivo,
   setReactivosObjetivo,
   logoIzquierda,
@@ -69,7 +68,6 @@ export function PlantillasFormulario({
   setTemasSeleccionados: Dispatch<SetStateAction<string[]>>;
   totalDisponiblePorTemas: number;
   numeroPaginas: number;
-  setNumeroPaginas: (value: number) => void;
   reactivosObjetivo: number;
   setReactivosObjetivo: (value: number) => void;
   logoIzquierda: string;
@@ -177,7 +175,7 @@ export function PlantillasFormulario({
               <option value="global">Global</option>
             </select>
           </div>
-          <span className="ayuda">El valor predeterminado se configura en Cuenta → Preferencias de PDF.</span>
+          <span className="ayuda">Parcial: 2 páginas dúplex. Global: 4 páginas en 2 hojas engrapadas.</span>
         </label>
 
           <label className="campo campo--materia">
@@ -278,29 +276,19 @@ export function PlantillasFormulario({
             <div>
               <span className="plantillas-formato-box__eyebrow">Formato de impresión</span>
               <h4 className="plantillas-temas__title">Ajuste de página</h4>
-              <p className="nota">Define el objetivo; el PDF real valida si el contenido cabe sin tocar la cabecera ni el OMR.</p>
+              <p className="nota">Es un objetivo, no un límite uniforme: cada examen conserva tantos reactivos como caben de forma segura en su espacio disponible.</p>
             </div>
-            <span className="plantillas-formato-box__badge">
-              {`Autoajuste · hasta ${numeroPaginas} ${numeroPaginas === 1 ? 'página' : 'páginas'}`}
+              <span className="plantillas-formato-box__badge">
+              {`${numeroPaginas} páginas · ${numeroPaginas / 2} ${numeroPaginas === 2 ? 'hoja dúplex' : 'hojas engrapadas'}`}
             </span>
           </div>
           <div className="plantillas-formato-box__controls">
             <label className="campo plantillas-formato-control">
-              <span className="campo__label-row"><span>Páginas objetivo</span><b>{numeroPaginas}</b></span>
-              <input
-                type="number"
-                min={1}
-                max={50}
-                step={1}
-                value={numeroPaginas}
-                onChange={(event) => {
-                  const valor = Number(event.target.value);
-                  if (Number.isFinite(valor)) setNumeroPaginas(Math.min(50, Math.max(1, Math.floor(valor))));
-                }}
-                disabled={bloqueoEdicion}
-                aria-label="Cantidad de páginas"
-              />
-              <span className="ayuda">Cantidad máxima objetivo para el cuadernillo.</span>
+              <span className="campo__label-row"><span>Presupuesto físico fijo</span><b>{numeroPaginas}</b></span>
+              <div className="plantillas-page-budget" role="status" aria-label="Presupuesto de páginas no editable">
+                {tipo === 'global' ? 'Global · 4 páginas · 2 hojas engrapadas' : 'Parcial · 2 páginas · 1 hoja dúplex'}
+              </div>
+              <span className="ayuda">El tipo de examen fija el total de páginas. El motor rechaza desbordamientos y completa las caras restantes dentro del presupuesto.</span>
             </label>
             <div className="campo plantillas-formato-control" aria-label="Cantidad de preguntas">
               <span className="campo__label-row"><span>Preguntas del examen</span><b>{reactivosConfigurados}</b></span>

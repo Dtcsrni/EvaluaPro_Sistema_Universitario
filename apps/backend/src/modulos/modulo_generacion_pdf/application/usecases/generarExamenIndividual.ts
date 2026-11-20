@@ -119,6 +119,8 @@ export async function generarExamenIndividual(
       fontScale,
       lineSpacing,
       distribuirEnPaginasObjetivo: params.bookletConfig?.distribuirEnPaginasObjetivo === true || params.tipoExamen === 'extraordinario',
+      enforcePageBudget: params.bookletConfig?.enforcePageBudget === true,
+      allowCapacityProbe: params.bookletConfig?.allowCapacityProbe === true,
       logos: params.bookletConfig?.logos
     },
     params.encabezado,

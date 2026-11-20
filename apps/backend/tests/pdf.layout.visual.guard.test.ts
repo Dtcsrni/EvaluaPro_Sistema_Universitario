@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
+import { PDFDocument } from 'pdf-lib';
 import { PDFParse } from 'pdf-parse';
 import sharp from 'sharp';
 import { ANCHO_CARTA, ALTO_CARTA } from '../src/modulos/modulo_generacion_pdf/shared/tiposPdf.js';
@@ -374,6 +375,37 @@ function crearParametrosBrevesCompactos(cantidadPreguntas: number) {
 }
 
 describe('pdf layout visual guard', () => {
+  it.each([
+    ['parcial', 2],
+    ['global', 4]
+  ] as const)('genera exactamente %s con presupuesto de %i páginas', async (tipoExamen, paginasEsperadas) => {
+    const preguntasEsperadas = paginasEsperadas * 2;
+    const resultado = await generarPdfExamen({
+      ...crearParametros(preguntasEsperadas),
+      tipoExamen,
+      totalPaginas: paginasEsperadas,
+      examId: `FIXED-BUDGET-${tipoExamen}`,
+      bookletConfig: { enforcePageBudget: true, distribuirEnPaginasObjetivo: true }
+    });
+    const pdf = await PDFDocument.load(resultado.pdfBytes);
+
+    expect(pdf.getPageCount()).toBe(paginasEsperadas);
+    expect(resultado.paginas).toHaveLength(paginasEsperadas);
+    expect(resultado.mapaOmr.paginas).toHaveLength(paginasEsperadas);
+    expect(resultado.mapaOmr.paginas.flatMap((pagina) => pagina.preguntas.map((pregunta) => pregunta.preguntaId)))
+      .toHaveLength(preguntasEsperadas);
+    expect(resultado.mapaOmr.paginas.every((pagina) => pagina.preguntas.length > 0)).toBe(true);
+  });
+
+  it('rechaza explícitamente emitir un parcial incompleto si el banco desborda las dos páginas', async () => {
+    const parametros = crearParametros(160);
+    await expect(generarPdfExamen({
+      ...parametros,
+      totalPaginas: 2,
+      bookletConfig: { enforcePageBudget: true }
+    })).rejects.toMatchObject({ code: 'EXAMEN_PRESUPUESTO_EXCEDIDO' });
+  });
+
   it('recupera la trama geométrica de cabecera sin desplazar cajas funcionales', async () => {
     const parametros = crearParametros(1);
     const pregunta = parametros.preguntas[0]!;
@@ -541,9 +573,10 @@ describe('pdf layout visual guard', () => {
           numeroPagina: pagina
         });
         expect(texto.match(new RegExp(`FOLIO\\s+D7E8B86B\\s*[·•]\\s*P\\s*${pagina}`, 'gi')))
-          .toHaveLength(2);
+          .toHaveLength(1);
+        expect(texto.match(/LOTE\s+LOTE-COMPOUND-QA/gi)).toHaveLength(totalPaginas);
       }
-      expect(texto).not.toContain('LOTE-COMPOUND-QA');
+      expect(texto).toContain('LOTE-COMPOUND-QA');
     } finally {
       await parser.destroy();
     }

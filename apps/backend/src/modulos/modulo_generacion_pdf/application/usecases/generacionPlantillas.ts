@@ -32,10 +32,12 @@ import {
   construirNombreVisibleExamenLote,
   esEntornoTest,
   excluirReferenciasTecnologiaRetirada,
+  generarVarianteDeterminista,
   mapearPreguntasBase,
   normalizarLoteId,
   obtenerPlantillaDocente,
   ordenarPreguntasAleatorio,
+  ordenarPreguntasParaCapacidad,
   resolverDocentePdf,
   resolverPaginasObjetivoPreferidas,
   resolverPeriodoPlantillaActivo,
@@ -160,7 +162,7 @@ async function generarExamenUseCaseInterno(params: {
   const { temas } = preguntasResueltas;
   preguntasDb = excluirReferenciasTecnologiaRetirada(periodo?.nombre, preguntasDb).preguntasDb;
 
-  const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
+  const numeroPaginas = resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown; tipo?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   // La tipografía y el interlineado ya no son opciones de la plantilla:
   // todas las generaciones usan el autoajuste dentro de límites legibles.
@@ -169,6 +171,7 @@ async function generarExamenUseCaseInterno(params: {
     ...(plantilla.bookletConfig ?? {}),
     autoFitPages: true,
     autoFitTypography: true,
+    enforcePageBudget: true,
     fontScale: 1,
     lineSpacing: 1.1
   };
@@ -441,17 +444,20 @@ async function generarExamenesLoteUseCaseInterno(params: {
         periodoId: String(plantilla.periodoId),
         id: { in: [...idsExtraordinario] },
         ...(esExtraordinarioArchivado ? {} : { activo: true })
-      }
+      },
+      orderBy: [{ ordenLista: 'asc' }, { createdAt: 'asc' }, { matricula: 'asc' }, { id: 'asc' }]
     });
     const alumnosPorId = new Map(alumnosSeleccionados.map((alumno) => [String(alumno.id), alumno]));
     if ([...idsExtraordinario].some((alumnoId) => !alumnosPorId.has(alumnoId))) {
       const estadoRequerido = esExtraordinarioArchivado ? 'pertenecer al periodo de la plantilla' : 'estar activos en la materia de la plantilla';
       throw new ErrorAplicacion('ALUMNOS_NO_VALIDOS', `Todos los alumnos seleccionados deben ${estadoRequerido}.`, 400);
     }
-    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosPorId.get(alumnoId)!);
+    alumnos = (params.alumnoIds ?? []).map((alumnoId) => alumnosPorId.get(alumnoId)!)
+      .sort((a, b) => a.ordenLista - b.ordenLista || a.createdAt.getTime() - b.createdAt.getTime() || a.matricula.localeCompare(b.matricula) || a.id.localeCompare(b.id));
   } else {
     const alumnosActivos = await prisma.alumno.findMany({
-      where: { periodoId: String(plantilla.periodoId), activo: true }
+      where: { periodoId: String(plantilla.periodoId), activo: true },
+      orderBy: [{ ordenLista: 'asc' }, { createdAt: 'asc' }, { matricula: 'asc' }, { id: 'asc' }]
     });
     const gruposActivos = [...new Set(alumnosActivos.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))];
     const grupo = String(params.grupo ?? '').trim();
@@ -467,7 +473,6 @@ async function generarExamenesLoteUseCaseInterno(params: {
     .update(`${tipoExamen === 'extraordinario' ? 'extraordinario' : grupoLote ? `grupo:${grupoLote}` : 'materia-completa'}\n${alumnos.map((alumno) => String(alumno.id)).sort().join('\n')}${variantPolicy === 'shared' ? '\nvariant:shared' : ''}`)
     .digest('hex');
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
-  const esTest = esEntornoTest();
 
   if (totalAlumnos === 0) {
     throw new ErrorAplicacion('SIN_ALUMNOS', 'No hay alumnos activos en esta materia', 400);
@@ -496,6 +501,9 @@ async function generarExamenesLoteUseCaseInterno(params: {
       bookletConfig: previewArchivado.bookletConfig
     }
     : plantilla;
+  const blueprintSeedHash = createHash('sha256')
+    .update(String(plantillaParaGeneracion.blueprintJson ?? ''))
+    .digest('hex');
 
   const preguntasResueltas = await resolverPreguntasPlantilla({
     docenteId: docId,
@@ -513,7 +521,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
   // La configuración guardada para extraordinarios debe coincidir con la vista previa.
   const numeroPaginas = esExtraordinarioArchivado
     ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
-    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown; tipo?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const bookletConfigPlantilla = (plantillaParaGeneracion.bookletConfig ?? {}) as Record<string, unknown>;
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
@@ -556,6 +564,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
     // plantilla. No se ejecuta el auto-fit ni se prueban variantes de layout.
     autoFitPages: false,
     autoFitTypography: false,
+    enforcePageBudget: true,
     fontScale: Number(layoutValidado?.fontScale),
     lineSpacing: Number(layoutValidado?.lineSpacing)
   };
@@ -613,8 +622,9 @@ async function generarExamenesLoteUseCaseInterno(params: {
     const mapaVariantePrevio = parsearJsonPersistido<{ ordenPreguntas?: unknown[] }>(examenPrevio.mapaVariante);
     const preguntaIdsPrevias = (mapaVariantePrevio?.ordenPreguntas ?? []).map((id) => String(id));
     if (
-      preguntaIdsPrevias.length !== preguntasIdsEsperadas.size ||
-      new Set(preguntaIdsPrevias).size !== preguntasIdsEsperadas.size ||
+      preguntaIdsPrevias.length === 0 ||
+      preguntaIdsPrevias.length > preguntasIdsEsperadas.size ||
+      new Set(preguntaIdsPrevias).size !== preguntaIdsPrevias.length ||
       preguntaIdsPrevias.some((id) => !preguntasIdsEsperadas.has(id))
     ) {
       throw new ErrorAplicacion('LOTE_REANUDACION_BANCO_CAMBIADO', 'El banco del lote cambió desde su generación parcial.', 409, { loteId, alumnoId });
@@ -647,7 +657,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
     const pdfPrevioValidado = await validarPdfIndividualLoteAplicacion({
       pdfBytes: bytesPrevios,
       paginasMaximas: numeroPaginas,
-      preguntasEsperadas: reactivosTotalesLote,
+      preguntasEsperadas: preguntaIdsPrevias.length,
       folio: String(examenPrevio.folio),
       mapaOmr: mapaOmrPrevio as never
     });
@@ -668,43 +678,73 @@ async function generarExamenesLoteUseCaseInterno(params: {
   let varianteCompartida: { preguntas: typeof preguntasBaseLote; mapaVariante: ReturnType<typeof generarVariante> } | null = null;
   if (variantPolicy === 'shared' && examenesPrevios.length > 0) {
     const mapasPrevios = examenesPrevios.map((examen) => parsearJsonPersistido<ReturnType<typeof generarVariante>>(examen.mapaVariante));
-    if (mapasPrevios.some((mapa) => !mapa) || firmasVariantesLote.size !== 1) {
-      throw new ErrorAplicacion('LOTE_VARIANTE_COMPARTIDA_INCONSISTENTE', 'El lote no tiene una sola variante verificable para reanudarlo en modo compartido.', 409, { loteId });
+    if (mapasPrevios.some((mapa) => !mapa)) {
+      throw new ErrorAplicacion('LOTE_VARIANTE_COMPARTIDA_INCONSISTENTE', 'El lote no conserva mapas verificables para reanudarlo en modo compartido.', 409, { loteId });
     }
-    const mapaBase = mapasPrevios[0]!;
+    const seedCompartida = `${loteId}:${cohorteLoteHash}:${blueprintSeedHash}:shared`;
+    const preguntasCanonicas = ordenarPreguntasParaCapacidad(preguntasBaseLote, seedCompartida);
+    const mapaCanonico = generarVarianteDeterminista(preguntasCanonicas, seedCompartida);
     const preguntasPorId = new Map(preguntasBaseLote.map((pregunta) => [String(pregunta.id), pregunta]));
-    const preguntasOrdenadas = mapaBase.ordenPreguntas.map((id) => preguntasPorId.get(String(id)));
-    if (preguntasOrdenadas.length !== preguntasBaseLote.length || preguntasOrdenadas.some((pregunta) => !pregunta)) {
-      throw new ErrorAplicacion('LOTE_VARIANTE_COMPARTIDA_INCONSISTENTE', 'El mapa del lote no coincide con todos los reactivos actuales.', 409, { loteId });
+    const opcionesCompartidas: Record<string, number[]> = {};
+    let mapasValidos = true;
+    for (const mapa of mapasPrevios) {
+      const ids = mapa!.ordenPreguntas;
+      if (ids.length === 0 || ids.some((id) => !preguntasPorId.has(String(id)))) {
+        mapasValidos = false;
+        break;
+      }
+      for (const id of ids) {
+        const ordenGuardado = mapa!.ordenOpcionesPorPregunta?.[id];
+        const ordenPrevio = opcionesCompartidas[id];
+        if (!Array.isArray(ordenGuardado) || (ordenPrevio && (ordenPrevio.length !== ordenGuardado.length || ordenPrevio.some((opcion, indice) => opcion !== ordenGuardado[indice])))) {
+          mapasValidos = false;
+          break;
+        }
+        opcionesCompartidas[id] = ordenGuardado;
+      }
+      if (!mapasValidos) break;
     }
-    varianteCompartida = { preguntas: preguntasOrdenadas as typeof preguntasBaseLote, mapaVariante: mapaBase };
+    if (!mapasValidos) {
+      throw new ErrorAplicacion('LOTE_VARIANTE_COMPARTIDA_INCONSISTENTE', 'Los mapas guardados no coinciden con una clave compartida verificable.', 409, { loteId });
+    }
+    varianteCompartida = {
+      preguntas: preguntasCanonicas,
+      mapaVariante: {
+        ordenPreguntas: mapaCanonico.ordenPreguntas,
+        ordenOpcionesPorPregunta: { ...mapaCanonico.ordenOpcionesPorPregunta, ...opcionesCompartidas }
+      }
+    };
   }
   const maxIntentosVarianteUnica = Math.min(36, Math.max(10, totalAlumnos * 2));
 
   const prepararExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
+      const examenGeneradoId = randomUUID();
+      const semillaExamen = `${loteId}:${cohorteLoteHash}:${String(alumno.id)}:${blueprintSeedHash}:${intento}`;
       let preguntasCandidatas: typeof preguntasBaseLote;
       let mapaVariante: ReturnType<typeof generarVariante>;
       if (variantPolicy === 'shared') {
         if (!varianteCompartida) {
-          const questions = ordenarPreguntasAleatorio(preguntasBaseLote);
-          varianteCompartida = { preguntas: questions, mapaVariante: generarVariante(questions) };
+          const seedCompartida = `${loteId}:${cohorteLoteHash}:${blueprintSeedHash}:shared`;
+          const questions = ordenarPreguntasParaCapacidad(preguntasBaseLote, seedCompartida);
+          varianteCompartida = { preguntas: questions, mapaVariante: generarVarianteDeterminista(questions, seedCompartida) };
         }
+        // If the full common variant fits, keep identical form order for all. Only
+        // when capacity forces selection do we use the per-student seeded traversal.
         preguntasCandidatas = varianteCompartida.preguntas;
         mapaVariante = varianteCompartida.mapaVariante;
       } else {
-        preguntasCandidatas = esExtraordinarioArchivado
+          preguntasCandidatas = esExtraordinarioArchivado
           ? preguntasBaseLote
-          : ordenarPreguntasAleatorio(preguntasBaseLote);
+          : ordenarPreguntasParaCapacidad(preguntasBaseLote, semillaExamen);
         mapaVariante = esExtraordinarioArchivado && previewArchivado
           ? previewArchivado.mapaVariante
-          : generarVariante(preguntasCandidatas);
+          : generarVarianteDeterminista(preguntasCandidatas, semillaExamen);
       }
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       const folio = randomUUID().split('-')[0].toUpperCase();
       try {
-        const examenGeneradoId = randomUUID();
-        const { pdfBytes, paginas, metricasPaginas, mapaOmr, preguntasRestantes } = await generarPdfExamen({
+        const parametrosRender = {
           titulo: esExtraordinarioArchivado ? 'Examen Extraordinario' : construirNombreVisibleExamenLote(plantilla.titulo),
           folio,
           loteId,
@@ -716,7 +756,12 @@ async function generarExamenesLoteUseCaseInterno(params: {
           margenMm: plantilla.configuracionPdf?.margenMm ?? 8,
           templateVersion: templateVersionOmr,
           omrTemplateId,
-          bookletConfig: { ...bookletConfig, distribuirEnPaginasObjetivo: esExtraordinarioArchivado },
+          bookletConfig: {
+            ...bookletConfig,
+            enforcePageBudget: !esExtraordinarioArchivado,
+            allowCapacityProbe: !esExtraordinarioArchivado,
+            distribuirEnPaginasObjetivo: true
+          },
           encabezado: construirEncabezadoPdf({
             periodo,
             docenteDb,
@@ -724,28 +769,47 @@ async function generarExamenesLoteUseCaseInterno(params: {
             incluirPrefijosDocente: true,
             alumno
           })
-        });
-
-        const usadosSet = extraerPreguntasUsadasMapaOmr(mapaOmr as never);
-        const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, mapaOmr);
+        };
+        let render = await generarPdfExamen(parametrosRender);
+        if (variantPolicy === 'shared' && render.preguntasRestantes > 0 && varianteCompartida) {
+          preguntasCandidatas = ordenarPreguntasParaCapacidad(preguntasBaseLote, semillaExamen);
+          mapaVariante = {
+            ordenPreguntas: preguntasCandidatas.map((pregunta) => pregunta.id),
+            ordenOpcionesPorPregunta: varianteCompartida.mapaVariante.ordenOpcionesPorPregunta
+          };
+          render = await generarPdfExamen({ ...parametrosRender, preguntas: preguntasCandidatas, mapaVariante });
+        }
+        let preguntasPersistidas = preguntasCandidatas;
+        const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, render.mapaOmr);
+        const reactivosNoIncluidosPorCapacidad = render.preguntasRestantes;
+        if (!esExtraordinarioArchivado && render.preguntasRestantes > 0) {
+          const preguntasPorId = new Map(preguntasCandidatas.map((pregunta) => [pregunta.id, pregunta]));
+          preguntasPersistidas = mapaVarianteUsada.ordenPreguntas
+            .map((id) => preguntasPorId.get(id))
+            .filter((pregunta): pregunta is (typeof preguntasCandidatas)[number] => Boolean(pregunta));
+          if (preguntasPersistidas.length === 0) {
+            throw new ErrorAplicacion('EXAMEN_SIN_REACTIVOS_LEGIBLES', 'Ningún reactivo cabe dentro del presupuesto físico con geometría OMR segura.', 409, { numeroPaginas });
+          }
+        }
+        const { pdfBytes, paginas, mapaOmr } = render;
         const snapshotVersiones = construirSnapshotVersionesBlueprint({
           plantilla: plantillaParaGeneracion,
           preguntaIds: mapaVarianteUsada.ordenPreguntas
         });
         const reactivosUsados = Array.isArray(mapaVarianteUsada.ordenPreguntas) ? mapaVarianteUsada.ordenPreguntas.length : 0;
-        if ((preguntasRestantes ?? 0) > 0 || reactivosUsados !== reactivosTotalesLote) {
+        if (reactivosUsados + reactivosNoIncluidosPorCapacidad !== preguntasCandidatas.length || reactivosUsados !== preguntasPersistidas.length || paginas.length !== numeroPaginas) {
           throw new ErrorAplicacion(
             'LOTE_VARIANTE_INCONSISTENTE',
-            `No se pudo mantener un lote consistente de ${reactivosTotalesLote} reactivos en ${numeroPaginas} pagina(s).`,
+            `No se pudo validar la variante de ${reactivosUsados} reactivos en exactamente ${numeroPaginas} páginas.`,
             409,
-            { preguntasRestantes, reactivosUsados, reactivosTotalesLote, numeroPaginas }
+            { preguntasNoIncluidasPorCapacidad: reactivosNoIncluidosPorCapacidad, reactivosUsados, preguntasSeleccionadas: preguntasPersistidas.length, reactivosDisponibles: reactivosTotalesLote, paginasRenderizadas: paginas.length, numeroPaginas }
           );
         }
 
         const resumenIndividual = await validarPdfIndividualLoteAplicacion({
           pdfBytes,
           paginasMaximas: numeroPaginas,
-          preguntasEsperadas: reactivosTotalesLote,
+          preguntasEsperadas: reactivosUsados,
           folio,
           mapaOmr
         });
@@ -760,17 +824,6 @@ async function generarExamenesLoteUseCaseInterno(params: {
         }
 
         const firmaVariante = construirFirmaVariante(mapaVarianteUsada);
-        const ultima = (Array.isArray(metricasPaginas) ? metricasPaginas : []).find((item) => item.numero === numeroPaginas);
-        const fraccionVaciaUltimaPagina = Number(ultima?.fraccionVacia ?? 0);
-        const consumioTodas = usadosSet.size >= reactivosTotalesLote;
-        if (!esTest && consumioTodas && fraccionVaciaUltimaPagina > 0.5) {
-          throw new ErrorAplicacion(
-            'PAGINAS_INSUFICIENTES',
-            `No hay suficientes preguntas para llenar ${numeroPaginas} pagina(s). La ultima pagina queda ${(fraccionVaciaUltimaPagina * 100).toFixed(0)}% vacia.`,
-            409,
-            { fraccionVaciaUltimaPagina, numeroPaginas }
-          );
-        }
         if (variantPolicy === 'unique' && firmasVariantesLote.has(firmaVariante) && !esUltimoIntentoVariante) continue;
 
         const nombreArchivo = construirNombrePdfExamen({
@@ -788,7 +841,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
           loteId,
           folio,
           templateVersion: templateVersionOmr,
-          preguntas: preguntasCandidatas,
+          preguntas: preguntasPersistidas,
           mapaVariante: mapaVarianteUsada,
           mapaOmr,
           paginas,
@@ -1016,7 +1069,8 @@ async function generarExamenesLoteUseCaseInterno(params: {
       loteId: loteSafe,
       materiaNombre: String((periodo as { nombre?: unknown } | null)?.nombre ?? ''),
       plantillaTitulo: String(plantilla.titulo ?? ''),
-      totalExamenes: totalAlumnos
+      totalExamenes: totalAlumnos,
+      grupos: [...new Set(alumnos.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))]
     });
     rutaPdfLoteNuevo = await guardarPdfExamen(nombreArchivo, loteBytes);
     const pdfEscrito = await fs.readFile(rutaPdfLoteNuevo);
@@ -1294,11 +1348,16 @@ export async function descargarPdfLoteUseCase(params: {
     LIMIT 1
   `;
   const artefactoPersistido = artefactos[0];
+  const alumnosDelLote = await prisma.alumno.findMany({
+    where: { id: { in: examenesDelLote.map((examen) => examen.alumnoId).filter((id): id is string => Boolean(id)) } },
+    select: { grupo: true }
+  });
   const fileNameCalculado = construirNombrePdfLote({
     loteId: lote,
     materiaNombre: String(periodo?.nombre ?? ''),
     plantillaTitulo: String(plantilla?.titulo ?? ''),
-    totalExamenes: Number(totalExamenes ?? 0)
+    totalExamenes: Number(totalExamenes ?? 0),
+    grupos: [...new Set(alumnosDelLote.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))]
   });
   const fileName = artefactoPersistido?.archivoNombre || fileNameCalculado;
   const ruta = resolverRutaPdfExamen(fileName);
@@ -1475,7 +1534,11 @@ export async function descargarZipLoteUseCase(params: { docenteId: unknown; lote
     loteId: lote,
     materiaNombre: String(periodo?.nombre ?? ''),
     plantillaTitulo: String(plantilla?.titulo ?? ''),
-    totalExamenes: examenes.length
+    totalExamenes: examenes.length,
+    grupos: [...new Set((await prisma.alumno.findMany({
+      where: { id: { in: examenes.map((examen) => examen.alumnoId).filter((id): id is string => Boolean(id)) } },
+      select: { grupo: true }
+    })).map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))]
   });
   const fileName = nombrePaquetePdf.replace(/\.pdf$/i, '.zip');
   const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });

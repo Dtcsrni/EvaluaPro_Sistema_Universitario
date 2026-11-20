@@ -4562,7 +4562,7 @@ export async function analizarOmr(
     }
   }
 
-  const transformacionBase = obtenerTransformacion(gray, width, height, advertencias, qrDetalle, {
+  let transformacionBase = obtenerTransformacion(gray, width, height, advertencias, qrDetalle, {
     margenMm,
     qrSizePts: perfil.qrSizePts,
     qrGeometry: mapaPagina.qr ? { ...mapaPagina.qr, textoEsperado: qrEsperado } : undefined,
@@ -4571,13 +4571,49 @@ export async function analizarOmr(
     altoCarta: ALTO_CARTA,
     mmAPuntos: MM_A_PUNTOS
   });
-  const referenciaPaginaCalidad = clamp01(Number(transformacionBase.referenciaPagina?.calidad ?? 0));
-  const geometriaConfiable =
+  let referenciaPaginaCalidad = clamp01(Number(transformacionBase.referenciaPagina?.calidad ?? 0));
+  let geometriaConfiable =
     !mapaPagina.engineHints?.forceSimpleScale &&
     transformacionBase.referenciaPagina?.orientacionDeterminada !== false &&
     transformacionBase.tipo !== 'escala' &&
     transformacionBase.referenciaPagina?.puntosDetectados >= 4 &&
     referenciaPaginaCalidad >= OMR_GEOMETRY_TRUST_MIN;
+  if (!geometriaConfiable && qrPrevalidado && mapaPagina.qr) {
+    // El lector previo conserva el payload autenticado, pero no pasa las
+    // esquinas detectadas. Si faltan fiduciales, relocaliza el QR y usa sus
+    // esquinas solo cuando la captura vuelve a decodificar el payload exacto.
+    const qrLocalizado = detectarQrPorGeometriaConocida(
+      data,
+      width,
+      height,
+      mapaPagina.qr,
+      transformacionBase.transformar,
+      {
+        altoCarta: ALTO_CARTA,
+        outputSize: opcionesInternas?.qrGeometryOutputSize,
+        payloadsEsperados: qrEsperados
+      }
+    );
+    if (qrLocalizado && coincidePayloadQrExacto(qrLocalizado.data, qrEsperados)) {
+      qrDetalle = qrLocalizado;
+      transformacionBase = obtenerTransformacion(gray, width, height, advertencias, qrDetalle, {
+        margenMm,
+        qrSizePts: perfil.qrSizePts,
+        qrGeometry: { ...mapaPagina.qr, textoEsperado: qrEsperado },
+        marcasPagina: mapaPagina.marcasPagina,
+        anchoCarta: ANCHO_CARTA,
+        altoCarta: ALTO_CARTA,
+        mmAPuntos: MM_A_PUNTOS
+      });
+      referenciaPaginaCalidad = clamp01(Number(transformacionBase.referenciaPagina?.calidad ?? 0));
+      geometriaConfiable =
+        !mapaPagina.engineHints?.forceSimpleScale &&
+        transformacionBase.referenciaPagina?.orientacionDeterminada !== false &&
+        transformacionBase.tipo !== 'escala' &&
+        transformacionBase.referenciaPagina?.puntosDetectados >= 4 &&
+        referenciaPaginaCalidad >= OMR_GEOMETRY_TRUST_MIN;
+    }
+  }
   if (!geometriaConfiable) {
     motivosRevision.push('Referencia global de página no confiable');
   }

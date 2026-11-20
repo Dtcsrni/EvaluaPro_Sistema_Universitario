@@ -309,14 +309,22 @@ export function construirNombrePdfLote(parametros: {
   materiaNombre?: string;
   plantillaTitulo?: string;
   totalExamenes?: number;
+  grupos?: string[];
 }): string {
   const lote = normalizarParaNombreArchivo(parametros.loteId, { maxLen: 16 }) || 'sinlote';
   const materia = normalizarParaNombreArchivo(parametros.materiaNombre, { maxLen: 36 });
   const titulo = normalizarParaNombreArchivo(parametros.plantillaTitulo, { maxLen: 36 });
   const totalExamenes = Number(parametros.totalExamenes ?? 0);
+  const grupos = [...new Set((parametros.grupos ?? []).map((grupo) => String(grupo ?? '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'es-MX'));
   const partes = ['evaluapro', 'paquete', 'examenes'];
   if (materia) partes.push(`materia-${materia}`);
   if (titulo) partes.push(`plantilla-${titulo}`);
+  if (grupos.length === 1) {
+    partes.push(`grupo-${normalizarParaNombreArchivo(grupos[0], { maxLen: 28 })}`);
+  } else if (grupos.length > 1) {
+    partes.push(`grupos-${grupos.map((grupo) => normalizarParaNombreArchivo(grupo, { maxLen: 18 })).join('_')}`);
+  }
   if (Number.isFinite(totalExamenes) && totalExamenes > 0) partes.push(`total-${Math.floor(totalExamenes)}`);
   partes.push(`lote-${lote}`);
   return `${partes.join('_')}.pdf`;
@@ -665,6 +673,46 @@ export function ordenarPreguntasAleatorio<T extends { id: string; opciones: Arra
   return barajar(preguntas);
 }
 
+/** Orden estable de compactación: peso estimado con variación acotada por semilla y rondas por tema. */
+export function ordenarPreguntasParaCapacidad<
+  T extends { id: string; enunciado: string; opciones: Array<{ texto?: unknown }>; tema?: string }
+>(preguntas: T[], seedTexto: string): T[] {
+  const porTema = new Map<string, T[]>();
+  for (const pregunta of preguntas) {
+    const tema = String(pregunta.tema ?? '').trim().toLocaleLowerCase('es') || '__sin_tema__';
+    const grupo = porTema.get(tema) ?? [];
+    grupo.push(pregunta);
+    porTema.set(tema, grupo);
+  }
+  const pesoEstimado = (pregunta: T) => {
+    const texto = String(pregunta.enunciado ?? '').replace(/<[^>]*>/g, '');
+    const opciones = pregunta.opciones.map((opcion) => String(opcion.texto ?? '').replace(/<[^>]*>/g, ''));
+    return Math.ceil(texto.length / 78) + opciones.reduce((total, opcion) => total + Math.ceil(opcion.length / 34), 0);
+  };
+  const puntajeSembrado = (pregunta: T) => {
+    const peso = pesoEstimado(pregunta);
+    const azar = hash32(`${seedTexto}:${pregunta.id}`) / 0xffffffff;
+    const variacionAcotada = Math.min(4, Math.max(1, peso * 0.45));
+    return peso + (azar - 0.5) * variacionAcotada;
+  };
+  const temas = [...porTema.keys()].sort((a, b) => hash32(`${seedTexto}:${a}`) - hash32(`${seedTexto}:${b}`) || a.localeCompare(b));
+  for (const tema of temas) {
+    porTema.get(tema)!.sort((a, b) => puntajeSembrado(a) - puntajeSembrado(b) || hash32(`${seedTexto}:${a.id}`) - hash32(`${seedTexto}:${b.id}`) || a.id.localeCompare(b.id));
+  }
+  const ordenadas: T[] = [];
+  for (let indice = 0; ; indice += 1) {
+    let agregadas = 0;
+    for (const tema of temas) {
+      const pregunta = porTema.get(tema)?.[indice];
+      if (!pregunta) continue;
+      ordenadas.push(pregunta);
+      agregadas += 1;
+    }
+    if (agregadas === 0) break;
+  }
+  return ordenadas;
+}
+
 export function esEntornoTest() {
   return String(configuracion.entorno).toLowerCase() === 'test';
 }
@@ -769,6 +817,7 @@ export function resolverPaginasObjetivoPreferidas(
   tipo: 'parcial' | 'global' | 'extraordinario'
 ): number {
   const predeterminadas = { parcial: 2, global: 4, extraordinario: 4 };
+  if (tipo !== 'extraordinario') return predeterminadas[tipo];
   const preferencias = (docenteDb as {
     preferenciasPdf?: { paginasPorTipo?: Partial<Record<typeof tipo, unknown>> };
   } | null | undefined)?.preferenciasPdf?.paginasPorTipo;
@@ -780,36 +829,6 @@ export function resolverPaginasObjetivoPreferidas(
 
 export function resolverTemasPlantilla(plantilla: { temas?: unknown[] }) {
   return Array.isArray(plantilla.temas) ? (plantilla.temas ?? []).map((tema) => String(tema ?? '').trim()).filter(Boolean) : [];
-}
-
-function limitarPreguntasPorObjetivo(preguntas: any[], objetivoRaw: unknown) {
-  const objetivo = Math.floor(Number(objetivoRaw));
-  if (!Number.isFinite(objetivo) || objetivo <= 0 || preguntas.length <= objetivo) return preguntas;
-
-  // Reparte el objetivo entre los temas para conservar cobertura al reducir
-  // reactivos desde el configurador.
-  const grupos = new Map<string, any[]>();
-  for (const pregunta of preguntas) {
-    const clave = String(pregunta?.tema ?? '').trim().toLocaleLowerCase() || '__sin_tema__';
-    const grupo = grupos.get(clave) ?? [];
-    grupo.push(pregunta);
-    grupos.set(clave, grupo);
-  }
-
-  const seleccionadas: any[] = [];
-  const filas = Array.from(grupos.values());
-  for (let indice = 0; seleccionadas.length < objetivo; indice += 1) {
-    let agregadas = 0;
-    for (const fila of filas) {
-      const pregunta = fila[indice];
-      if (!pregunta) continue;
-      seleccionadas.push(pregunta);
-      agregadas += 1;
-      if (seleccionadas.length >= objetivo) break;
-    }
-    if (agregadas === 0) break;
-  }
-  return seleccionadas;
 }
 
 export async function resolverPreguntasPlantilla(params: {
@@ -920,7 +939,6 @@ export async function resolverPreguntasPlantilla(params: {
         ? [{ updatedAt: 'desc' }, { id: 'desc' }]
         : undefined
     });
-    rawPreguntas = limitarPreguntasPorObjetivo(rawPreguntas, params.plantilla.reactivosObjetivo);
   } else {
     let listIds = params.plantilla.preguntasIds as string[];
     if (!listIds || listIds.length === 0) {
@@ -986,6 +1004,7 @@ export function validarPreguntasBase(preguntasDb: BancoPreguntaLean[]) {
       id: String(pregunta.id),
       enunciado: String(version?.enunciado ?? ''),
       imagenUrl: version?.imagenUrl ?? undefined,
+      tema: pregunta.tema ?? undefined,
       opciones: Array.isArray(version?.opciones) ? version.opciones : []
     };
   });

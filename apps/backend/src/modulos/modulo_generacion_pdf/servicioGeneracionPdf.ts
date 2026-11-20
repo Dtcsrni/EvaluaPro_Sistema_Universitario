@@ -48,6 +48,8 @@ export async function generarPdfExamen({
     fontScale?: number;
     lineSpacing?: number;
     distribuirEnPaginasObjetivo?: boolean;
+    enforcePageBudget?: boolean;
+    allowCapacityProbe?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: {

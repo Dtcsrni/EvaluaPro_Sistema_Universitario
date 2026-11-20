@@ -7,6 +7,7 @@
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/ordenListaAlumnos.js';
 import { Alumno } from '../modulo_alumnos/index.js';
 import { EvidenciaEvaluacion } from '../modulo_evaluaciones/index.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';
@@ -1214,6 +1215,7 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
   const asignaciones: Array<{ classroomUserId: string; alumnoId: string }> = [];
   let creados = 0;
   let actualizados = 0;
+  let siguienteOrden = await obtenerSiguienteOrdenLista(periodoId);
 
   for (const item of alumnosUnicos.values()) {
     const rawName = normalizarTexto(item.fullName) || 'Estudiante Classroom';
@@ -1255,10 +1257,12 @@ export async function importarAlumnosClassroomAEvaluaPro(params: {
           nombres,
           apellidos,
           correo: correoFinal,
+          ordenLista: siguienteOrden,
           activo: true
         }
       });
       creados++;
+      siguienteOrden += 1;
       // Indexar inmediatamente en mapas locales para evitar duplicados en la misma transacción
       if (rawEmail) porCorreo.set(rawEmail, alumno);
       porCorreo.set(correoFinal, alumno);

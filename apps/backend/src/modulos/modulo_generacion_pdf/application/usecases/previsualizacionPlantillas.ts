@@ -359,7 +359,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const docenteDb = await resolverDocentePdf(docenteId);
   const numeroPaginas = esExtraordinarioArchivado
     ? resolverPaginasObjetivoPreferidas(docenteDb, 'extraordinario')
-    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown });
+    : resolverNumeroPaginasPlantilla(plantilla as { numeroPaginas?: unknown; tipo?: unknown });
   const preguntasBase = mapearPreguntasBase(preguntasDb);
   const preguntasFingerprint = construirFingerprintPreguntasPreview(preguntasDb);
   const omrTemplateId = resolverOmrTemplateId(plantilla.omrConfig?.examTemplateId);
@@ -375,7 +375,7 @@ async function resolverContextoPreview(docenteId: unknown, plantillaId: string) 
   const bookletConfig = {
     ...(plantilla.bookletConfig ?? {}),
     targetPages: numeroPaginas,
-    distribuirEnPaginasObjetivo: esExtraordinarioArchivado,
+    distribuirEnPaginasObjetivo: !esExtraordinarioArchivado,
     autoFitPages: layoutValidado ? false : true,
     autoFitTypography: layoutValidado ? false : true,
     fontScale: layoutValidado?.fontScale ?? 1,
@@ -496,7 +496,12 @@ export async function previsualizarPlantillaUseCase(params: {
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
     omrTemplateId: contexto.omrTemplateId,
-    bookletConfig: contexto.bookletConfig,
+    bookletConfig: {
+      ...contexto.bookletConfig,
+      distribuirEnPaginasObjetivo: !contexto.esExtraordinarioArchivado || contexto.bookletConfig.distribuirEnPaginasObjetivo === true,
+      enforcePageBudget: !contexto.esExtraordinarioArchivado,
+      allowCapacityProbe: !contexto.esExtraordinarioArchivado
+    },
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,
@@ -517,7 +522,7 @@ export async function previsualizarPlantillaUseCase(params: {
     guardarPreviewExtraordinarioMaximo(clavePreviewContexto(contexto), previewResultado);
   }
 
-  if (!contexto.esExtraordinarioArchivado && previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas) {
+  if (!contexto.esExtraordinarioArchivado && previewResultado.paginas.length === contexto.numeroPaginas && previewResultado.mapaOmr.paginas.some((pagina) => pagina.preguntas.length > 0)) {
     await guardarLayoutValidadoPlantilla({
       plantillaId: String(contexto.plantilla._id),
       bookletConfig: contexto.plantilla.bookletConfig,
@@ -544,9 +549,7 @@ export async function previsualizarPlantillaUseCase(params: {
   const preguntasUsadasIds = contexto.esExtraordinarioArchivado
     ? extraerPreguntasHastaPagina(mapaOmr, contexto.numeroPaginas)
     : extraerPreguntasUsadasMapaOmr(mapaOmr as never);
-  if (contexto.esExtraordinarioArchivado) {
-    ordenadas = ordenadas.filter((pregunta) => preguntasUsadasIds.has(String(pregunta.id)));
-  }
+  ordenadas = ordenadas.filter((pregunta) => preguntasUsadasIds.has(String(pregunta.id)));
   const totalUsados = preguntasUsadasIds.size;
   const metricasPaginasSeguras = Array.isArray(metricasPaginas) ? metricasPaginas : [];
   const ultima = metricasPaginasSeguras[metricasPaginasSeguras.length - 1];
@@ -572,14 +575,12 @@ export async function previsualizarPlantillaUseCase(params: {
   if ((preguntasRestantes ?? 0) > 0) {
     advertencias.push(contexto.esExtraordinarioArchivado
       ? `Hay ${Math.max(0, totalDisponibles - totalUsados)} pregunta(s) que no caben en las ${contexto.numeroPaginas} páginas configuradas; la vista previa conserva las que sí caben con tipografía legible.`
-      : `Hay ${preguntasRestantes} pregunta(s) que no caben en ${contexto.numeroPaginas} pagina(s). Aumenta el numero de paginas.`);
+      : `La vista previa muestra ${totalUsados} de ${totalDisponibles} reactivos dentro del presupuesto fijo de ${contexto.numeroPaginas} páginas. El lote seleccionará por alumno los reactivos que quepan y guardará el mapa exacto de cada examen.`);
   }
 
   return {
     plantillaId: String(contexto.plantilla._id),
-    layoutConfirmado: contexto.esExtraordinarioArchivado
-      ? totalUsados > 0 && paginasParaPreview.length === contexto.numeroPaginas
-      : previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas,
+    layoutConfirmado: totalUsados > 0 && paginasParaPreview.length === contexto.numeroPaginas,
     numeroPaginas: contexto.numeroPaginas,
     numeroPaginasConfiguradas: contexto.numeroPaginas,
     totalDisponibles,
@@ -658,7 +659,12 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     margenMm: contexto.plantilla.configuracionPdf?.margenMm ?? 8,
     templateVersion: contexto.templateVersionOmr,
     omrTemplateId: contexto.omrTemplateId,
-    bookletConfig: contexto.bookletConfig,
+    bookletConfig: {
+      ...contexto.bookletConfig,
+      distribuirEnPaginasObjetivo: !contexto.esExtraordinarioArchivado || contexto.bookletConfig.distribuirEnPaginasObjetivo === true,
+      enforcePageBudget: !contexto.esExtraordinarioArchivado,
+      allowCapacityProbe: !contexto.esExtraordinarioArchivado
+    },
     encabezado: construirEncabezadoPdf({
       periodo: contexto.periodo,
       docenteDb: contexto.docenteDb,

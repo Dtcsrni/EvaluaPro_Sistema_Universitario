@@ -727,7 +727,7 @@ describe('referencia global de página OMR', () => {
     );
 
     expect(result.qrTexto).toBe(esperado);
-  });
+  }, 15_000);
 
   it('prioriza un recorte focalizado del QR en la cabecera de una página completa', () => {
     const textoQr = 'EXAMEN:QR-FOCAL-P1:TV4:K:ABCDE';

@@ -159,6 +159,7 @@ model Alumno {
   nombreCompleto      String
   correo              String
   grupo               String?
+  ordenLista          Int                       @default(0)
   activo              Boolean                   @default(true)
   registrosAsistencia AsistenciaRegistro[]
   asistenciaExcepcion AsistenciaExcepcion?
@@ -173,6 +174,7 @@ model Alumno {
   updatedAt           DateTime                  @updatedAt
 
   @@unique([periodoId, matricula])
+  @@index([periodoId, ordenLista])
   @@map("alumnos")
 }
 

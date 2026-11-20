@@ -554,6 +554,9 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   const templateVersion = TEMPLATE_VERSION_CANONICA;
   const bookletConfig = {
     ...(parseJsonSafe<any>(plantillaRaw.bookletConfig) ?? {}),
+    targetPages: numeroPaginas,
+    distribuirEnPaginasObjetivo: true,
+    enforcePageBudget: true,
     autoFitPages: true,
     fontScale: 1,
     lineSpacing: 1.1

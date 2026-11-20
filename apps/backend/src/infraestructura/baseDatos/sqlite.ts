@@ -50,11 +50,27 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionArtefactosLotePdf();
   ejecutarMigracionCicloVidaLotesPdf();
   ejecutarMigracionTipoExamenGenerado();
+  ejecutarMigracionOrdenListaAlumnos();
   ejecutarMigracionEvidenciasEvaluacion();
   ejecutarMigracionTemariosAuditoria();
   ejecutarMigracionTemasBancoAuditoria();
   ejecutarMigracionPoliticasCalificacionAuditoria();
   ejecutarMigracionPlantillasAuditoria();
+}
+
+function ejecutarMigracionOrdenListaAlumnos() {
+  const databasePath = resolverRutaArchivoSqlite(databaseUrl);
+  if (!databasePath) return;
+  const candidatos = [
+    path.resolve(process.cwd(), 'scripts', 'migrate-alumnos-orden-lista-sqlite.mjs'),
+    path.resolve(process.cwd(), '..', '..', 'scripts', 'migrate-alumnos-orden-lista-sqlite.mjs')
+  ];
+  const script = candidatos.find((candidate) => fs.existsSync(candidate));
+  if (!script) {
+    if (entorno === 'production') throw new Error('Falta la migración SQLite requerida: migrate-alumnos-orden-lista-sqlite.mjs');
+    return;
+  }
+  execFileSync(process.execPath, [script, '--database', databasePath], { stdio: 'ignore' });
 }
 
 function ejecutarMigracionSqliteAdicional(nombreScript: string): void {

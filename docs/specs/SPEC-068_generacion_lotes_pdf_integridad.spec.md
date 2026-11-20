@@ -1,8 +1,8 @@
 ---
 id: SPEC-068
 titulo: Integridad y recuperación de lotes de exámenes PDF
-version: 1.2.0
-fecha: 2026-10-06
+version: 1.3.0
+fecha: 2026-11-20
 autor: Erick Vega / Codex
 modulo: modulo_generacion_pdf
 estado: approved
@@ -28,6 +28,11 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - REQ-012: Al servir correctamente el PDF consolidado o el ZIP de un lote, registrar `descargadoEn` para todos los exámenes incluidos, de modo que el historial refleje los artefactos enviados al navegador y proteja la regeneración accidental.
 - REQ-013: La vista de generación y el historial identifican por separado PDF consolidado y ZIP de individuales; mientras se procesa una descarga muestran progreso solo para el formato activo, evitan solicitudes duplicadas y confirman cuándo EvaluaPro respondió el archivo y solicitó su descarga al navegador. El texto del historial aclara que la cifra cuenta exámenes con descarga registrada y no confirma que el navegador guardó el archivo.
 - REQ-014: La descarga PDF y ZIP conserva el nombre canónico descriptivo del lote (`evaluapro_paquete_examenes_..._lote-<ID>`); el ZIP reutiliza el nombre del PDF del artefacto persistido y cambia únicamente la extensión. No sustituir este nombre por el título breve de la plantilla.
+- REQ-015: El nombre canónico del lote incluye sus grupos: un lote limitado muestra el grupo elegido y un lote de materia completa muestra todos los grupos representados, ordenados y normalizados (p. ej. `grupos-25_26a`). El QR firmado incluye el lote y cada página imprimible repite una referencia legible del lote junto con folio/página en su pie.
+- REQ-016: Los elementos de cabecera no se solapan entre sí ni invaden QR, campos manuscritos o zonas OMR. El patrón geométrico de cabecera tiene trazos vectoriales nítidos, complejidad visible y contraste suficiente, sin reducir legibilidad ni cobertura de tinta de las zonas funcionales. El contorno del enunciado y el fondo del reactivo mantienen una holgura visual positiva respecto del texto y de reactivos contiguos.
+- REQ-017: La descarga del PDF consolidado conserva el ID del lote, presenta etapa, bytes recibidos y tiempo transcurrido; valida la cabecera PDF, longitud cuando el servidor la publica y SHA-256 antes de solicitar la descarga del navegador. Un tiempo de espera o error ofrece reintento del mismo lote sin regenerarlo. La UI distingue entre archivo entregado al navegador y guardado local, que no es observable por la aplicación.
+- REQ-018: Los exámenes de un lote se generan en el orden persistente `ordenLista` del padrón, conservado desde su importación. La importación agrega la fila de origen como nueva posición; los cambios posteriores no reordenan a los alumnos.
+- REQ-019: Parcial usa exactamente 2 páginas (1 hoja dúplex) y global exactamente 4 páginas (2 hojas engrapadas). `reactivosObjetivo` orienta la estimación, pero no trunca el banco ni impone un conteo uniforme. La selección por examen es determinista usando lote/cohorte/alumno/blueprint; el renderer mide el conjunto que cabe y se persisten su conteo, mapa OMR y snapshot de versiones. En política `shared`, el orden de opciones por reactivo compartido se conserva, mientras la selección y el conteo pueden variar por alumno; al reanudar se verifican y reutilizan las asignaciones guardadas y se comprueba que las claves coincidan en reactivos comunes. La compactación ordena por tema con una variación ponderada y acotada por semilla, seguida de medición real del renderer; es una heurística y no garantiza el óptimo global de empaquetado.
 
 ## Criterios de Aceptación
 
@@ -42,6 +47,11 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 - Al descargar PDF consolidado o ZIP, todos los exámenes del lote quedan con fecha de servicio; una respuesta rechazada o un artefacto inválido no marca exámenes como descargados.
 - En generación e historial, PDF y ZIP tienen etiquetas separadas; el formato activo muestra el estado de carga, el otro formato evita doble envío y un mensaje final distingue respuesta servida de guardado local.
 - Las respuestas de descarga PDF y ZIP incluyen en `Content-Disposition` el nombre canónico descriptivo del artefacto, preservando materia, plantilla, cantidad y lote; ambos nombres comparten la misma base.
+- En los nombres de lote, un grupo explícito produce `grupo-<grupo>` y materia completa incluye `grupos-<grupo1>_<grupo2>...`; para un padrón mixto, ningún grupo activo se omite. El QR por página se decodifica a un payload cuya firma valida e incluye `LI:<loteId>`. Cada página de examen muestra `LOTE <loteId>` y `FOLIO <folio> · P<n>` en el pie sin colisionar con zonas OMR o fiduciales.
+- La prueba geométrica detecta intersecciones/holguras negativas entre elementos de cabecera y confirma que QR, campos y texto crítico permanecen legibles. La cabecera conserva patrón cyberpunk geométrico complejo en vectores con contraste revisado en render. El contorno de enunciado queda separado por al menos 3 pt del texto y el fondo del reactivo conserva margen positivo de texto; no hay colisión entre reactivos consecutivos.
+- La prueba de descarga cubre progreso por chunks, validación del archivo completo, timeout, HTTP no exitoso, reintento con el mismo ID y estado accesible en GUI; nunca inicia un lote nuevo por un fallo de descarga ni declara confirmado el guardado en Descargas.
+- El lote completo, su PDF consolidado y el lote limitado a un grupo respetan el orden persistido del padrón aunque la matrícula esté en orden inverso; una reimportación preserva la posición previa y una alta nueva se agrega al final.
+- Parciales y globales producen siempre 2 y 4 páginas respectivamente; el renderer rechaza overflow en modo estricto. La previsualización puede confirmar el presupuesto cuando al menos un reactivo cabe y muestra los reactivos elegidos en el propio PDF. Un lote no trunca por `reactivosObjetivo`; reactivos cortos/largos se prueban con banco agotado y sobrante, conteos variables posibles por alumno, reanudación del mismo lote y mapas/clave reproducibles.
 
 ## Matriz de Trazabilidad
 
@@ -61,3 +71,8 @@ La generación de un lote crea PDFs individuales, persiste registros y manifiest
 | REQ-012 | Marcar exámenes del lote cuando se sirve PDF consolidado o ZIP | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Validado |
 | REQ-013 | Formatos, estado, feedback y explicación del conteo en generación e historial | `apps/frontend/tests/plantillasHistorialLotes.archivo.test.tsx`; `apps/frontend/tests/plantillas.hooks.test.tsx` | Validado |
 | REQ-014 | Nombre canónico consistente para descarga PDF y ZIP | `apps/backend/tests/integracion/recoveryBundleGeneracion.test.ts` | Validado |
+| REQ-015 | Grupo(s) en el nombre, payload QR firmado y etiqueta de lote en pie | `apps/backend/tests/qr.examen.test.ts`; `apps/backend/tests/pdf.ecofont.test.ts`; `apps/backend/tests/lotePdf.naming.test.ts`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | En implementación |
+| REQ-016 | Cabecera sin solapamientos, patrón geométrico nítido y separación de contorno del enunciado | `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/pdf.ecofont.test.ts` | En implementación |
+| REQ-017 | Progreso, validación, timeout y reintento de descarga conservando el ID | `apps/frontend/tests/plantillas.hooks.test.tsx`; `apps/frontend/tests/plantillas.descarga.estado.test.tsx` | En implementación |
+| REQ-018 | Orden persistente del padrón en lote y PDF | `scripts/tests/migrate-alumnos-orden-lista-sqlite.test.mjs`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | En implementación |
+| REQ-019 | Presupuesto físico fijo, ajuste de capacidad y mapas reproducibles por alumno | `apps/backend/tests/pdf.numeroPaginasPlantilla.test.ts`; `apps/backend/tests/pdf.layout.visual.guard.test.ts`; `apps/backend/tests/pdf.orden-capacidad.test.ts`; `apps/backend/tests/integracion/plantillasCrudYPreview.test.ts` | En implementación |

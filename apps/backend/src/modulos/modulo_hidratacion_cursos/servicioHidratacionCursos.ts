@@ -11,6 +11,7 @@ import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { confirmarReactivos, previsualizarReactivos, registrarCuarentenaReactivos } from '../modulo_banco_preguntas/index.js';
 import { validarReactivosBatch } from '../modulo_banco_preguntas/index.js';
+import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/ordenListaAlumnos.js';
 
 export type ArchivoHidratacion = {
   originalname: string;
@@ -522,8 +523,9 @@ async function importarAlumnosDesdePreview(params: {
   let alumnosOmitidos = 0;
   let evidenciasHistoricasCreadas = 0;
   const conflictos = 0;
+  let siguienteOrden = await obtenerSiguienteOrdenLista(params.periodoId);
 
-  for (const alumno of params.alumnos) {
+  for (const alumno of [...params.alumnos].sort((a, b) => a.fila - b.fila)) {
     if (!alumno.nombreCompleto || !alumno.matricula) {
       alumnosOmitidos += 1;
       continue;
@@ -551,12 +553,16 @@ async function importarAlumnosDesdePreview(params: {
             nombreCompleto: alumno.nombreCompleto,
             correo,
             grupo: alumno.grupo ?? null,
+            ordenLista: siguienteOrden,
             activo: true
           }
         });
 
     if (existente) alumnosActualizados += 1;
-    else alumnosCreados += 1;
+    else {
+      alumnosCreados += 1;
+      siguienteOrden += 1;
+    }
 
     for (const calificacion of alumno.calificaciones) {
       const metadata = {

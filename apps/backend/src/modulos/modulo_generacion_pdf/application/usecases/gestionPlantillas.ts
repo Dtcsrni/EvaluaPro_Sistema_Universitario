@@ -13,7 +13,6 @@ import {
   asegurarPlantillaActiva,
   normalizarTemas,
   obtenerPlantillaDocente,
-  resolverPaginasObjetivoPreferidas,
   validarPeriodoDocenteActivo,
   validarTituloPlantillaDisponible
 } from '../../shared/controladorGeneracionPdfShared.js';
@@ -40,7 +39,7 @@ function formatearPlantillaPrisma(raw: any, preguntasIds: string[] = []) {
     titulo: raw.titulo,
     tituloNormalizado: raw.tituloNormalizado,
     instrucciones: raw.instrucciones ?? undefined,
-    numeroPaginas: raw.numeroPaginas,
+    numeroPaginas: raw.tipo === 'parcial' ? 2 : raw.tipo === 'global' ? 4 : raw.numeroPaginas,
     reactivosObjetivo: raw.reactivosObjetivo,
     defaultVersionCount: raw.defaultVersionCount,
     answerKeyMode: raw.answerKeyMode,
@@ -187,14 +186,8 @@ export async function crearPlantillaUseCase(params: {
   const temas = normalizarTemas(params.body.temas);
   await validarTituloPlantillaDisponible({ docenteId: docId, titulo, periodoId: periodoId ?? null });
 
-  const docente = await prisma.docente.findUnique({ where: { id: docId }, select: { preferenciasPdf: true } });
-  const preferenciasPdf = parseJsonSafe<Record<string, unknown>>(docente?.preferenciasPdf);
   const tipo = params.body.tipo === 'global' ? 'global' : 'parcial';
-  const paginasConfiguradas = (params.body.bookletConfig as any)?.targetPages;
-  const numeroPaginas = Number(params.body.numeroPaginas ?? paginasConfiguradas ?? resolverPaginasObjetivoPreferidas(
-    { preferenciasPdf },
-    tipo
-  ));
+  const numeroPaginas = tipo === 'global' ? 4 : 2;
 
   const bookletConfig = {
     targetPages: numeroPaginas,
@@ -324,6 +317,14 @@ export async function actualizarPlantillaUseCase(params: {
     configuracionPdf: patch.configuracionPdf ?? actual.configuracionPdf
   };
 
+  const paginasFijas = merged.tipo === 'global' ? 4 : 2;
+  const paginasSolicitadas = params.body.numeroPaginas;
+  const paginasBookletSolicitadas = (params.body.bookletConfig as { targetPages?: unknown } | undefined)?.targetPages;
+  if ((paginasSolicitadas !== undefined && Number(paginasSolicitadas) !== paginasFijas) ||
+      (paginasBookletSolicitadas !== undefined && Number(paginasBookletSolicitadas) !== paginasFijas)) {
+    throw new ErrorAplicacion('PRESUPUESTO_PAGINAS_INVALIDO', `${merged.tipo} requiere exactamente ${paginasFijas} páginas.`, 400, { paginasEsperadas: paginasFijas });
+  }
+
   const preguntasIds = Array.isArray(merged.preguntasIds) ? merged.preguntasIds.map(String) : [];
   const temasMerged = Array.isArray(merged.temas) ? merged.temas : [];
   if (preguntasIds.length === 0 && temasMerged.length === 0) {
@@ -347,8 +348,9 @@ export async function actualizarPlantillaUseCase(params: {
 
   // Cualquier cambio editorial invalida el ajuste automático persistido; la
   // siguiente previsualización deberá volver a validarlo antes de producción.
-  const bookletConfigActualizado = {
-    ...((merged.bookletConfig ?? {}) as Record<string, unknown>)
+  const bookletConfigActualizado: Record<string, unknown> = {
+    ...((merged.bookletConfig ?? {}) as Record<string, unknown>),
+    targetPages: paginasFijas
   };
   delete bookletConfigActualizado.resolvedLayout;
 
@@ -357,7 +359,7 @@ export async function actualizarPlantillaUseCase(params: {
     titulo: String(merged.titulo),
     tituloNormalizado: normalizado,
     instrucciones: merged.instrucciones ? String(merged.instrucciones) : null,
-    numeroPaginas: Number(merged.numeroPaginas) || 1,
+    numeroPaginas: paginasFijas,
     reactivosObjetivo: Number(merged.reactivosObjetivo) || 20,
     defaultVersionCount: Number(merged.defaultVersionCount) || 1,
     answerKeyMode: String(merged.answerKeyMode),
