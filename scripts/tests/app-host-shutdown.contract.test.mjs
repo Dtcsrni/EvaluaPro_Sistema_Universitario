@@ -93,6 +93,13 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
   assert.match(installerE2ESource, /function Wait-AppHostMainWindow/);
   assert.match(installerE2ESource, /function Wait-InstalledTrayReady/);
+  assert.match(installerE2ESource, /\[switch\]\$RequireTray/);
+  assert.match(installerE2ESource, /if \(\$RequireTray\)[\s\S]*?Wait-InstalledTrayReady -TimeoutSec 20/);
+  const baselineOpen = installerE2ESource.match(/\$baselineState = Invoke-InstalledAppHost -Action 'open-dashboard'[^\r\n]*/)?.[0] ?? '';
+  assert.ok(baselineOpen, 'el baseline de upgrade debe abrirse antes de promover la candidata');
+  assert.doesNotMatch(baselineOpen, /-RequireTray/, 'v1.2.3 no implementa el contrato nuevo de bandeja');
+  assert.match(installerE2ESource, /\$state = Invoke-InstalledAppHost -Action 'open-dashboard'[^\r\n]*-RequireTray/);
+  assert.match(installerE2ESource, /\$reopenedState = Invoke-InstalledAppHost -Action 'open-dashboard'[^\r\n]*-RequireTray/);
   assert.match(installerE2ESource, /Wait-AppHostMainWindow -ProcessId \$process\.Id/);
   assert.match(installerE2ESource, /App Host diagnostic:/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);

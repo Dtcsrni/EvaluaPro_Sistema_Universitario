@@ -1888,7 +1888,8 @@ function Invoke-InstalledAppHost {
   param(
     [string]$Action,
     [string]$RunId,
-    [int]$TimeoutSec = 60
+    [int]$TimeoutSec = 60,
+    [switch]$RequireTray
   )
   if ($Action -eq 'verify-installation') {
     Test-InstalledState -Phase 'native-host-verification'
@@ -1907,9 +1908,13 @@ function Invoke-InstalledAppHost {
       $null = Get-VerifiedInstalledAppHostProcess -ProcessId $process.Id -StartedAtUtc $startedAtUtc
       $state = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
       $null = Wait-AppHostMainWindow -ProcessId $process.Id -TimeoutSec 15
-      $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
-      Add-Result -Area 'native-app-host' -Item 'tray-icon-ready' -Ok $true -Detail "trayPid=$($trayPid.Id) state=healthy runId=$RunId"
-      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($process.Id) trayPid=$($trayPid.Id) state=healthy runId=$RunId"
+      $trayPid = $null
+      if ($RequireTray) {
+        $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
+        Add-Result -Area 'native-app-host' -Item 'tray-icon-ready' -Ok $true -Detail "trayPid=$($trayPid.Id) state=healthy runId=$RunId"
+      }
+      $trayDetail = if ($trayPid) { " trayPid=$($trayPid.Id)" } else { '' }
+      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($process.Id)$trayDetail state=healthy requireTray=$([bool]$RequireTray) runId=$RunId"
       return $state
     } catch {
       if (Test-Path -LiteralPath (Join-Path $installedRoot 'logs\app-host.log')) {
@@ -3028,7 +3033,7 @@ try {
 
   Invoke-InstalledAppHost -Action 'verify-installation' -RunId ('e2e-verify-' + [guid]::NewGuid().ToString('N'))
   $openRunId = 'e2e-open-' + [guid]::NewGuid().ToString('N')
-  $state = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId $openRunId -TimeoutSec 240
+  $state = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId $openRunId -TimeoutSec 240 -RequireTray
   Export-JsonArtifact -Name 'dashboard-bootstrap-state.json' -Data $state | Out-Null
   $dashboardState = if ($state.PSObject.Properties.Match('state').Count -gt 0) { [string]$state.state } else { 'unknown' }
   Add-Result -Area 'dashboard' -Item 'bootstrap-state' -Ok ($dashboardState -in @('healthy', 'degraded')) -Detail $dashboardState
@@ -3060,7 +3065,7 @@ try {
 
   Write-E2ELog "Deteniendo tareas nativas antes de continuar con reparacion y desinstalacion..."
   Invoke-InstalledAppHost -Action 'close-window-only' -RunId ("close-window-only-{0}" -f ([Guid]::NewGuid().ToString('N')))
-  $reopenedState = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId ("reopen-dashboard-{0}" -f ([Guid]::NewGuid().ToString('N'))) -TimeoutSec 60
+  $reopenedState = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId ("reopen-dashboard-{0}" -f ([Guid]::NewGuid().ToString('N'))) -TimeoutSec 60 -RequireTray
   if ($reopenedState.state -ne 'healthy') { throw "El App Host no reutilizó servicios sanos tras cerrar solo la ventana: $($reopenedState.state)." }
   Invoke-InstalledAppHost -Action 'stop-all' -RunId ("stop-native-{0}" -f ([Guid]::NewGuid().ToString('N')))
 

@@ -1,8 +1,8 @@
 ---
 id: SPEC-065
 titulo: Ciclo de vida de servicios locales del App Host
-version: 1.2.1
-fecha: 2026-11-18
+version: 1.2.2
+fecha: 2026-11-20
 autor: Erick Vega / Codex
 modulo: app-host
 estado: approved
@@ -29,6 +29,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - REQ-007: El host espera los servicios web y API durante un límite finito de 60 segundos en arranque frío; solo declara lista la aplicación cuando ambos responden correctamente y registra un diagnóstico si vence el límite.
 - REQ-008: Al elegir «No», el host permite que la solicitud actual del evento WPF `Closing` cierre solo la ventana, mantiene sanos los servicios identificados y permite que una instancia posterior los adopte; no invoca `Close()` de nuevo desde el mismo cierre ni muestra una excepción.
 - REQ-009: El App Host asegura el proceso de bandeja tras validar/adoptar servicios sanos; `launcher-tray.ps1 -EnsureOnly` conserva una instancia existente sin abrir otra ventana. El launcher registra su PID cuando `NotifyIcon` queda visible; el E2E de cierre de solo ventana verifica ese proceso antes y después del cierre, además de comprobar salud web/API.
+- REQ-010: La E2E de upgrade mantiene compatibilidad con el baseline oficial 1.2.3: verifica su instalación, apertura y salud web/API sin exigirle la nueva bandeja; después del upgrade, exige `NotifyIcon` vivo en la candidata y al reabrir tras elegir «No».
 
 ## Criterios de Aceptación
 - Si web/API ya responden desde el dashboard de la instalación, el host registra el proceso antes del retorno de éxito.
@@ -40,6 +41,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - Un arranque frío que requiere hasta 60 segundos no queda en error prematuro, pero un servicio que no responde después del límite sí produce diagnóstico y error visible.
 - El E2E de Windows elige «No», verifica que el App Host cierre con código cero sin registrar excepciones, que API/web sigan sanos, vuelve a abrir la ventana y después verifica el cierre normal de los servicios.
 - El E2E de Windows acredita que el icono de bandeja fue creado por un proceso vivo y que ese mismo proceso permanece activo tras elegir «No»; un registro antiguo no satisface el criterio.
+- La E2E de upgrade no aplica requisitos de bandeja introducidos después de su baseline; sí exige el contrato en la candidata actual antes de probar el cierre de solo ventana.
 
 ## Matriz de Trazabilidad
 
@@ -54,3 +56,4 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 | REQ-007 | El arranque frío usa un timeout finito de 60 s y exige salud web/API | `scripts/tests/app-host-health.contract.test.mjs` | Completado |
 | REQ-008 | Cierre diferido de solo ventana, persistencia del runtime y reapertura/adopción | `scripts/tests/app-host-shutdown.contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; requiere E2E Windows |
 | REQ-009 | La bandeja se crea y persiste junto con API/web después de cerrar la ventana | `scripts/tests/app-host-shutdown.contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; requiere E2E Windows |
+| REQ-010 | El baseline legado verifica salud; la candidata y su reapertura verifican bandeja | `scripts/tests/app-host-shutdown.contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; requiere E2E Windows |
