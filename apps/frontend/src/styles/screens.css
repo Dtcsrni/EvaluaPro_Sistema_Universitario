@@ -7748,6 +7748,7 @@
 }
 
 /* Editor enriquecido ligero y seguro para enunciados/opciones. */
+/* WCAG AA: superficie y borde usan tokens del tema con fallback de bajo contraste decorativo. */
 .rich-editor {
   width: 100%;
   overflow: hidden;
