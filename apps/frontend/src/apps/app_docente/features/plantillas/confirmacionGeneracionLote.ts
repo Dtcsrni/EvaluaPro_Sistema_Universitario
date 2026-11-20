@@ -15,18 +15,19 @@ export function crearContenidoConfirmacionGeneracionLote({
 }: OpcionesConfirmacionGeneracionLote) {
   const varianteComun = variantPolicy === 'shared';
   const esExtraordinario = tipoExamen === 'extraordinario';
+  const alcance = grupo ? `el grupo ${grupo}` : 'toda la materia y todos sus grupos';
   const title = varianteComun
-    ? lotePendiente ? 'Confirmar reanudación con formulario compartido' : 'Confirmar formulario compartido para el grupo'
+    ? lotePendiente ? 'Confirmar reanudación con formulario compartido' : `Confirmar formulario compartido para ${alcance}`
     : lotePendiente
       ? esExtraordinario ? 'Reanudar extraordinarios' : 'Reanudar paquete incompleto'
       : esExtraordinario ? 'Generar exámenes extraordinarios' : 'Generar paquete masivo';
   const message = varianteComun
-    ? `Se generarán ${cantidadAlumnos} exámenes para el grupo ${grupo} con la misma variante, el mismo orden de preguntas y opciones, y la misma clave de respuestas.`
+    ? `Se generarán ${cantidadAlumnos} exámenes para ${alcance} con la misma variante, el mismo orden de preguntas y opciones, y la misma clave de respuestas.`
     : lotePendiente
       ? 'Se reanudará el mismo lote, conservando los exámenes ya generados y verificados.'
       : esExtraordinario
         ? `Se generarán exámenes extraordinarios únicamente para los ${cantidadAlumnos} alumnos seleccionados. Sus calificaciones quedarán separadas de parciales y globales.`
-        : `Se generarán ${cantidadAlumnos} exámenes para el grupo ${grupo}.`;
+        : `Se generarán ${cantidadAlumnos} exámenes para ${alcance}.`;
   const confirmLabel = varianteComun
     ? lotePendiente ? 'Sí, reanudar formulario compartido' : 'Sí, generar formulario compartido'
     : lotePendiente

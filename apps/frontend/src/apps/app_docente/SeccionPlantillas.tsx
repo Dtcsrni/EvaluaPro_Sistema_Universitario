@@ -1155,13 +1155,9 @@ export function SeccionPlantillas({
       ? alumnos.filter((alumno) => alumno.activo !== false && String(alumno.periodoId ?? '') === String(plantillaSeleccionada?.periodoId ?? ''))
       : [];
     const gruposPeriodo = [...new Set(alumnosActivosPeriodo.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))];
-    const grupoEfectivo = tipoExamen === 'extraordinario'
-      ? undefined
-      : grupoSolicitado || (gruposPeriodo.length === 1 ? gruposPeriodo[0] : '');
-    if (tipoExamen !== 'extraordinario' && (!grupoEfectivo || !gruposPeriodo.includes(grupoEfectivo))) {
-      mostrarErrorMensajeGeneracion(gruposPeriodo.length > 1
-        ? 'Selecciona un grupo válido antes de generar el lote.'
-        : 'No hay un grupo con alumnos activos para la plantilla seleccionada.');
+    const grupoEfectivo = tipoExamen === 'extraordinario' || !grupoSolicitado ? undefined : grupoSolicitado;
+    if (tipoExamen !== 'extraordinario' && grupoEfectivo && !gruposPeriodo.includes(grupoEfectivo)) {
+      mostrarErrorMensajeGeneracion('Selecciona un grupo válido antes de generar el lote.');
       return;
     }
     const claveRecuperacion = crearClaveLoteGeneracion(plantillaId, tipoExamen, alumnoIds, grupoEfectivo, varianteComun);
@@ -1171,13 +1167,13 @@ export function SeccionPlantillas({
         : null);
     const cantidadAlumnos = tipoExamen === 'extraordinario'
       ? alumnoIds?.length ?? 0
-      : alumnosActivosPeriodo.filter((alumno) => String(alumno.grupo ?? '').trim() === grupoEfectivo).length;
+      : alumnosActivosPeriodo.filter((alumno) => !grupoEfectivo || String(alumno.grupo ?? '').trim() === grupoEfectivo).length;
     const ok = await confirm(crearContenidoConfirmacionGeneracionLote({
       variantPolicy,
       lotePendiente: Boolean(lotePendiente),
       tipoExamen,
       cantidadAlumnos,
-      grupo: grupoEfectivo
+        grupo: grupoEfectivo
     }));
     if (!ok) return;
     const loteCliente = lotePendiente ?? (
@@ -1256,7 +1252,9 @@ export function SeccionPlantillas({
           confirmarMasivo: true,
           loteId: loteCliente,
           variantPolicy,
-          ...(tipoExamen === 'extraordinario' ? { tipoExamen, alumnoIds } : { grupo: grupoEfectivo })
+          ...(tipoExamen === 'extraordinario'
+            ? { tipoExamen, alumnoIds }
+            : grupoEfectivo ? { grupo: grupoEfectivo } : {})
         },
         'No tienes permiso para generar examenes.',
         {

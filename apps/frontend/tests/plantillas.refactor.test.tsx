@@ -144,7 +144,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
     const modalidad = screen.getByRole('group', { name: 'Modalidad de generación' });
-    const lote = within(modalidad).getByRole('button', { name: /Paquete por grupo/i });
+    const lote = within(modalidad).getByRole('button', { name: /Paquete de exámenes/i });
     const individual = within(modalidad).getByRole('button', { name: /Examen individual de muestra/i });
     expect(lote).toHaveAttribute('aria-pressed', 'true');
     expect(individual).toHaveAttribute('aria-pressed', 'false');
@@ -162,11 +162,11 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     await user.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
     await user.selectOptions(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), 'pla-sin-grupos');
 
-    const avisoSinGrupos = screen.getByText(/No hay alumnos activos con grupo asignado/i);
+    const avisoSinGrupos = screen.getByText(/No hay grupos asignados/i);
     expect(avisoSinGrupos.closest('[role="status"]')).not.toBeNull();
-    expect(avisoSinGrupos).toHaveTextContent(/Registra alumnos o asígnales un grupo en Alumnos/i);
+    expect(avisoSinGrupos).toHaveTextContent(/Se generará para todos los alumnos activos/i);
     expect(avisoSinGrupos.closest('[role="alert"]')).toBeNull();
-    expect(screen.getByRole('combobox', { name: 'Grupo destinatario del lote' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Alcance del lote' })).toBeDisabled();
   });
 
   it('advierte sobre reverso en blanco y captura solo de caras impresas en la plantilla inline', () => {
@@ -328,28 +328,65 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     );
   });
 
-  it('exige seleccionar grupo cuando la plantilla tiene varios padrones y calcula solo el grupo elegido', () => {
+  it('selecciona toda la materia por defecto y permite limitar el lote a un grupo', () => {
     render(
       <HarnessPlantillas
         plantillas={[{ _id: 'pla-1', titulo: 'Primer Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1', temas: ['Algebra'] } as Plantilla]}
         alumnos={[
           { _id: 'a-1', matricula: 'M-1', nombreCompleto: 'Ana A', periodoId: 'per-1', grupo: 'A', activo: true },
           { _id: 'a-2', matricula: 'M-2', nombreCompleto: 'Luis A', periodoId: 'per-1', grupo: 'A', activo: true },
-          { _id: 'b-1', matricula: 'M-3', nombreCompleto: 'Eva B', periodoId: 'per-1', grupo: 'B', activo: true }
+          { _id: 'b-1', matricula: 'M-3', nombreCompleto: 'Eva B', periodoId: 'per-1', grupo: 'B', activo: true },
+          { _id: 'u-1', matricula: 'M-4', nombreCompleto: 'No Grupo', periodoId: 'per-1', activo: true }
         ]}
       />
     );
 
     fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
     fireEvent.change(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), { target: { value: 'pla-1' } });
-    const selectorGrupo = screen.getByRole('combobox', { name: 'Grupo destinatario del lote' });
+    const selectorGrupo = screen.getByRole('combobox', { name: 'Alcance del lote' });
     expect(selectorGrupo).toHaveValue('');
-    expect(screen.getByText(/Alumnos del grupo:/)).toHaveTextContent(/Alumnos del grupo:\s*0 alumnos/);
-    expect(screen.getByRole('button', { name: /Generar lote PDF consolidado/i })).toBeDisabled();
+    expect(within(selectorGrupo).getByRole('option', { name: 'Toda la materia · 4 alumnos' })).toBeInTheDocument();
+    expect(screen.getByText(/Alumnos de la materia:/)).toHaveTextContent(/Alumnos de la materia:\s*4 alumnos/);
+    expect(screen.getByRole('button', { name: /Generar lote PDF consolidado \(4 alumnos\)/i })).toBeEnabled();
 
     fireEvent.change(selectorGrupo, { target: { value: 'B' } });
     expect(screen.getByText(/Alumno del grupo:/)).toHaveTextContent(/Alumno del grupo:\s*1 alumno/);
     expect(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumno\)/i })).toBeEnabled();
+  });
+
+  it('omite grupo del payload cuando el alcance inicial incluye toda la materia', async () => {
+    const enviarConPermiso = vi.fn(async (_permiso: string, ruta: string) => {
+      if (ruta === '/examenes/generados/lote') throw new Error('Detener después de inspeccionar el payload en la prueba.');
+      return {};
+    });
+    render(
+      <ConfirmDialogProvider>
+        <HarnessPlantillas
+          plantillas={[{ _id: 'pla-1', titulo: 'Primer Parcial', tipo: 'parcial', numeroPaginas: 2, periodoId: 'per-1' } as Plantilla]}
+          alumnos={[
+            { _id: 'a-1', matricula: 'M-1', nombreCompleto: 'Ana A', periodoId: 'per-1', grupo: 'A', activo: true },
+            { _id: 'b-1', matricula: 'M-2', nombreCompleto: 'Luis B', periodoId: 'per-1', grupo: 'B', activo: true }
+          ]}
+          enviarConPermiso={enviarConPermiso}
+        />
+      </ConfirmDialogProvider>
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), { target: { value: 'pla-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Generar lote PDF consolidado \(2 alumnos\)/i }));
+    const dialogo = await screen.findByRole('alertdialog', { name: /Generar paquete masivo/i });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Sí, generar paquete' }));
+
+    await waitFor(() => expect(enviarConPermiso).toHaveBeenCalledWith(
+      'examenes:generar',
+      '/examenes/generados/lote',
+      expect.objectContaining({ plantillaId: 'pla-1', confirmarMasivo: true }),
+      expect.any(String),
+      expect.any(Object)
+    ));
+    const payload = enviarConPermiso.mock.calls.find(([, ruta]) => ruta === '/examenes/generados/lote')?.[2];
+    expect(payload).not.toHaveProperty('grupo');
   });
 
   it('advierte y exige confirmación específica antes de generar un lote con variante común', async () => {
@@ -366,12 +403,12 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Generar Paquete PDF\/OMR/i }));
     fireEvent.change(screen.getByRole('combobox', { name: /Plantilla base para el examen/i }), { target: { value: 'pla-1' } });
-    fireEvent.click(screen.getByRole('radio', { name: /Una variante común para todo el grupo/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /Una variante común para toda la materia/i }));
     expect(screen.getByRole('alert')).toHaveTextContent(/mismo orden de preguntas y opciones/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/Cada examen conservará su QR y folio propios/i);
 
     fireEvent.click(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumno\)/i }));
-    const dialogo = await screen.findByRole('alertdialog', { name: /Confirmar formulario compartido para el grupo/i });
+    const dialogo = await screen.findByRole('alertdialog', { name: /Confirmar formulario compartido para toda la materia/i });
     expect(dialogo).toHaveClass('confirm-dialog--warning');
     expect(dialogo).toHaveTextContent(/misma clave de respuestas/i);
     expect(dialogo).toHaveTextContent(/riesgo de copiar respuestas/i);

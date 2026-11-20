@@ -454,18 +454,17 @@ async function generarExamenesLoteUseCaseInterno(params: {
       where: { periodoId: String(plantilla.periodoId), activo: true }
     });
     const gruposActivos = [...new Set(alumnosActivos.map((alumno) => String(alumno.grupo ?? '').trim()).filter(Boolean))];
-    const grupo = String(params.grupo ?? '').trim() || (gruposActivos.length === 1 ? gruposActivos[0] : '');
-    if (!grupo && gruposActivos.length > 1) {
-      throw new ErrorAplicacion('GRUPO_REQUERIDO', 'Selecciona un grupo para limitar el lote a una sola cohorte.', 400, { gruposDisponibles: gruposActivos.sort() });
-    }
-    if (!grupo || !gruposActivos.includes(grupo)) {
+    const grupo = String(params.grupo ?? '').trim();
+    if (grupo && !gruposActivos.includes(grupo)) {
       throw new ErrorAplicacion('GRUPO_NO_VALIDO', 'El grupo seleccionado no tiene alumnos activos en la materia de la plantilla.', 400);
     }
-    alumnos = alumnosActivos.filter((alumno) => String(alumno.grupo ?? '').trim() === grupo);
+    alumnos = grupo
+      ? alumnosActivos.filter((alumno) => String(alumno.grupo ?? '').trim() === grupo)
+      : alumnosActivos;
   }
-  const grupoLote = tipoExamen === 'extraordinario' ? null : String(params.grupo ?? '').trim() || String(alumnos[0]?.grupo ?? '').trim();
+  const grupoLote = tipoExamen === 'extraordinario' ? null : String(params.grupo ?? '').trim() || null;
   const cohorteLoteHash = createHash('sha256')
-    .update(`${grupoLote ?? 'extraordinario'}\n${alumnos.map((alumno) => String(alumno.id)).sort().join('\n')}${variantPolicy === 'shared' ? '\nvariant:shared' : ''}`)
+    .update(`${tipoExamen === 'extraordinario' ? 'extraordinario' : grupoLote ? `grupo:${grupoLote}` : 'materia-completa'}\n${alumnos.map((alumno) => String(alumno.id)).sort().join('\n')}${variantPolicy === 'shared' ? '\nvariant:shared' : ''}`)
     .digest('hex');
   const totalAlumnos = Array.isArray(alumnos) ? alumnos.length : 0;
   const esTest = esEntornoTest();
