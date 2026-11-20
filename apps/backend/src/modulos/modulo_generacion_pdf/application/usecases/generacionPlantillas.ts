@@ -720,7 +720,12 @@ async function generarExamenesLoteUseCaseInterno(params: {
   const prepararExamenSinAlumno = async (alumno: { id: string; nombreCompleto?: unknown; nombres?: unknown; apellidos?: unknown; grupo?: unknown }) => {
     for (let intento = 0; intento < maxIntentosVarianteUnica; intento += 1) {
       const examenGeneradoId = randomUUID();
-      const semillaExamen = `${loteId}:${cohorteLoteHash}:${String(alumno.id)}:${blueprintSeedHash}:${intento}`;
+      const semillaExamenBase = `${loteId}:${cohorteLoteHash}:${String(alumno.id)}:${blueprintSeedHash}`;
+      // En shared el orden por alumno solo se usa cuando la variante común no cabe.
+      // Debe sobrevivir igual a reintentos internos y reanudaciones del mismo lote.
+      const semillaExamen = variantPolicy === 'shared'
+        ? semillaExamenBase
+        : `${semillaExamenBase}:${intento}`;
       let preguntasCandidatas: typeof preguntasBaseLote;
       let mapaVariante: ReturnType<typeof generarVariante>;
       if (variantPolicy === 'shared') {
