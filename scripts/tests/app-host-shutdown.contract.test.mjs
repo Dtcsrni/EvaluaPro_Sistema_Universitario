@@ -104,6 +104,13 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /Wait-AppHostMainWindow -ProcessId \$process\.Id/);
   assert.match(installerE2ESource, /App Host diagnostic:/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
+  const closeConfirmation = installerE2ESource.match(/function Invoke-AppHostCloseConfirmationYes[\s\S]*?\n\}/)?.[0];
+  assert.ok(closeConfirmation, 'el helper de cierre debe exponer su propia estrategia de confirmación');
+  assert.match(closeConfirmation, /NativeWindowHandle/);
+  assert.match(closeConfirmation, /GetForegroundWindow\(\) -eq \$dialogHandle/);
+  assert.match(closeConfirmation, /SendKeys\]::SendWait\('\{ENTER\}'\)/);
+  assert.match(closeConfirmation, /Enter-default-yes/);
+  assert.match(closeConfirmation, /no se pudo enfocar la ventana/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationNo/);
   assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
   assert.match(installerE2ESource, /close-confirmation-yes/);

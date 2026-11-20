@@ -777,7 +777,18 @@ function Invoke-AppHostCloseConfirmationYes {
       }
     }
   }
-  throw 'La confirmación de cierre no expuso el botón Sí/Yes mediante UI Automation.'
+  # WPF MessageBox buttons are not exposed by UI Automation on some hosted
+  # App Hosts. This exact dialog uses Yes as its first/default button.
+  $dialogHandle = [IntPtr]([int]$Dialog.Current.NativeWindowHandle)
+  if ($dialogHandle -ne [IntPtr]::Zero -and [EvaluaProE2ENativeWindow]::SetForegroundWindow($dialogHandle)) {
+    Start-Sleep -Milliseconds 150
+    if ([EvaluaProE2ENativeWindow]::GetForegroundWindow() -eq $dialogHandle) {
+      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+      Start-Sleep -Milliseconds 150
+      return 'Enter-default-yes'
+    }
+  }
+  throw 'La confirmación de cierre no expuso Sí/Yes por UI Automation y no se pudo enfocar la ventana para activar su botón predeterminado.'
 }
 
 function Invoke-AppHostCloseConfirmationNo {
