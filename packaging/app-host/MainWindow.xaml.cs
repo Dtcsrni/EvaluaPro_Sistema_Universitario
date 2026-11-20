@@ -1349,7 +1349,9 @@ public partial class MainWindow : Window
         if (choice == MessageBoxResult.No)
         {
             closeAuthorized = true;
-            _ = Dispatcher.BeginInvoke(new Action(Close));
+            // Continuing the current Closing event closes only this window and
+            // avoids re-entering WPF while it is already processing Close().
+            e.Cancel = false;
             return;
         }
 

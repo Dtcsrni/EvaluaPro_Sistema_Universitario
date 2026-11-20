@@ -1859,6 +1859,31 @@ function Get-VerifiedInstalledAppHostProcess {
   }
 }
 
+function Wait-InstalledTrayReady {
+  param([int]$TimeoutSec = 20)
+  $trayLogPath = Join-Path $installedRoot 'logs\tray.log'
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  do {
+    if (Test-Path -LiteralPath $trayLogPath -PathType Leaf) {
+      $readyLines = @(Get-Content -LiteralPath $trayLogPath -ErrorAction SilentlyContinue | Where-Object { $_ -match 'NotifyIcon visible PID=(\d+)' })
+      if ($readyLines.Count -gt 0) {
+        $lastReady = [string]$readyLines[-1]
+        if ($lastReady -match 'NotifyIcon visible PID=(\d+)') {
+          $trayPid = [int]$Matches[1]
+          $trayProcess = Get-Process -Id $trayPid -ErrorAction SilentlyContinue
+          if ($trayProcess) {
+            $startedAtUtc = $trayProcess.StartTime.ToUniversalTime()
+            $trayProcess.Dispose()
+            return [pscustomobject]@{ Id = $trayPid; StartedAtUtc = $startedAtUtc }
+          }
+        }
+      }
+    }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  throw "La bandeja de EvaluaPro no confirmó NotifyIcon visible con proceso activo en $TimeoutSec s."
+}
+
 function Invoke-InstalledAppHost {
   param(
     [string]$Action,
@@ -1882,7 +1907,9 @@ function Invoke-InstalledAppHost {
       $null = Get-VerifiedInstalledAppHostProcess -ProcessId $process.Id -StartedAtUtc $startedAtUtc
       $state = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
       $null = Wait-AppHostMainWindow -ProcessId $process.Id -TimeoutSec 15
-      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($process.Id) state=healthy runId=$RunId"
+      $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
+      Add-Result -Area 'native-app-host' -Item 'tray-icon-ready' -Ok $true -Detail "trayPid=$($trayPid.Id) state=healthy runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($process.Id) trayPid=$($trayPid.Id) state=healthy runId=$RunId"
       return $state
     } catch {
       if (Test-Path -LiteralPath (Join-Path $installedRoot 'logs\app-host.log')) {
@@ -1900,6 +1927,7 @@ function Invoke-InstalledAppHost {
     $process = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
     if (-not $process) { throw "El App Host PID $($identity.Id) terminó antes de probar la opción No." }
     try {
+      $trayPid = Wait-InstalledTrayReady -TimeoutSec 20
       $appHostErrorLog = Join-Path $env:LOCALAPPDATA 'EvaluaPro\logs\app-host-error.log'
       $errorLogLengthBeforeClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
@@ -1954,9 +1982,16 @@ namespace EvaluaPro {
       }
       $remainingNode = @(Get-InstalledNodeProcesses)
       if ($remainingNode.Count -eq 0) { throw 'La opción No cerró los servicios Node; debía dejar el runtime en segundo plano.' }
+      $remainingTray = Get-Process -Id $trayPid.Id -ErrorAction SilentlyContinue
+      if (-not $remainingTray -or [Math]::Abs(($remainingTray.StartTime.ToUniversalTime() - [datetime]$trayPid.StartedAtUtc).TotalSeconds) -gt 1) {
+        if ($remainingTray) { $remainingTray.Dispose() }
+        throw "La opción No detuvo o sustituyó el proceso de bandeja PID $($trayPid.Id)."
+      }
+      $remainingTray.Dispose()
       $health = Wait-NativeDashboardHealth -TimeoutSec 15
       $script:activeNativeAppHost = $null
       Add-Result -Area 'native-app-host' -Item 'close-window-process-exit' -Ok $true -Detail "pid=$($identity.Id) exitCode=$exitCode exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'no-keeps-tray-alive' -Ok $true -Detail "trayPid=$($trayPid.Id) runId=$RunId"
       Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
       return $health
     } finally { $process.Dispose() }

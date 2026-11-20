@@ -10,9 +10,9 @@ import { ejecutarProcesoPdfLimitado } from './procesoPdfLimitado.js';
 
 const PREVIEW_DPI_DEFAULT = 144;
 const MAX_PREVIEW_PAGES = 20;
-const RASTER_BUDGET_MS = 15_000;
+const RASTER_BUDGET_MS = 30_000;
 const POPPLER_PROCESS_TIMEOUT_MS = 6_000;
-const CHROMIUM_LAUNCH_TIMEOUT_MS = 10_000;
+const CHROMIUM_LAUNCH_TIMEOUT_MS = 20_000;
 const CHROMIUM_OPERATION_TIMEOUT_MS = 5_000;
 const previewsEnCurso = new Map<string, Promise<{
   paginas: PaginaPdfPreviewVisual[];

@@ -56,7 +56,7 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
   const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
   const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
   const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
-  const noChoiceClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))', noChoice);
+  const noChoiceAllowClose = closingHandler.indexOf('e.Cancel = false;', noChoice);
   const cleanup = closingHandler.indexOf('stopped = await ShutdownServicesAsync();');
   const cleanupFailure = closingHandler.indexOf('if (!stopped)');
   const finalClose = closingHandler.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
@@ -69,8 +69,8 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
   assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
     'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
-  assert.ok(noChoiceClose > noChoice && noChoiceClose < cleanup,
-    'la opción No debe diferir Close hasta que termine el evento Closing activo');
+  assert.ok(noChoiceAllowClose > noChoice && noChoiceAllowClose < cleanup,
+    'la opción No debe permitir que termine el evento Closing actual sin reentrar en Close');
   assert.doesNotMatch(closingHandler.slice(noChoice, cleanup), /\n\s*Close\(\);/,
     'la opción No no debe reentrar en Close dentro del evento Closing');
   assert.match(closingHandler, /if \(isStopping \|\| closePromptPending\) return;/,
@@ -92,6 +92,7 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /No se pudo solicitar el cierre del App Host PID=/);
   assert.match(installerE2ESource, /function Wait-AppHostCloseConfirmation/);
   assert.match(installerE2ESource, /function Wait-AppHostMainWindow/);
+  assert.match(installerE2ESource, /function Wait-InstalledTrayReady/);
   assert.match(installerE2ESource, /Wait-AppHostMainWindow -ProcessId \$process\.Id/);
   assert.match(installerE2ESource, /App Host diagnostic:/);
   assert.match(installerE2ESource, /function Invoke-AppHostCloseConfirmationYes/);
@@ -105,6 +106,10 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /close-window-process-exit/);
   assert.match(installerE2ESource, /close-window-only'[\s\S]*?reopen-dashboard-/);
   assert.match(installerE2ESource, /no-keeps-services-healthy/);
+  assert.match(installerE2ESource, /no-keeps-tray-alive/);
+  assert.match(installerE2ESource, /NotifyIcon visible PID=/);
+  assert.match(installerE2ESource, /StartedAtUtc = \$startedAtUtc/);
+  assert.match(installerE2ESource, /La opción No detuvo o sustituyó el proceso de bandeja PID/);
   assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
 });
 

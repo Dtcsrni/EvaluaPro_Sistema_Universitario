@@ -15,6 +15,8 @@ Una instancia del App Host también puede quedar viva después de perder su vent
 
 El diálogo de cierre distingue entre detener los servicios locales y cerrar solo la ventana, dejando el runtime identificado activo para que una nueva instancia pueda adoptarlo. La segunda opción no debe volver a invocar el cierre de la ventana dentro del evento WPF `Closing` que todavía está activo.
 
+El dashboard inicia el proceso de bandeja en segundo plano. Antes de dar por válido el cierre de solo ventana, el E2E nativo confirma que `NotifyIcon` quedó visible y que el proceso responsable sigue vivo junto con la API.
+
 El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar SQLite antes de responder salud. Un límite demasiado corto deja una ventana nativa en error aunque los servicios terminen sanos inmediatamente después.
 
 ## Requisitos Funcionales
@@ -25,7 +27,8 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - REQ-005: Si web/API responden pero el host no puede identificar el dashboard propio, no declara lista la aplicación ni reutiliza esos servicios independientes.
 - REQ-006: Si el mutex singleton está ocupado por el mismo ejecutable y sesión, pero la instancia no tiene ventana después de una gracia mínima de arranque, el host recupera únicamente ese árbol y reintenta adquirir el mutex; una instancia válida se enfoca y una ruta de instalación distinta no se termina.
 - REQ-007: El host espera los servicios web y API durante un límite finito de 60 segundos en arranque frío; solo declara lista la aplicación cuando ambos responden correctamente y registra un diagnóstico si vence el límite.
-- REQ-008: Al elegir «No», el host cierra solo la ventana después de terminar el evento WPF `Closing`, mantiene sanos los servicios identificados y permite que una instancia posterior los adopte; no muestra una excepción ni fuerza el cierre.
+- REQ-008: Al elegir «No», el host permite que la solicitud actual del evento WPF `Closing` cierre solo la ventana, mantiene sanos los servicios identificados y permite que una instancia posterior los adopte; no invoca `Close()` de nuevo desde el mismo cierre ni muestra una excepción.
+- REQ-009: El launcher de bandeja registra su PID cuando `NotifyIcon` queda visible; el E2E de cierre de solo ventana verifica ese proceso antes y después del cierre, además de comprobar salud web/API.
 
 ## Criterios de Aceptación
 - Si web/API ya responden desde el dashboard de la instalación, el host registra el proceso antes del retorno de éxito.
@@ -36,6 +39,7 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 - Una segunda ejecución recupera una instancia huérfana sin ventana solo cuando coincide el ejecutable, la sesión y la antigüedad mínima; no termina una instalación distinta ni una instancia aún en arranque.
 - Un arranque frío que requiere hasta 60 segundos no queda en error prematuro, pero un servicio que no responde después del límite sí produce diagnóstico y error visible.
 - El E2E de Windows elige «No», verifica que el App Host cierre con código cero sin registrar excepciones, que API/web sigan sanos, vuelve a abrir la ventana y después verifica el cierre normal de los servicios.
+- El E2E de Windows acredita que el icono de bandeja fue creado por un proceso vivo y que ese mismo proceso permanece activo tras elegir «No»; un registro antiguo no satisface el criterio.
 
 ## Matriz de Trazabilidad
 
@@ -49,3 +53,4 @@ El arranque frío de la API docente puede ejecutar comprobaciones OMR y preparar
 | REQ-006 | El singleton recupera solo un App Host huérfano y reintenta la adquisición | `scripts/tests/app-host-shutdown.contract.test.mjs` | Completado |
 | REQ-007 | El arranque frío usa un timeout finito de 60 s y exige salud web/API | `scripts/tests/app-host-health.contract.test.mjs` | Completado |
 | REQ-008 | Cierre diferido de solo ventana, persistencia del runtime y reapertura/adopción | `scripts/tests/app-host-shutdown.contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; requiere E2E Windows |
+| REQ-009 | La bandeja se crea y persiste junto con API/web después de cerrar la ventana | `scripts/tests/app-host-shutdown.contract.test.mjs`; `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; requiere E2E Windows |

@@ -712,7 +712,7 @@ function Ensure-StackOnLaunch {
 }
 
 function Start-DashboardIfNeeded {
-  Log("Tray start. Mode=$Mode Port=$script:Port Attach=$Attach")
+  Log("Tray start. Mode=$Mode Port=$script:Port Attach=$Attach PID=$PID")
   Sync-PortFromLock -RequireReachable | Out-Null
   $status = Get-JsonOrNull '/api/status'
   if ($status) { return @{ started = $false; pid = $null } }
@@ -877,7 +877,7 @@ try {
   $notify.Visible = $true
   $notify.Text = 'EP: iniciando…'
   $notify.Icon = (Get-MoodIcon 'info')
-  Log('NotifyIcon visible')
+  Log("NotifyIcon visible PID=$PID")
 } catch {
   Log("NotifyIcon init failed: $($_.Exception.GetType().FullName): $($_.Exception.Message)")
 }

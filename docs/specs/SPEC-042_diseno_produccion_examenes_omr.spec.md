@@ -19,6 +19,11 @@ Los requisitos de esta sección son normativos y prevalecen sobre ejemplos visua
 
 ## Especificación técnica exacta del PDF
 
+### Presupuesto de renderizado de previsualización visual
+
+- La rasterización de preview mantiene un límite total finito de 30 s para permitir el arranque frío de Chromium en runners CI; el lanzamiento de Chromium tiene un máximo de 20 s y nunca puede exceder el tiempo restante del presupuesto total.
+- Si el renderer preferido falla, los fallbacks existentes permanecen acotados por el mismo deadline. Un timeout debe producir el fallback o un error explícito; no se amplía indefinidamente la solicitud.
+
 ### 1. Página, margen y zona imprimible
 
 - Formato físico: Letter, `612 × 792 pt` (`215.9 × 279.4 mm`), sin rotación.
