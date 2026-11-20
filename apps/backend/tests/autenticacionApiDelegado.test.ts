@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { rutaPermitidaParaApiDelegada, type SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
 import { requerirPermiso } from '../src/modulos/modulo_autenticacion/middlewarePermisos.js';
 import { normalizarPermisosApi } from '../src/modulos/modulo_autenticacion/servicioApiDelegado.js';
+import { esquemaCrearSolicitudApiLocal } from '../src/modulos/modulo_autenticacion/validacionesApiDelegado.js';
 
 function request(baseUrl: string, path: string, apiCredentialId?: string, method = 'GET') {
   return { baseUrl, path, apiCredentialId, method } as SolicitudDocente;
@@ -37,6 +38,22 @@ describe('rutas de credenciales API delegadas', () => {
     expect(rutaPermitidaParaApiDelegada(request('/api/calificaciones', '/calificar'), new Set(['calificaciones:calificar']))).toBe(true);
     expect(rutaPermitidaParaApiDelegada(request('/api/omr', '/jobs'), new Set(['calificaciones:calificar']))).toBe(false);
     expect(rutaPermitidaParaApiDelegada(request('/api/calificaciones', '/calificar'), new Set(['omr:analizar']))).toBe(false);
+  });
+
+  it('permite el scope Classroom solo en rutas del conector', () => {
+    expect(normalizarPermisosApi(['classroom:pull'])).toEqual(['classroom:pull']);
+    expect(esquemaCrearSolicitudApiLocal.safeParse({
+      codeChallenge: 'A'.repeat(43),
+      nombreCliente: 'EvaluaPro API CLI',
+      permisos: ['classroom:pull']
+    }).success).toBe(true);
+    const permisoClassroom = new Set(['classroom:pull']);
+    expect(rutaPermitidaParaApiDelegada(request('/api/evaluaciones', '/v2/classroom/estado'), permisoClassroom)).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/evaluaciones', '/v2/classroom/cursos/course-1/actividades'), permisoClassroom)).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/evaluaciones', '/v2/classroom/oauth/iniciar'), permisoClassroom)).toBe(false);
+    expect(rutaPermitidaParaApiDelegada(request('/api/evaluaciones', '/v2/evaluaciones'), permisoClassroom)).toBe(false);
+    expect(rutaPermitidaParaApiDelegada(request('/api/integraciones/classroom', '/pull', undefined, 'POST'), permisoClassroom)).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/integraciones/classroom', '/oauth/iniciar'), permisoClassroom)).toBe(false);
   });
 
   it('exige ambos scopes para previsualizar o registrar una nota OMR', () => {

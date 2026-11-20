@@ -19,6 +19,7 @@ export const PERMISOS_API_DELEGABLES = [
   'omr:analizar',
   'calificaciones:calificar',
   'evaluaciones:leer',
+  'classroom:pull',
   'analiticas:leer'
 ] as const;
 

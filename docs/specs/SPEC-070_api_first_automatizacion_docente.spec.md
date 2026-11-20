@@ -1,8 +1,8 @@
 ---
 id: SPEC-070
 titulo: Operación docente automatizable por API con correspondencia en GUI
-version: 1.23.14
-fecha: 2026-10-12
+version: 1.23.15
+fecha: 2026-11-19
 autor: Codex / EvaluaPro Team
 modulo: api_docente_automatizacion
 estado: approved
@@ -326,8 +326,10 @@ extCursor` explícito. El SDK puede recorrer todas las páginas sin
   tanto en API como en GUI/lista académica.
 - **AC-007:** Una prueba de integración ejecuta los flujos principales por API y
   verifica la lectura posterior en los contratos que consume la GUI; pruebas de
-  componente verifican que la GUI representa los mismos datos y estados. No se
-  requiere navegador real para automatizar operaciones que el API documenta.
+  componente verifican que la GUI representa los mismos datos y estados. Las
+  credenciales API delegadas aceptan `classroom:pull` y lo limitan a rutas de los
+  routers Classroom; no conceden acceso a OAuth ni a otros recursos de evaluaciones.
+  No se requiere navegador real para automatizar operaciones que el API documenta.
 - **AC-008:** Las solicitudes sin bearer válido, permiso o lease requerido se
   rechazan de forma consistente y no producen escrituras. Los payloads
   desconocidos/malformados devuelven error de validación con campo identificable.
@@ -514,7 +516,7 @@ implica que ya satisfagan todos los criterios nuevos.
 | --- | --- | --- | --- |
 | REQ-001 / AC-001 | Contratos/versionado de rutas API | `apps/backend/tests/integracion/versionadoApiV2Contratos.test.ts` | Pendiente de ampliar |
 | REQ-002 / AC-002 | Estado autenticado de sesión, permisos efectivos, lease, periodo y Classroom | `apps/backend/tests/preflight.test.ts`; `apps/backend/tests/rutasSalud.test.ts` | Implementado y validado en foco; salud de servicio sigue disponible por `/api/salud/ready`; conectividad Classroom requiere comprobación separada |
-| REQ-003 / AC-007 | Sesión bearer, refresh y bootstrap PKCE de clientes API locales sin bearer previo | `apps/backend/tests/integracion/autenticacionSesion.test.ts`; `apps/backend/tests/integracion/autenticacionApiBootstrap.test.ts`; `apps/backend/tests/autenticacionApiDelegado.test.ts`; `apps/frontend/tests/gestionApiLocal.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-api-local-credentials-sqlite.test.mjs` | Regresión integrada end-to-end: bootstrap sin bearer, consentimiento docente, intercambio/refresh, scopes OMR y migración idempotente validados |
+| REQ-003 / AC-007 | Sesión bearer, refresh, bootstrap PKCE y scope Classroom delimitado por ruta | `apps/backend/tests/integracion/autenticacionSesion.test.ts`; `apps/backend/tests/integracion/autenticacionApiBootstrap.test.ts`; `apps/backend/tests/autenticacionApiDelegado.test.ts`; `apps/frontend/tests/gestionApiLocal.test.tsx`; `scripts/tests/evaluapro-client.test.mjs`; `scripts/tests/migrate-api-local-credentials-sqlite.test.mjs` | En validación: bootstrap PKCE, refresh, scope Classroom, rechazo de OAuth/recursos ajenos y scopes OMR |
 | REQ-003 / AC-018 | Inicio de sesión Google por cliente API sin persistir secretos | `scripts/tests/evaluapro-client.test.mjs`; `apps/backend/src/modulos/modulo_autenticacion/rutasAutenticacion.ts` | Validado en SDK; ruta preexistente |
 | REQ-004 / AC-002 | Resolución por ID en Classroom y protección de selección | `apps/backend/tests/integracion/classroom.v2.test.ts` | Pendiente de ampliar |
 | REQ-005 / AC-003 | Preview y ejecución de importación Classroom | `apps/backend/tests/integracion/classroom.v2.test.ts` | Pendiente de ampliar |

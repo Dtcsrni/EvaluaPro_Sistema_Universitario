@@ -33,7 +33,7 @@ describe('bootstrap de clientes API locales', () => {
   it('completa solicitud anónima, consentimiento docente, intercambio y refresh delegado', async () => {
     const codeVerifier = randomBytes(32).toString('base64url');
     const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
-    const permisos = ['examenes:leer', 'omr:analizar', 'calificaciones:calificar'];
+    const permisos = ['examenes:leer', 'omr:analizar', 'calificaciones:calificar', 'classroom:pull'];
 
     const solicitud = await request(app)
       .post('/api/autenticacion/api-clientes/solicitudes')
@@ -76,6 +76,11 @@ describe('bootstrap de clientes API locales', () => {
       .get('/api/preflight')
       .set({ Authorization: `Bearer ${refresh.body.token}` })
       .expect(200);
+    const estadoClassroom = await request(app)
+      .get('/api/evaluaciones/v2/classroom/estado')
+      .set({ Authorization: `Bearer ${refresh.body.token}` })
+      .expect(200);
+    expect(estadoClassroom.body?.estado?.conectado).toBe(false);
     await request(app)
       .get('/api/autenticacion/credenciales')
       .set({ Authorization: `Bearer ${refresh.body.token}` })
