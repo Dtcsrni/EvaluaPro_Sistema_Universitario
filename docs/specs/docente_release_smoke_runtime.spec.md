@@ -1,8 +1,8 @@
 ---
 id: SPEC-DOCENTE-RELEASE-SMOKE
 titulo: Release smoke del flavor docente nativo
-version: 1.1.0
-fecha: 2026-09-24
+version: 1.2.0
+fecha: 2026-11-20
 autor: Codex
 modulo: installer_hub_docente
 estado: approved
@@ -53,6 +53,7 @@ a la ventana completa, no solo a la pantalla inicial.
 | REQ-005 | Ciclo docente local con datos dummy | `scripts/tests/seed-docente-dummy.mjs` | Implementado; pendiente de ejecución local |
 | REQ-006 | Resolución mínima y ventana legible | `scripts/tests/installer-hub-contract.test.mjs` | Implementado |
 | REQ-007 | Elevación condicional y payload post-install | `scripts/tests/installer-hub-contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; pendiente de E2E local |
+| REQ-010 | Cleanup de todas las instancias App Host del directorio QA antes de repair/uninstall | `scripts/tests/app-host-shutdown.contract.test.mjs`, `scripts/tests/installer-hub-e2e-docente.ps1` | Implementado; pendiente de E2E Windows |
 | REQ-008 | Tipografía, marca y superficies accesibles | `docs/DESIGN.md`, `apps/frontend/src/styles.css` | Implementado; pendiente de validación visual |
 | REQ-009 | Intro, carrusel y aceptación auditable | `packaging/wix/BurnBootstrapperApp/MainWindow.xaml`, `MainWindow.xaml.cs` | En implementación |
 | REQ-016 | Legibilidad de textos y estados dinámicos | `scripts/tests/installer-hub-contract.test.mjs`, `MainWindow.xaml.cs` | Implementado |
@@ -68,9 +69,13 @@ stdout/stderr, cierre del árbol de procesos y diagnóstico accionable.
 ### REQ-010 - Cierre acotado del runner E2E local
 
 El runner E2E del flavor `docente-local` debe registrar el estado final y cerrar
-Hub/Burn/MSI con un timeout acotado. Un proceso residual no puede bloquear la
-prueba indefinidamente: debe registrarse como evidencia y detenerse de forma
-controlada antes de continuar con la validación del payload.
+Hub/Burn/MSI y cada instancia `EvaluaPro.exe` cuya ruta coincida exactamente con
+la instalación QA, con un timeout acotado. La limpieza no depende solo del PID
+que el runner inició: debe volver a enumerar procesos de esa ruta, pedirles cierre
+normal, confirmar el diálogo si aparece y comprobar que no quedan App Hosts ni
+procesos Node de ese payload antes de repair/uninstall. No debe forzar el cierre
+de procesos. Si queda uno, debe fallar con sus PIDs y bloquear la siguiente
+operación del instalador.
 
 ### REQ-011 - Correlación única de operaciones del helper
 

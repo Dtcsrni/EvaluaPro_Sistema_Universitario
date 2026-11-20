@@ -323,12 +323,12 @@ test('el estado del App Host se inicializa antes de las lecturas y permite limpi
   const strictMode = e2e.indexOf('Set-StrictMode -Version Latest');
   const initialization = e2e.indexOf('$script:activeNativeAppHost = $null', strictMode);
   const firstRead = e2e.indexOf('if ($script:activeNativeAppHost)');
-  const cleanupRead = e2e.indexOf('if ($script:activeNativeAppHost)', firstRead + 1);
+  const cleanupRead = e2e.indexOf("if ($script:activeNativeAppHost -or ($installedRoot -and (Test-Path");
 
   assert.ok(strictMode >= 0 && initialization > strictMode, 'el estado se define con StrictMode activo');
   assert.ok(firstRead > initialization && cleanupRead > firstRead, 'ninguna ruta lee el estado antes de inicializarlo');
-  assert.match(e2e, /if \(-not \$identity\) \{\s*Add-Result -Area 'native-app-host' -Item \$Action -Ok \$true -Detail "no E2E-owned host was active/);
-  assert.match(e2e, /if \(\$script:activeNativeAppHost\) \{\s*try \{\s*Invoke-InstalledAppHost -Action 'stop-all' -RunId 'finally-cleanup'/);
+  assert.match(e2e, /if \(\$Action -eq 'stop-all'\) \{[\s\S]*?Get-InstalledAppHostIdentities/);
+  assert.match(e2e, /if \(\$script:activeNativeAppHost -or \(\$installedRoot -and \(Test-Path[\s\S]*?Invoke-InstalledAppHost -Action 'stop-all' -RunId 'finally-cleanup'/);
 });
 
 test('baseline legado valida version ARP sin InstallLocation solo con una entrada y payload aislado', () => {

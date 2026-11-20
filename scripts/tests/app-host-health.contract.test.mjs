@@ -28,7 +28,11 @@ test('AppHost prioriza la instalación canónica y reconcilia accesos antes del 
   assert.match(source, /ResolveCanonicalInstallRoot\(\)/);
   assert.match(source, /Se ignoró una copia no canónica/);
   assert.match(app, /ShortcutReconciler\.EnsureCurrent\(\)/);
-  assert.doesNotMatch(source, /ReconcileShortcutsAsync|create-shortcuts\.ps1|powershell\.exe/i);
+  assert.doesNotMatch(source, /ReconcileShortcutsAsync|create-shortcuts\.ps1/i);
+  const trayEnsure = source.match(/private void EnsureTrayStarted\(int dashboardPort\)[\s\S]*?\n    private void StartDashboard\(\)/)?.[0] || '';
+  assert.match(trayEnsure, /Forms\.NotifyIcon/);
+  assert.match(trayEnsure, /NotifyIcon visible PID=/);
+  assert.doesNotMatch(trayEnsure, /powershell\.exe|launcher-tray\.ps1|-ExecutionPolicy/i);
   assert.match(source, /app-host\.log/);
 });
 
@@ -65,7 +69,7 @@ test('el acceso Hub acepta el tag hub-v y arranca desde SHA-256 oficial cuando n
   assert.match(source, /installedHubPath is null \|\| installedHubVersion is null \|\| releaseVersion > installedHubVersion/);
   assert.match(source, /ReadExpectedHashAsync\(client, checksum\)/);
   assert.match(source, /RegisterTrustedInstallerHub\(targetPath, latest, expectedHash\)/);
-  assert.match(source, /HashMatches\(path, sha256\.GetString\(\)!\)/);
+  assert.match(trustRegistration, /HashMatches\(path, expectedHash\)/);
   assert.match(source, /VerifySameTrustedPublisher\(targetPath\)/);
   assert.match(source, /Guid\.NewGuid\(\)\.ToString\("N"\) \+ "\.partial"/);
   assert.match(app, /HubBootstrapSingletonMutexName/);

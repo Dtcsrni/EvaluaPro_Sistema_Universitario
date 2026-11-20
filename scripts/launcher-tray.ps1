@@ -8,7 +8,8 @@ param(
   [string]$Mode = 'none',
   [int]$Port = 4519,
   [switch]$NoOpen,
-  [switch]$Attach
+  [switch]$Attach,
+  [switch]$EnsureOnly
 )
 
 Set-StrictMode -Version Latest
@@ -480,6 +481,10 @@ try {
 }
 
 if (-not $createdNew) {
+  if ($EnsureOnly) {
+    Log("Tray singleton: instancia ya existe (mutex=$mutexName); EnsureOnly conserva la bandeja sin abrir dashboard.")
+    return
+  }
   Log("Tray singleton: instancia ya existe (mutex=$mutexName). Abriendo dashboard y saliendo.")
   $openPort = $Port
   $lockPort = Read-LockPort
@@ -712,7 +717,7 @@ function Ensure-StackOnLaunch {
 }
 
 function Start-DashboardIfNeeded {
-  Log("Tray start. Mode=$Mode Port=$script:Port Attach=$Attach")
+  Log("Tray start. Mode=$Mode Port=$script:Port Attach=$Attach PID=$PID")
   Sync-PortFromLock -RequireReachable | Out-Null
   $status = Get-JsonOrNull '/api/status'
   if ($status) { return @{ started = $false; pid = $null } }
@@ -877,7 +882,7 @@ try {
   $notify.Visible = $true
   $notify.Text = 'EP: iniciando…'
   $notify.Icon = (Get-MoodIcon 'info')
-  Log('NotifyIcon visible')
+  Log("NotifyIcon visible PID=$PID")
 } catch {
   Log("NotifyIcon init failed: $($_.Exception.GetType().FullName): $($_.Exception.Message)")
 }

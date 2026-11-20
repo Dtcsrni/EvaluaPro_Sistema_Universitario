@@ -11,13 +11,20 @@ namespace EvaluaPro.AppHost;
 public partial class App : System.Windows.Application
 {
     private const string DesktopSingletonMutexName = @"Local\EvaluaProDesktopSingleton";
+    private const string DesktopHiddenTrayMarkerPrefix = @"Local\EvaluaProDesktopHiddenToTray_";
+    private const string DesktopShowWindowMessageName = "EvaluaPro.ShowDesktopWindow";
     private const string HubBootstrapSingletonMutexName = @"Local\EvaluaProHubBootstrapSingleton";
     private const int SwRestore = 9;
+    private static readonly uint desktopShowWindowMessageId = RegisterWindowMessage(DesktopShowWindowMessageName);
     private static readonly TimeSpan OrphanedInstanceMinimumAge = TimeSpan.FromSeconds(30);
     private static Mutex? desktopSingletonMutex;
     private static Mutex? hubBootstrapSingletonMutex;
     private static bool ownsDesktopSingleton;
+    private static Mutex? desktopHiddenTrayMarker;
+    private static bool ownsDesktopHiddenTrayMarker;
     internal static bool IsInstallerHubInvocation { get; private set; }
+    internal static bool IsDesktopShowWindowMessage(int message) =>
+        desktopShowWindowMessageId != 0 && unchecked((uint)message) == desktopShowWindowMessageId;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -143,7 +150,7 @@ public partial class App : System.Windows.Application
                     }
 
                     existingProcess.Refresh();
-                    if (existingProcess.MainWindowHandle != IntPtr.Zero)
+                    if (existingProcess.MainWindowHandle != IntPtr.Zero || IsDesktopWindowHiddenToTray(existingProcess.Id))
                     {
                         return false;
                     }
@@ -246,10 +253,21 @@ public partial class App : System.Windows.Application
 
                         existingProcess.Refresh();
                         var handle = existingProcess.MainWindowHandle;
+                        var hiddenToTray = IsDesktopWindowHiddenToTray(existingProcess.Id);
+                        if (handle == IntPtr.Zero && hiddenToTray)
+                            handle = FindProcessWindowHandle(existingProcess.Id);
                         if (handle != IntPtr.Zero)
                         {
-                            ShowWindow(handle, SwRestore);
-                            SetForegroundWindow(handle);
+                            if (hiddenToTray)
+                            {
+                                if (desktopShowWindowMessageId == 0 || !PostMessage(handle, desktopShowWindowMessageId, IntPtr.Zero, IntPtr.Zero))
+                                    LogDiagnostic("DesktopSingleton.Focus", "No se pudo enviar la solicitud de restauración a la ventana oculta.");
+                            }
+                            else
+                            {
+                                ShowWindow(handle, SwRestore);
+                                SetForegroundWindow(handle);
+                            }
                             return;
                         }
                     }
@@ -266,8 +284,101 @@ public partial class App : System.Windows.Application
 
     private void App_Exit(object? sender, ExitEventArgs e)
     {
+        ReleaseDesktopHiddenTrayMarker();
         ReleaseDesktopSingleton();
         ReleaseHubBootstrapSingleton();
+    }
+
+    internal static bool SetDesktopWindowHiddenToTray(bool hidden)
+    {
+        if (hidden)
+        {
+            if (desktopHiddenTrayMarker is not null) return ownsDesktopHiddenTrayMarker;
+            try
+            {
+                desktopHiddenTrayMarker = new Mutex(
+                    initiallyOwned: true,
+                    name: DesktopHiddenTrayMarkerPrefix + Environment.ProcessId,
+                    createdNew: out ownsDesktopHiddenTrayMarker);
+                if (!ownsDesktopHiddenTrayMarker)
+                {
+                    desktopHiddenTrayMarker.Dispose();
+                    desktopHiddenTrayMarker = null;
+                    LogDiagnostic("DesktopSingleton.HiddenTray", "No se pudo adquirir el marcador de ventana oculta.");
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                desktopHiddenTrayMarker = null;
+                ownsDesktopHiddenTrayMarker = false;
+                LogException("DesktopSingleton.HiddenTray", ex);
+                return false;
+            }
+        }
+
+        ReleaseDesktopHiddenTrayMarker();
+        return true;
+    }
+
+    private static bool IsDesktopWindowHiddenToTray(int processId)
+    {
+        try
+        {
+            using var marker = Mutex.OpenExisting(DesktopHiddenTrayMarkerPrefix + processId);
+            try
+            {
+                if (marker.WaitOne(0))
+                {
+                    marker.ReleaseMutex();
+                    return false;
+                }
+            }
+            catch (AbandonedMutexException)
+            {
+                return false;
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static IntPtr FindProcessWindowHandle(int processId)
+    {
+        var result = IntPtr.Zero;
+        EnumWindows((handle, _) =>
+        {
+            GetWindowThreadProcessId(handle, out var ownerProcessId);
+            if (ownerProcessId != processId) return true;
+            var title = new System.Text.StringBuilder(256);
+            _ = GetWindowText(handle, title, title.Capacity);
+            if (!string.Equals(title.ToString(), "EvaluaPro · Plataforma Docente", StringComparison.Ordinal)) return true;
+            result = handle;
+            return false;
+        }, IntPtr.Zero);
+        return result;
+    }
+
+    private static void ReleaseDesktopHiddenTrayMarker()
+    {
+        try
+        {
+            if (desktopHiddenTrayMarker is not null)
+            {
+                if (ownsDesktopHiddenTrayMarker) desktopHiddenTrayMarker.ReleaseMutex();
+                desktopHiddenTrayMarker.Dispose();
+            }
+        }
+        catch (Exception ex) { LogException("DesktopSingleton.HiddenTray.Release", ex); }
+        finally
+        {
+            desktopHiddenTrayMarker = null;
+            ownsDesktopHiddenTrayMarker = false;
+        }
     }
 
     private static void ReleaseHubBootstrapSingleton()
@@ -311,6 +422,23 @@ public partial class App : System.Windows.Application
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int maxCount);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out int processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint RegisterWindowMessage(string message);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool PostMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
 
     private static void LogException(string source, Exception? ex)
     {

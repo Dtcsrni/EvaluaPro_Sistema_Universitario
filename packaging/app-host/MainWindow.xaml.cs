@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
 using Forms = System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
@@ -31,6 +32,9 @@ public partial class MainWindow : Window
     private bool closeAuthorized;
     private bool shutdownCompleted;
     private string appRoot = string.Empty;
+    private Forms.NotifyIcon? trayIcon;
+    private Forms.ContextMenuStrip? trayContextMenu;
+    private HwndSource? windowMessageSource;
     private const int DashboardPortFallback = 4519;
     private static readonly TimeSpan ServiceStartupTimeout = TimeSpan.FromSeconds(60);
     private const string GoogleDesktopClientId = "1088901330711-al2jgfs5njms9oq7vgkv9r408vbs8g00.apps.googleusercontent.com";
@@ -40,6 +44,8 @@ public partial class MainWindow : Window
         ConfigureInitialWindowBounds();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
+        Closed += MainWindow_Closed;
+        SourceInitialized += MainWindow_SourceInitialized;
     }
 
     private void ConfigureInitialWindowBounds()
@@ -537,7 +543,11 @@ public partial class MainWindow : Window
         var apiResponds = await ProbePortAsync(apiHealthUrl);
         if (webResponds && apiResponds)
         {
-            if (dashboardProcess != null && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort)) return true;
+            if (dashboardProcess != null && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
+            {
+                EnsureTrayStarted(dashboardPort);
+                return true;
+            }
             WriteStartupDiagnostic("Web/API responden sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos.");
             return false;
         }
@@ -568,6 +578,7 @@ public partial class MainWindow : Window
             if (await ProbePortAsync(webHealthUrl) && await ProbePortAsync(apiHealthUrl) &&
                 dashboardProcess != null && await VerifyDashboardIdentityAsync(dashboardProcess, dashboardPort))
             {
+                EnsureTrayStarted(dashboardPort);
                 return true;
             }
             await Task.Delay(300);
@@ -575,6 +586,92 @@ public partial class MainWindow : Window
 
         WriteStartupDiagnostic("Timeout esperando web/API locales.");
         return false;
+    }
+
+    private void EnsureTrayStarted(int dashboardPort)
+    {
+        if (trayIcon is { Visible: true }) return;
+
+        try
+        {
+            trayContextMenu = new Forms.ContextMenuStrip();
+            trayContextMenu.Items.Add("Abrir EvaluaPro", null, (_, _) => ShowWindowFromTray());
+            trayContextMenu.Items.Add(new Forms.ToolStripSeparator());
+            trayContextMenu.Items.Add("Cerrar EvaluaPro", null, (_, _) => CloseFromTray());
+
+            using var iconResource = System.Windows.Application.GetResourceStream(
+                new Uri("pack://application:,,,/dashboard-prod.ico", UriKind.Absolute))?.Stream;
+            using var loadedIcon = iconResource is null ? null : new System.Drawing.Icon(iconResource);
+            var icon = loadedIcon ?? System.Drawing.SystemIcons.Application;
+            trayIcon = new Forms.NotifyIcon
+            {
+                Icon = (System.Drawing.Icon)icon.Clone(),
+                Text = "EvaluaPro · API activa",
+                ContextMenuStrip = trayContextMenu,
+                Visible = true
+            };
+            trayIcon.DoubleClick += (_, _) => ShowWindowFromTray();
+            WriteStartupDiagnostic($"NotifyIcon visible PID={Environment.ProcessId} port={dashboardPort}.");
+        }
+        catch (Exception ex)
+        {
+            trayIcon?.Dispose();
+            trayIcon = null;
+            trayContextMenu?.Dispose();
+            trayContextMenu = null;
+            WriteStartupDiagnostic($"No se pudo crear la bandeja nativa: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    private void ShowWindowFromTray()
+    {
+        ShowInTaskbar = true;
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        App.SetDesktopWindowHiddenToTray(false);
+    }
+
+    private void CloseFromTray()
+    {
+        ShowWindowFromTray();
+        Dispatcher.BeginInvoke(new Action(Close));
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        WriteStartupDiagnostic("La ventana principal cerró; liberando recursos de bandeja.");
+        if (windowMessageSource is not null)
+        {
+            windowMessageSource.RemoveHook(MainWindowWindowProc);
+            windowMessageSource = null;
+        }
+        App.SetDesktopWindowHiddenToTray(false);
+        if (trayIcon is not null)
+        {
+            trayIcon.Visible = false;
+            trayIcon.Dispose();
+            trayIcon = null;
+        }
+        trayContextMenu?.Dispose();
+        trayContextMenu = null;
+        WriteStartupDiagnostic("Recursos de bandeja liberados; se solicita el cierre del App Host.");
+        System.Windows.Application.Current?.Shutdown();
+    }
+
+    private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        windowMessageSource = HwndSource.FromHwnd(handle);
+        windowMessageSource?.AddHook(MainWindowWindowProc);
+    }
+
+    private IntPtr MainWindowWindowProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (!App.IsDesktopShowWindowMessage(message)) return IntPtr.Zero;
+        ShowWindowFromTray();
+        handled = true;
+        return IntPtr.Zero;
     }
 
     private void StartDashboard()
@@ -1338,7 +1435,7 @@ public partial class MainWindow : Window
         WriteStartupDiagnostic("Se va a mostrar la confirmación de cierre.");
         var choice = WpfMessageBox.Show(
             this,
-            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
+            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y salir.\nNo: ocultar la ventana y mantener EvaluaPro activo en la bandeja.\nCancelar: volver a EvaluaPro.",
             "EvaluaPro · Cerrar",
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
@@ -1348,8 +1445,30 @@ public partial class MainWindow : Window
         if (choice == MessageBoxResult.Cancel) return;
         if (choice == MessageBoxResult.No)
         {
-            closeAuthorized = true;
-            _ = Dispatcher.BeginInvoke(new Action(Close));
+            if (trayIcon is not { Visible: true })
+            {
+                WpfMessageBox.Show(
+                    this,
+                    "No pude activar el icono de EvaluaPro en la bandeja. La ventana permanecerá abierta para mantener accesible la aplicación.",
+                    "EvaluaPro · Bandeja no disponible",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!App.SetDesktopWindowHiddenToTray(true))
+            {
+                WpfMessageBox.Show(
+                    this,
+                    "No pude registrar la ventana en segundo plano de forma segura. EvaluaPro permanecerá visible.",
+                    "EvaluaPro · No se pudo ocultar",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+            ShowInTaskbar = false;
+            Hide();
+            WriteStartupDiagnostic("Ventana oculta en la bandeja; App Host y servicios siguen activos.");
             return;
         }
 
@@ -1375,6 +1494,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        WriteStartupDiagnostic("Servicios locales detenidos; se cerrará la ventana principal.");
         shutdownCompleted = true;
         _ = Dispatcher.BeginInvoke(new Action(Close));
     }
