@@ -4,7 +4,7 @@
 - sessionId: 2026-11-20-exam-flow-stabilization
 - parentSessionId: -
 - status: final
-- generatedAt: 2026-11-20T16:44:15.276Z
+- generatedAt: 2026-11-20T16:57:38.740Z
 - validationProfile: quick
 
 ## Agente
@@ -15,89 +15,49 @@
 - channel: desktop
 
 ## Solicitud
-- Estabilizar el flujo prioritario de banco, generación de exámenes y diagnósticos API locales antes de CI.
+- Estabilizar la creación de banco/exámenes y corregir los fallos detectados al adelantar CI.
 
 ## Objetivo
-- Cerrar las regresiones de capacidad compartida, presupuesto PDF, orden/nombre de lotes, iniciales, scopes y UI responsive con validación local reproducible.
+- Cerrar regresiones de capacidad compartida, presupuesto PDF, orden/nombre de lotes, iniciales, scopes API, trazabilidad Classroom, UI responsive y validación WCAG local contra la base del PR.
 
 ## Alcance
 - Generación y descarga PDF
-- Variantes deterministas y recuperación de lotes
-- Banco de reactivos responsive y rehidratación
-- Contrato de scopes API e iniciales de alumnos
-- Validación local
+- Variantes reproducibles y recuperación de lotes
+- Orden de padrón y nombre de grupos
+- Banco responsive y recuperación de borradores
+- Scopes API y trazabilidad Classroom
+- Iniciales unificadas
+- Guardrail WCAG y contrato de CI
 
 ## Restricciones
-- No aumentar versión por corrección
-- No registrar secretos ni credenciales
-- No integrar sin CI verde y evidencia OMR física
-- Excluir archivos auxiliares temporales del commit
+- Sin bump de versión
+- Sin registrar secretos o credenciales
+- No fusionar antes de CI verde ni sin evidencia OMR física
+- Excluir auxiliar PDF temporal del commit
 
 ## Acciones
-- [omitido] validation: Ejecucion de lint (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de typecheck (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de test_frontend_ci (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de test_coverage_ci (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de test_tdd_enforcement_ci (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de test_backend_ci (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de test_portal_ci (2026-11-20T16:44:15.276Z)
-- [omitido] validation: Ejecucion de perf_check (2026-11-20T16:44:15.276Z)
-- [ok] validation: Ejecucion de pipeline_contract_check (2026-11-20T16:44:15.276Z)
-- [ok] validation: Ejecucion de docs_check (2026-11-20T16:44:15.276Z)
+- [omitido] validation: Ejecucion de lint (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de typecheck (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de test_frontend_ci (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de test_coverage_ci (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de test_tdd_enforcement_ci (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de test_backend_ci (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de test_portal_ci (2026-11-20T16:57:38.740Z)
+- [omitido] validation: Ejecucion de perf_check (2026-11-20T16:57:38.740Z)
+- [ok] validation: Ejecucion de pipeline_contract_check (2026-11-20T16:57:38.740Z)
+- [falla] validation: Ejecucion de docs_check (2026-11-20T16:57:38.740Z)
 
 ## Archivos leidos
 - Sin lecturas registradas.
 
 ## Archivos cambiados
-- apps/backend/prisma/schema.prisma
-- apps/backend/src/infraestructura/baseDatos/sqlite.ts
-- apps/backend/src/modulos/modulo_alumnos/controladorAlumnos.ts
-- apps/backend/src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.ts
-- apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generarExamenIndividual.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/gestionPlantillas.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/controladorListadoGenerados.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/domain/resolverNumeroPaginasPlantilla.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
-- apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts
-- apps/backend/src/modulos/modulo_hidratacion_cursos/servicioHidratacionCursos.ts
-- apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts
-- apps/backend/src/modulos/modulo_papelera/controladorPapelera.ts
-- apps/backend/src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes.ts
-- apps/backend/tests/contrato/validaciones.test.ts
-- apps/backend/tests/integracion/_flujoDocenteHelper.ts
-- apps/backend/tests/integracion/calificacionOmrPrioridad.test.ts
-- apps/backend/tests/integracion/examenesRetention.test.ts
-- apps/backend/tests/integracion/omrJobsWorkflow.test.ts
-- apps/backend/tests/integracion/plantillasCrudYPreview.test.ts
-- apps/backend/tests/integracion/qrEscaneoOmr.test.ts
-- apps/backend/tests/integracion/reactivosIngesta.test.ts
-- apps/backend/tests/omr.geometry.reference.test.ts
-- apps/backend/tests/pdf.ecofont.test.ts
-- apps/backend/tests/pdf.layout.visual.guard.test.ts
-- apps/backend/tests/pdf.numeroPaginasPlantilla.test.ts
-- apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx
-- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx
-- apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts
+- .github/workflows/ci.yml
 - apps/frontend/src/styles/screens.css
-- apps/frontend/tests/plantillas.hooks.test.tsx
-- docs/specs/SPEC-038_alumnos_roster_management.spec.md
-- docs/specs/SPEC-068_generacion_lotes_pdf_integridad.spec.md
-- scripts/tests/omr-version-policy.test.mjs
-- apps/backend/src/modulos/modulo_alumnos/ordenListaAlumnos.ts
-- apps/backend/tests/lotePdf.naming.test.ts
-- apps/backend/tests/pdf.orden-capacidad.test.ts
+- apps/frontend/tests/plantillas.refactor.test.tsx
+- docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.json
+- docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.md
+- scripts/wcag-guard.mjs
 - apps/backend/tmp_pdf_visual_check.ts
-- apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasDescargaEstado.tsx
-- apps/frontend/tests/plantillas.descarga.estado.test.tsx
-- scripts/migrate-alumnos-orden-lista-sqlite.mjs
-- scripts/tests/migrate-alumnos-orden-lista-sqlite.test.mjs
 
 ## Validacion ejecutada
 - lint: `npm run lint` -> omitido (exitCode=-, duracionMs=0)
@@ -116,78 +76,37 @@
   resultado: omitido por perfil quick
 - perf_check: `npm run perf:check` -> omitido (exitCode=-, duracionMs=0)
   resultado: omitido por perfil quick
-- pipeline_contract_check: `npm run pipeline:contract:check` -> ok (exitCode=0, duracionMs=4653)
-  resultado: ✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (2.4785ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (674.9999ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (638.5861ms) | ... | npm notice run evaluapro@1.2.25 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs
-- docs_check: `npm run docs:check` -> ok (exitCode=0, duracionMs=1505)
-  resultado: [docs] ok | npm notice run evaluapro@1.2.25 docs:check | npm notice run node scripts/docs.mjs --check
+- pipeline_contract_check: `npm run pipeline:contract:check` -> ok (exitCode=0, duracionMs=4621)
+  resultado: ✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (1.7508ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (656.4703ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (631.5259ms) | ... | npm notice run evaluapro@1.2.25 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs
+- docs_check: `npm run docs:check` -> falla (exitCode=1, duracionMs=1399)
+  resultado: npm notice run evaluapro@1.2.25 docs:check | npm notice run node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate
 
 ## Decisiones
-- La política shared conserva orden común de opciones y adapta selección/conteo por alumno cuando el presupuesto lo exige.
-- Los exámenes parciales se limitan a 2 páginas y los globales a 4; el renderer valida el límite.
-- El trabajo local puede publicarse para CI, pero la integración queda pendiente de gates y evidencia real OMR.
+- Shared conserva el orden de opciones y ajusta selección/conteo por alumno con semilla estable.
+- Parcial fija 2 páginas y global 4; la UI no edita el presupuesto y el renderer rechaza overflow.
+- WCAG audita el diff desde el merge-base real del PR y el árbol de trabajo; se elimina el fetch del snapshot histórico.
 
 ## Supuestos
-- Los tests de integración usan loopback local autorizado; el primer intento sin elevación falló por restricción del sandbox, no por aserción.
+- Los tests de integración usan loopback; EACCES inicial era restricción del sandbox y pasaron al ejecutar localmente con autorización.
 
 ## Riesgos abiertos
-- No hay capturas físicas en el corpus piloto OMR; solo pasó el corpus sintético del worktree.
-- No se ejecutó el conjunto completo de backend, portal y coverage CI.
+- El corpus piloto OMR real está vacío; el corpus sintético local pasó.
+- El SHA 53629d2 tuvo fallo frontend por comparar contra snapshot WCAG histórico; la corrección pasó localmente, pero falta repetir CI en un SHA nuevo.
+- No se ejecutó backend/portal/coverage CI completo.
 
 ## Estado del arbol
 ```txt
-M apps/backend/prisma/schema.prisma
- M apps/backend/src/infraestructura/baseDatos/sqlite.ts
- M apps/backend/src/modulos/modulo_alumnos/controladorAlumnos.ts
- M apps/backend/src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.ts
- M apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generacionPlantillas.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/generarExamenIndividual.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/gestionPlantillas.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/application/usecases/previsualizacionPlantillas.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/controladorListadoGenerados.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/domain/examenPdf.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/domain/resolverNumeroPaginasPlantilla.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/infra/pdfKitRenderer.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/servicioGeneracionPdf.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/shared/tiposPdf.ts
- M apps/backend/src/modulos/modulo_generacion_pdf/validacionesExamenes.ts
- M apps/backend/src/modulos/modulo_hidratacion_cursos/servicioHidratacionCursos.ts
- M apps/backend/src/modulos/modulo_integraciones_classroom/servicioSyncClassroom.ts
- M apps/backend/src/modulos/modulo_papelera/controladorPapelera.ts
- M apps/backend/src/modulos/modulo_recuperacion_examenes/servicioRecuperacionExamenes.ts
- M apps/backend/tests/contrato/validaciones.test.ts
- M apps/backend/tests/integracion/_flujoDocenteHelper.ts
- M apps/backend/tests/integracion/calificacionOmrPrioridad.test.ts
- M apps/backend/tests/integracion/examenesRetention.test.ts
- M apps/backend/tests/integracion/omrJobsWorkflow.test.ts
- M apps/backend/tests/integracion/plantillasCrudYPreview.test.ts
- M apps/backend/tests/integracion/qrEscaneoOmr.test.ts
- M apps/backend/tests/integracion/reactivosIngesta.test.ts
- M apps/backend/tests/omr.geometry.reference.test.ts
- M apps/backend/tests/pdf.ecofont.test.ts
- M apps/backend/tests/pdf.layout.visual.guard.test.ts
- M apps/backend/tests/pdf.numeroPaginasPlantilla.test.ts
- M apps/frontend/src/apps/app_docente/SeccionPlantillas.tsx
- M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasFormulario.tsx
- M apps/frontend/src/apps/app_docente/features/plantillas/hooks/usePlantillasGeneradosActions.ts
+M .github/workflows/ci.yml
  M apps/frontend/src/styles/screens.css
- M apps/frontend/tests/plantillas.hooks.test.tsx
- M docs/specs/SPEC-038_alumnos_roster_management.spec.md
- M docs/specs/SPEC-068_generacion_lotes_pdf_integridad.spec.md
- M scripts/tests/omr-version-policy.test.mjs
-?? apps/backend/src/modulos/modulo_alumnos/ordenListaAlumnos.ts
-?? apps/backend/tests/lotePdf.naming.test.ts
-?? apps/backend/tests/pdf.orden-capacidad.test.ts
+ M apps/frontend/tests/plantillas.refactor.test.tsx
+ M docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.json
+ M docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.md
+ M scripts/wcag-guard.mjs
 ?? apps/backend/tmp_pdf_visual_check.ts
-?? apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasDescargaEstado.tsx
-?? apps/frontend/tests/plantillas.descarga.estado.test.tsx
-?? scripts/migrate-alumnos-orden-lista-sqlite.mjs
-?? scripts/tests/migrate-alumnos-orden-lista-sqlite.test.mjs
 ```
 
 ## Siguiente paso recomendado
-- Crear commit y publicar la rama autorizada para CI; inspeccionar los checks remotos y no fusionar hasta pasar gates y validar con capturas OMR reales.
+- Crear commit de la corrección del guardrail y las expectativas UI; publicar en la rama del PR #326 y validar el nuevo CI. No fusionar hasta gates verdes y capturas OMR físicas representativas.
 
 ## Artefactos generados
 - docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.json

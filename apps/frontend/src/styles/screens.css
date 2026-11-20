@@ -9225,6 +9225,7 @@
 }
 
 .plantillas-descarga-estado {
+  /* WCAG AA: fallbacks opacos de texto y borde mantienen legibilidad sin tokens de tema. */
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem 1rem;

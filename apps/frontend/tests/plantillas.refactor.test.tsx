@@ -126,9 +126,9 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(estadoVacioTemas).toBeInTheDocument();
     expect(estadoVacioTemas?.querySelector('.plantillas-temas-empty__icon svg')).toBeInTheDocument();
     expect(estadoVacioTemas).not.toHaveTextContent(/\b2\b/);
-    expect(screen.getByLabelText('Cantidad de páginas')).toHaveValue(2);
+    expect(screen.getByRole('status', { name: 'Presupuesto de páginas no editable' })).toHaveTextContent('Parcial · 2 páginas · 1 hoja dúplex');
     fireEvent.change(screen.getByLabelText('Tipo de plantilla'), { target: { value: 'global' } });
-    expect(screen.getByLabelText('Cantidad de páginas')).toHaveValue(4);
+    expect(screen.getByRole('status', { name: 'Presupuesto de páginas no editable' })).toHaveTextContent('Global · 4 páginas · 2 hojas engrapadas');
   });
 
   it('expone como seleccionados los temas y la modalidad de generación', () => {
@@ -855,7 +855,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     expect(screen.queryByRole('option', { name: /ID: pla-1/i })).not.toBeInTheDocument();
   });
 
-  it('cambia a Actualizar PDF cuando se modifica la configuración de una plantilla', () => {
+  it('cambia a Actualizar PDF cuando se cambia el tipo y su presupuesto de página fijo', () => {
     render(
       <HarnessPlantillas
         plantillas={[
@@ -865,9 +865,10 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Editar/i }));
-    fireEvent.change(screen.getByLabelText('Cantidad de páginas'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Tipo de plantilla'), { target: { value: 'global' } });
 
     const editorInline = screen.getByTestId('plantillas-editor-inline');
+    expect(within(editorInline).getByRole('status', { name: 'Presupuesto de páginas no editable' })).toHaveTextContent('Global · 4 páginas · 2 hojas engrapadas');
     expect(within(editorInline).getByRole('button', { name: /^Actualizar PDF$/i })).toBeInTheDocument();
     expect(within(editorInline).queryByRole('button', { name: /^Previsualizar PDF$/i })).not.toBeInTheDocument();
   });
