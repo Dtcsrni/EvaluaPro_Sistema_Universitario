@@ -172,6 +172,7 @@ test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente',
   assert.match(appSource, /EvaluaPro · Plataforma Docente/);
   assert.match(hostSource, /MainWindowWindowProc[\s\S]*?ShowWindowFromTray\(\)/);
   assert.match(hostSource, /App\.IsDesktopShowWindowMessage\(message\)/);
+  assert.match(hostSource, /System\.Windows\.Application\.Current\?\.Shutdown\(\)/);
   assert.match(appSource, /SetForegroundWindow\(handle\)/);
   assert.match(appSource, /ReleaseDesktopSingleton\(\)/);
 });

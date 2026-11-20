@@ -2045,7 +2045,22 @@ function Invoke-InstalledAppHost {
           throw "El App Host PID $($identity.Id) no terminó ni mostró la confirmación de cierre; responding=$responding; ventanas detectadas: $windowDetails; app-host.log tail: $logDetails."
         }
         $process.Refresh()
-        if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
+        if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) {
+          $hostLogPaths = @(
+            (Join-Path $installedRoot 'logs\app-host.log'),
+            (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host.log'),
+            (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host-error.log')
+          ) | Select-Object -Unique
+          $hostLogEvidence = @()
+          foreach ($hostLogPath in $hostLogPaths) {
+            if (-not (Test-Path -LiteralPath $hostLogPath -PathType Leaf)) { continue }
+            Copy-ArtifactIfExists -Path $hostLogPath | Out-Null
+            $hostLogEvidence += @(Get-Content -LiteralPath $hostLogPath -Tail 40 -ErrorAction SilentlyContinue)
+          }
+          $logDetails = ($hostLogEvidence -join ' | ')
+          if ($logDetails.Length -gt 4000) { $logDetails = $logDetails.Substring($logDetails.Length - 4000) }
+          throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre. app-host.log tail: $logDetails"
+        }
       } finally { $process.Dispose() }
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSec)

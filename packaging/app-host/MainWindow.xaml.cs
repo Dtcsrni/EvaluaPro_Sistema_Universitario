@@ -640,6 +640,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        WriteStartupDiagnostic("La ventana principal cerró; liberando recursos de bandeja.");
         if (windowMessageSource is not null)
         {
             windowMessageSource.RemoveHook(MainWindowWindowProc);
@@ -654,6 +655,8 @@ public partial class MainWindow : Window
         }
         trayContextMenu?.Dispose();
         trayContextMenu = null;
+        WriteStartupDiagnostic("Recursos de bandeja liberados; se solicita el cierre del App Host.");
+        System.Windows.Application.Current?.Shutdown();
     }
 
     private void MainWindow_SourceInitialized(object? sender, EventArgs e)
@@ -1491,6 +1494,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        WriteStartupDiagnostic("Servicios locales detenidos; se cerrará la ventana principal.");
         shutdownCompleted = true;
         _ = Dispatcher.BeginInvoke(new Action(Close));
     }
