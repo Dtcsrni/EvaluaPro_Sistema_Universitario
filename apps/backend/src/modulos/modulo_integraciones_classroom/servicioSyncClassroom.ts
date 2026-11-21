@@ -7,7 +7,7 @@
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
-import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/ordenListaAlumnos.js';
+import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/index.js';
 import { Alumno } from '../modulo_alumnos/index.js';
 import { EvidenciaEvaluacion } from '../modulo_evaluaciones/index.js';
 import { IntegracionClassroom } from './modeloIntegracionClassroom.js';

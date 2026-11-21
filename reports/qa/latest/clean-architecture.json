@@ -1,14 +1,14 @@
 {
   "version": 1,
   "gate": "clean-architecture",
-  "strict": false,
-  "generatedAt": "2026-11-06T12:03:22.705Z",
+  "strict": true,
+  "generatedAt": "2026-11-21T14:31:21.825Z",
   "ok": true,
   "moduleContracts": {
     "ok": true,
     "errors": [],
     "modules": 21,
-    "dependencyPairs": 39,
+    "dependencyPairs": 41,
     "dependencyGraph": {
       "modulo_admin_docentes": [
         "modulo_autenticacion"
@@ -55,6 +55,7 @@
         "modulo_papelera"
       ],
       "modulo_hidratacion_cursos": [
+        "modulo_alumnos",
         "modulo_autenticacion",
         "modulo_banco_preguntas"
       ],
@@ -70,6 +71,7 @@
         "modulo_autenticacion"
       ],
       "modulo_recuperacion_examenes": [
+        "modulo_alumnos",
         "modulo_autenticacion",
         "modulo_generacion_pdf"
       ],
@@ -94,7 +96,9 @@
     "transitiveConsumers": {
       "modulo_admin_docentes": [],
       "modulo_alumnos": [
+        "modulo_hidratacion_cursos",
         "modulo_integraciones_classroom",
+        "modulo_recuperacion_examenes",
         "modulo_sincronizacion_nube"
       ],
       "modulo_analiticas": [
@@ -164,6 +168,7 @@
         "modulo_calificacion",
         "modulo_escaneo_omr",
         "modulo_generacion_pdf",
+        "modulo_hidratacion_cursos",
         "modulo_integraciones_classroom",
         "modulo_recuperacion_examenes",
         "modulo_sincronizacion_nube"
@@ -176,8 +181,8 @@
       ]
     },
     "cycles": [],
-    "prismaModels": 79,
-    "declaredModelOwners": 79,
+    "prismaModels": 80,
+    "declaredModelOwners": 80,
     "persistenceOwners": {
       "Alumno": [
         "modulo_alumnos"
@@ -238,6 +243,9 @@
       ],
       "ConsentimientoComercial": [
         "modulo_comercial_core"
+      ],
+      "CredencialApiDocente": [
+        "modulo_autenticacion"
       ],
       "Cupon": [
         "modulo_comercial_core"
@@ -422,12 +430,12 @@
     {
       "id": "modules.contracts",
       "ok": true,
-      "detail": "0 errores; 21 módulos, 39 dependencias, 79 modelos Prisma"
+      "detail": "0 errores; 21 módulos, 41 dependencias, 80 modelos Prisma"
     },
     {
       "id": "size.frontend.app_docente.files",
       "ok": true,
-      "detail": "AppDocente=1280, SeccionEscaneo=1088"
+      "detail": "AppDocente=1291, SeccionEscaneo=1091"
     },
     {
       "id": "token.api.v2",

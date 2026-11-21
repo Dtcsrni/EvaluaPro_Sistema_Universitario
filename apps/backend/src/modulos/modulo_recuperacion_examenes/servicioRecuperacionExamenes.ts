@@ -7,7 +7,7 @@
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
-import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/ordenListaAlumnos.js';
+import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/index.js';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { permisosParaRoles } from '../../infraestructura/seguridad/rbac.js';
 import { generarPdfExamen } from '../modulo_generacion_pdf/index.js';

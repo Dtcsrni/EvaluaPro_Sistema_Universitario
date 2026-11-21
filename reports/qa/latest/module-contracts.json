@@ -4,7 +4,7 @@
   "ok": true,
   "errors": [],
   "modules": 21,
-  "dependencyPairs": 39,
+  "dependencyPairs": 41,
   "dependencyGraph": {
     "modulo_admin_docentes": [
       "modulo_autenticacion"
@@ -51,6 +51,7 @@
       "modulo_papelera"
     ],
     "modulo_hidratacion_cursos": [
+      "modulo_alumnos",
       "modulo_autenticacion",
       "modulo_banco_preguntas"
     ],
@@ -66,6 +67,7 @@
       "modulo_autenticacion"
     ],
     "modulo_recuperacion_examenes": [
+      "modulo_alumnos",
       "modulo_autenticacion",
       "modulo_generacion_pdf"
     ],
@@ -90,7 +92,9 @@
   "transitiveConsumers": {
     "modulo_admin_docentes": [],
     "modulo_alumnos": [
+      "modulo_hidratacion_cursos",
       "modulo_integraciones_classroom",
+      "modulo_recuperacion_examenes",
       "modulo_sincronizacion_nube"
     ],
     "modulo_analiticas": [
@@ -160,6 +164,7 @@
       "modulo_calificacion",
       "modulo_escaneo_omr",
       "modulo_generacion_pdf",
+      "modulo_hidratacion_cursos",
       "modulo_integraciones_classroom",
       "modulo_recuperacion_examenes",
       "modulo_sincronizacion_nube"
@@ -172,8 +177,8 @@
     ]
   },
   "cycles": [],
-  "prismaModels": 78,
-  "declaredModelOwners": 78,
+  "prismaModels": 80,
+  "declaredModelOwners": 80,
   "persistenceOwners": {
     "Alumno": [
       "modulo_alumnos"
@@ -217,6 +222,9 @@
     "Campana": [
       "modulo_comercial_core"
     ],
+    "ClassroomImportJob": [
+      "modulo_integraciones_classroom"
+    ],
     "Cobranza": [
       "modulo_comercial_core"
     ],
@@ -231,6 +239,9 @@
     ],
     "ConsentimientoComercial": [
       "modulo_comercial_core"
+    ],
+    "CredencialApiDocente": [
+      "modulo_autenticacion"
     ],
     "Cupon": [
       "modulo_comercial_core"

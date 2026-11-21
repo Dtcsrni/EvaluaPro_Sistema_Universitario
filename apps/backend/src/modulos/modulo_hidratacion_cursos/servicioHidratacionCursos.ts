@@ -11,7 +11,7 @@ import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { confirmarReactivos, previsualizarReactivos, registrarCuarentenaReactivos } from '../modulo_banco_preguntas/index.js';
 import { validarReactivosBatch } from '../modulo_banco_preguntas/index.js';
-import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/ordenListaAlumnos.js';
+import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/index.js';
 
 export type ArchivoHidratacion = {
   originalname: string;
