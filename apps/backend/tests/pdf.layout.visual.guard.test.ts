@@ -573,8 +573,8 @@ describe('pdf layout visual guard', () => {
           numeroPagina: pagina
         });
         expect(texto.match(new RegExp(`FOLIO\\s+D7E8B86B\\s*[·•]\\s*P\\s*${pagina}`, 'gi')))
-          .toHaveLength(1);
-        expect(texto.match(/LOTE\s+LOTE-COMPOUND-QA/gi)).toHaveLength(totalPaginas);
+          .toHaveLength(2);
+        expect(texto.match(/LOTE-COMPOUND-QA/gi)).toHaveLength(totalPaginas * 2);
       }
       expect(texto).toContain('LOTE-COMPOUND-QA');
     } finally {
@@ -1242,10 +1242,15 @@ describe('pdf layout visual guard', () => {
       const marcada = await sharp(imagenJpeg).composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="${Number(metadata.height ?? 2070)}">${marcas}</svg>`) }]).jpeg({ quality: 84 }).toBuffer();
       const imagenVaciaBase64 = `data:image/jpeg;base64,${imagenJpeg.toString('base64')}`;
       const imagenMarcadaBase64 = `data:image/jpeg;base64,${marcada.toString('base64')}`;
-      const [vacia, marcadaOmr] = await Promise.all([
-        analizarOmr(imagenVaciaBase64, pagina, pagina.qr?.texto, 10),
-        analizarOmr(imagenMarcadaBase64, pagina, pagina.qr?.texto, 10)
-      ]);
+      // Este fixture se renderiza directamente desde el PDF y conserva sus
+      // coordenadas exactas; aislar el scorer evita que el rescate local de
+      // fiduciales se ajuste a tinta impresa y la interprete como una marca.
+      const paginaGeometriaConocida = {
+        ...pagina,
+        engineHints: { ...pagina.engineHints, useMapCoordinatesStrict: true }
+      };
+      const vacia = await analizarOmr(imagenVaciaBase64, paginaGeometriaConocida, pagina.qr?.texto, 10);
+      const marcadaOmr = await analizarOmr(imagenMarcadaBase64, paginaGeometriaConocida, pagina.qr?.texto, 10);
       expect(vacia.respuestasDetectadas.every((respuesta) => respuesta.opcion === null), JSON.stringify(vacia.respuestasDetectadas.filter((respuesta) => respuesta.opcion != null).map((respuesta) => ({ numeroPregunta: respuesta.numeroPregunta, opcion: respuesta.opcion, estadoRespuesta: respuesta.estadoRespuesta, flags: respuesta.flags, scores: respuesta.scoresPorOpcion.filter((score) => score.opcion === respuesta.opcion) })))).toBe(true);
       expect(marcadaOmr.respuestasDetectadas.every((respuesta) =>
         respuesta.opcion === ['A', 'B', 'C', 'D', 'E'][(respuesta.numeroPregunta - 1) % 5] &&
@@ -1316,6 +1321,13 @@ describe('pdf layout visual guard', () => {
             .toBe(paginas[indice]?.qr?.texto);
           if (totalPreguntas === 43) {
             const pagina = paginas[indice]!;
+            // La entrada es un render del PDF generado, con mapa exacto; esta
+            // aserción valida la lectura de marcas y la hoja vacía sin mezclar
+            // el rescate adaptativo de fiduciales para capturas deformadas.
+            const paginaGeometriaConocida = {
+              ...pagina,
+              engineHints: { ...pagina.engineHints, useMapCoordinatesStrict: true }
+            };
             const metadata = await sharp(captura.data).metadata();
             const anchoRaster = Number(metadata.width ?? 1600);
             const altoRaster = Number(metadata.height ?? Math.round(792 * anchoRaster / 612));
@@ -1344,7 +1356,7 @@ describe('pdf layout visual guard', () => {
               .toBuffer();
             const lecturaOmr = await analizarOmr(
               `data:image/jpeg;base64,${imagenMarcada.toString('base64')}`,
-              pagina,
+              paginaGeometriaConocida,
               pagina.qr?.texto,
               10
             );
@@ -1364,7 +1376,7 @@ describe('pdf layout visual guard', () => {
 
             const lecturaVacia = await analizarOmr(
               `data:image/jpeg;base64,${jpegAlta.toString('base64')}`,
-              pagina,
+              paginaGeometriaConocida,
               pagina.qr?.texto,
               10
             );

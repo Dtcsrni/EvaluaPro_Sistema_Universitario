@@ -17,7 +17,7 @@ import { generarPdfExamen } from './servicioGeneracionPdf.js';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { normalizarParaNombreArchivo } from '../../compartido/utilidades/texto.js';
 import { resolverNumeroPaginasPlantilla } from './domain/resolverNumeroPaginasPlantilla.js';
-import { TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico.js';
+import { extraerPreguntasUsadasMapaOmr, TEMPLATE_VERSION_CANONICA } from './domain/templateCanonico.js';
 import { esquemaListarExamenesGenerados, esquemaListarLotesExamenes } from './validacionesExamenes.js';
 import {
   asegurarExamenDescargable,
@@ -521,7 +521,20 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
   const porId = new Map<string, BancoPreguntaLean>();
   for (const p of preguntasDb) porId.set(String(p.id), p);
 
-  const preguntasBase = preguntasIdsUnicos.map((id) => {
+  const idsEnMapaOmr = extraerPreguntasUsadasMapaOmr((examen?.mapaOmr ?? {}) as never);
+  const preguntasIdsParaRegenerar = idsEnMapaOmr.size > 0
+    ? preguntasIdsUnicos.filter((id) => idsEnMapaOmr.has(id))
+    : preguntasIdsUnicos;
+  if (preguntasIdsParaRegenerar.length === 0) {
+    throw new ErrorAplicacion(
+      'EXAMEN_MAPA_OMR_INCOMPLETO',
+      'El mapa OMR guardado no identifica reactivos para regenerar este examen.',
+      409,
+      { examenId }
+    );
+  }
+
+  const preguntasBase = preguntasIdsParaRegenerar.map((id) => {
     const pregunta = porId.get(String(id));
     if (!pregunta) {
       throw new ErrorAplicacion('PREGUNTA_FALTANTE', 'Pregunta faltante al regenerar', 409);
@@ -558,6 +571,7 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     distribuirEnPaginasObjetivo: true,
     enforcePageBudget: true,
     autoFitPages: true,
+    autoFitTypography: true,
     fontScale: 1,
     lineSpacing: 1.1
   };
@@ -597,6 +611,12 @@ export async function regenerarPdfExamen(req: SolicitudDocente, res: Response) {
     resultadoPdf = await generarConPaginas(paginasObjetivo);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'EXAMEN_PRESUPUESTO_EXCEDIDO') {
+      throw new ErrorAplicacion('PAGINAS_INSUFICIENTES_POR_EXCESO', msg, 409, {
+        ...(err && 'detalles' in err && typeof err.detalles === 'object' && err.detalles !== null ? err.detalles : {}),
+        numeroPaginas: paginasObjetivo
+      });
+    }
     if (msg.includes('Layout invalido: densidad insuficiente')) {
       throw new ErrorAplicacion(
         'LAYOUT_DENSIDAD_INSUFICIENTE',

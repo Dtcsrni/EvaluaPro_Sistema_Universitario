@@ -690,9 +690,15 @@ export async function previsualizarPlantillaPdfUseCase(params: {
     ? extraerPreguntasHastaPagina(previewResultado.mapaOmr, contexto.numeroPaginas)
     : extraerPreguntasUsadasMapaOmr(previewResultado.mapaOmr as never);
   const preguntasSeleccionadas = contexto.preguntasDb.filter((pregunta) => preguntasUsadasIds.has(String(pregunta.id)));
+  // Una plantilla activa puede tener más reactivos de los que caben en una
+  // variante. El generador selecciona por examen los que caben; el preview
+  // confirma el presupuesto físico y el banco completo como blueprint aunque
+  // informe reactivos omitidos por capacidad.
   const vistaPreviaUsable = contexto.esExtraordinarioArchivado
     ? preguntasSeleccionadas.length > 0 && paginasParaPdf.length === contexto.numeroPaginas
-    : previewResultado.preguntasRestantes === 0 && previewResultado.paginas.length <= contexto.numeroPaginas;
+    : preguntasSeleccionadas.length > 0 &&
+      previewResultado.paginas.length === contexto.numeroPaginas &&
+      previewResultado.paginas.length <= contexto.numeroPaginas;
   if (vistaPreviaUsable) {
     const preguntasBlueprint = contexto.esExtraordinarioArchivado ? preguntasSeleccionadas : contexto.preguntasDb;
     const blueprint = await construirBlueprintPlantilla(preguntasBlueprint, { legacyOnly: contexto.periodo?.activo === false });

@@ -5206,10 +5206,15 @@ export class PdfKitRenderer {
         throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
       }
       const numeroPaginaExamen = indicePagina + 1;
-      const referenciasPie = [
-        `LOTE ${String(examen.loteId ?? '').trim() || examen.folioNormalizado}`,
-        `FOLIO ${examen.folioNormalizado} · P${numeroPaginaExamen}`
-      ];
+      const loteCompleto = String(examen.loteId ?? '').trim() || examen.folioNormalizado;
+      const loteIdPie = loteCompleto.toUpperCase();
+      const folioPie = String(examen.folioNormalizado).toUpperCase();
+      const referenciaPie = loteIdPie === folioPie
+        ? `FOLIO ${folioPie} · P${numeroPaginaExamen}`
+        : `LOTE ${loteIdPie} · FOLIO ${folioPie} · P${numeroPaginaExamen}`;
+      // Cada mitad debe bastar por sí sola: el OCR coteja dos regiones
+      // independientes, y la referencia del lote debe seguir impresa en ambas.
+      const referenciasPie = [referenciaPie, referenciaPie];
       const textosPie = referenciasPie.map((pieTexto) => {
         let size = pieSizePreferido;
         let width = fuenteOcr.widthOfTextAtSize(pieTexto, size);

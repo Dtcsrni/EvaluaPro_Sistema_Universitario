@@ -301,7 +301,7 @@ test.describe('Banco de reactivos', () => {
         periodoId,
         tipo: 'parcial',
         titulo: `Segundo Parcial Banco E2E ${sufijo}`,
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         reactivosObjetivo: 1,
         temas: ['Segundo Parcial']
       }
@@ -310,7 +310,9 @@ test.describe('Banco de reactivos', () => {
     const plantillaId = String((await plantillaResponse.json()).plantilla._id);
     const snapshot = await request.get(`${base}/examenes/plantillas/${plantillaId}/previsualizar`, { headers });
     expect(snapshot.status()).toBe(200);
-    expect((await snapshot.json()).totalUsados).toBe(1);
+    // La selección por capacidad aprovecha la plantilla parcial de 2 páginas;
+    // ambos reactivos elegibles caben, aunque reactivosObjetivo sea 1.
+    expect((await snapshot.json()).totalUsados).toBe(2);
     const preview = await request.get(`${base}/examenes/plantillas/${plantillaId}/previsualizar/pdf/visual`, { headers });
     expect(
       preview.status(),
@@ -321,6 +323,7 @@ test.describe('Banco de reactivos', () => {
     expect(previewPdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
     const documentoPreview = await PDFDocument.load(previewPdf);
     expect(previewPayload.paginasTotales).toBe(documentoPreview.getPageCount());
+    expect(documentoPreview.getPageCount()).toBe(2);
     expect(previewPayload.paginas).toHaveLength(documentoPreview.getPageCount());
     for (const pagina of previewPayload.paginas as Array<{ width: number; height: number; dataUrl: string }>) {
       expect(pagina.width).toBeGreaterThan(0);
