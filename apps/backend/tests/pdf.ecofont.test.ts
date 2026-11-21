@@ -100,10 +100,10 @@ describe('PDF: Ecofont y fuente OCR del pie', () => {
     for (const referencia of referenciasPie) {
       copiasPorReferencia.set(referencia.text, (copiasPorReferencia.get(referencia.text) ?? 0) + 1);
     }
-    expect(copiasPorReferencia.size).toBe(paginasExamen.length + 1);
-    expect([...copiasPorReferencia.keys()].some((texto) => texto === 'LOTE LOT-ECOFONT-01')).toBe(true);
-    expect([...copiasPorReferencia.keys()].some((texto) => texto.startsWith('FOLIO ECOFONT-QA-001 · P'))).toBe(true);
-    expect(copiasPorReferencia.get('LOTE LOT-ECOFONT-01')).toBe(paginasExamen.length);
-    expect([...copiasPorReferencia.entries()].filter(([texto]) => texto.startsWith('FOLIO ')).every(([, copias]) => copias === 1)).toBe(true);
+    // Cada texto completo incluye lote, folio y página, y se repite en las
+    // dos zonas OCR independientes de esa página.
+    expect(copiasPorReferencia.size).toBe(paginasExamen.length);
+    expect([...copiasPorReferencia.keys()].every((texto) => texto.startsWith('LOTE LOT-ECOFONT-01 · FOLIO ECOFONT-QA-001 · P'))).toBe(true);
+    expect([...copiasPorReferencia.values()].every((copias) => copias === 2)).toBe(true);
   });
 });
