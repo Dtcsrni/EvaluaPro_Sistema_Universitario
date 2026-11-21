@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { construirEncabezadoPdf, construirInicialesAlumno } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
+import { construirInicialesIdentidadAlumno } from '../src/compartido/inicialesAlumno.js';
 
 describe('construirInicialesAlumno', () => {
   it('construye iniciales de nombres y apellidos ignorando particulas', () => {
@@ -21,6 +22,27 @@ describe('construirInicialesAlumno', () => {
       alumno: { nombreCompleto: 'S V Mario A' }
     });
     expect(encabezado.alumno).toMatchObject({ primerNombre: 'Mario', iniciales: 'MASV' });
+  });
+
+  it('comparte la regla de identidad para nombres compuestos, acentos y entradas límite', () => {
+    for (const nombreCompleto of [
+      'García López María José',
+      'De la Cruz Pérez Ángel',
+      'Ávila Núñez Sofía',
+      '  ',
+      '---'
+    ]) {
+      const esperado = construirInicialesIdentidadAlumno({ nombreCompleto });
+      const encabezado = construirEncabezadoPdf({
+        periodo: { nombre: 'Periodo' },
+        docenteDb: { nombreCompleto: 'Docente' },
+        instrucciones: '',
+        alumno: { nombreCompleto }
+      });
+      expect(encabezado.alumno?.iniciales).toBe(esperado);
+    }
+    expect(construirInicialesIdentidadAlumno({ nombreCompleto: '' })).toBe('');
+    expect(construirInicialesIdentidadAlumno({ nombres: 'Ángel José', apellidos: 'Pérez de la Cruz' })).toBe('AJPC');
   });
 
   it('ordena las iniciales del nombre antes de los apellidos si el padrón trae apellidos primero', () => {

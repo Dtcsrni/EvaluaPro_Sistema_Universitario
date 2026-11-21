@@ -51,9 +51,31 @@ export function rutaPermitidaParaApiDelegada(req: SolicitudDocente, permisos: Re
   if (rutasClassroom.some(([method, pattern]) => req.method === method && pattern.test(ruta))) {
     return permisos.has('classroom:pull');
   }
+  if (/^\/periodos(?:\/|$)/.test(ruta)) {
+    const rutasPeriodos: Array<[string, RegExp, string]> = [
+      ['GET', /^\/periodos(?:\/[^/]+\/portada)?$/, 'periodos:leer'],
+      ['POST', /^\/periodos$/, 'periodos:gestionar'],
+      ['PUT', /^\/periodos\/[^/]+\/portada$/, 'periodos:gestionar'],
+      ['DELETE', /^\/periodos\/[^/]+\/portada$/, 'periodos:gestionar'],
+      ['POST', /^\/periodos\/[^/]+\/actualizar$/, 'periodos:gestionar'],
+      ['POST', /^\/periodos\/[^/]+\/archivar$/, 'periodos:archivar']
+    ];
+    return rutasPeriodos.some(([method, pattern, permiso]) =>
+      req.method === method && pattern.test(ruta) && permisos.has(permiso)
+    );
+  }
+  if (/^\/alumnos(?:\/|$)/.test(ruta)) {
+    const rutasAlumnos: Array<[string, RegExp, string]> = [
+      ['GET', /^\/alumnos(?:\/[^/]+)?$/, 'alumnos:leer'],
+      ['POST', /^\/alumnos$/, 'alumnos:gestionar'],
+      ['POST', /^\/alumnos\/reinscribir-grupo-archivado$/, 'alumnos:gestionar'],
+      ['POST', /^\/alumnos\/[^/]+\/actualizar$/, 'alumnos:gestionar']
+    ];
+    return rutasAlumnos.some(([method, pattern, permiso]) =>
+      req.method === method && pattern.test(ruta) && permisos.has(permiso)
+    );
+  }
   const prefijos: Array<[string, string[]]> = [
-    ['/periodos', ['periodos:leer', 'periodos:gestionar', 'periodos:archivar']],
-    ['/alumnos', ['alumnos:leer', 'alumnos:gestionar']],
     ['/temarios', ['temarios:leer', 'temarios:gestionar']],
     ['/banco-preguntas', ['banco:leer', 'banco:gestionar', 'banco:ingestar', 'banco:revisar', 'banco:publicar', 'banco:archivar']],
     ['/examenes', ['plantillas:leer', 'plantillas:gestionar', 'plantillas:previsualizar', 'examenes:leer', 'examenes:generar', 'examenes:descargar']],

@@ -124,12 +124,14 @@ export function PlantillasConsolaGeneracion({
     .map((alumno) => String(alumno.grupo ?? '').trim())
     .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [alumnosPeriodo]);
   useEffect(() => {
-    setGrupoLote(gruposMateria.length === 1 ? gruposMateria[0] : '');
+    setGrupoLote('');
   }, [gruposMateria, plantillaId]);
   const alumnosMateria = plantillaSeleccionada
     ? (esExtraordinario
       ? alumnosPeriodo
-      : alumnosPeriodo.filter((alumno) => String(alumno.grupo ?? '').trim() === grupoLote))
+      : grupoLote
+        ? alumnosPeriodo.filter((alumno) => String(alumno.grupo ?? '').trim() === grupoLote)
+        : alumnosPeriodo)
     : listaAlumnos;
   const alumnosMateriaPorId = useMemo(() => new Map(alumnosMateria.map((alumno) => [alumno._id, alumno])), [alumnosMateria]);
   const alumnosExtraordinariosSeleccionados = alumnoIdsExtraordinario.filter((alumnoId) => alumnosMateriaPorId.has(alumnoId));
@@ -221,7 +223,7 @@ export function PlantillasConsolaGeneracion({
           <span className="banco-tag-preguntas">Plantillas: {listaPlantillas.length}</span>
           <span className="banco-tag-paginas">{esExtraordinario
             ? `${alumnosMateria.length === 1 ? 'Alumno' : 'Alumnos'} en materia`
-            : `${alumnosMateria.length === 1 ? 'Alumno' : 'Alumnos'} del grupo`}: {textoCantidadAlumnos(alumnosMateria.length)}</span>
+            : `${alumnosMateria.length === 1 ? 'Alumno' : 'Alumnos'} ${grupoLote ? 'del grupo' : 'de la materia'}`}: {textoCantidadAlumnos(alumnosMateria.length)}</span>
         </div>
       </div>
 
@@ -280,7 +282,7 @@ export function PlantillasConsolaGeneracion({
               }}
               disabled={!puedeGenerarExamenes}
             >
-              <IconoLucide icon={Package} size={16} /> Paquete por grupo ({textoCantidadAlumnos(alumnosMateria.length)})
+              <IconoLucide icon={Package} size={16} /> Paquete de exámenes ({textoCantidadAlumnos(alumnosMateria.length)})
             </button>
             <button
               type="button"
@@ -297,25 +299,25 @@ export function PlantillasConsolaGeneracion({
 
           {modoGeneracion === 'lote' && !esExtraordinario && (
             <label className="campo mt-10">
-              <span className="campo__label-row"><span>Grupo destinatario del lote</span></span>
+              <span className="campo__label-row"><span>Alcance del lote</span></span>
               <div className="auth-input-box auth-input-box--select auth-input-box--animated">
                 <IconoCampo nombre="select" />
                 <select
-                  aria-label="Grupo destinatario del lote"
+                  aria-label="Alcance del lote"
                   value={grupoLote}
                   onChange={(event) => setGrupoLote(event.target.value)}
-                  disabled={generandoLote || gruposMateria.length === 0}
+                  disabled={generandoLote || alumnosPeriodo.length === 0}
                 >
-                  <option value="">Selecciona un grupo</option>
+                  <option value="">Toda la materia · {textoCantidadAlumnos(alumnosPeriodo.length)}</option>
                   {gruposMateria.map((grupo) => <option key={grupo} value={grupo}>{grupo}</option>)}
                 </select>
               </div>
               {gruposMateria.length === 0 && (
                 <InlineMensaje tipo="info">
-                  No hay alumnos activos con grupo asignado en esta materia. Registra alumnos o asígnales un grupo en Alumnos para habilitar la generación por lote.
+                  No hay grupos asignados. Se generará para todos los alumnos activos de la materia; puedes asignarles grupos en Alumnos para filtrar el lote.
                 </InlineMensaje>
               )}
-              {gruposMateria.length > 1 && !grupoLote && <p className="nota">Selecciona un grupo para limitar el lote a su padrón activo.</p>}
+              {gruposMateria.length > 1 && !grupoLote && <p className="nota">Se incluirán todos los grupos en un solo lote. Elige un grupo para limitarlo a ese padrón.</p>}
             </label>
           )}
 
@@ -342,7 +344,7 @@ export function PlantillasConsolaGeneracion({
                   onChange={() => setVarianteComunLote(true)}
                   disabled={generandoLote}
                 />
-                <span>Una variante común para todo el grupo</span>
+                <span>Una variante común para {grupoLote ? 'el grupo seleccionado' : 'toda la materia'}</span>
               </label>
               <p id="plantillas-variante-comun-ayuda" role={varianteComunLote ? 'alert' : 'note'} className="ayuda">
                 {varianteComunLote
@@ -555,7 +557,7 @@ export function PlantillasConsolaGeneracion({
                 type="button"
                 variante="primario"
                 cargando={generandoLote}
-            disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : modoGeneracion === 'lote' ? !grupoLote || alumnosMateria.length === 0 : alumnosMateria.length === 0) || (esPeriodoArchivado && !previewExtraordinarioConfirmado)}
+            disabled={!puedeGenerarExamenes || !plantillaId || (esExtraordinario ? alumnosExtraordinariosSeleccionados.length === 0 : alumnosMateria.length === 0) || (esPeriodoArchivado && !previewExtraordinarioConfirmado)}
                 onClick={() => onGenerarExamenesLote(esExtraordinario ? {
                   tipoExamen: 'extraordinario',
                   alumnoIds: alumnosExtraordinariosSeleccionados

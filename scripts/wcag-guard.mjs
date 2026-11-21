@@ -15,12 +15,6 @@ const policyPath = path.join(repoRoot, 'docs', 'WCAG_UI_POLICY.md');
 const cssRoot = path.join(repoRoot, 'apps', 'frontend', 'src', 'styles');
 const contrastAudit = path.join(repoRoot, 'scripts', 'tests', 'ui-contrast-audit.mjs');
 const eslintConfig = path.join(repoRoot, 'apps', 'frontend', 'eslint.config.mjs');
-// Baseline de los estilos de la instalación local sincronizada en v1.1.6.
-// Este commit contiene también la migración CSS que introdujo el guardrail;
-// solo evita reauditar ese historial y deja las adiciones posteriores bajo
-// revisión WCAG.
-const WCAG_CSS_BASELINE_COMMIT = '53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12';
-
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
@@ -59,54 +53,23 @@ function gitAvailable(ref) {
   return result.status === 0;
 }
 
-function gitContainsFile(ref, relativePath) {
-  const result = spawnSync('git', ['cat-file', '-e', `${ref}:${relativePath}`], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    stdio: ['ignore', 'ignore', 'ignore'],
-  });
-  return result.status === 0;
-}
-
-function wcagGuardIntroductionCommit() {
-  const result = spawnSync('git', ['log', '--all', '--reverse', '--format=%H', '--', 'scripts/wcag-guard.mjs'], {
+function mergeBase(baseRef) {
+  const result = spawnSync('git', ['merge-base', baseRef, 'HEAD'], {
     cwd: repoRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
-  return (result.stdout || '').split(/\r?\n/).find(Boolean) || null;
+  return result.status === 0 ? (result.stdout || '').trim() : null;
 }
 
-function wcagCssBaselineCommit() {
-  if (gitAvailable(WCAG_CSS_BASELINE_COMMIT)) {
-    return WCAG_CSS_BASELINE_COMMIT;
-  }
-  return wcagGuardIntroductionCommit();
-}
-
-export function cssDiff(baseSha = process.env.EVALUAPRO_WCAG_BASE_SHA || process.env.GITHUB_BASE_SHA) {
+export function cssDiff(baseSha = process.env.EVALUAPRO_WCAG_BASE_SHA || process.env.GITHUB_BASE_SHA || (process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : undefined)) {
   const args = ['diff', '--unified=0'];
   if (baseSha && gitAvailable(baseSha)) {
-    const baselineCommit = wcagCssBaselineCommit();
-    if (baselineCommit) {
-      // El snapshot de v1.1.6 es la frontera estable de esta migración. La
-      // historia previa puede venir de otra rama, así que no se decide por
-      // ascendencia respecto de GITHUB_BASE_SHA; solo se audita CSS posterior
-      // al snapshot y se conserva el fallback para ramas sin ese commit.
-      // Compara con el árbol de trabajo, no solo con HEAD. Así el preflight
-      // local analiza los mismos cambios que CI aunque aún no estén commiteados.
-      args.push(baselineCommit);
-    } else if (gitContainsFile(baseSha, 'scripts/wcag-guard.mjs')) {
-      args.push(baseSha);
-    } else {
-      // La política se incorpora durante una migración que también sincroniza
-      // estilos locales. Usa el baseline de esa migración para no reauditar
-      // CSS histórico; las adiciones posteriores siguen sujetas al guardrail.
-      args.push(baselineCommit || baseSha);
-    }
+    // Audita el diff de esta rama desde su ancestro común con la base del PR,
+    // además de cualquier edición sin commit del árbol de trabajo.
+    args.push(mergeBase(baseSha) || baseSha);
   } else if (process.env.GITHUB_SHA && gitAvailable('HEAD^')) {
-    const baselineCommit = wcagCssBaselineCommit();
-    args.push(baselineCommit || 'HEAD^');
+    args.push('HEAD^');
   }
   args.push('--', 'apps/frontend/src/styles');
   const result = spawnSync('git', args, {

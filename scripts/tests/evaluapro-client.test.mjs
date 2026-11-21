@@ -614,11 +614,19 @@ test('preflight identifica periodo y no consulta lease sin ID de equipo', async 
     visited.push(new URL(url).pathname);
     return new Response(JSON.stringify(responses.shift()), { status: 200, headers: { 'content-type': 'application/json' } });
   } });
-  const result = await client.preflight({ periodoId: 'periodo-1' });
+  const result = await client.preflight({
+    periodoId: 'periodo-1',
+    requiredPermissions: ['periodos:leer', 'periodos:gestionar', 'classroom:pull']
+  });
   assert.equal(result.authenticated, true);
   assert.equal(result.preflight.protocol, 'v2');
   assert.equal(result.periodo.state, 'available');
   assert.equal(result.lease.state, 'needs_team_id');
+  assert.deepEqual(result.permissionCheck, {
+    state: 'missing',
+    required: ['periodos:leer', 'periodos:gestionar', 'classroom:pull'],
+    missing: ['periodos:gestionar', 'classroom:pull']
+  });
   assert.equal(visited.includes('/api/preflight'), true);
   assert.equal(visited.includes('/api/sincronizaciones/local/lease'), false);
 });

@@ -85,13 +85,13 @@ describe('recuperacion de examenes', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Plantilla Recovery Service',
-        numeroPaginas: 3,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
 
     await request(app)
-      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf`)
+      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf/visual`)
       .set(auth)
       .expect(200);
 

@@ -1,0 +1,227 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "2026-11-20-exam-flow-stabilization",
+  "status": "final",
+  "generatedAt": "2026-11-20T16:57:38.740Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Estabilizar la creación de banco/exámenes y corregir los fallos detectados al adelantar CI."
+  },
+  "objective": "Cerrar regresiones de capacidad compartida, presupuesto PDF, orden/nombre de lotes, iniciales, scopes API, trazabilidad Classroom, UI responsive y validación WCAG local contra la base del PR.",
+  "scope": [
+    "Generación y descarga PDF",
+    "Variantes reproducibles y recuperación de lotes",
+    "Orden de padrón y nombre de grupos",
+    "Banco responsive y recuperación de borradores",
+    "Scopes API y trazabilidad Classroom",
+    "Iniciales unificadas",
+    "Guardrail WCAG y contrato de CI"
+  ],
+  "constraints": [
+    "Sin bump de versión",
+    "Sin registrar secretos o credenciales",
+    "No fusionar antes de CI verde ni sin evidencia OMR física",
+    "Excluir auxiliar PDF temporal del commit"
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-11-20T16:57:38.740Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      ".github/workflows/ci.yml",
+      "apps/frontend/src/styles/screens.css",
+      "apps/frontend/tests/plantillas.refactor.test.tsx",
+      "docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.json",
+      "docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.md",
+      "scripts/wcag-guard.mjs",
+      "apps/backend/tmp_pdf_visual_check.ts"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.json",
+      "docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4621,
+      "resultSummary": "✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (1.7508ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (656.4703ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (631.5259ms) | ... | npm notice run evaluapro@1.2.25 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1399,
+      "resultSummary": "npm notice run evaluapro@1.2.25 docs:check | npm notice run node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-11-20T16:57:38.740Z"
+    }
+  ],
+  "decisions": [
+    "Shared conserva el orden de opciones y ajusta selección/conteo por alumno con semilla estable.",
+    "Parcial fija 2 páginas y global 4; la UI no edita el presupuesto y el renderer rechaza overflow.",
+    "WCAG audita el diff desde el merge-base real del PR y el árbol de trabajo; se elimina el fetch del snapshot histórico."
+  ],
+  "assumptions": [
+    "Los tests de integración usan loopback; EACCES inicial era restricción del sandbox y pasaron al ejecutar localmente con autorización."
+  ],
+  "risks": [
+    "El corpus piloto OMR real está vacío; el corpus sintético local pasó.",
+    "El SHA 53629d2 tuvo fallo frontend por comparar contra snapshot WCAG histórico; la corrección pasó localmente, pero falta repetir CI en un SHA nuevo.",
+    "No se ejecutó backend/portal/coverage CI completo."
+  ],
+  "nextStep": "Crear commit de la corrección del guardrail y las expectativas UI; publicar en la rama del PR #326 y validar el nuevo CI. No fusionar hasta gates verdes y capturas OMR físicas representativas.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\ChatGPT\\Evaluapro\\worktrees\\classroom-api-scopes-and-initials",
+    "branch": "fix/classroom-api-scopes-and-initials",
+    "commit": "53629d21",
+    "workingTreeStatus": "M .github/workflows/ci.yml\n M apps/frontend/src/styles/screens.css\n M apps/frontend/tests/plantillas.refactor.test.tsx\n M docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.json\n M docs/handoff/sesiones/2026-11-20/2026-11-20-exam-flow-stabilization.md\n M scripts/wcag-guard.mjs\n?? apps/backend/tmp_pdf_visual_check.ts"
+  }
+}

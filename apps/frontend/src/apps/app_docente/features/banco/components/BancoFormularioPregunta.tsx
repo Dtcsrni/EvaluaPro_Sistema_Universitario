@@ -206,12 +206,12 @@ export function BancoFormularioPregunta({
 
         {/* Header Mini-KPIs */}
         <div className="banco-header-kpis">
-          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Total de preguntas activas en la materia">
+          <div className="banco-mini-kpi banco-mini-kpi--preguntas anim-kpi-hover" data-tooltip="Reactivos publicados disponibles para exámenes en la materia">
             <span className="banco-mini-kpi__icon" aria-hidden="true">
               <IconoLucide icon={FileText} size={16} />
             </span>
             <span className="banco-mini-kpi__num">{preguntasMateriaCantidad}</span>
-            <span className="banco-mini-kpi__lbl">Preguntas</span>
+            <span className="banco-mini-kpi__lbl">Disponibles</span>
           </div>
 
           <div className="banco-mini-kpi banco-mini-kpi--temas anim-kpi-hover" data-tooltip="Cantidad de temas activos en la materia">

@@ -118,7 +118,7 @@ describe('calificación OMR cuenta respuestas sin opción como incorrectas', () 
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds: [preguntaId]
       })
       .expect(201);

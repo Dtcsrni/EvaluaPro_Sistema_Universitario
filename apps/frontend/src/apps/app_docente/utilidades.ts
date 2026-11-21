@@ -4,6 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
+import { construirInicialesIdentidadAlumno } from '../../../../backend/src/compartido/inicialesAlumno.js';
 import { mensajeUsuarioDeErrorConSugerencia } from '../../servicios_api/clienteComun';
 import { obtenerSessionId } from '../../ui/ux/sesion';
 import { tipoMensajeInline } from './mensajeInline';
@@ -64,28 +65,22 @@ const VISTAS_VALIDAS = new Set([
 
 export const patronNombreMateria = /^[\p{L}\p{N}][\p{L}\p{N}\s\p{Pd}_.()#&/]*$/u;
 
-/** Iniciales consistentes con las que se imprimen en los exámenes masivos. */
-export function obtenerInicialesAlumno(nombreCompleto?: string): string {
-  const particulas = new Set(['a', 'da', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'y']);
-  const palabras = String(nombreCompleto ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase()
-    .match(/[a-z0-9]+/g) ?? [];
-  const significativas = palabras.filter((palabra) => !particulas.has(palabra));
-  const iniciales = (significativas.length > 0 ? significativas : palabras)
-    .map((palabra) => palabra.charAt(0))
-    .join('')
-    .toUpperCase();
-  if (iniciales.length <= 6) return iniciales;
-  return `${iniciales.slice(0, 3)}${iniciales.slice(-3)}`;
+/** Usa la misma regla y los mismos datos de identidad que la plantilla del examen. */
+export type IdentidadInicialesAlumno = {
+  nombreCompleto?: string;
+  nombres?: string;
+  apellidos?: string;
+};
+
+export function obtenerInicialesAlumno(identidad?: string | IdentidadInicialesAlumno): string {
+  return construirInicialesIdentidadAlumno(
+    typeof identidad === 'string' ? { nombreCompleto: identidad } : identidad ?? {}
+  );
 }
 
-/** Iniciales compactas para el avatar de una tarjeta de alumno. */
-export function obtenerInicialesAvatarAlumno(nombreCompleto?: string): string {
-  const iniciales = obtenerInicialesAlumno(nombreCompleto);
-  if (iniciales.length <= 2) return iniciales;
-  return `${iniciales[0]}${iniciales[iniciales.length - 1]}`;
+/** Alias de compatibilidad; el avatar muestra las mismas iniciales que el examen. */
+export function obtenerInicialesAvatarAlumno(identidad?: string | IdentidadInicialesAlumno): string {
+  return obtenerInicialesAlumno(identidad);
 }
 
 export function obtenerVistaInicial(): string {

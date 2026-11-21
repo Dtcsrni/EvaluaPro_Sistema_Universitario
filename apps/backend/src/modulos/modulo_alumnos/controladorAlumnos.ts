@@ -10,6 +10,7 @@ import type { SolicitudDocente } from '../modulo_autenticacion/index.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import { normalizarMatricula } from '../../compartido/utilidades/texto.js';
 import { guardarEnPapelera } from '../modulo_papelera/index.js';
+import { obtenerSiguienteOrdenLista } from './ordenListaAlumnos.js';
 
 function validarAdminDev() {
   if (String(configuracion.entorno).toLowerCase() !== 'development') {
@@ -32,6 +33,7 @@ export async function listarAlumnos(req: SolicitudDocente, res: Response) {
         docenteId
       }
     },
+    orderBy: [{ ordenLista: 'asc' }, { createdAt: 'asc' }, { matricula: 'asc' }, { id: 'asc' }],
     take: limite > 0 ? limite : undefined
   });
 
@@ -69,6 +71,7 @@ export async function crearAlumno(req: SolicitudDocente, res: Response) {
       nombreCompleto,
       correo,
       grupo: grupo || null,
+      ordenLista: await obtenerSiguienteOrdenLista(periodoId),
       activo: typeof activo === 'boolean' ? activo : true
     }
   });
@@ -102,7 +105,8 @@ export async function reinscribirGrupoArchivado(req: SolicitudDocente, res: Resp
 
     const alumnosOrigen = await tx.alumno.findMany({
       where: { periodoId: origen.id, activo: false },
-      select: { matricula: true, nombres: true, apellidos: true, nombreCompleto: true, correo: true, grupo: true }
+      select: { matricula: true, nombres: true, apellidos: true, nombreCompleto: true, correo: true, grupo: true, ordenLista: true },
+      orderBy: [{ ordenLista: 'asc' }, { createdAt: 'asc' }, { matricula: 'asc' }, { id: 'asc' }]
     });
     const grupoKey = normalizarGrupo(grupo);
     const seleccionados = alumnosOrigen.filter((alumno) => normalizarGrupo(alumno.grupo) === grupoKey);
@@ -134,6 +138,7 @@ export async function reinscribirGrupoArchivado(req: SolicitudDocente, res: Resp
       await tx.periodo.update({ where: { id: destino.id }, data: { grupos: JSON.stringify(gruposDestino) } });
     }
 
+    let siguienteOrden = await obtenerSiguienteOrdenLista(destino.id);
     for (const alumno of seleccionados) {
       const matriculaKey = normalizarMatricula(alumno.matricula);
       if (matriculasOrigen.has(matriculaKey) || matriculasDestino.has(matriculaKey)) {
@@ -160,11 +165,13 @@ export async function reinscribirGrupoArchivado(req: SolicitudDocente, res: Resp
           nombreCompleto: alumno.nombreCompleto,
           correo: alumno.correo,
           grupo: grupoDestino,
+          ordenLista: siguienteOrden,
           activo: true
         }
       });
       if (inscrito.id === idNuevo) {
         reinscritos += 1;
+        siguienteOrden += 1;
         matriculasDestino.add(matriculaKey);
       } else {
         yaInscritos += 1;

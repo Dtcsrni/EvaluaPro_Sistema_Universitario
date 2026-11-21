@@ -102,8 +102,8 @@ describe('SeccionAlumnos', () => {
     expect(container.querySelector('.alumnos-status-pill')).not.toBeInTheDocument();
     expect(container.querySelectorAll('.alumnos-pulse-dot')).toHaveLength(0);
     expect(screen.getByText('Correo (opcional)')).toBeInTheDocument();
-    expect(screen.getByText('AR')).toBeInTheDocument();
-    expect(screen.getByText('CH')).toBeInTheDocument();
+    expect(screen.getByText('AMGR')).toBeInTheDocument();
+    expect(screen.getByText('CLH')).toBeInTheDocument();
     expect(container.querySelector('.materia-mini-kpi--groups .materia-mini-kpi__lbl')).toHaveTextContent(/^grupos$/);
   });
 

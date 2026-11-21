@@ -482,15 +482,17 @@ async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
   try {
     tokenAcceso = await cliente.getAccessToken();
   } catch (error) {
-    const codigoGoogle = String((error as { response?: { data?: { error?: unknown } } })?.response?.data?.error ?? '');
+    const diagnostico = diagnosticarErrorRenovacionClassroom(error);
+    log('error', 'Falló la renovación OAuth de Google Classroom', diagnostico);
+    const codigoGoogle = diagnostico.providerCode;
     if (codigoGoogle === 'invalid_grant' || codigoGoogle === 'invalid_token') {
       await IntegracionClassroom.updateOne(
         { _id: integracion._id },
         { $set: { ultimoError: 'Google requiere volver a autorizar Classroom' } }
       );
-      throw new ErrorAplicacion('CLASSROOM_REAUTORIZAR', 'La autorización de Classroom venció o fue revocada. Vuelve a vincular la misma cuenta Google.', 401, { classification: 'invalid_grant' });
+      throw new ErrorAplicacion('CLASSROOM_REAUTORIZAR', 'La autorización de Classroom venció o fue revocada. Vuelve a vincular la misma cuenta Google.', 401);
     }
-    throw new ErrorAplicacion('CLASSROOM_TOKEN_RENOVACION_ERROR', 'No se pudo renovar la autorización de Google Classroom.', 503, { classification: 'token_refresh' });
+    throw new ErrorAplicacion('CLASSROOM_TOKEN_RENOVACION_ERROR', 'No se pudo renovar la autorización de Google Classroom.', 503);
   }
   const accessToken = String(tokenAcceso.token || '').trim();
   if (!accessToken) {
@@ -512,6 +514,32 @@ async function renovarTokenAccesoClassroom(docenteId: string): Promise<string> {
   );
 
   return accessToken;
+}
+
+function diagnosticarErrorRenovacionClassroom(error: unknown): {
+  event: 'classroom_oauth_refresh_failed';
+  category: 'provider' | 'network' | 'unknown';
+  providerCode?: string;
+  providerStatus?: number;
+  networkCode?: string;
+} {
+  const value = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  const response = value.response && typeof value.response === 'object' ? value.response as Record<string, unknown> : {};
+  const data = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : {};
+  const rawProviderCode = String(data.error ?? '').trim();
+  const rawNetworkCode = String(value.code ?? '').trim();
+  const status = Number(response.status ?? value.status ?? value.statusCode);
+  const providerCode = /^[a-z][a-z0-9_]{0,63}$/i.test(rawProviderCode) ? rawProviderCode : undefined;
+  const networkCode = /^[A-Z0-9_]{1,48}$/i.test(rawNetworkCode) ? rawNetworkCode : undefined;
+  const providerStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : undefined;
+  const category = providerCode || providerStatus ? 'provider' : networkCode ? 'network' : 'unknown';
+  return {
+    event: 'classroom_oauth_refresh_failed',
+    category,
+    ...(providerCode ? { providerCode } : {}),
+    ...(providerStatus ? { providerStatus } : {}),
+    ...(networkCode ? { networkCode } : {})
+  };
 }
 
 export function obtenerTokenAccesoClassroom(docenteId: string): Promise<string> {

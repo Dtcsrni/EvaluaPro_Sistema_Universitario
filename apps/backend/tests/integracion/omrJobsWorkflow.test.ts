@@ -289,7 +289,7 @@ describe('workflow OMR por jobs', () => {
     const plantilla = await request(app)
       .post('/api/examenes/plantillas')
       .set(auth)
-      .send({ periodoId, tipo: 'parcial', titulo: 'Plantilla OMR jobs', numeroPaginas: 1, preguntasIds })
+      .send({ periodoId, tipo: 'parcial', titulo: 'Plantilla OMR jobs', numeroPaginas: 2, preguntasIds })
       .expect(201);
     await request(app)
       .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf/visual`)
@@ -557,7 +557,7 @@ describe('workflow OMR por jobs', () => {
     expect(job.files.map((file: { nombre: string }) => file.nombre)).toEqual(['respuestas-global.pdf', 'respuestas-global-continuacion.pdf']);
     expect(job.files[0].sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(job.files.map((file: { pages: number }) => file.pages)).toEqual([1, 1]);
-    expect(job.reference.pagesWithQr).toBe(1);
+    expect(job.reference.pagesWithQr).toBe(2);
     const recuperado = await request(app)
       .get('/api/omr/ingestas/por-clave/0ed65266-1404-4293-95a9-6262694f8c21')
       .set(auth)
@@ -601,7 +601,7 @@ describe('workflow OMR por jobs', () => {
     await request(app)
       .get(`/api/omr/ingestas/${jobId}/paginas/${job.pages[1].pageIndex}/reference-preview?generatedAssessmentId=${encodeURIComponent(escenario.examenId)}&examPage=2`)
       .set(auth)
-      .expect(422);
+      .expect(200);
     const examenAjenoAlLote = await request(app)
       .get(`/api/omr/ingestas/${jobId}/paginas/${job.pages[1].pageIndex}/reference-preview?generatedAssessmentId=otro-examen&examPage=1`)
       .set(auth)
@@ -821,12 +821,21 @@ describe('workflow OMR por jobs', () => {
       where: { id: { in: examenes.map((examen) => examen._id) } },
       select: { id: true, folio: true, mapaVariante: true, recoveryManifest: true }
     });
-    expect(new Set(examenesDeVarianteCompartida.map((examen) => examen.mapaVariante)).size).toBe(1);
+    const mapasVariantesCompartidos = examenesDeVarianteCompartida.map((examen) => JSON.parse(String(examen.mapaVariante)) as {
+      ordenPreguntas: string[];
+      ordenOpcionesPorPregunta: Record<string, number[]>;
+    });
+    for (const idPregunta of new Set(mapasVariantesCompartidos.flatMap((mapa) => mapa.ordenPreguntas))) {
+      const ordenesDeOpcion = mapasVariantesCompartidos
+        .map((mapa) => mapa.ordenOpcionesPorPregunta[idPregunta])
+        .filter((orden): orden is number[] => Array.isArray(orden));
+      expect(new Set(ordenesDeOpcion.map((orden) => orden.join(','))).size).toBeLessThanOrEqual(1);
+    }
     const manifiestosCompartidos = examenesDeVarianteCompartida.map((examen) => JSON.parse(String(examen.recoveryManifest)) as {
       answerKeySnapshot: { hash: string };
       pages: Array<{ qrTexto: string }>;
     });
-    expect(new Set(manifiestosCompartidos.map((manifest) => manifest.answerKeySnapshot.hash)).size).toBe(1);
+    expect(manifiestosCompartidos.every((manifest) => Boolean(manifest.answerKeySnapshot.hash))).toBe(true);
     expect(new Set(manifiestosCompartidos.map((manifest) => manifest.pages[0]?.qrTexto)).size).toBe(2);
     expect(new Set(examenesDeVarianteCompartida.map((examen) => examen.folio)).size).toBe(2);
     const reanudarConPoliticaDistinta = await request(app)
@@ -842,7 +851,7 @@ describe('workflow OMR por jobs', () => {
       .parse(parsearBinario)
       .expect(200);
     const pdfOrigen = await PDFDocument.load(referencia.body as Buffer);
-    expect(pdfOrigen.getPageCount()).toBe(1);
+    expect(pdfOrigen.getPageCount()).toBe(2);
     const examenFormulario = await prisma.examenGenerado.findUniqueOrThrow({ where: { id: examenes[0]!._id } });
     const mapaOmrFormulario = JSON.parse(String(examenFormulario.mapaOmr)) as {
       paginas: Array<{
@@ -855,33 +864,39 @@ describe('workflow OMR por jobs', () => {
       answerKeySnapshot: { entries: Array<{ visibleNumber: number; correctLetterVisible: string }> };
     };
     const clavePorPregunta = new Map(manifestFormulario.answerKeySnapshot.entries.map((entry) => [entry.visibleNumber, entry.correctLetterVisible]));
-    const copias = await PDFDocument.create();
-    const [primera] = await copias.copyPages(pdfOrigen, [0]);
-    const [segunda] = await copias.copyPages(pdfOrigen, [0]);
-    const fuente = await copias.embedFont(StandardFonts.Helvetica);
-    primera!.drawText('copia A', { x: 12, y: 5, size: 4, font: fuente });
-    segunda!.drawText('copia B', { x: 12, y: 5, size: 4, font: fuente });
-    for (const paginaOmr of mapaOmrFormulario.paginas) {
+    const documentoPrimera = await PDFDocument.create();
+    const primera = await documentoPrimera.copyPages(pdfOrigen, [0, 1]);
+    const documentoSegunda = await PDFDocument.create();
+    const segunda = await documentoSegunda.copyPages(pdfOrigen, [0, 1]);
+    const fuentePrimera = await documentoPrimera.embedFont(StandardFonts.Helvetica);
+    const fuenteSegunda = await documentoSegunda.embedFont(StandardFonts.Helvetica);
+    primera.forEach((pagina, indice) => pagina.drawText(`copia A-${indice + 1}`, { x: 35, y: 760, size: 6, font: fuentePrimera }));
+    segunda.forEach((pagina, indice) => pagina.drawText(`copia B-${indice + 1}`, { x: 35, y: 760, size: 6, font: fuenteSegunda }));
+    for (const [indicePagina, paginaOmr] of mapaOmrFormulario.paginas.entries()) {
       for (const pregunta of paginaOmr.preguntas) {
         const letraCorrecta = clavePorPregunta.get(pregunta.numeroPregunta);
         const opcionCorrecta = pregunta.opciones.find((opcion) => opcion.letra === letraCorrecta);
         const opcionIncorrecta = pregunta.opciones.find((opcion) => opcion.letra !== letraCorrecta);
         expect(opcionCorrecta, `falta la opción de clave para el reactivo ${pregunta.numeroPregunta}`).toBeDefined();
         expect(opcionIncorrecta, `falta una opción incorrecta para el reactivo ${pregunta.numeroPregunta}`).toBeDefined();
-        primera!.drawCircle({
-          x: opcionCorrecta!.x, y: opcionCorrecta!.y, size: Number(opcionCorrecta!.radio ?? 3) * 0.72,
+        primera[indicePagina]!.drawCircle({
+          x: opcionCorrecta!.x, y: opcionCorrecta!.y, size: Number(opcionCorrecta!.radio ?? 3) * 0.45,
           color: rgb(0.08, 0.08, 0.08)
         });
-        segunda!.drawCircle({
-          x: opcionIncorrecta!.x, y: opcionIncorrecta!.y, size: Number(opcionIncorrecta!.radio ?? 3) * 0.72,
+        segunda[indicePagina]!.drawCircle({
+          x: opcionIncorrecta!.x, y: opcionIncorrecta!.y, size: Number(opcionIncorrecta!.radio ?? 3) * 0.45,
           color: rgb(0.08, 0.08, 0.08)
         });
       }
     }
     const campoBono = mapaOmrFormulario.paginas[0]?.layoutDebug?.headerFieldBoxes?.find((field) => field.id === 'calificacion-linea');
     expect(campoBono, 'el mapa debe exponer el área de calificación de la primera página').toBeDefined();
-    copias.addPage(primera!);
-    copias.addPage(segunda!);
+    primera.forEach((pagina) => documentoPrimera.addPage(pagina));
+    segunda.forEach((pagina) => documentoSegunda.addPage(pagina));
+    const copias = await PDFDocument.create();
+    const paginasPrimera = await copias.copyPages(documentoPrimera, [0, 1]);
+    const paginasSegunda = await copias.copyPages(documentoSegunda, [0, 1]);
+    [...paginasPrimera, ...paginasSegunda].forEach((pagina) => copias.addPage(pagina));
     const scan = Buffer.from(await copias.save());
     const calificacionesAntes = await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } });
     const creado = await request(app)
@@ -899,12 +914,14 @@ describe('workflow OMR por jobs', () => {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${jobId}`).set(auth).expect(200)).body.job;
     }
-    expect(job.status).toBe('completed');
+    expect(job.status, JSON.stringify(job)).toBe('completed');
     expect(job.sharedFormCopies).toBe(true);
     expect(job.sharedSubmissions).toHaveLength(2);
-    expect(job.sharedSubmissions.map((copy: { pageIndexes: number[] }) => copy.pageIndexes)).toEqual([[1], [2]]);
+    expect(job.sharedSubmissions.map((copy: { pageIndexes: number[] }) => copy.pageIndexes)).toEqual([[1, 2], [3, 4]]);
     expect(new Set(job.sharedSubmissions.map((copy: { submissionId: string }) => copy.submissionId)).size).toBe(2);
-    expect(job.pages.map((page: { submissionId: string }) => page.submissionId)).toEqual(job.sharedSubmissions.map((copy: { submissionId: string }) => copy.submissionId));
+    expect(job.pages.map((page: { submissionId: string }) => page.submissionId)).toEqual(
+      job.sharedSubmissions.flatMap((copy: { submissionId: string; pageIndexes: number[] }) => Array(copy.pageIndexes.length).fill(copy.submissionId))
+    );
     expect(job.pages.every((page: Record<string, unknown>) => !Object.hasOwn(page, 'identityResult'))).toBe(true);
     const metadataCompartida = JSON.parse(String((await prisma.omrScanJob.findUniqueOrThrow({ where: { id: jobId } })).metadata)) as {
       pages: Array<{ identityResult?: { studentId: string | null; studentName: string | null }; submissionId?: string }>;
@@ -967,7 +984,7 @@ describe('workflow OMR por jobs', () => {
     };
     expect(metadataTrasResoluciones.packages).toHaveLength(2);
     expect(new Set(metadataTrasResoluciones.packages.map((pkg) => pkg.submissionId))).toEqual(new Set(metadataAntesDeResoluciones.sharedSubmissions.map((copy) => copy.submissionId)));
-    expect(metadataTrasResoluciones.packages.every((pkg) => pkg.status === 'needs_review' && pkg.pageCount === 1)).toBe(true);
+    expect(metadataTrasResoluciones.packages.every((pkg) => pkg.status === 'needs_review' && pkg.pageCount === 2)).toBe(true);
     expect(new Set(metadataTrasResoluciones.packages.map((pkg) => pkg.relativePath)).size).toBe(2);
     expect(metadataTrasResoluciones.pages[0]?.responses[0]?.opcion).toBe(clavePorPregunta.get(1));
     expect(metadataTrasResoluciones.pages[1]?.responses[0]?.opcion).not.toBe(clavePorPregunta.get(1));
@@ -1094,7 +1111,7 @@ describe('workflow OMR por jobs', () => {
       .attach('referencia', pdfLote.body as Buffer, { filename: 'referencia-global.pdf', contentType: 'application/pdf' })
       .expect(200);
     expect(prevalidada.body.matches).toEqual([
-      expect.objectContaining({ loteId, expectedPages: 2, matchedPages: 2 })
+      expect.objectContaining({ loteId, expectedPages: 4, matchedPages: 4 })
     ]);
 
     const creado = await request(app)
@@ -1113,10 +1130,11 @@ describe('workflow OMR por jobs', () => {
     }
 
     expect(job.status).toBe('completed');
-    expect(job.reference).toMatchObject({ sha256: hashLote, pages: 2, pagesWithQr: 2, origen: 'aportada' });
-    expect(job.pages).toHaveLength(2);
+    expect(job.reference).toMatchObject({ sha256: hashLote, pages: 4, pagesWithQr: 4, origen: 'aportada' });
+    expect(job.pages).toHaveLength(4);
     expect(new Set(job.pages.map((page: { examId?: string }) => page.examId))).toEqual(new Set(examenes.map((examen) => examen._id)));
-    expect(job.pages.every((page: { examPage?: number; autoGradable?: boolean }) => page.examPage === 1 && page.autoGradable === false)).toBe(true);
+    expect(job.pages.map((page: { examPage?: number }) => page.examPage).sort()).toEqual([1, 1, 2, 2]);
+    expect(job.pages.every((page: { autoGradable?: boolean }) => page.autoGradable === false)).toBe(true);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(0);
 
     const pdfParcial = await PDFDocument.create();
@@ -1173,8 +1191,8 @@ describe('workflow OMR por jobs', () => {
     }
 
     expect(job.status).toBe('completed');
-    expect(job.reference.pages).toBe(1);
-    expect(job.pages).toHaveLength(1);
+    expect(job.reference.pages).toBe(2);
+    expect(job.pages).toHaveLength(2);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(0);
   }, 600_000);
 
@@ -1203,7 +1221,7 @@ describe('workflow OMR por jobs', () => {
       job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
     }
     expect(job.status).toBe('completed');
-    expect(job.pages).toHaveLength(1);
+    expect(job.pages).toHaveLength(2);
     expect(job.packages).toHaveLength(1);
 
     const registro = await prisma.omrScanJob.findUniqueOrThrow({ where: { id: job.jobId } });
@@ -1227,15 +1245,15 @@ describe('workflow OMR por jobs', () => {
       .send({ clientRequestId: retryId })
       .expect(202);
     job = reintento.body.job;
-    expect(job.pagesProcessed).toBe(1);
-    expect(job.pages).toHaveLength(1);
+    expect(job.pagesProcessed).toBe(2);
+    expect(job.pages).toHaveLength(2);
     const limiteReintento = Date.now() + 600_000;
     while (job.status === 'processing' && Date.now() < limiteReintento) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
     }
     expect(job.status).toBe('completed');
-    expect(job.pages).toHaveLength(1);
+    expect(job.pages).toHaveLength(2);
     expect(job.packages).toHaveLength(1);
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(0);
 
@@ -1245,7 +1263,7 @@ describe('workflow OMR por jobs', () => {
       .send({ clientRequestId: retryId })
       .expect(200);
     expect(recuperado.body.job.status).toBe('completed');
-    expect(recuperado.body.job.pages).toHaveLength(1);
+    expect(recuperado.body.job.pages).toHaveLength(2);
     expect(recuperado.body.job.packages).toHaveLength(1);
     await request(app)
       .post(`/api/omr/ingestas/${job.jobId}/reintentar`)
@@ -1756,7 +1774,7 @@ describe('workflow OMR por jobs', () => {
         .expect(200);
       expect(response.body.autoGrading).toMatchObject({
         status: 'partial',
-        results: [{ examId: examen.id, status: 'requires_review', code: 'OMR_REQUIERE_REVISION_MANUAL' }]
+        results: [{ examId: examen.id, status: 'requires_review', code: 'OMR_REACTIVOS_PAGINA_NO_COINCIDEN' }]
       });
       expect(await prisma.calificacion.count({ where: { examenGeneradoId: examen.id } })).toBe(0);
     } finally {

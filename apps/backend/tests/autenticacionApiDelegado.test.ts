@@ -56,6 +56,26 @@ describe('rutas de credenciales API delegadas', () => {
     expect(rutaPermitidaParaApiDelegada(request('/api/integraciones/classroom', '/oauth/iniciar'), permisoClassroom)).toBe(false);
   });
 
+  it('acepta explícitamente los scopes mínimos de gestión y los limita a sus rutas', () => {
+    const permisos = ['periodos:leer', 'periodos:gestionar', 'periodos:archivar', 'alumnos:gestionar', 'classroom:pull'];
+    expect(normalizarPermisosApi(permisos)).toEqual(permisos);
+    expect(esquemaCrearSolicitudApiLocal.safeParse({
+      codeChallenge: 'A'.repeat(43),
+      nombreCliente: 'Cliente de gestión docente',
+      permisos
+    }).success).toBe(true);
+
+    expect(rutaPermitidaParaApiDelegada(request('/api/periodos', ''), new Set(['periodos:leer']))).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/periodos', '', undefined, 'POST'), new Set(['periodos:gestionar']))).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/periodos', '/periodo-1/archivar', undefined, 'POST'), new Set(['periodos:archivar']))).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/alumnos', '', undefined, 'POST'), new Set(['alumnos:gestionar']))).toBe(true);
+    expect(rutaPermitidaParaApiDelegada(request('/api/periodos', '', undefined, 'POST'), new Set(['periodos:leer']))).toBe(false);
+    expect(rutaPermitidaParaApiDelegada(request('/api/periodos', '/periodo-1/archivar', undefined, 'POST'), new Set(['periodos:gestionar']))).toBe(false);
+    expect(rutaPermitidaParaApiDelegada(request('/api/periodos', '', undefined, 'POST'), new Set(['periodos:archivar']))).toBe(false);
+    expect(rutaPermitidaParaApiDelegada(request('/api/alumnos', '/alumno-1/actualizar', undefined, 'POST'), new Set(['alumnos:leer']))).toBe(false);
+    expect(rutaPermitidaParaApiDelegada(request('/api/alumnos', '', undefined, 'POST'), new Set(['classroom:pull']))).toBe(false);
+  });
+
   it('exige ambos scopes para previsualizar o registrar una nota OMR', () => {
     const ambos = new Set(['omr:analizar', 'calificaciones:calificar']);
     const soloOmr = new Set(['omr:analizar']);

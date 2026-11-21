@@ -1157,7 +1157,11 @@ export function SeccionAlumnos({
             alumnosFiltrados.map((alumno) => {
               const faltas = resumenAsistencias.find((r) => r.alumnoId === alumno._id)?.faltas ?? 0;
               const sinDerecho = faltas >= 4;
-              const iniciales = obtenerInicialesAvatarAlumno(alumno.nombreCompleto);
+              const iniciales = obtenerInicialesAvatarAlumno({
+                nombreCompleto: alumno.nombreCompleto,
+                nombres: alumno.nombres,
+                apellidos: alumno.apellidos
+              });
 
               return (
                 <li
@@ -1167,7 +1171,7 @@ export function SeccionAlumnos({
                   <div className="item-glass alumnos-lista__item anim-card-hover">
                     <div className="alumnos-card__body">
                       {/* Avatar con Iniciales y anillo de grupo */}
-                      <div className={`alumno-avatar alumno-avatar--${claseBadgeGrupo(alumno.grupo || '')}`} aria-hidden="true">
+                      <div className={`alumno-avatar alumno-avatar--${claseBadgeGrupo(alumno.grupo || '')}`} data-initial-count={iniciales.length} aria-hidden="true">
                         <span>{iniciales}</span>
                       </div>
 

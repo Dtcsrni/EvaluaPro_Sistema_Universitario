@@ -5,6 +5,10 @@ import path from 'node:path';
 import { aplicarContratosClassroomGrades } from './classroom-grading-openapi.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const delegatedScopesSource = await readFile(path.join(root, 'apps/backend/src/modulos/modulo_autenticacion/servicioApiDelegado.ts'), 'utf8');
+const delegatedScopesBlock = delegatedScopesSource.match(/export const PERMISOS_API_DELEGABLES = \[([\s\S]*?)\] as const;/)?.[1] ?? '';
+const delegatedScopes = [...delegatedScopesBlock.matchAll(/'([a-z][a-z0-9:-]+)'/g)].map((match) => match[1]);
+if (!delegatedScopes.length) throw new Error('No se pudo leer el catálogo de scopes delegables desde el servicio de autorización API.');
 const entryPath = path.join(root, 'apps/backend/src/rutas.ts');
 const entry = await readFile(entryPath, 'utf8');
 const imports = new Map();
@@ -802,6 +806,14 @@ const catalog = [
   `Generado desde los routers backend. ${catalogRows.length} rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.`,
   '',
   'Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.',
+  '',
+  '### Scopes que pueden concederse a clientes API locales',
+  '',
+  'La concesión requiere consentimiento del docente y cada ruta conserva su permiso RBAC y su scope específico. `classroom:pull` no permite iniciar ni administrar OAuth.',
+  '',
+  '| Scope delegable |',
+  '| --- |',
+  ...delegatedScopes.map((scope) => `| \`${scope}\` |`),
   '',
   '| Módulo | Ruta | Métodos | Sesión | Permisos | Validador de cuerpo |',
   '| --- | --- | --- | --- | --- | --- |',

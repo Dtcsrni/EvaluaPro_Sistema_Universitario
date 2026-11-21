@@ -285,7 +285,7 @@ describe('validaciones de payload', () => {
       .send({
         tipo: 'parcial',
         titulo: 'Plantilla',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds: ['no-es-objectid']
       })
       .expect(400);
@@ -301,7 +301,7 @@ describe('validaciones de payload', () => {
       .send({
         tipo: 'parcial',
         titulo: 'Plantilla',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         configuracionPdf: { margenMm: 10, extra: 'NO' }
       })
       .expect(400);

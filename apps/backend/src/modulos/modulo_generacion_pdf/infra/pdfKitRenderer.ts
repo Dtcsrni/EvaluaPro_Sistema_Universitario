@@ -1309,10 +1309,10 @@ function dibujarPatronPunteadoEncabezado(
       const vecinoDiagonal = columna + ((fila + columna) % 2 === 0 ? 1 : -1);
       const vecinos = [siguienteFila[columna], siguienteFila[vecinoDiagonal]];
       for (const vecino of vecinos) {
-        if (vecino) page.drawLine({ start: nodo, end: vecino, color, thickness: 0.5, opacity: 0.12 });
+        if (vecino) page.drawLine({ start: nodo, end: vecino, color, thickness: 0.62, opacity: 0.24 });
       }
       if ((fila + columna) % 4 === 0 && siguienteFila[columna + 2]) {
-        page.drawLine({ start: nodo, end: siguienteFila[columna + 2]!, color, thickness: 0.42, opacity: 0.09 });
+        page.drawLine({ start: nodo, end: siguienteFila[columna + 2]!, color, thickness: 0.52, opacity: 0.2 });
       }
     }
   }
@@ -1326,7 +1326,7 @@ function dibujarPatronPunteadoEncabezado(
     [nodos[0]![Math.floor(columnas * 0.3)]!, nodos[filas - 1]![columnas - 1]!]
   ];
   for (const [inicio, fin] of diagonalesLargas) {
-    page.drawLine({ start: inicio, end: fin, color, thickness: 0.58, opacity: 0.1 });
+    page.drawLine({ start: inicio, end: fin, color, thickness: 0.72, opacity: 0.24 });
   }
 
   // Rombos abiertos en todos los nodos; algunos reciben un segundo contorno
@@ -1349,7 +1349,7 @@ function dibujarPatronPunteadoEncabezado(
           end: vertices[(lado + 1) % vertices.length]!,
           color,
           thickness: destacado ? 0.55 : 0.4,
-          opacity: destacado ? 0.22 : 0.15
+          opacity: destacado ? 0.38 : 0.29
         });
       }
       if (destacado) {
@@ -1366,11 +1366,11 @@ function dibujarPatronPunteadoEncabezado(
             end: interior[(lado + 1) % interior.length]!,
             color,
             thickness: 0.35,
-            opacity: 0.16
+            opacity: 0.34
           });
         }
       }
-      page.drawCircle({ x: centro.x, y: centro.y, size: destacado ? 1.15 : 0.72, color, opacity: 0.2 });
+      page.drawCircle({ x: centro.x, y: centro.y, size: destacado ? 1.35 : 0.9, color, opacity: 0.38 });
 
       // Rosetón de ocho pétalos sobre una parte de los nodos: las puntas
       // quedan abiertas para conservar un trazo ligero en el fondo impreso.
@@ -1386,9 +1386,27 @@ function dibujarPatronPunteadoEncabezado(
           const petaloMedio = { x: centro.x + Math.cos(anguloMedio) * radioMedio, y: centro.y + Math.sin(anguloMedio) * radioMedio };
           const siguientePuntaAngulo = angulo + Math.PI / 4;
           const siguientePunta = { x: centro.x + Math.cos(siguientePuntaAngulo) * radioExterior, y: centro.y + Math.sin(siguientePuntaAngulo) * radioExterior };
-          page.drawLine({ start: interior, end: petaloMedio, color: colorSecundario, thickness: 0.46, opacity: 0.16 });
-          page.drawLine({ start: petaloMedio, end: punta, color: colorSecundario, thickness: 0.46, opacity: 0.16 });
-          page.drawLine({ start: punta, end: siguientePunta, color, thickness: 0.42, opacity: 0.12 });
+          page.drawLine({ start: interior, end: petaloMedio, color: colorSecundario, thickness: 0.58, opacity: 0.34 });
+          page.drawLine({ start: petaloMedio, end: punta, color: colorSecundario, thickness: 0.58, opacity: 0.34 });
+          page.drawLine({ start: punta, end: siguientePunta, color, thickness: 0.55, opacity: 0.27 });
+        }
+      }
+      // Un segundo octágono enlazado da una lectura más cyberpunk/psicodélica
+      // sin introducir rellenos que interfieran con texto, QR u OMR.
+      if (destacado && rect.width >= 250 && rect.height >= 80) {
+        const radio = 10.8;
+        const puntos = Array.from({ length: 8 }, (_, indice) => {
+          const angulo = Math.PI / 8 + (Math.PI * 2 * indice) / 8;
+          return { x: centro.x + Math.cos(angulo) * radio, y: centro.y + Math.sin(angulo) * radio };
+        });
+        for (let indice = 0; indice < puntos.length; indice += 1) {
+          page.drawLine({
+            start: puntos[indice]!,
+            end: puntos[(indice + 1) % puntos.length]!,
+            color: colorSecundario,
+            thickness: 0.48,
+            opacity: 0.3
+          });
         }
       }
     }
@@ -1673,6 +1691,29 @@ function dibujarBordePagina(
       lineCap: LineCapStyle.Round
     });
   }
+
+  // Greca geométrica de bajo peso de tinta sobre los tramos centrales del
+  // marco. Se omiten las esquinas para respetar las zonas de registro/QR.
+  const dibujarGreca = (y: number, direccionInterior: -1 | 1, tonos: PdfColor[]) => {
+    const inicio = xMin + 68;
+    const fin = xMax - 68;
+    const paso = 14;
+    let modulo = 0;
+    for (let x = inicio; x + paso <= fin; x += paso, modulo += 1) {
+      const altura = 2.7 * direccionInterior;
+      const puntos = [
+        { x, y }, { x: x + 3, y }, { x: x + 3, y: y + altura },
+        { x: x + 7, y: y + altura }, { x: x + 7, y: y - altura },
+        { x: x + 11, y: y - altura }, { x: x + 11, y }, { x: x + paso, y }
+      ];
+      const tono = tonos[modulo % tonos.length]!;
+      for (let indice = 0; indice < puntos.length - 1; indice += 1) {
+        page.drawLine({ start: puntos[indice]!, end: puntos[indice + 1]!, color: tono, thickness: 0.62, opacity: 0.68 });
+      }
+    }
+  };
+  dibujarGreca(yMax, -1, [cian, acento, magenta]);
+  dibujarGreca(yMin, 1, [ambar, acento, cian]);
 
   // Pequeños nodos y cortes oblicuos convierten las esquinas libres en
   // terminales de circuito, sin dibujar sobre las marcas de registro.
@@ -2226,9 +2267,14 @@ export class PdfKitRenderer {
     // pueda provocar reactivos omitidos cuando el contenido exige mas alto.
     // El tope defensivo evita bucles infinitos si un reactivo es imposible de
     // acomodar con la tipografia minima legible.
-    const maxPaginasSeguras = Math.max(paginasObjetivo, totalPreguntas + 1);
+    const maxPaginasSeguras = examen.layout.enforcePageBudget
+      ? paginasObjetivo
+      : Math.max(paginasObjetivo, totalPreguntas + 1);
     let zonaEngrapadoFisica: RectBox | undefined;
-    while (numeroPagina <= maxPaginasSeguras && indicePregunta < totalPreguntas) {
+    while (
+      numeroPagina <= maxPaginasSeguras &&
+      (indicePregunta < totalPreguntas || (examen.layout.enforcePageBudget && numeroPagina <= paginasObjetivo))
+    ) {
       const page = pdfDoc.addPage([ANCHO_CARTA, ALTO_CARTA]);
       const numeroPaginaPdf = pdfDoc.getPageCount();
       // El fondo teñido ocupa toda la hoja para eliminar zonas blancas
@@ -3923,7 +3969,7 @@ export class PdfKitRenderer {
           alturaNecesaria - obtenerSeparacionPregunta(pregunta) - (examen.totalPreguntas > 20 ? 0 : 1)
         );
         const fondoPregunta = {
-          x: xTextoPreguntaRender - 4,
+          x: xTextoPreguntaRender - 2.5,
           y: yPreguntaTop - altoFondoPregunta,
           width: Math.max(20, limiteDerechoPregunta - xTextoPregunta + 4),
           height: altoFondoPregunta + reservaSuperiorFondo
@@ -4017,7 +4063,7 @@ export class PdfKitRenderer {
         // La línea inferior del enunciado no debe rozar los descendentes del
         // último renglón. El pequeño margen superior mantiene la misma lectura
         // cuando el filete superior del fondo queda cerca del primer renglón.
-        const separacionPreguntaRespuesta = Math.max(0.5, sizePregunta * 0.04);
+        const separacionPreguntaRespuesta = Math.max(1, sizePregunta * 0.08);
         const separacionSuperiorCajaPregunta = 3.5;
         const cajaPregunta: RectBox = {
           x: xTextoPreguntaRender - 2.5,
@@ -4841,14 +4887,16 @@ export class PdfKitRenderer {
       {
         const altoFranjaLeyendaQr = 10;
         const anchoReservaQr = cardW;
-        const leyendaQr = `${folioQr} · P${numeroPaginaPdf}`;
+        const loteQr = String(examen.loteId ?? '').trim();
+        const identificadorLoteCorto = loteQr ? loteQr.slice(-8).toUpperCase() : '';
+        const leyendaQr = `${identificadorLoteCorto ? `L:${identificadorLoteCorto} · ` : ''}${folioQr} · P${numeroPaginaPdf}`;
         const anchoLeyendaDisponible = Math.max(24, anchoReservaQr - 4);
-        let sizeLeyendaQr = 5.4;
+        let sizeLeyendaQr = 6.2;
         while (
-          sizeLeyendaQr > 6 &&
+          sizeLeyendaQr > 4.8 &&
           fuenteBold.widthOfTextAtSize(leyendaQr, sizeLeyendaQr) > anchoLeyendaDisponible
         ) {
-          sizeLeyendaQr = Math.max(6, sizeLeyendaQr - 0.2);
+          sizeLeyendaQr = Math.max(4.8, sizeLeyendaQr - 0.2);
         }
         const anchoLeyendaQr = fuenteBold.widthOfTextAtSize(leyendaQr, sizeLeyendaQr);
         if (anchoLeyendaQr > anchoLeyendaDisponible) {
@@ -5158,16 +5206,27 @@ export class PdfKitRenderer {
         throw new Error(`Layout invalido: el pie invade contenido OMR en la pagina ${paginaMeta.numero}: ${diagnostico.join('; ')}`);
       }
       const numeroPaginaExamen = indicePagina + 1;
-      const pieTexto = `FOLIO ${examen.folioNormalizado} · P${numeroPaginaExamen}`;
-      let pieSize = pieSizePreferido;
-      let pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
-      if (pieWidth > anchoZonaPie) {
-        pieSize = pieSizeReducido;
-        pieWidth = fuenteOcr.widthOfTextAtSize(pieTexto, pieSize);
-      }
-      if (pieWidth > anchoZonaPie) {
-        throw new Error(`Layout invalido: la referencia OCR de la pagina ${numeroPaginaExamen} excede el ancho permitido a ${pieSize} pt`);
-      }
+      const loteCompleto = String(examen.loteId ?? '').trim() || examen.folioNormalizado;
+      const loteIdPie = loteCompleto.toUpperCase();
+      const folioPie = String(examen.folioNormalizado).toUpperCase();
+      const referenciaPie = loteIdPie === folioPie
+        ? `FOLIO ${folioPie} · P${numeroPaginaExamen}`
+        : `LOTE ${loteIdPie} · FOLIO ${folioPie} · P${numeroPaginaExamen}`;
+      // Cada mitad debe bastar por sí sola: el OCR coteja dos regiones
+      // independientes, y la referencia del lote debe seguir impresa en ambas.
+      const referenciasPie = [referenciaPie, referenciaPie];
+      const textosPie = referenciasPie.map((pieTexto) => {
+        let size = pieSizePreferido;
+        let width = fuenteOcr.widthOfTextAtSize(pieTexto, size);
+        if (width > anchoZonaPie) {
+          size = pieSizeReducido;
+          width = fuenteOcr.widthOfTextAtSize(pieTexto, size);
+        }
+        if (width > anchoZonaPie) {
+          throw new Error(`Layout invalido: la referencia OCR de la pagina ${numeroPaginaExamen} excede el ancho permitido a ${size} pt`);
+        }
+        return { pieTexto, size, width };
+      });
       const posicionesTexto: RectBox[] = [];
       page.drawRectangle({
         ...piePanel,
@@ -5197,20 +5256,21 @@ export class PdfKitRenderer {
         thickness: 1.05
       }));
       for (const [indice, pieX] of posicionesPie.entries()) {
-        const x = pieX + (anchoZonaPie - pieWidth) / 2;
-        const bbox = { x, y: pieY - 1, width: pieWidth, height: pieSize + 2 };
+        const { pieTexto, size, width } = textosPie[indice]!;
+        const x = pieX + (anchoZonaPie - width) / 2;
+        const bbox = { x, y: pieY - 1, width, height: size + 2 };
         assertRectDentroPagina(bbox, `referencia OCR ${indice + 1} de pagina ${numeroPaginaExamen}`);
         if (quietZonesFooter.some((quietZone) => rectInterseca(bbox, quietZone))) {
           throw new Error(`Layout invalido: referencia OCR ${indice + 1} invade un fiducial en la pagina ${numeroPaginaExamen}`);
         }
         posicionesTexto.push(bbox);
-        page.drawText(pieTexto, { x, y: pieY, size: pieSize, font: fuenteOcr, color: colorNegroLectura });
+        page.drawText(pieTexto, { x, y: pieY, size, font: fuenteOcr, color: colorNegroLectura });
       }
       if (paginaOmr?.layoutDebug) {
-        paginaOmr.layoutDebug.footerReferences = posicionesTexto.map((bbox) => ({
-          text: pieTexto,
+        paginaOmr.layoutDebug.footerReferences = posicionesTexto.map((bbox, indice) => ({
+          text: textosPie[indice]!.pieTexto,
           fontFamily: StandardFonts.HelveticaBold,
-          size: pieSize,
+          size: textosPie[indice]!.size,
           bbox
         }));
       }
@@ -5222,8 +5282,17 @@ export class PdfKitRenderer {
       throw new Error('Layout invalido: la salida PDF no conserva correspondencia entre paginas, mapa OMR y metricas');
     }
 
-    const pdfBytes = Buffer.from(await pdfDoc.save());
     const preguntasRestantes = Math.max(0, totalPreguntas - indicePregunta);
+    if (examen.layout.enforcePageBudget && preguntasRestantes > 0 && !examen.layout.allowCapacityProbe) {
+      throw Object.assign(new Error(`El contenido excede el presupuesto de ${paginasObjetivo} páginas; se rechazó el PDF incompleto.`), {
+        code: 'EXAMEN_PRESUPUESTO_EXCEDIDO',
+        detalles: { paginasObjetivo, paginasGeneradas: pdfDoc.getPageCount(), preguntasRestantes }
+      });
+    }
+    if (examen.layout.enforcePageBudget && pdfDoc.getPageCount() !== paginasObjetivo) {
+      throw new Error(`Layout inválido: se esperaban ${paginasObjetivo} páginas y se renderizaron ${pdfDoc.getPageCount()}.`);
+    }
+    const pdfBytes = Buffer.from(await pdfDoc.save());
 
     return {
       pdfBytes,

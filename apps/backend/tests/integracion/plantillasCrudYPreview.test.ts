@@ -149,7 +149,7 @@ describe('plantillas CRUD + previsualizacion', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
@@ -161,7 +161,7 @@ describe('plantillas CRUD + previsualizacion', () => {
       .set(auth)
       .send({
         titulo: 'Parcial 1 (editado)',
-        numeroPaginas: 1
+        numeroPaginas: 2
       })
       .expect(200);
     expect(editResp.body.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
@@ -218,14 +218,14 @@ describe('plantillas CRUD + previsualizacion', () => {
     await request(app)
       .post('/api/examenes/plantillas')
       .set(auth)
-      .send({ periodoId, tipo: 'parcial', titulo: 'Alta fallida', numeroPaginas: 1, preguntasIds: [preguntaInexistente] })
+      .send({ periodoId, tipo: 'parcial', titulo: 'Alta fallida', numeroPaginas: 2, preguntasIds: [preguntaInexistente] })
       .expect(500);
     expect(await prisma.examenPlantilla.count({ where: { titulo: 'Alta fallida' } })).toBe(0);
 
     const creada = await request(app)
       .post('/api/examenes/plantillas')
       .set(auth)
-      .send({ periodoId, tipo: 'parcial', titulo: 'Plantilla inicial', numeroPaginas: 1, preguntasIds })
+      .send({ periodoId, tipo: 'parcial', titulo: 'Plantilla inicial', numeroPaginas: 2, preguntasIds })
       .expect(201);
     const plantillaId = creada.body.plantilla._id as string;
 
@@ -253,7 +253,7 @@ describe('plantillas CRUD + previsualizacion', () => {
     const preguntasIds = await crearPreguntas({ auth, periodoId, total: 1 });
     const crearPayload = {
       clientRequestId: 'e9515b20-b017-4a3a-a83d-20e7740718c1',
-      periodoId, tipo: 'parcial', titulo: 'Plantilla idempotente', numeroPaginas: 1, preguntasIds
+      periodoId, tipo: 'parcial', titulo: 'Plantilla idempotente', numeroPaginas: 2, preguntasIds
     };
     const creada = await request(app).post('/api/examenes/plantillas').set(auth).send(crearPayload).expect(201);
     const repetida = await request(app).post('/api/examenes/plantillas').set(auth).send(crearPayload).expect(201);
@@ -307,7 +307,7 @@ describe('plantillas CRUD + previsualizacion', () => {
 
     const eliminable = await request(app).post('/api/examenes/plantillas').set(auth).send({
       clientRequestId: 'da42e23a-e4d9-4682-862b-dcd1d4e88e3a',
-      periodoId, tipo: 'parcial', titulo: 'Plantilla para borrar', numeroPaginas: 1, preguntasIds
+      periodoId, tipo: 'parcial', titulo: 'Plantilla para borrar', numeroPaginas: 2, preguntasIds
     }).expect(201);
     const eliminableId = eliminable.body.plantilla._id as string;
     const borrado = await request(app).post(`/api/examenes/plantillas/${eliminableId}/eliminar`).set(auth)
@@ -346,7 +346,7 @@ describe('plantillas CRUD + previsualizacion', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
@@ -368,7 +368,7 @@ describe('plantillas CRUD + previsualizacion', () => {
     const otraPlantillaResp = await request(app)
       .post('/api/examenes/plantillas')
       .set(auth)
-      .send({ periodoId, tipo: 'parcial', titulo: 'Parcial alterno', numeroPaginas: 1, preguntasIds })
+      .send({ periodoId, tipo: 'parcial', titulo: 'Parcial alterno', numeroPaginas: 2, preguntasIds })
       .expect(201);
     await request(app)
       .post('/api/examenes/generados')
@@ -412,7 +412,7 @@ describe('plantillas CRUD + previsualizacion', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial cache preview',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
@@ -453,7 +453,7 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(Buffer.compare(previewAntes.body as Buffer, previewDespues.body as Buffer)).not.toBe(0);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 
-  it('permite generar en lote despues de previsualizar una plantilla limitada por objetivo', async () => {
+  it('usa el objetivo como orientación y conserva el mapa exacto de todos los reactivos que caben', async () => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
 
@@ -497,7 +497,7 @@ describe('plantillas CRUD + previsualizacion', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Segundo Parcial',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         reactivosObjetivo: 1,
         temas: ['Segundo Parcial']
       })
@@ -519,14 +519,135 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(lote.body?.examenesGenerados).toHaveLength(1);
     const examenGuardado = await prisma.examenGenerado.findFirst({
       where: { loteId: 'LOT_PREVIEW_01' },
-      select: { mapaOmr: true }
+      select: { mapaOmr: true, mapaVariante: true, questionMap: true }
     });
     const mapaOmr = JSON.parse(String(examenGuardado?.mapaOmr ?? '{}'));
+    const mapaVariante = JSON.parse(String(examenGuardado?.mapaVariante ?? '{}'));
+    const questionMap = JSON.parse(String(examenGuardado?.questionMap ?? '{}'));
+    expect(mapaVariante.ordenPreguntas).toHaveLength(8);
+    expect(Object.keys(questionMap)).toHaveLength(8);
     expect(mapaOmr.paginas?.[0]?.marcasPagina?.orientacion).toEqual({
       esquina: 'tl',
       tipo: 'centro_vacio',
       radio: expect.any(Number)
     });
+  }, TEST_TIMEOUT_PLANTILLAS_MS);
+
+  it('ajusta conteos por alumno con semilla estable y reanuda el mismo mapa de lote', async () => {
+    const correoDocente = 'capacidad-variable@prueba.test';
+    const token = await registrarDocente(correoDocente);
+    const auth = { Authorization: `Bearer ${token}` };
+    const periodoResp = await request(app)
+      .post('/api/periodos')
+      .set(auth)
+      .send({ nombre: 'Prueba capacidad', fechaInicio: '2026-01-01', fechaFin: '2026-06-01', grupos: ['A'] })
+      .expect(201);
+    const periodoId = periodoResp.body.periodo._id as string;
+    const docente = await prisma.docente.findUniqueOrThrow({ where: { correo: correoDocente }, select: { id: true } });
+    const alumnoIds = Array.from({ length: 8 }, (_, indice) => `00000000-0000-4000-8000-${String(indice + 11).padStart(12, '0')}`);
+    for (const [indice, id] of alumnoIds.entries()) {
+      await prisma.alumno.create({
+        data: {
+          id,
+          periodoId,
+          matricula: `CUH5124104${String(indice + 1).padStart(2, '0')}`,
+          nombreCompleto: `Alumno capacidad ${indice + 1}`,
+          correo: `capacidad-${indice + 1}@prueba.test`,
+          grupo: 'A',
+          ordenLista: indice + 1
+        }
+      });
+    }
+
+    for (let indice = 0; indice < 64; indice += 1) {
+      const tema = indice % 4 + 1;
+      const largo = tema >= 3 ? 350 + ((indice * 23) % 220) : 100 + ((indice * 17) % 56);
+      const enunciado = `Reactivo ${indice + 1}. ${'Analiza la evidencia y selecciona la interpretación que corresponda. '.repeat(12)}`.slice(0, largo);
+      await prisma.bancoPregunta.create({
+        data: {
+          docenteId: docente.id,
+          periodoId,
+          tema: `Tema ${tema}`,
+          versiones: {
+            create: {
+              numeroVersion: 1,
+              enunciado,
+              opciones: {
+                create: ['Opción uno', 'Opción dos', 'Opción tres', 'Opción cuatro', 'Opción cinco'].map((texto, opcion) => ({
+                  texto: `${texto} ${indice + 1}`,
+                  esCorrecta: opcion === indice % 5
+                }))
+              }
+            }
+          }
+        }
+      });
+    }
+
+    const plantillaResp = await request(app)
+      .post('/api/examenes/plantillas')
+      .set(auth)
+      .send({ periodoId, tipo: 'parcial', titulo: 'Capacidad por alumno', numeroPaginas: 2, reactivosObjetivo: 1, temas: ['Tema 1', 'Tema 2', 'Tema 3', 'Tema 4'] })
+      .expect(201);
+    const plantillaId = plantillaResp.body.plantilla._id as string;
+    const preview = await request(app)
+      .get(`/api/examenes/plantillas/${plantillaId}/previsualizar`)
+      .set(auth)
+      .expect(200);
+    expect(preview.body.layoutConfirmado).toBe(true);
+    expect(preview.body.totalDisponibles).toBe(64);
+    expect(preview.body.totalUsados).toBeGreaterThan(0);
+    expect(preview.body.totalUsados).toBeLessThan(64);
+
+    const loteId = 'LOT_VAR_CAP_01';
+    const lote = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId, variantPolicy: 'shared' })
+      .expect(201);
+    expect(lote.body.variantPolicy).toBe('shared');
+    const examenes = await prisma.examenGenerado.findMany({
+      where: { loteId },
+      orderBy: { alumno: { ordenLista: 'asc' } },
+      select: { id: true, mapaVariante: true, mapaOmr: true, questionMap: true }
+    });
+    const conteos = examenes.map((examen) => JSON.parse(String(examen.mapaVariante)).ordenPreguntas.length);
+    expect(conteos).toHaveLength(alumnoIds.length);
+    expect(new Set(conteos).size).toBeGreaterThan(1);
+    const mapasCompartidos = examenes.map((examen) => JSON.parse(String(examen.mapaVariante)) as {
+      ordenPreguntas: string[];
+      ordenOpcionesPorPregunta: Record<string, number[]>;
+    });
+    for (const idPregunta of new Set(mapasCompartidos.flatMap((mapa) => mapa.ordenPreguntas))) {
+      const ordenesCompartidos = mapasCompartidos
+        .map((mapa) => mapa.ordenOpcionesPorPregunta[idPregunta])
+        .filter((orden): orden is number[] => Array.isArray(orden));
+      expect(new Set(ordenesCompartidos.map((orden) => orden.join(','))).size).toBeLessThanOrEqual(1);
+    }
+    for (const examen of examenes) {
+      const mapaVariante = JSON.parse(String(examen.mapaVariante));
+      const questionMap = JSON.parse(String(examen.questionMap));
+      const mapaOmr = JSON.parse(String(examen.mapaOmr));
+      expect(new Set(mapaVariante.ordenPreguntas).size).toBe(mapaVariante.ordenPreguntas.length);
+      expect(Object.keys(questionMap)).toHaveLength(mapaVariante.ordenPreguntas.length);
+      expect(mapaOmr.paginas).toHaveLength(2);
+      expect(mapaOmr.paginas.every((pagina: { preguntas: unknown[] }) => pagina.preguntas.length > 0)).toBe(true);
+    }
+
+    const reintento = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId, variantPolicy: 'shared' })
+      .expect(201);
+    expect(reintento.body.examenesGenerados.map((examen: { _id: string }) => examen._id))
+      .toEqual(lote.body.examenesGenerados.map((examen: { _id: string }) => examen._id));
+    const mapasTrasReintento = await prisma.examenGenerado.findMany({
+      where: { loteId },
+      orderBy: { alumno: { ordenLista: 'asc' } },
+      select: { mapaVariante: true }
+    });
+    expect(mapasTrasReintento.map((examen) => examen.mapaVariante)).toEqual(examenes.map((examen) => examen.mapaVariante));
+    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(alumnoIds.length);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 
   it('prevalida todas las variantes antes de persistir el primer examen y señala al alumno que falla', async () => {
@@ -589,7 +710,7 @@ describe('plantillas CRUD + previsualizacion', () => {
     expect(await prisma.examenGenerado.count({ where: { loteId: 'LOT_PREFLIGHT_01' } })).toBe(0);
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 
-  it('exige grupo en periodos multigrupo y genera solo el padrón activo del grupo elegido', async () => {
+  it('genera por defecto un lote único de toda la materia y limita cuando se indica un grupo', async () => {
     const token = await registrarDocente('grupos-lote@prueba.test');
     const auth = { Authorization: `Bearer ${token}` };
     const periodoResp = await request(app)
@@ -599,15 +720,13 @@ describe('plantillas CRUD + previsualizacion', () => {
       .expect(201);
     const periodoId = periodoResp.body.periodo._id as string;
 
-    for (const alumno of [
-      { matricula: 'CUH512410301', nombreCompleto: 'Ana Grupo A', grupo: 'A' },
-      { matricula: 'CUH512410302', nombreCompleto: 'Luis Grupo A', grupo: 'A' },
-      { matricula: 'CUH512410303', nombreCompleto: 'Eva Grupo B', grupo: 'B' }
-    ]) {
+    for (const indice of Array.from({ length: 14 }, (_, index) => 13 - index)) {
+      const grupo = indice < 10 ? 'A' : 'B';
+      const matricula = `CUH${String(512410300 + indice + 1).padStart(9, '0')}`;
       await request(app)
         .post('/api/alumnos')
         .set(auth)
-        .send({ periodoId, ...alumno, correo: `${alumno.matricula}@prueba.test` })
+        .send({ periodoId, matricula, nombreCompleto: `Alumno ${indice + 1} Grupo ${grupo}`, grupo, correo: `${matricula}@prueba.test` })
         .expect(201);
     }
 
@@ -623,39 +742,57 @@ describe('plantillas CRUD + previsualizacion', () => {
       .set(auth)
       .expect(200);
 
-    const loteId = 'LOT_GRUPO_A01';
-    await request(app)
+    const loteId = 'LOT_MATERIA_01';
+    const respuestaMateria = await request(app)
       .post('/api/examenes/generados/lote')
       .set(auth)
       .send({ plantillaId, loteId })
-      .expect(400)
-      .expect((response) => expect(response.body.error.codigo).toBe('GRUPO_REQUERIDO'));
-    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(0);
+      .expect(201);
+    expect(respuestaMateria.body.totalAlumnos).toBe(14);
+    const examenesMateria = await prisma.examenGenerado.findMany({ where: { loteId }, select: { id: true, alumnoId: true } });
+    expect(examenesMateria).toHaveLength(14);
+    const alumnosMateria = await prisma.alumno.findMany({ where: { periodoId }, select: { id: true }, orderBy: [{ ordenLista: 'asc' }, { id: 'asc' }] });
+    const alumnoPorExamenEnOrden = respuestaMateria.body.examenesGenerados.map((examen: { _id: string }) =>
+      examenesMateria.find((persistido) => persistido.id === examen._id)?.alumnoId);
+    expect(alumnoPorExamenEnOrden).toEqual(alumnosMateria.map((alumno) => alumno.id));
+    expect((await prisma.alumno.findMany({ where: { periodoId }, orderBy: [{ ordenLista: 'asc' }, { id: 'asc' }] })).map((alumno) => alumno.ordenLista))
+      .toEqual(Array.from({ length: 14 }, (_value, index) => index + 1));
+    const descargaMateria = await request(app)
+      .get(`/api/examenes/generados/lote/${loteId}/pdf`)
+      .set(auth)
+      .expect(200);
+    expect(descargaMateria.headers['content-disposition']).toContain('grupos-A_B');
 
     await request(app)
       .post('/api/examenes/generados/lote')
       .set(auth)
-      .send({ plantillaId, loteId, grupo: 'C' })
+      .send({ plantillaId, loteId: 'BAD_GRP_01', grupo: 'C' })
       .expect(400)
       .expect((response) => expect(response.body.error.codigo).toBe('GRUPO_NO_VALIDO'));
-    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(0);
+    expect(await prisma.examenGenerado.count({ where: { loteId: 'BAD_GRP_01' } })).toBe(0);
 
-    const estudiantesA = await prisma.alumno.findMany({ where: { periodoId, grupo: 'A' }, select: { id: true } });
-    const respuestaLote = await request(app)
+    await request(app)
       .post('/api/examenes/generados/lote')
       .set(auth)
       .send({ plantillaId, loteId, grupo: 'A' })
-      .expect(201);
-    expect(respuestaLote.body.totalAlumnos).toBe(2);
-    const examenesLote = await prisma.examenGenerado.findMany({ where: { loteId }, select: { alumnoId: true } });
-    expect(examenesLote.map((examen) => examen.alumnoId).sort()).toEqual(estudiantesA.map((alumno) => alumno.id).sort());
-
-    await request(app)
-      .post('/api/examenes/generados/lote')
-      .set(auth)
-      .send({ plantillaId, loteId, grupo: 'B' })
       .expect(409)
       .expect((response) => expect(response.body.error.codigo).toBe('LOTE_REANUDACION_INCOMPATIBLE'));
-    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(2);
+    expect(await prisma.examenGenerado.count({ where: { loteId } })).toBe(14);
+
+    const estudiantesB = await prisma.alumno.findMany({ where: { periodoId, grupo: 'B' }, select: { id: true } });
+    const loteGrupoId = 'LOT_GRUPO_B01';
+    const respuestaLote = await request(app)
+      .post('/api/examenes/generados/lote')
+      .set(auth)
+      .send({ plantillaId, loteId: loteGrupoId, grupo: 'B' })
+      .expect(201);
+    expect(respuestaLote.body.totalAlumnos).toBe(4);
+    const examenesLoteGrupo = await prisma.examenGenerado.findMany({ where: { loteId: loteGrupoId }, select: { alumnoId: true } });
+    expect(examenesLoteGrupo.map((examen) => examen.alumnoId).sort()).toEqual(estudiantesB.map((alumno) => alumno.id).sort());
+    const descargaGrupo = await request(app)
+      .get(`/api/examenes/generados/lote/${loteGrupoId}/pdf`)
+      .set(auth)
+      .expect(200);
+    expect(descargaGrupo.headers['content-disposition']).toContain('grupo-B');
   }, TEST_TIMEOUT_PLANTILLAS_MS);
 });

@@ -142,7 +142,7 @@ async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
       periodoId,
       tipo: 'parcial',
       titulo: 'Plantilla payload',
-      numeroPaginas: 1,
+      numeroPaginas: 2,
       preguntasIds: [preguntaId]
     })
     .expect(201);
@@ -173,8 +173,19 @@ async function crearEscenarioBase(app: ReturnType<typeof crearApp>) {
     folio: examen.body.examenGenerado.folio as string,
     alumnoId: alumno.body.alumno._id as string,
     qrTexto: String(examen.body.examenGenerado.paginas?.[0]?.qrTexto ?? ''),
+    paginasQr: (examen.body.examenGenerado.paginas as Array<{ numero: number; qrTexto: string }>).map((pagina) => ({
+      numeroPagina: Number(pagina.numero),
+      qrTexto: String(pagina.qrTexto ?? '')
+    })),
     templateVersion: Number(examen.body.examenGenerado.mapaOmr?.templateVersion ?? 4) as 4
   };
+}
+
+async function crearCapturasQr(base: Awaited<ReturnType<typeof crearEscenarioBase>>) {
+  return Promise.all(base.paginasQr.map(async (pagina) => ({
+    numeroPagina: pagina.numeroPagina,
+    imagenBase64: await QRCode.toDataURL(pagina.qrTexto, { margin: 1, width: 512 })
+  })));
 }
 
 async function prepararPlantillaInline(base: Awaited<ReturnType<typeof crearEscenarioBase>>) {
@@ -183,25 +194,31 @@ async function prepararPlantillaInline(base: Awaited<ReturnType<typeof crearEsce
 
   const mapaOmr = JSON.parse(String(examen.mapaOmr ?? '{}')) as Record<string, any>;
   const paginas = JSON.parse(String(examen.paginas ?? '[]')) as Array<Record<string, any>>;
-  const qrTexto = construirTextoQrExamenPagina({
+  const qrTextoPorPagina = new Map(paginas.map((pagina) => [Number(pagina.numero), construirTextoQrExamenPagina({
     folio: base.folio,
-    numeroPagina: 1,
+    numeroPagina: Number(pagina.numero),
     templateVersion: 4,
     templateId: 'omr-inline-exam-v1',
     compacto: true,
     examId: base.examenGeneradoId
-  });
+  })]));
+  const qrTexto = qrTextoPorPagina.get(1);
+  if (!qrTexto) throw new Error('No se encontró la página 1 para configurar el QR inline');
 
   mapaOmr.templateId = 'omr-inline-exam-v1';
   for (const pagina of Array.isArray(mapaOmr.paginas) ? mapaOmr.paginas : []) {
     pagina.templateId = 'omr-inline-exam-v1';
   }
-  if (paginas[0]) paginas[0].qrTexto = qrTexto;
+  for (const pagina of paginas) {
+    const qrPagina = qrTextoPorPagina.get(Number(pagina.numero));
+    if (qrPagina) pagina.qrTexto = qrPagina;
+  }
 
   await prisma.examenGenerado.update({
     where: { id: base.examenGeneradoId },
     data: { mapaOmr: JSON.stringify(mapaOmr), paginas: JSON.stringify(paginas) }
   });
+  base.paginasQr = paginas.map((pagina) => ({ numeroPagina: Number(pagina.numero), qrTexto: String(pagina.qrTexto ?? '') }));
   return qrTexto;
 }
 
@@ -285,7 +302,7 @@ describe('calificación OMR payload estricto', () => {
 
   it('puntúa una doble marca como incorrecta y conserva cerrado el gate sin validación independiente', async () => {
     const base = await crearEscenarioBase(app);
-    const capturaQr = await QRCode.toDataURL(base.qrTexto, { margin: 1, width: 512 });
+    const capturasQr = await crearCapturasQr(base);
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -295,7 +312,7 @@ describe('calificación OMR payload estricto', () => {
         folio: base.folio,
         alumnoId: base.alumnoId,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: null, confianza: 0.55, estadoRespuesta: 'doble_marca', flags: ['doble_marca'] }],
-        paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
+        paginasOmr: capturasQr,
         omrAnalisis: {
           estadoAnalisis: 'ok',
           calidadPagina: 0.99,
@@ -349,7 +366,7 @@ describe('calificación OMR payload estricto', () => {
 
   it('registra metadata de revisión con el docente autenticado cuando el análisis requiere revisión', async () => {
     const base = await crearEscenarioBase(app);
-    const capturaQr = await QRCode.toDataURL(base.qrTexto, { margin: 1, width: 512 });
+    const capturasQr = await crearCapturasQr(base);
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -359,7 +376,7 @@ describe('calificación OMR payload estricto', () => {
         folio: base.folio,
         alumnoId: base.alumnoId,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.9 }],
-        paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
+        paginasOmr: capturasQr,
         omrAnalisis: {
           estadoAnalisis: 'requiere_revision',
           calidadPagina: 0.7,
@@ -385,7 +402,7 @@ describe('calificación OMR payload estricto', () => {
 
   it('exige confirmación docente del bono en una revisión manual TV4', async () => {
     const base = await crearEscenarioBase(app);
-    const capturaQr = await QRCode.toDataURL(base.qrTexto, { margin: 1, width: 512 });
+    const capturasQr = await crearCapturasQr(base);
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -395,7 +412,7 @@ describe('calificación OMR payload estricto', () => {
         folio: base.folio,
         alumnoId: base.alumnoId,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.9 }],
-        paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
+        paginasOmr: capturasQr,
         omrAnalisis: {
           estadoAnalisis: 'requiere_revision',
           calidadPagina: 0.7,
@@ -449,13 +466,13 @@ describe('calificación OMR payload estricto', () => {
   it('permite calificar la plantilla inline solo después de confirmar la revisión humana', async () => {
     const base = await crearEscenarioBase(app);
     const qrTexto = await prepararPlantillaInline(base);
-    const capturaQr = await QRCode.toDataURL(qrTexto, { margin: 1, width: 512 });
+    const capturasQr = await crearCapturasQr(base);
     const payload = {
       examenGeneradoId: base.examenGeneradoId,
       folio: base.folio,
       alumnoId: base.alumnoId,
       respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97 }],
-      paginasOmr: [{ numeroPagina: 1, imagenBase64: capturaQr }],
+      paginasOmr: capturasQr,
       omrAnalisis: {
         estadoAnalisis: 'requiere_revision' as const,
         calidadPagina: 0.48,
@@ -515,7 +532,9 @@ describe('calificación OMR payload estricto', () => {
 
   it('rechaza un QR corto firmado cuya página no existe en el manifiesto local', async () => {
     const base = await crearEscenarioBase(app);
-    const qrMutado = refirmarQr(String(base.qrTexto).replace(':P1:', ':P2:'));
+    const qrMutado = refirmarQr(String(base.qrTexto).replace(':P1:', ':P3:'));
+    const capturasQr = await crearCapturasQr(base);
+    capturasQr[0]!.imagenBase64 = await QRCode.toDataURL(qrMutado, { margin: 1, width: 512 });
 
     const respuesta = await request(app)
       .post('/api/calificaciones/calificar')
@@ -525,6 +544,7 @@ describe('calificación OMR payload estricto', () => {
         folio: base.folio,
         alumnoId: base.alumnoId,
         respuestasDetectadas: [{ numeroPregunta: 1, opcion: 'A', confianza: 0.97, estadoRespuesta: 'respondida' }],
+        paginasOmr: capturasQr,
         omrAnalisis: {
           estadoAnalisis: 'ok',
           calidadPagina: 0.98,

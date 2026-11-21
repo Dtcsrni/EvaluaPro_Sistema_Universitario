@@ -61,6 +61,7 @@ async function restaurarAlumno(a: any) {
       nombreCompleto: a.nombreCompleto,
       correo: a.correo,
       grupo: a.grupo,
+      ordenLista: Number.isInteger(a.ordenLista) ? a.ordenLista : 0,
       activo: a.activo !== false,
       createdAt: a.createdAt ? new Date(a.createdAt) : undefined,
       updatedAt: a.updatedAt ? new Date(a.updatedAt) : undefined,
@@ -73,6 +74,7 @@ async function restaurarAlumno(a: any) {
       nombreCompleto: a.nombreCompleto,
       correo: a.correo,
       grupo: a.grupo,
+      ordenLista: Number.isInteger(a.ordenLista) ? a.ordenLista : undefined,
       activo: a.activo !== false,
       updatedAt: a.updatedAt ? new Date(a.updatedAt) : undefined,
     }
