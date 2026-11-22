@@ -266,9 +266,6 @@
     "google-auth-library": {
       "gcp-metadata": "8.1.4"
     },
-    "mongodb": {
-      "gcp-metadata": "7.0.1"
-    },
     "exceljs": {
       "uuid": "^11.1.1"
     }
