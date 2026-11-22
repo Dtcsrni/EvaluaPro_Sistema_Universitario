@@ -338,7 +338,7 @@ export function ConsultaCalificaciones({
     const campo = esPractica ? 'practica' : esExamen1 ? 'examen1' : esGlobal ? 'global' : 'examen';
     const valorTexto = borradores[campo].trim().replace(',', '.');
     const valor = Number(valorTexto);
-    const maximo = esPractica ? 10 : esExamen2 ? 5.25 : 5;
+    const maximo = esPractica ? 10 : 5.25;
     if (!valorTexto || !Number.isFinite(valor) || valor < 0 || valor > maximo) {
       setErrorGuardado(`La calificación de “${etiquetaVisibleComponente(componente)}” debe estar entre 0 y ${maximo}.`);
       return;
@@ -1015,7 +1015,7 @@ export function ConsultaCalificaciones({
               <div><dt>Examen 1er Parcial automático · referencia</dt><dd>{mostrarNota(filaSeleccionada.examenPrimerParcialAutomatico)} <small>no sustituye la captura manual</small></dd></div>
             </dl>
             <div className="calificaciones-consulta__manual-editors">
-              <label className="campo"><span>Examen 1er Parcial · 0–5</span><input type="number" min="0" max="5" step="0.01" value={borradores.examen1} onChange={(event) => setBorradores((prev) => ({ ...prev, examen1: event.target.value }))} /></label>
+              <label className="campo"><span>Examen 1er Parcial · 0–5.25 (incluye bono de guía)</span><input type="number" min="0" max="5.25" step="0.01" value={borradores.examen1} onChange={(event) => setBorradores((prev) => ({ ...prev, examen1: event.target.value }))} /></label>
               <Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarComponente('Exámen 1er Parcial')}>{guardando === 'examen1' ? 'Guardando…' : 'Guardar examen'}</Boton>
             </div>
             {errorGuardado && <InlineMensaje tipo="error">{errorGuardado}</InlineMensaje>}
@@ -1090,12 +1090,12 @@ export function ConsultaCalificaciones({
             <p className="nota">Los dos componentes físicos se expresan en escala 0–5; su suma está limitada a 10.</p>
             <dl className="calificaciones-consulta__detail-grid">
               <div><dt>Examen Global · componente fuente 0–10</dt><dd>{mostrarNota(filaSeleccionada.examenGlobalComponente)}</dd></div>
-              <div><dt>Examen Global · lista física 0–5</dt><dd>{mostrarNota(filaSeleccionada.examenGlobalLista)}</dd></div>
+              <div><dt>Examen Global · lista física 0–5.25 (incluye bono de guía)</dt><dd>{mostrarNota(filaSeleccionada.examenGlobalLista)}</dd></div>
               <div><dt>Evaluación Continua 3er Parcial · 0–5</dt><dd>{mostrarNota(filaSeleccionada.continuaTercerParcialLista)}</dd></div>
               <div><dt>Calificación Tercer Parcial · máximo 10</dt><dd>{mostrarNota(filaSeleccionada.calificacionTercerParcial)}</dd></div>
             </dl>
             <div className="calificaciones-consulta__manual-editors">
-              <label className="campo"><span>Examen Global manual · 0–5</span><input type="number" min="0" max="5" step="0.01" value={borradores.global} onChange={(event) => setBorradores((prev) => ({ ...prev, global: event.target.value }))} /></label>
+              <label className="campo"><span>Examen Global manual · 0–5.25 (incluye bono de guía)</span><input type="number" min="0" max="5.25" step="0.01" value={borradores.global} onChange={(event) => setBorradores((prev) => ({ ...prev, global: event.target.value }))} /></label>
               <Boton type="button" variante="secundario" disabled={guardando !== null} onClick={() => void guardarComponente('Exámen Global')}>{guardando === 'global' ? 'Guardando…' : 'Guardar Global'}</Boton>
             </div>
           </section>

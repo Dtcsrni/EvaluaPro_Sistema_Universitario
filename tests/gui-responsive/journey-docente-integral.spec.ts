@@ -463,15 +463,15 @@ test.describe('Journey docente integral visual', () => {
     await expect(filaListaFisica).toBeVisible({ timeout: 20_000 });
     await filaListaFisica.getByRole('button', { name: /Ver detalle de/ }).click();
     await expect(page.getByText('Examen 1er Parcial automático · referencia')).toBeVisible();
-    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5' });
-    await expect(examenPrimerParcial).toHaveAttribute('max', '5');
-    await examenPrimerParcial.fill('5');
+    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5.25 (incluye bono de guía)' });
+    await expect(examenPrimerParcial).toHaveAttribute('max', '5.25');
+    await examenPrimerParcial.fill('5.25');
     const [examenPrimerParcialResponse] = await Promise.all([
       page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST'),
       page.getByRole('button', { name: 'Guardar examen' }).click()
     ]);
     expect(examenPrimerParcialResponse.status()).toBe(201);
-    await expect(examenPrimerParcial).toHaveValue('5');
+    await expect(examenPrimerParcial).toHaveValue('5.25');
     await expect(page.getByRole('button', { name: 'Guardar examen' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Segundo Parcial', exact: true }).click();

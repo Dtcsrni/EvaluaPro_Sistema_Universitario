@@ -253,7 +253,7 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
-test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core pasó', () => {
+test('los jobs extended corren en paralelo con Core y el agregado conserva ambos gates', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const jobs = [
     extractJobBlock(workflow, 'ext_funcionales'),
@@ -264,8 +264,14 @@ test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core
   for (const job of jobs) {
     assert.match(job, /!cancelled\(\) &&/);
     assert.match(job, /needs\.detectar_cambios\.result == 'success'/);
-    assert.match(job, /needs\.verificaciones_core\.result == 'success'/);
+    assert.doesNotMatch(job, /verificaciones_core/);
   }
+
+  const aggregate = extractJobBlock(workflow, 'verificaciones_ext');
+  assert.match(aggregate, /- verificaciones_core/);
+  assert.match(aggregate, /- ext_funcionales/);
+  assert.match(aggregate, /- ext_perf_arquitectura/);
+  assert.match(aggregate, /- ext_compliance_evidencia/);
 });
 
 test('gate estable valida CI Checks y el instalador sobre el SHA candidato, sin racha histórica', () => {

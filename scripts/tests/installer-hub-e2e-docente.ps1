@@ -2041,6 +2041,30 @@ function Invoke-CaptureCommand {
   try { $processHandle = [IntPtr]$process.Handle } catch {}
   if (-not $process.WaitForExit($TimeoutSec * 1000)) {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+    try { $null = $process.WaitForExit(5000) } catch {}
+    Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
+    Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
+
+    # InstallerBurnHelper emits bounded progress events on stdout. Preserve
+    # only those structured milestones in the job log so timeouts identify the
+    # stalled stage without dumping arbitrary helper output or configuration.
+    $progressSummary = @()
+    if (Test-Path -LiteralPath $stdout -PathType Leaf) {
+      foreach ($line in @(Get-Content -LiteralPath $stdout -Tail 200 -ErrorAction SilentlyContinue)) {
+        if ($line -notmatch '^EVALUAPRO_PROGRESS:(\{.*\})\s*$') { continue }
+        try {
+          $event = $Matches[1] | ConvertFrom-Json -ErrorAction Stop
+          $percent = [int]$event.Percent
+          $status = [string]$event.Status
+          if ($percent -ge 0 -and $percent -le 100 -and -not [string]::IsNullOrWhiteSpace($status)) {
+            $progressSummary += ("{0}% {1}" -f $percent, $status)
+          }
+        } catch { }
+      }
+    }
+    $lastProgress = if ($progressSummary.Count -gt 0) { $progressSummary[-1] } else { 'sin hitos EVALUAPRO_PROGRESS capturados' }
+    Add-Result -Area 'command' -Item $Name -Ok $false -Detail ("timeout={0}s; pid={1}; ultimo_hito={2}" -f $TimeoutSec, $process.Id, $lastProgress)
+    Write-E2ELog ("Timeout {0}s en {1}; pid={2}; último hito: {3}. Logs stdout/stderr adjuntos." -f $TimeoutSec, $Name, $process.Id, $lastProgress)
     throw "Timeout ejecutando $Name"
   }
   # Wait for redirected streams to EOF so .NET populates ExitCode
