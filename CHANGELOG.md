@@ -8,6 +8,8 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 - En el perfil `docente-local`, la raíz del supervisor redirige a la Web Docente para evitar mostrar un dashboard administrativo obsoleto; las rutas API requeridas por el host se conservan.
 - La salud local omite MongoDB cuando el perfil no usa Docker y ejecuta las sondas independientes en paralelo, evitando falsos avisos y esperas secuenciales.
 - El workflow de release verifica la reutilización del E2E candidato antes de instalar toolchains y dependencias que solo se requieren para una ejecución E2E nueva.
+- Retira el empaquetado Docker cloud y el flavor SaaS heredado; el Installer Hub publica solo la distribución local SQLite.
+- El upgrade E2E instala el baseline sin abrir su App Host legado; siembra datos únicamente en SQLite QA y valida el ciclo de vida sobre el candidato actual.
 
 ## [Hub 1.2.27] - 2026-11-19
 
