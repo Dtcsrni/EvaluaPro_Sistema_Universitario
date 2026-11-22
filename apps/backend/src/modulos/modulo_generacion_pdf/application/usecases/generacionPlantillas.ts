@@ -734,10 +734,15 @@ async function generarExamenesLoteUseCaseInterno(params: {
           const questions = ordenarPreguntasParaCapacidad(preguntasBaseLote, seedCompartida);
           varianteCompartida = { preguntas: questions, mapaVariante: generarVarianteDeterminista(questions, seedCompartida) };
         }
-        // If the full common variant fits, keep identical form order for all. Only
-        // when capacity forces selection do we use the per-student seeded traversal.
-        preguntasCandidatas = varianteCompartida.preguntas;
-        mapaVariante = varianteCompartida.mapaVariante;
+        // `shared` shares each question's option order, not a fixed question
+        // sequence/count. Traverse the pool with the student's stable seed so
+        // the physical page budget can produce per-exam counts while remaining
+        // reproducible for retries of this loteId.
+        preguntasCandidatas = ordenarPreguntasParaCapacidad(preguntasBaseLote, semillaExamen);
+        mapaVariante = {
+          ordenPreguntas: preguntasCandidatas.map((pregunta) => pregunta.id),
+          ordenOpcionesPorPregunta: varianteCompartida.mapaVariante.ordenOpcionesPorPregunta
+        };
       } else {
         // Un extraordinario desde una plantilla archivada es una generación
         // nueva: conserva intacta la fuente archivada, pero adapta su selección

@@ -23,6 +23,9 @@ namespace EvaluaPro.AppHost;
 public partial class MainWindow : Window
 {
     private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+    // /api/install performs filesystem and process-identity checks during cold
+    // start; allow a bounded grace period on slower machines/CI runners.
+    private static readonly HttpClient DashboardIdentityHttpClient = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly SemaphoreSlim startupSemaphore = new(1, 1);
     private Process? dashboardProcess;
     private DateTime? dashboardProcessStartTimeUtc;
@@ -707,7 +710,7 @@ public partial class MainWindow : Window
                 return false;
             }
 
-            using var response = await HttpClient.GetAsync($"http://127.0.0.1:{expectedPort}/api/install");
+            using var response = await DashboardIdentityHttpClient.GetAsync($"http://127.0.0.1:{expectedPort}/api/install");
             if (!response.IsSuccessStatusCode) return false;
             using var statusDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             return TryGetDashboardIdentity(statusDocument.RootElement, out var statusPid, out var statusPort, out var statusRoot, out var statusStartedAt, out var statusInstanceId) &&

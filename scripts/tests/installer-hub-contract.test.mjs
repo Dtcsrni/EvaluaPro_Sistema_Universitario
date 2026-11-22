@@ -26,7 +26,6 @@ const autoE2eLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-auto.ps1')
 const qaSecretSetupPath = path.join(root, 'scripts', 'ci', 'set-e2e-qa-secret.ps1');
 const dockerComposePath = path.join(root, 'docker-compose.yml');
 const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.yml');
-const packageWorkflowPath = path.join(root, '.github', 'workflows', 'package.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const installerHubContractsModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
 const installerE2EReportDirectoryModulePath = path.join(root, 'scripts', 'tests', 'installer-e2e-report-directory.psm1');
@@ -2414,27 +2413,8 @@ test('Compose legacy conserva image-first y fallback build separado fuera del Hu
   assert.doesNotMatch(packageJson.scripts['stack:prod'], /detect-host-ip/);
 });
 
-test('package workflow publica imagenes docente GHCR versionadas', () => {
-  const workflow = fs.readFileSync(packageWorkflowPath, 'utf8');
-  const backendDockerfile = fs.readFileSync(path.join(root, 'apps', 'backend', 'Dockerfile'), 'utf8');
-  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-
-  assert.match(workflow, /packages:\s*write/);
-  assert.match(workflow, /docker\/login-action@[0-9a-f]{40} # v3/);
-  assert.match(workflow, /ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
-  assert.match(workflow, /ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
-  assert.match(workflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);
-  assert.match(workflow, /WEB_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.web_image \}\}/);
-  assert.match(workflow, /docker push "\$API_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(workflow, /docker push "\$WEB_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(backendDockerfile, /COPY --from=builder \/app\/node_modules\/\.prisma \/app\/node_modules\/\.prisma/);
-  assert.match(backendDockerfile, /COPY scripts\/migrate-\*\.mjs \.\/apps\/backend\/scripts\//);
-  assert.match(backendDockerfile, /COPY --from=builder \/app\/apps\/backend\/scripts \.\/apps\/backend\/scripts/);
-  assert.match(backendDockerfile, /COPY --from=builder \/app\/config\/app-version\.json \/app\/config\/version-catalog\.json \.\/config/);
-  assert.match(backendDockerfile, /ARG BUILD_COMMIT=local[\s\S]*?ENV GITHUB_SHA=\$\{BUILD_COMMIT\}/);
-  assert.match(backendDockerfile, new RegExp(`npm install -g npm@${packageJson.packageManager.replace('npm@', '')}`, 'g'));
-  assert.match(workflow, /Smoke de Prisma Client en imagen runtime[\s\S]*?PrismaClient no está disponible en la imagen runtime[\s\S]*?La versión de API no coincide con el tag de imagen[\s\S]*?El commit de API no coincide con el SHA del build/);
-  assert.doesNotMatch(workflow, /docker push \$\{\{/);
+test('CLOUD-DOCKER-PACKAGING-RETIRED: la publicación cloud no se configura', () => {
+  assert.equal(fs.existsSync(path.join(root, '.github', 'workflows', 'package.yml')), false);
 });
 
 test.skip('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
@@ -3638,4 +3618,11 @@ test('build-msi limpia el workspace npm opcional sin Remove-Item', { skip: proce
     windowsHide: true,
     timeout: 30_000
   });
+});
+
+test('SPEC-050: la identidad del dashboard tolera arranques en frío con un timeout acotado', () => {
+  const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
+
+  assert.match(appHost, /DashboardIdentityHttpClient\s*=\s*new\(\)\s*\{\s*Timeout\s*=\s*TimeSpan\.FromSeconds\(10\)\s*\}/);
+  assert.match(appHost, /DashboardIdentityHttpClient\.GetAsync/);
 });
