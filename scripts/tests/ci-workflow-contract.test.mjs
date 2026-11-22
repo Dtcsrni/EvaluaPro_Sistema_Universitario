@@ -524,7 +524,6 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
 
 test('publicaciones externas serializan ejecuciones en curso', () => {
   const nonInterruptibleWorkflows = [
-    'package.yml',
     'release-beta.yml',
     'release-stable-gate.yml',
     'tag-release-guard.yml'
@@ -636,23 +635,8 @@ test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vites
   assert.match(upload, /include-hidden-files:\s*true/);
 });
 
-test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
-  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
-  const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#app-v}');
-  const pushIndex = workflow.indexOf('docker push');
-
-  assert.ok(validationIndex >= 0, 'falta validación de versión de tag');
-  assert.ok(pushIndex > validationIndex, 'la validación debe ocurrir antes de publicar imágenes');
-  assert.match(workflow, /no coincide con package\.json/);
-});
-
-test('package workflow usa namespace GHCR del owner y nombres de imagen de un segmento', () => {
-  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
-
-  assert.match(workflow, /OWNER="\$\{GITHUB_REPOSITORY%%\/\*\}"/);
-  assert.match(workflow, /api_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
-  assert.match(workflow, /web_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
-  assert.doesNotMatch(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}/);
+test('el empaquetado Docker cloud permanece retirado', () => {
+  assert.equal(fs.existsSync(path.join(workflowDir, 'package.yml')), false);
 });
 
 test('qa:full usa el runner fail-closed que conserva diagnósticos y valida reportes', () => {
