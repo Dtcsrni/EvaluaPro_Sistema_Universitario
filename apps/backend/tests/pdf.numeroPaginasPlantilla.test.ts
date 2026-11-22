@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { resolverNumeroPaginasPlantilla } from '../src/modulos/modulo_generacion_pdf/domain/resolverNumeroPaginasPlantilla.js';
-import { resolverPaginasObjetivoPreferidas } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
+import { longitudTextoVisible, resolverPaginasObjetivoPreferidas } from '../src/modulos/modulo_generacion_pdf/shared/controladorGeneracionPdfShared.js';
 import { esquemaCrearPlantilla, esquemaActualizarPlantilla } from '../src/modulos/modulo_generacion_pdf/validacionesExamenes.js';
 
 describe('resolverNumeroPaginasPlantilla', () => {
@@ -42,6 +42,18 @@ describe('resolverPaginasObjetivoPreferidas', () => {
     expect(resolverPaginasObjetivoPreferidas(docente, 'global')).toBe(4);
     expect(resolverPaginasObjetivoPreferidas(docente, 'extraordinario')).toBe(10);
     expect(resolverPaginasObjetivoPreferidas({ preferenciasPdf: { paginasPorTipo: { global: 3 } } }, 'global')).toBe(4);
+  });
+});
+
+describe('longitudTextoVisible para estimación de maquetación', () => {
+  it('ignora etiquetas y conserva texto con símbolos matemáticos y etiquetas malformadas', () => {
+    expect(longitudTextoVisible('<p>Hola <strong title="a > b">mundo</strong></p>')).toBe(10);
+    expect(longitudTextoVisible('2 < 3')).toBe(5);
+    expect(longitudTextoVisible('<b')).toBe(2);
+  });
+
+  it('cuenta contenido de script como texto y no lo trata como marcado', () => {
+    expect(longitudTextoVisible('<script>alert(1)</script>')).toBe(8);
   });
 });
 

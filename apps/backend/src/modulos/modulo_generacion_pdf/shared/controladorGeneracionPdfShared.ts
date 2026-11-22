@@ -53,6 +53,33 @@ export function claveTemaPreview(valor: unknown): string {
   return normalizarNombreTemaPreview(valor).toLowerCase();
 }
 
+export function longitudTextoVisible(valor: unknown): number {
+  const texto = String(valor ?? '');
+  let longitud = 0;
+  for (let indice = 0; indice < texto.length; indice += 1) {
+    if (texto[indice] !== '<' || !/[a-zA-Z!?/]/.test(texto[indice + 1] ?? '')) {
+      longitud += 1;
+      continue;
+    }
+    let comilla: '"' | "'" | null = null;
+    let finEtiqueta = -1;
+    for (let cursor = indice + 1; cursor < texto.length; cursor += 1) {
+      const caracter = texto[cursor];
+      if (comilla) {
+        if (caracter === comilla) comilla = null;
+      } else if (caracter === '"' || caracter === "'") {
+        comilla = caracter;
+      } else if (caracter === '>') {
+        finEtiqueta = cursor;
+        break;
+      }
+    }
+    if (finEtiqueta < 0) longitud += 1;
+    else indice = finEtiqueta;
+  }
+  return longitud;
+}
+
 function parseJsonSafe<T>(val: unknown): T | null {
   if (typeof val === 'string') {
     try {
@@ -685,9 +712,9 @@ export function ordenarPreguntasParaCapacidad<
     porTema.set(tema, grupo);
   }
   const pesoEstimado = (pregunta: T) => {
-    const texto = String(pregunta.enunciado ?? '').replace(/<[^>]*>/g, '');
-    const opciones = pregunta.opciones.map((opcion) => String(opcion.texto ?? '').replace(/<[^>]*>/g, ''));
-    return Math.ceil(texto.length / 78) + opciones.reduce((total, opcion) => total + Math.ceil(opcion.length / 34), 0);
+    const longitudEnunciado = longitudTextoVisible(pregunta.enunciado);
+    const longitudesOpciones = pregunta.opciones.map((opcion) => longitudTextoVisible(opcion.texto));
+    return Math.ceil(longitudEnunciado / 78) + longitudesOpciones.reduce((total, longitud) => total + Math.ceil(longitud / 34), 0);
   };
   const puntajeSembrado = (pregunta: T) => {
     const peso = pesoEstimado(pregunta);
