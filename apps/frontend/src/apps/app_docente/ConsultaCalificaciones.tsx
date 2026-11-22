@@ -333,7 +333,6 @@ export function ConsultaCalificaciones({
     if (!filaSeleccionada || !periodoId) return;
     const esPractica = componente === 'Practica 2do Parcial';
     const esExamen1 = componente === 'Exámen 1er Parcial';
-    const esExamen2 = componente === 'Exámen 2do Parcial';
     const esGlobal = componente === 'Exámen Global';
     const campo = esPractica ? 'practica' : esExamen1 ? 'examen1' : esGlobal ? 'global' : 'examen';
     const valorTexto = borradores[campo].trim().replace(',', '.');
