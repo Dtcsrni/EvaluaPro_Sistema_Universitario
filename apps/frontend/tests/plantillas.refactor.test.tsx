@@ -351,6 +351,7 @@ describe('plantillas refactor y navegación por pestañas (SPEC-034)', () => {
 
     fireEvent.change(selectorGrupo, { target: { value: 'B' } });
     expect(screen.getByText(/Alumno del grupo:/)).toHaveTextContent(/Alumno del grupo:\s*1 alumno/);
+    expect(screen.getByRole('button', { name: /Paquete de exámenes \(1 alumno\)/i })).toBeVisible();
     expect(screen.getByRole('button', { name: /Generar lote PDF consolidado \(1 alumno\)/i })).toBeEnabled();
   });
 

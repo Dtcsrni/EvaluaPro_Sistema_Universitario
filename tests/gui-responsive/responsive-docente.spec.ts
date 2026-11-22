@@ -5652,7 +5652,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(panelGeneracion.getByText('Plantilla seleccionada: Álgebra de demostración · 2A · Parcial de demostración')).toBeVisible();
     await panelGeneracion.getByLabel('Alcance del lote').selectOption('2A');
     await expect(panelGeneracion.getByText('Alumno del grupo: 1 alumno')).toBeVisible();
-    await expect(panelGeneracion.getByRole('button', { name: 'Paquete por grupo (1 alumno)' })).toBeVisible();
+    await expect(panelGeneracion.getByRole('button', { name: 'Paquete de exámenes (1 alumno)' })).toBeVisible();
     await expect(panelGeneracion.getByText(/Total de destinatarios: 1 alumno\./)).toBeVisible();
     await expect(panelGeneracion.getByText('Tipo seleccionado: Ordinario · Parcial')).toBeVisible();
     const botonGenerar = panelGeneracion.getByRole('button', { name: 'Generar lote PDF consolidado (1 alumno)' });
