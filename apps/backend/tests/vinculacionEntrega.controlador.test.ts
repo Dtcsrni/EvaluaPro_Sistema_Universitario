@@ -147,7 +147,7 @@ describe('controladorVinculacionEntrega', () => {
         alumnoId: 'alumno-1',
         docenteId: 'docente-1',
         acordeonEntregado: true,
-        bonoAcordeon: 0.5
+        bonoAcordeon: 0.25
       })
     });
     expect(res.status).toHaveBeenCalledWith(201);

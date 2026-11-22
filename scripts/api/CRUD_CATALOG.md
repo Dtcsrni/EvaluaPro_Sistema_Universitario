@@ -1,6 +1,6 @@
 # Catálogo de rutas y operaciones API
 
-Generado desde los routers backend. 270 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
+Generado desde los routers backend. 272 rutas documentadas; las operaciones CRUD y de dominio se muestran tal como existen. Este catálogo no inventa endpoints para modelos sin una ruta montada.
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
@@ -137,6 +137,7 @@ La concesión requiere consentimiento del docente y cada ruta conserva su permis
 | Classroom | `/evaluaciones/v2/classroom/alumnos/{alumnoId}/entregas/{submissionId}/historial` | GET | Bearer | — | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/actividades` | GET | Bearer | classroom:pull | — |
+| Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/actividades/{courseWorkId}/contenido` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/alumnos` | GET | Bearer | classroom:pull | — |
 | Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/importar-alumnos` | POST | Bearer | classroom:pull, alumnos:gestionar | esquemaImportarAlumnosClassroom |
 | Classroom | `/evaluaciones/v2/classroom/cursos/{courseId}/mapeo-alumnos` | PUT | Bearer | classroom:pull | esquemaActualizarMapeoAlumnosCurso |
@@ -215,6 +216,7 @@ La concesión requiere consentimiento del docente y cada ruta conserva su permis
 | OMR | `/omr/analizar` | POST | Bearer | omr:analizar | esquemaAnalizarOmr |
 | OMR | `/omr/ingestas` | POST | Bearer | omr:analizar | — |
 | OMR | `/omr/ingestas/{jobId}` | GET | Bearer | omr:analizar | — |
+| OMR | `/omr/ingestas/{jobId}/calificacion-preview` | POST | Bearer | omr:analizar, calificaciones:calificar | esquemaPrevisualizarCalificacionIngestaOmr |
 | OMR | `/omr/ingestas/{jobId}/calificar` | POST | Bearer | omr:analizar, banco:leer, calificaciones:calificar | esquemaCalificarIngestaPdfOmr |
 | OMR | `/omr/ingestas/{jobId}/dataset-export` | POST | Bearer | omr:analizar | esquemaExportarDatasetIngestaOmr |
 | OMR | `/omr/ingestas/{jobId}/manifiesto` | GET | Bearer | omr:analizar | — |
@@ -277,7 +279,7 @@ La concesión requiere consentimiento del docente y cada ruta conserva su permis
 | Sincronización | `/sincronizaciones/local/configuracion` | GET | Bearer | sincronizacion:listar | — |
 | Sincronización | `/sincronizaciones/local/configuracion/carpeta` | POST | Bearer | sincronizacion:importar | esquemaConfigurarCarpetaSincronizacion |
 | Sincronización | `/sincronizaciones/local/exportar` | POST | Bearer | sincronizacion:exportar | esquemaExportarInstantaneaLocal |
-| Sincronización | `/sincronizaciones/local/importar` | POST | Bearer | sincronizacion:importar | esquemaImportarInstantaneaLocal |
+| Sincronización | `/sincronizaciones/local/importar` | POST | Bearer | sincronizacion:importar | — |
 | Sincronización | `/sincronizaciones/local/lease/liberar` | POST | Bearer | sincronizacion:importar | esquemaLeaseSincronizacion |
 | Sincronización | `/sincronizaciones/local/lease/renovar` | POST | Bearer | sincronizacion:importar | esquemaLeaseSincronizacion |
 | Sincronización | `/sincronizaciones/local/nube/descargar` | GET | Bearer | sincronizacion:importar | — |

@@ -14,6 +14,17 @@ test('el flavor docente-local no queda bloqueado por MongoDB', () => {
   assert.match(source, /waitForLifecycleHealth\(desiredMode, requireLocalPortal, requireMongo/);
 });
 
+test('docente-local omite MongoDB y consulta salud de servicios en paralelo', () => {
+  assert.match(source, /if \(flavorPolicy\.requireDockerRuntime\) \{\s*checks\.push\(\['mongoLocal'/);
+  assert.match(source, /Promise\.all\(checks\.map\(async \(\[name, check\]\) => \[name, await check\(\)\]\)\)/);
+});
+
+test('abrir la raíz del dashboard en docente-local lleva a la Web Docente', () => {
+  assert.match(source, /flavorPolicy\.flavorId === 'docente-local' && process\.env\.EVALUAPRO_DEBUG !== '1'/);
+  assert.match(source, /Location: `http:\/\/127\.0\.0\.1:\$\{webPort\}\/\$\{reqUrl\.search \|\| ''\}`/);
+  assert.ok(source.includes("pathName === '/api/status'"), 'las rutas internas del supervisor siguen expuestas');
+});
+
 test('repara procesos nativos obsoletos y espera su salida antes de reiniciar', () => {
   assert.match(source, /shouldRestartUnhealthyTask\(desiredMode, servicesBefore, desiredMode\)/);
   assert.match(source, /const webKey = desiredMode === 'prod' \? 'webDocenteProd' : 'webDocenteDev'/);

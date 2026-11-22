@@ -1,8 +1,8 @@
 ---
 id: SPEC-128
 titulo: Ingesta de copias de un mismo formulario OMR para varios alumnos
-version: 1.0.0
-fecha: 2026-10-27
+version: 1.1.0
+fecha: 2026-11-22
 autor: Codex / EvaluaPro
 modulo: modulo_escaneo_omr
 estado: approved
@@ -24,6 +24,7 @@ Un docente puede imprimir una sola variante TV4 y repartir fotocopias a varios a
 - **REQ-008 — Escritura protegida:** esta spec no habilita escritura automática general ni publicación. Persistir una nota requiere solicitud explícita, RBAC, identidad confirmada, clave y variante verificadas, cobertura completa, política OMR vigente y confirmación de lectura posterior por alumno e intento. Una discordancia o excepción deja la copia en revisión sin nota.
 - **REQ-009 — Trazabilidad privada:** manifiestos y auditoría conservarán hash del PDF, página/archivo fuente, payload QR redactado, `submissionId`, asignación confirmada, versión de mapa/clave/motor/política y decisión por página. No incluirán el nombre manuscrito, payload QR completo ni respuestas en resúmenes o logs.
 - **REQ-010 — Generación optativa de variante única por lote:** el docente podrá elegir explícitamente que todos los exámenes de un lote ordinario compartan el mismo orden de reactivos y opciones para permitir copias compartidas. El modo aleatorio con variantes distintas seguirá siendo el predeterminado. Cada examen conservará su QR firmado, folio e identidad propios. La pantalla avisará que la distribución de respuestas será idéntica y pedirá confirmación antes de generar. La política se incluirá en la clave de cohorte para bloquear reanudaciones con una modalidad diferente.
+- **REQ-011 — Preview explícito sin persistencia:** el job completado expondrá un endpoint de preview que ejecuta el mismo motor, mapa y clave canónica que la calificación, devuelve resultados por examen/intento y no escribe calificaciones ni cambia el estado del job. En formularios compartidos, solo acepta previews si todas las copias tienen identidad confirmada, alumnos distintos y estado `ready`; la escritura posterior conserva sus permisos e idempotencia propios.
 
 ## Criterios de Aceptación
 
@@ -35,6 +36,7 @@ Un docente puede imprimir una sola variante TV4 y repartir fotocopias a varios a
 6. Las reglas de modo ordinario siguen rechazando duplicados reales, páginas ajenas/faltantes y folios fuera del lote.
 7. Las pruebas focalizadas de backend/frontend, tipos y gates OMR canónicos pasan. Los PDF reales con nombres se procesan localmente y no se incorporan al repositorio; los tests versionados usan fixtures sintéticos sin PII.
 8. Con `variantPolicy=shared`, cada alumno del lote conserva QR/folio propio y el mismo mapa de preguntas/opciones y huella de clave; un reintento reproduce esa variante y no puede reanudar un lote creado como `unique` (o viceversa). La UI muestra la advertencia de variante común y solicita confirmación explícita.
+9. El preview de una ingesta completada calcula intentos con el motor y la clave del examen, devuelve un resultado por intento, no inserta calificaciones ni modifica el job; para copias compartidas sin asignación completa o con alumnos duplicados responde `409 OMR_COPIAS_NO_LISTAS`.
 
 ## Matriz de Trazabilidad
 
@@ -44,3 +46,4 @@ Un docente puede imprimir una sola variante TV4 y repartir fotocopias a varios a
 | REQ-005, REQ-006, REQ-007, REQ-008 | Candidatos del grupo, exclusividad ante asignaciones concurrentes, bloqueo de calificación sin identidad, abstención por bono incierto y resultados separados por intento | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts`, `apps/backend/tests/calificacion.omr.lote.test.ts` | Parcial: el E2E usa imágenes sintéticas y estado de revisión preparado en fixture; el reanálisis CV produce resultados 5/5 y 0/5 separados con lectura posterior cuando el test fija bono cero, y la ruta real se abstiene si el bono es incierto. Faltan copias/escanes reales y validación humana independiente |
 | REQ-009 | Resumen privado y auditoría sin PII ni payload QR completo | `apps/backend/tests/copiasFormularioOmr.test.ts`, `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` | Parcial: respuesta pública omite `identityResult`; falta contrato HTTP/manifiesto completo para datos sensibles |
 | REQ-010 | Política optativa de variante compartida, QR/folio únicos, reanudación compatible y confirmación de advertencia en UI | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` (`separa copias del mismo formulario`), `apps/frontend/tests/plantillas.refactor.test.tsx`, `apps/frontend/tests/plantillas.loteSesion.test.ts` | Implementado; pasan E2E sintético de generación/reanudación y pruebas UI/sesión. No demuestra precisión OMR en escaneos reales |
+| REQ-011 | Preview no persistente y bloqueo de copias no asignadas | `apps/backend/tests/integracion/omrJobsWorkflow.test.ts` | Implementado; prueba multipart verifica resultado sin escritura; prueba de copias verifica rechazo si falta asignación |

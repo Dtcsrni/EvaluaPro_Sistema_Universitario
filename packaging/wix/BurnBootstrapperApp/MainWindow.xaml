@@ -193,8 +193,8 @@
                     <Setter Property="BorderThickness" Value="2" />
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#FF0C1728" />
-                    <Setter Property="Foreground" Value="#FFF8FAFC" />
+                    <Setter Property="Background" Value="#FFE6EEF7" />
+                    <Setter Property="Foreground" Value="#FF102235" />
                     <Setter Property="BorderBrush" Value="#FF70849A" />
                     <Setter Property="Opacity" Value="1" />
                 </Trigger>
@@ -633,8 +633,8 @@
                                                     </StackPanel>
                                                     <StackPanel x:Name="ModePanel" Grid.Column="2">
                                                         <TextBlock Text="Modo" Style="{StaticResource FieldLabelStyle}" FontSize="13" FontWeight="Bold" />
-                                                        <TextBlock Text="Instalar, reparar o desinstalar." Style="{StaticResource HelpTextStyle}" FontSize="11.5" />
-                                                        <ComboBox x:Name="ModeComboBox" Margin="0,4,0,0" SelectionChanged="ModeComboBox_OnSelectionChanged" AutomationProperties.Name="Modo de operación" AutomationProperties.HelpText="Instalar o actualizar, reparar la instalación existente, o desinstalar EvaluaPro." TabIndex="1">
+                                                        <TextBlock Text="Actualiza versiones anteriores si el diagnóstico está sano; si detecta problemas, sugiere reparar." Style="{StaticResource HelpTextStyle}" FontSize="11.5" />
+                                                        <ComboBox x:Name="ModeComboBox" Margin="0,4,0,0" SelectionChanged="ModeComboBox_OnSelectionChanged" AutomationProperties.Name="Modo de operación" AutomationProperties.HelpText="Sugiere actualizar una versión anterior si no detecta problemas; en caso contrario, sugiere reparar." TabIndex="1">
                                                             <ComboBox.ToolTip>
                                                                 <ToolTip>
                                                                     <StackPanel>

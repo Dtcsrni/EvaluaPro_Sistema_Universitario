@@ -13,9 +13,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
-const envPath = path.join(root, '.env');
 const certName = 'EvaluaPro';
 const certCompany = 'Cybersys Tech';
+const modeArgIndex = process.argv.indexOf('--mode');
+const runtimeMode = modeArgIndex >= 0 && process.argv[modeArgIndex + 1] === 'dev' ? 'dev' : 'prod';
+const envPath = path.join(root, runtimeMode === 'dev' ? '.env.dev' : '.env');
+const apiPort = runtimeMode === 'dev' ? 4001 : 4000;
+const webPort = runtimeMode === 'dev' ? 4174 : 4173;
 
 function toPosixPath(value) {
   return String(value || '').replace(/\\/g, '/');
@@ -142,27 +146,29 @@ function actualizarEnv(hostIp) {
   const certReady = fs.existsSync(certPath) && fs.existsSync(keyPath);
   const fallback = usarHttps && !certReady;
 
-  const apiBase = usarHttps ? '/api' : `http://${hostIp}:4000/api`;
+  const apiBase = usarHttps ? '/api' : `http://${hostIp}:${apiPort}/api`;
   const portalBase = usarHttps ? '/api/portal' : `http://${hostIp}:8080/api/portal`;
   const httpCors = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    'http://localhost:4173',
-    'http://127.0.0.1:4173',
+    `http://localhost:${webPort}`,
+    `http://127.0.0.1:${webPort}`,
     `http://${hostIp}:5173`,
-    `http://${hostIp}:4173`
+    `http://${hostIp}:${webPort}`
   ];
   const httpsCors = [
     'https://localhost:5173',
     'https://127.0.0.1:5173',
-    'https://localhost:4173',
-    'https://127.0.0.1:4173',
+    `https://localhost:${webPort}`,
+    `https://127.0.0.1:${webPort}`,
     `https://${hostIp}:5173`,
-    `https://${hostIp}:4173`
+    `https://${hostIp}:${webPort}`
   ];
   const cors = [...httpCors, ...(usarHttps ? httpsCors : [])].join(',');
 
   content = setEnvValue(content, 'HOST_IP', hostIp);
+  content = setEnvValue(content, 'EVALUAPRO_MODE', runtimeMode);
+  content = setEnvValue(content, 'VITE_EVALUAPRO_MODE', runtimeMode);
   content = setEnvValue(content, 'VITE_API_BASE_URL', apiBase);
   content = setEnvValue(content, 'VITE_PORTAL_BASE_URL', portalBase);
   content = setEnvValue(content, 'CORS_ORIGENES', cors);

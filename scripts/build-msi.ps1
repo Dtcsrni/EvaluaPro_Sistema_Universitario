@@ -344,7 +344,7 @@ function Add-DocenteNativeCompiledPayload {
     New-Item -ItemType Directory -Path (Split-Path $embeddedNodeTarget -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $embeddedNodeSource -Destination $embeddedNodeTarget -Force
     Write-Host "[msi] Node.js embebido docente incluido: $embeddedNodeSource"
-    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs', 'runtime-env.mjs', 'migrate-examen-lote-artefactos-pdf-sqlite.mjs', 'migrate-calificacion-origen-inferida-sqlite.mjs', 'migrate-preferencias-retencion-parcial-sqlite.mjs', 'migrate-resultados-extra-externos-sqlite.mjs')) {
+    foreach ($nativeScript in @('start-docente-native.mjs', 'launcher-dashboard.mjs', 'runtime-env.mjs', 'migrate-examen-lote-artefactos-pdf-sqlite.mjs', 'migrate-calificacion-origen-inferida-sqlite.mjs', 'migrate-preferencias-retencion-parcial-sqlite.mjs', 'migrate-resultados-extra-externos-sqlite.mjs', 'migrate-banco-taxonomia-temario-sqlite.mjs', 'migrate-api-local-credentials-sqlite.mjs')) {
       $nativeScriptSource = Join-Path $RootPath (Join-Path 'scripts' $nativeScript)
       if (-not (Test-Path $nativeScriptSource)) { throw "Falta script nativo requerido: $nativeScriptSource" }
       Copy-Item -LiteralPath $nativeScriptSource -Destination (Join-Path $StagingRoot (Join-Path 'scripts' $nativeScript)) -Force
@@ -731,7 +731,9 @@ function New-DocentePayloadArchive {
     'scripts/runtime-env.mjs',
     'scripts/migrate-calificacion-origen-inferida-sqlite.mjs',
     'scripts/migrate-preferencias-retencion-parcial-sqlite.mjs',
-    'scripts/migrate-resultados-extra-externos-sqlite.mjs'
+    'scripts/migrate-resultados-extra-externos-sqlite.mjs',
+    'scripts/migrate-banco-taxonomia-temario-sqlite.mjs',
+    'scripts/migrate-api-local-credentials-sqlite.mjs'
   )
   foreach ($relativePath in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $StagingRoot $relativePath))) {

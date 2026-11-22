@@ -2,6 +2,7 @@
  * Endpoint de salud para monitoreo de API y base de datos.
  */
 import { Router } from 'express';
+import { createHash } from 'node:crypto';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -19,6 +20,13 @@ import {
 const router = Router();
 type TecnologiaVersion = { id: string; label: string; logoUrl: string; website: string };
 type VersionMetadata = { appVersion: string; displayVersion: string };
+
+function obtenerIdentidadRuntime() {
+  const perfil = String(process.env.EVALUAPRO_RUNTIME_PROFILE || (process.env.NODE_ENV === 'production' ? 'prod' : 'dev'));
+  const databaseUrl = String(process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL || '');
+  const databaseIdentity = createHash('sha256').update(`${perfil}\n${databaseUrl}`).digest('hex').slice(0, 16);
+  return { profile: perfil, databaseIdentity };
+}
 
 function leerPackageMetadata(raiz: string) {
   let appName = 'evaluapro';
@@ -203,7 +211,7 @@ router.get('/ready', async (_req, res) => {
       }
     }
   };
-  res.status(listaTotal ? 200 : 503).json(payload);
+  res.status(listaTotal ? 200 : 503).json({ ...payload, runtime: obtenerIdentidadRuntime() });
 });
 
 router.get('/metrics', async (_req, res) => {

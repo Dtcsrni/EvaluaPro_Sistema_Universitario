@@ -16,8 +16,10 @@ public partial class App : System.Windows.Application
     private static readonly TimeSpan OrphanedInstanceMinimumAge = TimeSpan.FromSeconds(30);
     private static Mutex? desktopSingletonMutex;
     private static Mutex? hubBootstrapSingletonMutex;
+    private NativeTrayIcon? trayIcon;
     private static bool ownsDesktopSingleton;
     internal static bool IsInstallerHubInvocation { get; private set; }
+    internal static bool IsTrayStartupInvocation { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -30,6 +32,8 @@ public partial class App : System.Windows.Application
 
         IsInstallerHubInvocation = e.Args.Any(argument =>
             string.Equals(argument, "--installer-hub", StringComparison.OrdinalIgnoreCase));
+        IsTrayStartupInvocation = e.Args.Any(argument =>
+            string.Equals(argument, "--tray-start", StringComparison.OrdinalIgnoreCase));
 
         if (IsInstallerHubInvocation && !TryAcquireHubBootstrapSingleton())
         {
@@ -266,8 +270,32 @@ public partial class App : System.Windows.Application
 
     private void App_Exit(object? sender, ExitEventArgs e)
     {
+        trayIcon?.Dispose();
+        trayIcon = null;
         ReleaseDesktopSingleton();
         ReleaseHubBootstrapSingleton();
+    }
+
+    internal void EnterTrayMode(MainWindow window)
+    {
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        trayIcon ??= new NativeTrayIcon(
+            () => Dispatcher.BeginInvoke(new Action(() => RestoreWindow(window))),
+            () => Dispatcher.BeginInvoke(new Action(() => _ = window.ShutdownFromTrayAsync())));
+        window.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            window.ShowInTaskbar = false;
+            window.Hide();
+            LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
+        }));
+    }
+
+    private static void RestoreWindow(MainWindow window)
+    {
+        window.ShowInTaskbar = true;
+        if (!window.IsVisible) window.Show();
+        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+        window.Activate();
     }
 
     private static void ReleaseHubBootstrapSingleton()

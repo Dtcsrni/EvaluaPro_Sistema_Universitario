@@ -5,7 +5,7 @@
  * - Este router se monta despues de `requerirDocente` (ver `src/rutas.ts`).
  * - Por lo tanto, todas las operaciones aqui requieren JWT de docente.
  */
-import express, { Router } from 'express';
+import { Router } from 'express';
 import { validarCuerpo } from '../../compartido/validaciones/validar.js';
 import { validarQueryRobusto } from '../../compartido/robustez/utilitariosControlador.js';
 import {
@@ -41,13 +41,13 @@ import {
 	esquemaExportarPaquete,
 	esquemaGenerarCodigoAcceso,
 	esquemaListarCodigosAcceso,
-	esquemaImportarInstantaneaLocal,
 	esquemaImportarPaquete,
 	esquemaPublicarResultados,
 	esquemaTraerPaquetesServidor
 } from './validacionesSincronizacion.js';
 import { requerirPermiso } from '../modulo_autenticacion/index.js';
 import { esquemaBodyVacioOpcional } from '../modulo_generacion_pdf/index.js';
+import { recibirInstantaneaLocal } from './middlewareInstantaneaLocal.js';
 
 const router = Router();
 
@@ -65,7 +65,7 @@ router.post('/paquete/importar', requerirPermiso('sincronizacion:importar'), val
 // Instantanea completa local: el cuerpo es un unico archivo binario con una
 // cabecera efimera de solicitud; no se envian credenciales en headers o URL.
 router.post('/local/exportar', requerirPermiso('sincronizacion:exportar'), validarCuerpo(esquemaExportarInstantaneaLocal, { strict: true }), exportarInstantaneaLocal);
-router.post('/local/importar', requerirPermiso('sincronizacion:importar'), express.raw({ type: 'application/vnd.evaluapro.snapshot', limit: '65mb' }), validarCuerpo(esquemaImportarInstantaneaLocal, { strict: true }), importarInstantaneaLocal);
+router.post('/local/importar', requerirPermiso('sincronizacion:importar'), recibirInstantaneaLocal, importarInstantaneaLocal);
 
 // Coordinacion entre equipos: la SQLite nunca se coloca en la carpeta nube.
 router.get('/local/lease', requerirPermiso('sincronizacion:listar'), estadoLeaseSincronizacion);

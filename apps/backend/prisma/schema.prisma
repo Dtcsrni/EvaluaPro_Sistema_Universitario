@@ -50,6 +50,7 @@ model Docente {
   entregas                 Entrega[]
   codigosAcceso            CodigoAcceso[]
   bancoTemas               TemaBanco[]
+  bancoCategorias          CategoriaBanco[]
   createdAt                DateTime                        @default(now())
   updatedAt                DateTime                        @updatedAt
 
@@ -126,6 +127,7 @@ model Periodo {
   calificacionesLista CalificacionListaManual[]
   codigosAcceso       CodigoAcceso[]
   bancoTemas          TemaBanco[]
+  bancoCategorias     CategoriaBanco[]
   solicitudesRevision SolicitudRevisionAlumno[]
   encuadre            EncuadreAcademico?
   createdAt           DateTime                  @default(now())
@@ -980,12 +982,34 @@ model CodigoAcceso {
   @@map("codigos_acceso")
 }
 
+model CategoriaBanco {
+  id            String   @id @default(uuid())
+  docenteId     String
+  docente       Docente  @relation(fields: [docenteId], references: [id], onDelete: Cascade)
+  periodoId     String
+  periodo       Periodo  @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  nombre        String
+  clave         String
+  temarioNodoId String?
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  temas         TemaBanco[]
+
+  @@unique([docenteId, periodoId, clave])
+  @@index([periodoId, temarioNodoId])
+  @@map("banco_categorias")
+}
+
 model TemaBanco {
   id          String    @id @default(uuid())
   docenteId   String
   docente     Docente   @relation(fields: [docenteId], references: [id])
   periodoId   String
   periodo     Periodo   @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  categoriaId String?
+  categoria   CategoriaBanco? @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  temarioNodoId String?
   nombre      String
   clave       String
   activo      Boolean   @default(true)

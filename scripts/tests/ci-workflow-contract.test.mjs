@@ -378,6 +378,10 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(publisher, /needs: \[installer_windows_build, reuse_installer_candidate\]/);
   assert.match(publisher, /inputs\.candidate_run_id \|\| github\.run_id/);
   assert.match(draft, /actualHash -eq \$env:CANDIDATE_SHA256/);
+  assert.match(draft, /name: Descargar y verificar EXE y sidecar desde el release draft[\s\S]*?name: Configurar \.NET SDK 10 para la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /name: Instalar WiX CLI estable para la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /name: Configurar Node\.js para la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /name: Instalar dependencias de la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
   assert.match(draft, /sidecarDigest\.Groups\[1\]\.Value\.ToLowerInvariant\(\) -ne \$sidecarFileHash/);
   assert.match(draft, /needs\.reuse_installer_candidate\.outputs\.bundle_sha256 \|\| needs\.installer_windows_build\.outputs\.bundle_sha256/);
   assert.match(draft, /if: \$\{\{ always\(\) && !cancelled\(\)[\s\S]*needs\.publish_installer_release\.result == 'success'/);

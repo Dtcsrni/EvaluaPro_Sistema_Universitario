@@ -22,9 +22,9 @@ Ruta: `scripts/icons`.
 ## Reglas de mantenimiento
 - Mantener cambios pequeños y trazables con pruebas/validación asociada.
 - Actualizar documentación relacionada cuando cambie el comportamiento observable.
-- Este módulo solo genera activos `.ico`/PNG. No crea, modifica ni elimina accesos `.lnk`.
-- La fuente única de verdad de accesos es `../../config/shortcuts-manifest.json` y el único escritor es `../create-shortcuts.ps1`.
-- La reparación se ejecuta con `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-shortcuts.ps1 -Force`; el script falla cerrado si falta el host nativo o alguna dependencia.
+- Este módulo genera los activos `.ico`/PNG. El host de `docente-local` incrusta `dashboard-prod.ico` dentro de `EvaluaPro.exe`; los accesos de escritorio y Hub toman ese recurso del ejecutable, sin depender de archivos laterales ni rutas de caché.
+- El manifiesto `../../config/shortcuts-manifest.json` conserva nombres e iconos para los flavors heredados; `docente-local` resuelve la instalación canónica desde `logs/installation.manifest.json`.
+- El host reconcilia enlaces incorrectos al iniciar y el botón del perfil vuelve a escribir los `.lnk` de forma atómica y pide a Explorer actualizar cada elemento. Los iconos se leen del recurso embebido de `EvaluaPro.exe`, por lo que la regeneración no crea ni administra archivos `.ico` separados. No usa PowerShell ni Windows Script Host en este flujo.
 - Regenerar el icono canónico del instalador cuando cambie branding:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/icons/generate-installer-canonical-icon.ps1`
 - Regenerar el hero oficial del instalador cuando falte o cambie el branding:

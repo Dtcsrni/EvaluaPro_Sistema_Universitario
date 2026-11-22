@@ -85,7 +85,7 @@ export const esquemaCalificarExamen = z
     alumnoId: esquemaObjectId.optional(),
     aciertos: z.number().int().min(0).optional(),
     totalReactivos: z.number().int().positive().optional(),
-    bonoSolicitado: z.number().min(0).optional(),
+    bonoSolicitado: z.number().finite().refine((valor) => valor === 0 || valor === 0.25, 'El bono de guía de estudio solo admite 0 o 0.25 puntos.').optional(),
     omitirBonoAcordeon: z.boolean().optional(),
     confirmarBonoAcordeonManual: z.boolean().optional(),
     origen: z.literal('inferida manualmente').optional(),

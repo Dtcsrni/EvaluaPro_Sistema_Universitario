@@ -583,6 +583,16 @@ export type ClassroomActividad = {
   id: string;
   title: string;
   description?: string;
+  topicId?: string | null;
+  topicName?: string | null;
+  materials?: Array<{
+    tipo: string;
+    titulo?: string | null;
+    nombre?: string | null;
+    url?: string | null;
+    enlace?: string | null;
+    archivoDriveId?: string;
+  }>;
   maxPoints?: number;
   state?: string;
   updateTime?: string;
@@ -594,6 +604,24 @@ export type ClassroomActividad = {
     corte?: number;
     activo?: boolean;
   } | null;
+};
+
+export type ClassroomActividadContenido = {
+  id: string;
+  title: string;
+  description: string;
+  topicId: string | null;
+  topicName: string | null;
+  materials: NonNullable<ClassroomActividad['materials']>;
+  contenidos: Array<{
+    titulo: string;
+    mimeType?: string;
+    url?: string;
+    texto: string;
+    truncado?: boolean;
+    error?: string;
+  }>;
+  adjuntosOmitidos: number;
 };
 
 export type ClassroomAlumnoLocal = {

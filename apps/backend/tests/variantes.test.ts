@@ -22,5 +22,23 @@ describe('generarVariante', () => {
     expect(variante.ordenOpcionesPorPregunta.p1.sort()).toEqual([0, 1, 2, 3, 4]);
     expect(variante.ordenOpcionesPorPregunta.p2.sort()).toEqual([0, 1, 2, 3, 4]);
   });
+
+  it('conserva la opción correcta al traducirla a la letra visible de cada versión', () => {
+    const preguntas = [
+      { id: 'p1', enunciado: 'Q1', opciones: Array.from({ length: 5 }, (_v, i) => ({ texto: `O${i}`, esCorrecta: i === 2 })) },
+      { id: 'p2', enunciado: 'Q2', opciones: Array.from({ length: 5 }, (_v, i) => ({ texto: `O${i}`, esCorrecta: i === 4 })) }
+    ];
+
+    const variante = generarVariante(preguntas);
+
+    for (const pregunta of preguntas) {
+      const ordenVisible = variante.ordenOpcionesPorPregunta[pregunta.id];
+      expect(ordenVisible).toHaveLength(pregunta.opciones.length);
+      expect(new Set(ordenVisible).size).toBe(pregunta.opciones.length);
+      const opcionesVisibles = ordenVisible.map((indice) => pregunta.opciones[indice]);
+      expect(opcionesVisibles.filter((opcion) => opcion.esCorrecta)).toHaveLength(1);
+      expect(opcionesVisibles[opcionesVisibles.findIndex((opcion) => opcion.esCorrecta)]?.esCorrecta).toBe(true);
+    }
+  });
 });
 

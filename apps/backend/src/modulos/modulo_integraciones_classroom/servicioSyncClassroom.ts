@@ -509,6 +509,13 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
     const mapeo = mapeosPorActividad.get(id) as Record<string, unknown> | undefined;
     return {
       ...actividad,
+      materials: Array.isArray(actividad.materials)
+        ? actividad.materials.map((material) => ({
+            tipo: normalizarTexto(material.tipo) || 'Material',
+            titulo: normalizarTexto(material.nombre) || 'Material de Classroom',
+            url: normalizarTexto(material.enlace) || undefined
+          }))
+        : [],
       mapeo: mapeo
         ? {
             tituloEvidencia: normalizarTexto(mapeo.tituloEvidencia) || undefined,
@@ -526,6 +533,40 @@ export async function listarActividadesPorCurso(docenteId: string, courseId: str
         : null
     };
     })
+  };
+}
+
+export async function obtenerContenidoActividadClassroom(docenteId: string, courseId: string, courseWorkId: string) {
+  const consulta = await consultarActividadesClassroomPorTema(docenteId, courseId);
+  const actividad = consulta.actividades.find((item) => normalizarTexto(item.id) === courseWorkId);
+  if (!actividad) {
+    throw new ErrorAplicacion('CLASSROOM_ACTIVIDAD_NO_ENCONTRADA', 'No se encontró la actividad solicitada en el curso.', 404);
+  }
+
+  const materials = Array.isArray(actividad.materials)
+    ? actividad.materials.map((material) => ({
+        tipo: normalizarTexto(material.tipo) || 'Material',
+        titulo: normalizarTexto(material.nombre) || 'Material de Classroom',
+        url: normalizarTexto(material.enlace) || undefined
+      }))
+    : [];
+
+  return {
+    id: normalizarTexto(actividad.id),
+    title: normalizarTexto(actividad.title),
+    description: normalizarTexto(actividad.description),
+    topicId: normalizarTexto(actividad.topicId) || null,
+    topicName: normalizarTexto(actividad.topicName) || null,
+    materials,
+    // La conexión OAuth actual concede lectura de Classroom, no de Google Drive.
+    // Se muestran los enlaces y metadatos sin intentar descargar archivos privados.
+    contenidos: materials.map((material) => ({
+      titulo: material.titulo,
+      ...(material.url ? { url: material.url } : {}),
+      texto: '',
+      error: 'EvaluaPro puede mostrar el material, pero no extraer su texto con los permisos actuales.'
+    })),
+    adjuntosOmitidos: 0
   };
 }
 

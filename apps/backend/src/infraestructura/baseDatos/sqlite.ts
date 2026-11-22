@@ -54,6 +54,8 @@ export async function conectarSqlite(): Promise<void> {
   ejecutarMigracionEvidenciasEvaluacion();
   ejecutarMigracionTemariosAuditoria();
   ejecutarMigracionTemasBancoAuditoria();
+  ejecutarMigracionSqliteAdicional('migrate-banco-taxonomia-temario-sqlite.mjs');
+  ejecutarMigracionSqliteAdicional('migrate-api-local-credentials-sqlite.mjs');
   ejecutarMigracionPoliticasCalificacionAuditoria();
   ejecutarMigracionPlantillasAuditoria();
 }

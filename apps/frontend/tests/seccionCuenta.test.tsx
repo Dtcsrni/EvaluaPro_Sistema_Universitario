@@ -710,7 +710,7 @@ describe('SeccionCuenta', () => {
       />
     );
 
-    const botonRegenerar = screen.getByRole('button', { name: /Regenerar accesos/i });
+    const botonRegenerar = screen.getByRole('button', { name: /Regenerar accesos e iconos/i });
     fireEvent.click(botonRegenerar);
 
     await waitFor(() => {
@@ -977,7 +977,7 @@ describe('SeccionCuenta', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Conflicto al guardar');
     expect(emitToast).not.toHaveBeenCalled();
 
-    const botonRegenerar = screen.getByRole('button', { name: /Regenerar accesos/i });
+    const botonRegenerar = screen.getByRole('button', { name: /Regenerar accesos e iconos/i });
     fireEvent.click(botonRegenerar);
 
     await waitFor(() => expect(clienteApi.enviar).toHaveBeenCalledTimes(2));

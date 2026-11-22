@@ -285,7 +285,7 @@ for (const mount of mounts) {
     const nextRoute = source.indexOf('router.', declaration.index + declaration[0].length);
     const definition = source.slice(declaration.index, nextRoute === -1 ? undefined : nextRoute);
     const secured = mount.secured || /requerirDocente\s*,|requerirPermiso\s*\(/.test(definition);
-    const permissions = [...definition.matchAll(/requerirPermiso\(['"]([^'"]+)['"]\)/g)].map((itemMatch) => itemMatch[1]);
+    const permissions = [...definition.matchAll(/requerirPermiso\(([^)]*)\)/g)].flatMap((permissionMatch) => [...permissionMatch[1].matchAll(/['"]([^'"]+)['"]/g)].map((itemMatch) => itemMatch[1]));
     const validators = [...definition.matchAll(/validarCuerpo\((\w+)|validarQueryRobusto\((\w+)/g)].map((itemMatch) => itemMatch[1] ?? itemMatch[2]);
     const uploadFields = [...definition.matchAll(/[A-Za-z_$][\w$]*\.(single|array)\(['"]([^'"]+)['"](?:,\s*(\d+))?/g)];
     const queryParameters = validators.flatMap((validator) => queryParametersByValidator[validator] ?? []);

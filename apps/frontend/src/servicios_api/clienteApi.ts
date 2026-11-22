@@ -110,7 +110,7 @@ export function crearClienteApi() {
     })
   });
 
-  type RequestOptions = { timeoutMs?: number; headers?: Record<string, string> };
+  type RequestOptions = { timeoutMs?: number; headers?: Record<string, string>; retry?: { intentos?: number; baseMs?: number; maxMs?: number; jitterMs?: number } };
 
   let refreshEnCurso: Promise<string | null> | null = null;
 
@@ -219,7 +219,7 @@ export function crearClienteApi() {
     return enviarFormDataConMetodo<T>('PUT', ruta, formData);
   }
 
-  async function enviarBinario(ruta: string, body: ArrayBuffer | Uint8Array, opciones?: { contentType?: string; timeoutMs?: number }): Promise<Response> {
+  async function enviarBinario(ruta: string, body: BodyInit | Uint8Array, opciones?: { contentType?: string; timeoutMs?: number }): Promise<Response> {
     const ejecutar = async (token: string | null) => {
       const controlador = new AbortController();
       const timeout = window.setTimeout(() => controlador.abort(), opciones?.timeoutMs ?? 120_000);

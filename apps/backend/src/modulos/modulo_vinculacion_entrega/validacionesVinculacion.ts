@@ -23,7 +23,7 @@ export const esquemaVincularEntregaPorFolio = z.object({
   folio: z.string().min(1),
   alumnoId: esquemaObjectId,
   acordeonEntregado: z.boolean().optional(),
-  bonoAcordeon: z.number().min(0).max(0.5).optional()
+  bonoAcordeon: z.number().min(0).max(0.25).optional()
 });
 
 export const esquemaDeshacerEntregaPorFolio = z.object({

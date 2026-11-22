@@ -9,6 +9,8 @@ const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-snapshot-test-')
 const db = path.join(raiz, 'evaluapro.db');
 process.env.DATABASE_URL = `file:${db.replace(/\\/g, '/')}`;
 process.env.BACKEND_DATABASE_URL = process.env.DATABASE_URL;
+const directorioArtefactosAnterior = process.env.EVALUAPRO_ARCHIVOS_DIR;
+process.env.EVALUAPRO_ARCHIVOS_DIR = path.join(raiz, 'examenes');
 
 const [{ prisma, conectarSqlite, desconectarSqlite }, { crearHash }, modulo] = await Promise.all([
   import('../src/infraestructura/baseDatos/sqlite.js'),
@@ -32,7 +34,12 @@ describe('instantanea local 1:1', () => {
     await fs.rm(path.join(raiz, 'examenes'), { recursive: true, force: true });
     await fs.mkdir(path.join(raiz, 'examenes'), { recursive: true });
   });
-  afterAll(async () => { await desconectarSqlite(); await fs.rm(raiz, { recursive: true, force: true }); });
+  afterAll(async () => {
+    await desconectarSqlite();
+    await fs.rm(raiz, { recursive: true, force: true });
+    if (directorioArtefactosAnterior === undefined) delete process.env.EVALUAPRO_ARCHIVOS_DIR;
+    else process.env.EVALUAPRO_ARCHIVOS_DIR = directorioArtefactosAnterior;
+  });
 
   it('exporta SQLite y archivos en un unico archivo cifrado', async () => {
     await prisma.periodo.create({ data: { id: 'periodo-1', docenteId, nombre: 'Origen', nombreNormalizado: 'origen', fechaInicio: new Date('2026-01-01T00:00:00.000Z'), fechaFin: new Date('2026-06-30T00:00:00.000Z'), grupos: '["A"]' } });

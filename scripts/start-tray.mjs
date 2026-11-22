@@ -11,7 +11,12 @@ const args = process.argv.slice(2);
 const modeIndex = args.indexOf('--mode');
 const portIndex = args.indexOf('--port');
 const mode = modeIndex >= 0 ? String(args[modeIndex + 1] || 'dev') : 'dev';
-const port = portIndex >= 0 ? String(args[portIndex + 1] || '4519') : '4519';
+const defaultPort = mode === 'dev' ? '4520' : '4519';
+const port = portIndex >= 0 ? String(args[portIndex + 1] || defaultPort) : defaultPort;
+if (process.env.EVALUAPRO_TEST_INSTANCE !== '1' && port !== defaultPort) {
+  console.error(`[start-tray] el perfil ${mode} está reservado al puerto ${defaultPort}; no se inicia en ${port}.`);
+  process.exit(1);
+}
 
 function shouldAutostartTray() {
   return !/^(0|false|no)$/i.test(String(process.env.DASHBOARD_TRAY_AUTOSTART || '').trim());

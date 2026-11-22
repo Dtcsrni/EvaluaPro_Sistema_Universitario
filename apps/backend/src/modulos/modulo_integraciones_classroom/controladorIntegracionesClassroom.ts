@@ -23,6 +23,7 @@ import {
   listarCursosParaDocente,
   listarHistorialSyncClassroom,
   obtenerAlumnosCursoClassroom,
+  obtenerContenidoActividadClassroom,
   obtenerEstadoClassroom,
   sincronizarImportacionClassroom,
   type ActividadClassroomSeleccionada
@@ -101,6 +102,14 @@ export async function listarActividadesClassroomController(req: SolicitudDocente
   const periodoId = normalizarTexto(req.query.periodoId);
   const consulta = await listarActividadesPorCurso(docenteId, courseId, periodoId || undefined);
   res.json(consulta);
+}
+
+export async function obtenerContenidoActividadClassroomController(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const courseId = normalizarTexto(req.params.courseId);
+  const courseWorkId = normalizarTexto(req.params.courseWorkId);
+  const actividad = await obtenerContenidoActividadClassroom(docenteId, courseId, courseWorkId);
+  res.json({ actividad });
 }
 
 export async function obtenerAlumnosCursoClassroomController(req: SolicitudDocente, res: Response) {

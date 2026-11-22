@@ -60,6 +60,14 @@ Usa EvaluaPro como sistema de registro. Mantén separadas la lectura OMR, la cal
 - Usa Classroom solo a través de la UI/API de EvaluaPro. Si la integración no está disponible, detente antes de importar o modificar calificaciones.
 - No cambies la clave, las respuestas ni las puntuaciones almacenadas para hacerlas coincidir con una expectativa. Conserva auditoría y resultado original; una corrección debe pasar por el flujo autorizado y trazable.
 
+## Bono manuscrito de guía de estudio
+
+- El bono es independiente por examen parcial o Global: suma `+0.25` a la calificación del examen, nunca a fórmulas de la lista institucional, y el resultado no supera `5.00`.
+- La GUI solicita primero una vista previa del OCR del área impresa de calificación. Solo dos lecturas locales coincidentes con la confianza mínima del detector seleccionan el bono automáticamente; muestra el recorte, las lecturas, la página y la confianza para que el docente lo revise y pueda desmarcarlo.
+- Si el OCR queda incierto, no otorgues puntos automáticamente. La GUI puede habilitar confirmación manual solo cuando existe el recorte que el docente puede inspeccionar. Sin recorte no se ofrece la confirmación manual.
+- El guardado vuelve a leer la captura en el backend. No confíes en `bonoSolicitado` ni en el resultado de OCR del navegador. Guarda nota base, decisión, método, exclusión/confirmación, página/región, lecturas, confianza y versión del detector en la auditoría interna.
+- Si la nota base ya es `5.00`, no agregues bono. Antes de declarar confiable la detección para un lote, compara positivos y negativos contra adjudicación visual independiente de escaneos reales; tests sintéticos y consenso OCR por sí solos no demuestran precisión del lote.
+
 ## Entrega
 
 Informa cuántos exámenes se revisaron, cuántos quedaron calificados y cuántos requieren revisión; resume el puntaje y la evidencia relevante. Si hubo una escritura autorizada, identifica el destino, el resultado de persistencia y la comprobación de lectura. No afirmes que se imprimió, publicó o sincronizó si solo se procesó el escaneo.

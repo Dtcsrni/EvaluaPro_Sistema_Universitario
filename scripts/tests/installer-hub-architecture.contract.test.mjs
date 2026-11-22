@@ -150,10 +150,14 @@ test('AppHost abre Installer Hub solo por mensaje local validado del WebView', (
   assert.match(appHost, /MessageBoxButton\.YesNo/);
   assert.match(appHost, /ReadExpectedHashAsync/);
   assert.match(appHost, /HashMatches\(partialPath, expectedHash\)/);
-  assert.match(appHost, /VerifySameTrustedPublisher/);
+  assert.match(appHost, /TryParseHubReleaseTag/);
+  assert.match(appHost, /hub-v/);
+  assert.match(appHost, /ReadReleaseManifestHashAsync/);
+  assert.match(appHost, /RegisterTrustedInstallerHub/);
+  assert.match(appHost, /trusted-bundle\.json/);
+  assert.match(appHost, /IsTrustedInstallerHub/);
   assert.match(appHost, /ResolveInstalledHubPath/);
   assert.match(appHost, /BundleCachePath/);
-  assert.match(appHost, /installedCert\.Thumbprint/);
   assert.match(appHost, /WinVerifyTrust/);
   assert.match(appHost, /DownloadAndOpenLatestInstallerHubAsync\(releaseVersion\.ToString\(3\)\)/);
   assert.match(appHost, /EvaluaPro-InstallerHub-docente-local-v\{requestedVersion\}\.exe/);

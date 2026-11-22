@@ -268,4 +268,39 @@ describe('CentroClassroom behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: /Desconectar/i }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/oauth/desconectar', {}));
   });
+
+  it('busca actividades por tema y obtiene el contenido adjunto bajo demanda', async () => {
+    obtenerMock.mockImplementation(async (ruta: string) => {
+      if (ruta === '/evaluaciones/v2/classroom/estado') return { estado: { conectado: true } };
+      if (ruta === '/evaluaciones/v2/classroom/cursos') return { cursos: [{ id: 'course-1', name: 'Programación' }] };
+      if (ruta.includes('/contenido')) return {
+        actividad: {
+          id: 'cw-1',
+          title: 'Lectura base',
+          description: 'Analiza los principios del tema.',
+          topicId: 'topic-2',
+          topicName: 'Segundo parcial',
+          materials: [{ tipo: 'drive', titulo: 'Guía', archivoDriveId: 'drive-1' }],
+          contenidos: [{ titulo: 'Guía', mimeType: 'text/plain', texto: 'Texto de la guía para elaborar preguntas.' }],
+          adjuntosOmitidos: 0
+        }
+      };
+      if (ruta.includes('/actividades?')) return {
+        actividades: [{ id: 'cw-1', title: 'Lectura base', topicId: 'topic-2', topicName: 'Segundo parcial', materials: [] }]
+      };
+      if (ruta.includes('/alumnos')) return { alumnosLocales: [], alumnosClassroom: [] };
+      return {};
+    });
+
+    render(<CentroClassroom periodoId="per-1" puedeClassroomConectar puedeClassroomPull classroomDisponible />);
+    await waitFor(() => expect(screen.getByRole('option', { name: /Programación/i })).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/Curso/i), { target: { value: 'course-1' } });
+    await waitFor(() => expect(screen.getByText(/Segundo parcial/)).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/Buscar por actividad o tema/i), { target: { value: 'segundo parcial' } });
+    expect(screen.getByText('Lectura base')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Obtener contenido/i }));
+
+    await waitFor(() => expect(screen.getByText('Texto de la guía para elaborar preguntas.')).toBeInTheDocument());
+    expect(obtenerMock).toHaveBeenCalledWith('/evaluaciones/v2/classroom/cursos/course-1/actividades/cw-1/contenido');
+  });
 });

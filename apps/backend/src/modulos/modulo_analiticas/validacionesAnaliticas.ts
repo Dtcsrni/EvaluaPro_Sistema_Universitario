@@ -57,7 +57,7 @@ export const esquemaGuardarCalificacionLista = z.object({
     : valor.componente === 'Exámen Global' || valor.componente === 'Exámen 1er Parcial'
       ? 5
       : valor.componente === 'Exámen 2do Parcial'
-        ? 5.25
+        ? 5
         : 10;
   if (valor.calificacion > maximo) {
     contexto.addIssue({ code: 'custom', path: ['calificacion'], message: `La calificación no puede exceder ${maximo}.` });

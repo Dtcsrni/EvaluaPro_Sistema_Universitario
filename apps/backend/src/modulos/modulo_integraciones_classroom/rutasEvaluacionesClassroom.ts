@@ -13,6 +13,7 @@ import {
   iniciarOauthClassroom,
   listarActividadesClassroomController,
   listarCursosClassroomController,
+  obtenerContenidoActividadClassroomController,
   listarHistorialSyncClassroomController,
   listarHistorialClassroomAlumnoController,
   listarHistorialEntregaClassroomController,
@@ -44,6 +45,7 @@ router.post(
 );
 router.get('/v2/classroom/cursos', requerirPermiso('classroom:pull'), listarCursosClassroomController);
 router.get('/v2/classroom/cursos/:courseId/actividades', requerirPermiso('classroom:pull'), listarActividadesClassroomController);
+router.get('/v2/classroom/cursos/:courseId/actividades/:courseWorkId/contenido', requerirPermiso('classroom:pull'), obtenerContenidoActividadClassroomController);
 router.get('/v2/classroom/cursos/:courseId/alumnos', requerirPermiso('classroom:pull'), obtenerAlumnosCursoClassroomController);
 router.post(
   '/v2/classroom/cursos/:courseId/importar-alumnos',

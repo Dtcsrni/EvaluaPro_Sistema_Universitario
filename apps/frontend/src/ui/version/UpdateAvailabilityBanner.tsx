@@ -35,7 +35,7 @@ export function UpdateAvailabilityBanner() {
         );
         if (!response.ok) return;
         const candidate = await response.json() as LatestRelease;
-        const version = String(candidate.tag_name || '').replace(/^v/i, '').trim();
+        const version = String(candidate.tag_name || '').replace(/^(?:hub-)?v/i, '').trim();
         const assets = Array.isArray(candidate.assets) ? candidate.assets : [];
         const assetName = `${ASSET_PREFIX}${version}.exe`;
         const hasInstaller = assets.some((asset) => asset.name === assetName);

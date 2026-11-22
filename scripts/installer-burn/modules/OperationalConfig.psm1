@@ -182,6 +182,49 @@ function Test-InstallerOAuthEnv {
     -ClassroomTokenCipherKey ([string]$EnvMap['CLASSROOM_TOKEN_CIPHER_KEY'])
 }
 
+function Get-InstallerOAuthPreservationState {
+  param([Parameter(Mandatory = $true)][string]$TargetDir)
+
+  $envMap = Read-EnvMap -Path (Join-Path $TargetDir '.env')
+  $configuredBefore = -not [string]::IsNullOrWhiteSpace([string]$envMap['GOOGLE_OAUTH_CLIENT_ID'])
+  $programDataRoot = [string]$env:ProgramData
+  if ([string]::IsNullOrWhiteSpace($programDataRoot)) { $programDataRoot = 'C:\ProgramData' }
+  $profilePath = Join-Path $programDataRoot 'EvaluaPro\installer-hub\operational-config.last.json'
+  if (Test-Path -LiteralPath $profilePath) {
+    try {
+      $profile = Get-Content -LiteralPath $profilePath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+      $installDirProperty = $profile.PSObject.Properties['installDir']
+      $configProperty = $profile.PSObject.Properties['config']
+      $profileInstallDir = if ($installDirProperty) { [string]$installDirProperty.Value } else { '' }
+      $profileRoot = if ([string]::IsNullOrWhiteSpace($profileInstallDir)) { '' } else { [IO.Path]::GetFullPath($profileInstallDir).TrimEnd('\') }
+      $targetRoot = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+      $config = if ($configProperty) { $configProperty.Value } else { $null }
+      $oauthConfiguredProperty = if ($config) { $config.PSObject.Properties['googleOauthClientIdSet'] } else { $null }
+      if ($profileRoot.Equals($targetRoot, [StringComparison]::OrdinalIgnoreCase) -and
+          $oauthConfiguredProperty -and [bool]$oauthConfiguredProperty.Value) {
+        $configuredBefore = $true
+      }
+    } catch {
+      throw 'No se pudo comprobar el estado OAuth previo del perfil operativo; se cancela la operación para evitar perder configuración.'
+    }
+  }
+
+  return [pscustomobject]@{ configuredBefore = $configuredBefore }
+}
+
+function Assert-InstallerOAuthPreserved {
+  param(
+    [Parameter(Mandatory = $true)][string]$TargetDir,
+    [Parameter(Mandatory = $true)][object]$PriorState
+  )
+
+  if (-not [bool]$PriorState.configuredBefore) { return }
+  $envMap = Read-EnvMap -Path (Join-Path $TargetDir '.env')
+  if ([string]::IsNullOrWhiteSpace([string]$envMap['GOOGLE_OAUTH_CLIENT_ID'])) {
+    throw 'La operación eliminó un Client ID de Google configurado previamente; se detuvo antes de confirmar la instalación.'
+  }
+}
+
 function Test-OperationalConfig {
   param(
     [ValidateSet('install', 'repair', 'uninstall')]
@@ -590,5 +633,7 @@ Export-ModuleMember -Function @(
   'Normalize-OperationalConfig',
   'Test-OperationalConfig',
   'Test-InstallerOAuthEnv',
-  'Test-InstallerOAuthValues'
+  'Test-InstallerOAuthValues',
+  'Get-InstallerOAuthPreservationState',
+  'Assert-InstallerOAuthPreserved'
 )

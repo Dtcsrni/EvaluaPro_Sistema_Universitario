@@ -8,9 +8,9 @@ const base = {
 };
 
 describe('captura manual de columnas físicas del Segundo Parcial', () => {
-  it('acepta práctica hasta 10 y examen hasta 5.25 para incluir el bono manual', () => {
+  it('acepta práctica hasta 10 y limita el examen a 5, con el bono registrado por separado', () => {
     expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Practica 2do Parcial', calificacion: 10 }).success).toBe(true);
-    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen 2do Parcial', calificacion: 5.25 }).success).toBe(true);
+    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen 2do Parcial', calificacion: 5 }).success).toBe(true);
   });
 
   it('acepta Global manual en la escala física de 0 a 5', () => {
@@ -19,7 +19,7 @@ describe('captura manual de columnas físicas del Segundo Parcial', () => {
   });
 
   it('rechaza notas fuera de escala, componente no físico y propiedades no declaradas', () => {
-    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen 2do Parcial', calificacion: 5.26 }).success).toBe(false);
+    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen 2do Parcial', calificacion: 5.01 }).success).toBe(false);
     expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Tareas y Ejercicios 2do Parcial', calificacion: 9 }).success).toBe(false);
     expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Practica 2do Parcial', calificacion: 9, inesperado: true }).success).toBe(false);
   });

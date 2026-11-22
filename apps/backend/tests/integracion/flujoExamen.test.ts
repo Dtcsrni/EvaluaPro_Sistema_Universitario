@@ -418,7 +418,7 @@ describe('flujo de examen', () => {
         alumnoId,
         aciertos: totalReactivosExamen,
         totalReactivos: totalReactivosExamen,
-        bonoSolicitado: 0.5,
+        bonoSolicitado: 0.25,
         evaluacionContinua: 5
       })
       .expect(201);
@@ -497,6 +497,8 @@ describe('flujo de examen', () => {
     const examenes = await prisma.examenGenerado.findMany({ where: { loteId }, orderBy: { alumnoId: 'asc' } });
     expect(examenes).toHaveLength(2);
     expect(examenes.map((examen) => examen.alumnoId).sort()).toEqual(alumnos.slice(0, 2).sort());
+    const firmasVariantes = examenes.map((examen) => JSON.stringify(JSON.parse(String(examen.mapaVariante ?? '{}'))));
+    expect(new Set(firmasVariantes).size, JSON.stringify(firmasVariantes)).toBe(examenes.length);
     expect(examenes.every((examen) => examen.tipoExamen === 'extraordinario')).toBe(true);
     expect(examenes.every((examen) => /^[a-f0-9]{64}$/.test(examen.cohorteLoteHash ?? ''))).toBe(true);
     await request(app).post('/api/examenes/generados/lote').set(auth).send({

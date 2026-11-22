@@ -73,8 +73,8 @@ Artefactos tecnicos esperados:
   - `launcher-tray-hidden.vbs prod 4519` (flavors heredados; excluido de `docente-local`)
 - El acceso directo **Dev** ejecuta:
   - `launcher-tray-hidden.vbs dev 4519` (flavors heredados; excluido de `docente-local`)
-- `config/shortcuts-manifest.json` es la fuente única de nombres, iconos y launchers.
-- `scripts/create-shortcuts.ps1` se conserva para desarrollo/flavors heredados. En `docente-local`, WiX/MSI crea los accesos nativos y los reconcilia en instalación/actualización.
+- `config/shortcuts-manifest.json` es la fuente única de nombres, iconos y launchers para flavors heredados.
+- `scripts/create-shortcuts.ps1` se conserva para desarrollo/flavors heredados. En `docente-local`, WiX/MSI crea los accesos nativos y `EvaluaPro.exe` los reconcilia al iniciar o desde el botón del perfil. El host resuelve el destino desde el manifiesto de instalación; ambos accesos toman el icono del recurso PE incrustado en `EvaluaPro.exe`, sin dependencias de rutas `.ico` laterales, y avisa a Explorer para actualizar cada `.lnk`.
 - Instalacion/actualizacion:
   - genera automaticamente accesos directos de menu inicio.
   - por defecto tambien genera accesos directos en escritorio (`InstallDesktopShortcuts=1`).

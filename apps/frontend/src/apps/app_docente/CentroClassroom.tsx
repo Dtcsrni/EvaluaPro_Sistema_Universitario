@@ -11,6 +11,7 @@ import { InlineMensaje } from '../../ui/ux/componentes/InlineMensaje';
 import { clienteApi } from './clienteApiDocente';
 import type {
   ClassroomActividad,
+  ClassroomActividadContenido,
   ClassroomAlumnoCurso,
   ClassroomAlumnoLocal,
   ClassroomCurso,
@@ -58,6 +59,9 @@ export function CentroClassroom({
   const [actividades, setActividades] = useState<ClassroomActividad[]>([]);
   const [actividadIdsSeleccionados, setActividadIdsSeleccionados] = useState<string[]>([]);
   const [edicionActividades, setEdicionActividades] = useState<Record<string, ActividadEditable>>({});
+  const [busquedaActividades, setBusquedaActividades] = useState('');
+  const [contenidoPorActividad, setContenidoPorActividad] = useState<Record<string, ClassroomActividadContenido>>({});
+  const [cargandoContenidoId, setCargandoContenidoId] = useState('');
   const [alumnosLocales, setAlumnosLocales] = useState<ClassroomAlumnoLocal[]>([]);
   const [alumnosClassroom, setAlumnosClassroom] = useState<ClassroomAlumnoCurso[]>([]);
   const [mapeoEditable, setMapeoEditable] = useState<Record<string, string>>({});
@@ -79,6 +83,14 @@ export function CentroClassroom({
     () => actividades.filter((actividad) => actividadIdsSeleccionados.includes(actividad.id)),
     [actividadIdsSeleccionados, actividades]
   );
+
+  const actividadesFiltradas = useMemo(() => {
+    const busqueda = normalizarBusqueda(busquedaActividades);
+    if (!busqueda) return actividades;
+    return actividades.filter((actividad) =>
+      [actividad.title, actividad.topicName].map(normalizarBusqueda).some((valor) => valor.includes(busqueda))
+    );
+  }, [actividades, busquedaActividades]);
 
   const alumnosLocalesPorId = useMemo(
     () => new Map(alumnosLocales.map((alumno) => [alumno._id, alumno])),
@@ -139,6 +151,7 @@ export function CentroClassroom({
   const cargarActividades = useCallback(async (courseId: string) => {
     if (!periodoId || !courseId) return;
     setCargandoActividades(true);
+    setContenidoPorActividad({});
     try {
       const respuesta = await clienteApi.obtener<{ actividades: ClassroomActividad[] }>(
         `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseId)}/actividades?periodoId=${encodeURIComponent(periodoId)}`
@@ -167,6 +180,22 @@ export function CentroClassroom({
       setCargandoActividades(false);
     }
   }, [periodoId]);
+
+  async function obtenerContenido(actividad: ClassroomActividad) {
+    if (!courseIdSeleccionado || cargandoContenidoId) return;
+    setCargandoContenidoId(actividad.id);
+    setMensaje('');
+    try {
+      const respuesta = await clienteApi.obtener<{ actividad: ClassroomActividadContenido }>(
+        `/evaluaciones/v2/classroom/cursos/${encodeURIComponent(courseIdSeleccionado)}/actividades/${encodeURIComponent(actividad.id)}/contenido`
+      );
+      setContenidoPorActividad((prev) => ({ ...prev, [actividad.id]: respuesta.actividad }));
+    } catch (error) {
+      setMensaje(mensajeDeError(error, 'No se pudo obtener el contenido de la actividad.'));
+    } finally {
+      setCargandoContenidoId('');
+    }
+  }
 
   const cargarRoster = useCallback(async (courseId: string) => {
     if (!periodoId || !courseId) return;
@@ -415,10 +444,17 @@ export function CentroClassroom({
             <>
               <div className="panel">
                 <h5>Actividades</h5>
+                <p className="nota">La lectura de adjuntos requiere reconectar Google y autorizar lectura de Drive completo (`drive.readonly`). EvaluaPro solo consulta los archivos adjuntos a esta actividad y no almacena su contenido.</p>
+                <label className="campo">
+                  <span>Buscar por actividad o tema de Classroom</span>
+                  <input type="search" value={busquedaActividades} onChange={(event) => setBusquedaActividades(event.target.value)} placeholder="Título o tema" />
+                </label>
                 {cargandoActividades && <InlineMensaje tipo="info">Cargando actividades...</InlineMensaje>}
-                {actividades.map((actividad) => {
+                {!cargandoActividades && actividadesFiltradas.length === 0 && <p role="status">No hay actividades que coincidan con la búsqueda.</p>}
+                {actividadesFiltradas.map((actividad) => {
                   const editable = edicionActividades[actividad.id];
                   const seleccionada = actividadIdsSeleccionados.includes(actividad.id);
+                  const contenido = contenidoPorActividad[actividad.id];
                   return (
                     <div key={actividad.id} className="item-glass">
                       <label>
@@ -430,6 +466,29 @@ export function CentroClassroom({
                         {' '}
                         {actividad.title} {actividad.maxPoints ? `(max ${actividad.maxPoints})` : ''}
                       </label>
+                      <p className="nota">Tema: {actividad.topicName || (actividad.topicId ? `No resuelto (${actividad.topicId})` : 'Sin tema de Classroom')}</p>
+                      {actividad.description && <p>{actividad.description}</p>}
+                      {(actividad.materials ?? []).length > 0 && <ul aria-label={`Materiales de ${actividad.title}`}>
+                        {actividad.materials?.map((material, index) => <li key={`${material.archivoDriveId ?? material.url ?? material.titulo}-${index}`}>
+                          {material.url ? <a href={material.url} target="_blank" rel="noopener noreferrer">{material.titulo}</a> : material.titulo}
+                        </li>)}
+                      </ul>}
+                      <Boton type="button" variante="secundario" disabled={Boolean(cargandoContenidoId)} cargando={cargandoContenidoId === actividad.id} onClick={() => void obtenerContenido(actividad)}>
+                        {contenido ? 'Actualizar contenido' : 'Obtener contenido'}
+                      </Boton>
+                      {contenido && <section aria-label={`Contenido de ${actividad.title}`}>
+                        <h6>Contenido disponible para elaborar preguntas</h6>
+                        {contenido.description && <p>{contenido.description}</p>}
+                        {contenido.contenidos.map((adjunto, index) => <article key={`${adjunto.titulo}-${index}`}>
+                          <h6>{adjunto.titulo}</h6>
+                          {adjunto.error ? <InlineMensaje tipo="warning">{adjunto.error}</InlineMensaje> : <>
+                            {adjunto.truncado && <InlineMensaje tipo="warning">Texto limitado a 50 000 caracteres.</InlineMensaje>}
+                            <pre className="classroom-activity-content">{adjunto.texto || 'No se encontró texto extraíble en este archivo.'}</pre>
+                          </>}
+                        </article>)}
+                        {contenido.adjuntosOmitidos > 0 && <InlineMensaje tipo="info">Se omitieron {contenido.adjuntosOmitidos} adjuntos por el límite de lectura por actividad.</InlineMensaje>}
+                        {contenido.contenidos.length === 0 && <p className="nota">La actividad no tiene adjuntos de Drive compatibles para extracción.</p>}
+                      </section>}
                       {seleccionada && editable && (
                         <div className="grid grid--2">
                           <label>

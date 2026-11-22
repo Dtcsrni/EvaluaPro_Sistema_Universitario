@@ -727,7 +727,10 @@ describe('referencia global de página OMR', () => {
     );
 
     expect(result.qrTexto).toBe(esperado);
-  }, 15_000);
+  // Bajo carga compartida y cobertura V8, Sharp + ZXing puede tardar más de
+  // un minuto. El runner aísla esta suite; este límite conserva margen sin
+  // convertir una demora de instrumentación en un falso fallo.
+  }, 120_000);
 
   it('prioriza un recorte focalizado del QR en la cabecera de una página completa', () => {
     const textoQr = 'EXAMEN:QR-FOCAL-P1:TV4:K:ABCDE';

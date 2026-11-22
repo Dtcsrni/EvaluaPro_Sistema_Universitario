@@ -21,9 +21,11 @@ COPY config/app-version.json ./config/app-version.json
 COPY config/omr-version-policy.json ./config/omr-version-policy.json
 RUN npm ci --foreground-scripts
 ARG VITE_API_BASE_URL=http://localhost:4000/api
+ARG VITE_EVALUAPRO_MODE=prod
 ARG VITE_APP_DESTINO=docente
 ARG VITE_PORTAL_BASE_URL=http://localhost:8080/api/portal
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_EVALUAPRO_MODE=$VITE_EVALUAPRO_MODE
 ENV VITE_APP_DESTINO=$VITE_APP_DESTINO
 ENV VITE_PORTAL_BASE_URL=$VITE_PORTAL_BASE_URL
 RUN npm --workspace apps/frontend run build

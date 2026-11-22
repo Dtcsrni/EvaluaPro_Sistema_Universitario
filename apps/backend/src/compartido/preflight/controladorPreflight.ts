@@ -44,7 +44,7 @@ export async function obtenerPreflight(req: SolicitudDocente, res: Response) {
     session: {
       authenticated: true,
       roles,
-      permissions: permisosComoLista(roles)
+      permissions: req.docentePermisosApi ?? permisosComoLista(roles)
     },
     periods: {
       activeAvailable: periodosActivos > 0,

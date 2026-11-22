@@ -17,7 +17,10 @@ import { importarPaqueteUseCase } from './application/usecases/importarPaquete.j
 import { enviarPaqueteServidorUseCase } from './application/usecases/enviarPaqueteServidor.js';
 import { traerPaquetesServidorUseCase } from './application/usecases/traerPaquetesServidor.js';
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
-import { exportarInstantaneaLocal as crearInstantaneaLocal, importarInstantaneaLocal as aplicarInstantaneaLocal, type MetodoDesbloqueoInstantanea } from './domain/instantaneaLocal.js';
+import type { MetodoDesbloqueoInstantanea } from './domain/instantaneaLocal.js';
+import { exportarInstantaneaLocalStreaming, importarInstantaneaLocalDesdeArchivo } from './domain/instantaneaLocalStreaming.js';
+import type { SolicitudConInstantaneaLocal } from './middlewareInstantaneaLocal.js';
+import { createReadStream } from 'node:fs';
 import {
   adquirirLease,
   descargarInstantaneaNube,
@@ -100,7 +103,7 @@ export async function traerPaquetesServidor(req: SolicitudDocente, res: Response
 export async function exportarInstantaneaLocal(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const body = req.body as { metodo?: MetodoDesbloqueoInstantanea; credencial?: unknown };
-  const resultado = await crearInstantaneaLocal({
+  const resultado = await exportarInstantaneaLocalStreaming({
     docenteId,
     metodo: body.metodo as MetodoDesbloqueoInstantanea,
     credencial: typeof body.credencial === 'string' ? body.credencial : undefined
@@ -111,31 +114,20 @@ export async function exportarInstantaneaLocal(req: SolicitudDocente, res: Respo
   res.setHeader('X-EvaluaPro-Snapshot-Exported-At', resultado.exportadoEn);
   res.setHeader('X-EvaluaPro-Snapshot-Counts', JSON.stringify(resultado.conteos));
   res.setHeader('X-EvaluaPro-Snapshot-Methods', resultado.metodos.join(','));
-  res.send(resultado.archivo);
+  res.setHeader('Content-Length', String(resultado.tamanoArchivo));
+  const flujo = createReadStream(resultado.rutaArchivo);
+  const limpiar = () => { void resultado.limpiar().catch(() => undefined); };
+  res.once('finish', limpiar);
+  res.once('close', limpiar);
+  flujo.once('error', (error) => { limpiar(); res.destroy(error); });
+  flujo.pipe(res);
 }
 
-function leerSolicitudInstantanea(req: Request): { archivo: Buffer; metodo: MetodoDesbloqueoInstantanea; credencial?: string; dryRun: boolean } {
-  const cuerpoRecibido: unknown = req.body;
-  if (!(cuerpoRecibido instanceof Uint8Array)) {
-    throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La solicitud de importación debe ser binaria', 400);
-  }
-  const cuerpo = Buffer.from(cuerpoRecibido);
-  if (cuerpo.length < 4) throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La solicitud de importación está incompleta', 400);
-  const longitudCabecera = cuerpo.readUInt32BE(0);
-  if (longitudCabecera < 2 || longitudCabecera > 4096 || 4 + longitudCabecera > cuerpo.length) throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La cabecera de importación es inválida', 400);
-  let cabecera: { metodo?: unknown; credencial?: unknown; dryRun?: unknown };
-  try { cabecera = JSON.parse(cuerpo.subarray(4, 4 + longitudCabecera).toString('utf8')) as typeof cabecera; } catch { throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'La cabecera de importación no es válida', 400); }
-  const metodo = String(cabecera.metodo || '').trim() as MetodoDesbloqueoInstantanea;
-  if (metodo !== 'contrasena' && metodo !== 'google') throw new ErrorAplicacion('SYNC_METODO_INVALIDO', 'Método de desbloqueo inválido', 400);
-  const credencial = typeof cabecera.credencial === 'string' ? cabecera.credencial : undefined;
-  if (credencial && credencial.length > 256) throw new ErrorAplicacion('SYNC_CREDENCIAL_INVALIDA', 'La credencial es demasiado larga', 400);
-  return { archivo: cuerpo.subarray(4 + longitudCabecera), metodo, credencial, dryRun: cabecera.dryRun === true };
-}
-
-export async function importarInstantaneaLocal(req: Request & { docenteId?: string }, res: Response) {
+export async function importarInstantaneaLocal(req: SolicitudConInstantaneaLocal & { docenteId?: string }, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const solicitud = leerSolicitudInstantanea(req);
-  const resultado = await aplicarInstantaneaLocal({ docenteId, ...solicitud });
+  const entrada = req.instantaneaLocal;
+  if (!entrada) throw new ErrorAplicacion('SYNC_INSTANTANEA_INVALIDA', 'No se recibió el archivo de instantánea', 400);
+  const resultado = await importarInstantaneaLocalDesdeArchivo({ docenteId, rutaArchivo: entrada.rutaArchivo, ...entrada.solicitud });
   res.json(resultado);
 }
 

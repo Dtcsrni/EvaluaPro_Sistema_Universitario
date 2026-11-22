@@ -440,6 +440,8 @@ public partial class MainWindow : Window
             var fadeOut = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(300));
             fadeOut.Completed += (_, _) => SplashOverlay.Visibility = Visibility.Collapsed;
             SplashOverlay.BeginAnimation(OpacityProperty, fadeOut);
+                if (App.IsTrayStartupInvocation && System.Windows.Application.Current is App app)
+                    app.EnterTrayMode(this);
         }
         else
         {
@@ -605,6 +607,7 @@ public partial class MainWindow : Window
                 };
                 psi.EnvironmentVariables["NODE_ENV"] = "production";
                 psi.EnvironmentVariables["EVALUAPRO_FLAVOR"] = "docente-local";
+                psi.EnvironmentVariables["DASHBOARD_TRAY_AUTOSTART"] = "0";
                 var googleDesktopClientSecret = Environment.GetEnvironmentVariable(
                     "GOOGLE_DESKTOP_CLIENT_SECRET",
                     EnvironmentVariableTarget.User);
@@ -1358,8 +1361,7 @@ public partial class MainWindow : Window
             if (choice == MessageBoxResult.Cancel) return;
             if (choice == MessageBoxResult.No)
             {
-                closeAuthorized = true;
-                _ = Dispatcher.BeginInvoke(new Action(Close));
+                if (System.Windows.Application.Current is App app) app.EnterTrayMode(this);
                 return;
             }
 
@@ -1390,5 +1392,30 @@ public partial class MainWindow : Window
         {
             closePromptPending = false;
         }
+    }
+
+    internal async Task ShutdownFromTrayAsync()
+    {
+        if (isStopping || shutdownCompleted) return;
+        isStopping = true;
+        var stopped = await ShutdownServicesAsync();
+        if (!stopped)
+        {
+            isStopping = false;
+            ShowInTaskbar = true;
+            if (!IsVisible) Show();
+            Activate();
+            WpfMessageBox.Show(
+                this,
+                "No pude verificar que los servicios de EvaluaPro se detuvieran. La aplicación sigue activa; revisa el log de diagnóstico.",
+                "EvaluaPro · No se pudo detener",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        shutdownCompleted = true;
+        closeAuthorized = true;
+        System.Windows.Application.Current.Shutdown();
     }
 }

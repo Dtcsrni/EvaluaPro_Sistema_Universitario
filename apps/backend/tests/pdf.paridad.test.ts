@@ -147,6 +147,52 @@ describe('pdf OMR canónico', () => {
     expect(height).toBeCloseTo(792, 0);
   });
 
+  it('mantiene el layout neutral para opciones extensas y conserva la correspondencia OMR', async () => {
+    const textoLargo = 'Evaluar conjuntamente el contexto del mercado, las necesidades verificadas del público y la capacidad real de la empresa antes de seleccionar una propuesta de valor para el lanzamiento.';
+    const opciones = [
+      { texto: textoLargo, esCorrecta: true },
+      { texto: 'Atender el grupo con más seguidores.', esCorrecta: false },
+      { texto: 'Elegir el segmento más grande.', esCorrecta: false },
+      { texto: 'Priorizar el costo menor.', esCorrecta: false },
+      { texto: 'Usar la campaña anterior.', esCorrecta: false }
+    ];
+    const parametros = crearParametros(1);
+    parametros.preguntas[0]!.opciones = opciones;
+    parametros.mapaVariante.ordenOpcionesPorPregunta.p1 = [4, 0, 1, 2, 3];
+
+    const correctaLarga = await generarPdfExamen(parametros);
+    const textoCorrectaLarga = (await new PDFParse({ data: new Uint8Array(correctaLarga.pdfBytes) }).getText()).text;
+
+    const conCorrectaBreve = {
+      ...parametros,
+      preguntas: parametros.preguntas.map((pregunta) => ({
+        ...pregunta,
+        opciones: pregunta.opciones.map((opcion, indice) => ({ ...opcion, esCorrecta: indice === 4 }))
+      }))
+    };
+    const correctaBreve = await generarPdfExamen(conCorrectaBreve);
+    const textoCorrectaBreve = (await new PDFParse({ data: new Uint8Array(correctaBreve.pdfBytes) }).getText()).text;
+
+    expect(textoCorrectaLarga).toBe(textoCorrectaBreve);
+    const textoNormalizado = textoCorrectaLarga.replace(/\s+/g, ' ');
+    for (const fragmento of [
+      textoLargo,
+      'A) Usar la campaña anterior.',
+      'B) Evaluar conjuntamente el contexto',
+      'C) Atender el grupo con más seguidores.',
+      'D) Elegir el segmento más grande.',
+      'E) Priorizar el costo menor.'
+    ]) {
+      expect(textoNormalizado).toContain(fragmento);
+    }
+
+    const preguntaOmr = correctaLarga.mapaOmr.paginas.flatMap((pagina) => pagina.preguntas)
+      .find((pregunta) => pregunta.idPregunta === 'p1');
+    expect(preguntaOmr?.opciones.map((opcion) => opcion.letra)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(new Set(preguntaOmr?.opciones.map((opcion) => opcion.x)).size).toBe(5);
+    expect(correctaLarga.mapaOmr.paginas.flatMap((pagina) => pagina.layoutDebug?.collisionBoxes ?? [])).toHaveLength(0);
+  });
+
   it('mantiene consistencia del QR SemVer activo por página', async () => {
     const resultado = await generarPdfExamen(crearParametros(8));
 

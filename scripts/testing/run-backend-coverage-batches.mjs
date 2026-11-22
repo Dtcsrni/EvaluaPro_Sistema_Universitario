@@ -157,7 +157,18 @@ function buildRootCoverageBatches() {
     const current = files[index];
     const chunkSize = current.includes('/omr.') || current.includes('sincronizacion.dos-equipos.e2e.test.ts') ? 1 : 4;
     const name = `backend-root-${String(batches.length + 1).padStart(2, '0')}`;
-    batches.push({ name, args: batchArgs(name, files.slice(index, index + chunkSize)) });
+    // Los casos OMR sobre imágenes reales/sintéticas y la geometría de QR
+    // degradado tardan varios minutos instrumentados por V8; ejecutarlos con
+    // workers concurrentes agotaba el timeout global aunque pasaran aislados.
+    const exclusiveOmrSuite = current === 'tests/omr.test.ts'
+      || current === 'tests/omr.geometry.reference.test.ts'
+      || current === 'tests/omr.tv4.synthetic.metrics.test.ts';
+    const omrTimeoutMs = current === 'tests/omr.geometry.reference.test.ts' ? 5 * 60 * 1000 : 12 * 60 * 1000;
+    batches.push({
+      name,
+      args: batchArgs(name, files.slice(index, index + chunkSize)),
+      ...(exclusiveOmrSuite ? { exclusive: true, timeoutMs: omrTimeoutMs } : {})
+    });
     index += chunkSize;
   }
   return batches;

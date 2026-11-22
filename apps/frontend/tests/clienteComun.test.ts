@@ -219,6 +219,16 @@ describe('eventos de uso y cliente JSON', () => {
     vi.unstubAllGlobals();
   });
 
+  it('permite desactivar reintentos automáticos en una solicitud de larga duración', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('socket closed'));
+    vi.stubGlobal('fetch', fetchMock);
+    const cliente = crearClienteJsonBase({
+      baseUrl: '/api', mensajeServicio: 'Servicio', retry: { intentos: 4 }, ...toastBase, toastTimeout: { id: 'timeout', title: 'Timeout', message: 'timeout' }
+    });
+    await expect(cliente.enviar('/omr/resolver', {}, { timeoutMs: 600_000, retry: { intentos: 0 } })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
   it('refresca token una vez y serializa encabezados y payload de cliente JSON', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })

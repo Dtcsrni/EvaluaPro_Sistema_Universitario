@@ -7,7 +7,13 @@
 import type { Pregunta } from './tipos';
 import { obtenerVersionPregunta } from './utilidades';
 
-export type TemaBanco = { _id: string; nombre: string; periodoId: string; createdAt?: string };
+export type NodoTemarioBanco = { id: string; numero: string; nivel: number; titulo: string };
+export type TemaBanco = {
+  _id: string; nombre: string; periodoId: string; createdAt?: string;
+  categoriaId?: string | null;
+  categoria?: { id: string; nombre: string; temarioNodoId?: string | null } | null;
+  temarioNodoId?: string | null;
+};
 
 export function normalizarNombreTema(valor: unknown): string {
   return String(valor ?? '').trim().replace(/\s+/g, ' ');

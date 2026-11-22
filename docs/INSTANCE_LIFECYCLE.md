@@ -21,6 +21,22 @@ nombre de carpeta `EvaluaPro`; por ello no se autoriza convivencia side-by-side
 por defecto. Si se requiere simultaneidad deberán separarse raíces de
 instalación, datos, puertos e identidad MSI/Bundle, y demostrarse con pruebas.
 
+## Perfiles nativos y reserva de puertos
+
+La aplicación nativa reserva `4000` (API), `4173` (Web Docente) y `4519`
+(Dashboard) exclusivamente para producción. El modo de desarrollo usa `4001`,
+`4174` y `4520`; el perfil E2E usa `4100`, `4175` y `4521`. Una colisión en un
+puerto reservado detiene ese perfil; el launcher no lo desplaza a un puerto
+alternativo. Vite HMR de desarrollo usa `5173`. La interfaz de desarrollo se
+identifica antes y después del inicio de sesión como `DESARROLLO · AISLADO`; E2E
+se identifica como `PRUEBAS · DATOS AISLADOS`.
+
+El runtime productivo siempre fija `DATABASE_URL` y `BACKEND_DATABASE_URL` a
+`%ProgramData%\\EvaluaPro\\data\\evaluapro.db`, con independencia del checkout
+desde el que se inició el launcher. Desarrollo usa `data-dev/evaluapro.db` y E2E
+usa `test-results/docente-cycle/evaluapro.db`. No se debe promover ni reiniciar
+producción como parte de una prueba.
+
 ## Estados y transiciones
 
 ```text

@@ -11,6 +11,14 @@ export type LoteOmrDisponible = {
   archivado: boolean | null;
 };
 
+type ExamenOmrReferenciable = {
+  _id: string;
+  loteId?: string | null;
+  origenGeneracion?: string | null;
+  periodoId?: string | null;
+  archivadoEn?: string | null;
+};
+
 /** Recorre todo el archivo paginado y falla si el servidor repite un cursor. */
 export async function cargarTodasLasPaginasArchivadas<T>(
   obtenerPagina: (cursor: string | null) => Promise<PaginaExamenesArchivados<T>>
@@ -47,8 +55,28 @@ export async function cargarCandidatosOmr<T extends { _id: string }>(
   return Array.from(new Map([...activos, ...archivados].map((examen) => [examen._id, examen])).values());
 }
 
+/** Conserva solo exámenes de lote y elimina duplicados entre estados activos/archivados. */
+export function combinarExamenesOmrReferenciables<T extends ExamenOmrReferenciable>(activos: T[], archivados: T[]): T[] {
+  return Array.from(new Map([...activos, ...archivados]
+    .filter((examen) => Boolean(examen.loteId?.trim()) && examen.origenGeneracion === 'lote')
+    .map((examen) => [examen._id, examen])).values());
+}
+
+/** Consulta todas las páginas activas y archivadas antes de formar el selector OMR. */
+export async function cargarExamenesOmrReferenciables<T extends ExamenOmrReferenciable>(
+  obtenerPagina: (query: string) => Promise<PaginaExamenesArchivados<T>>
+): Promise<T[]> {
+  const estados: Array<'false' | 'true'> = ['false', 'true'];
+  const paginas = await Promise.all(estados.map((archivado) => cargarTodasLasPaginasArchivadas<T>((cursor) => {
+    const query = new URLSearchParams({ archivado, limite: '200' });
+    if (cursor) query.set('cursor', cursor);
+    return obtenerPagina(`?${query.toString()}`);
+  })));
+  return combinarExamenesOmrReferenciables(paginas[0] ?? [], paginas[1] ?? []);
+}
+
 /** Agrupa exámenes por lote y conserva el estado de archivo cuando es consistente. */
-export function agruparLotesOmr<T extends { _id: string; loteId?: string; periodoId?: string; archivadoEn?: string | null }>(
+export function agruparLotesOmr<T extends { _id: string; loteId?: string | null; periodoId?: string | null; archivadoEn?: string | null }>(
   examenes: T[],
   periodos: Array<{ _id: string; nombre: string }>
 ): LoteOmrDisponible[] {
@@ -80,4 +108,12 @@ export function agruparLotesOmr<T extends { _id: string; loteId?: string; period
       archivado: lote.archivado
     };
   }).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
+}
+
+/** Forma el selector con solo lotes; el lote es archivado si todos sus exámenes lo son. */
+export function agruparExamenesOmrPorLote<T extends ExamenOmrReferenciable>(
+  examenes: T[],
+  periodos: Array<{ _id: string; nombre: string }>
+): LoteOmrDisponible[] {
+  return agruparLotesOmr(combinarExamenesOmrReferenciables(examenes, []), periodos);
 }
