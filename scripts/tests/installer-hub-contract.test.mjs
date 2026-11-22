@@ -3541,14 +3541,18 @@ test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => 
   assert.equal(names.has('EvaluaPro - Hub'), true);
 });
 
-test('SPEC-050: post-install regenera tambien los shortcuts locales y el build no empaqueta .lnk absolutos', () => {
+test('SPEC-050-POST-INSTALL-NATIVE-SHORTCUTS: actualiza accesos locales y evita empaquetar .lnk absolutos', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-  const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'App.xaml.cs'), 'utf8');
+  const reconciler = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'ShortcutReconciler.cs'), 'utf8');
   const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
 
-  assert.match(helper, /-OutputDir accesos-directos -Force -SyncRepoOutput -SkipManifestUpdate -Port 4519/);
-  assert.match(shortcuts, /\[switch\]\$SyncRepoOutput/);
+  assert.match(helper, /-TargetDir \$targetDir -TimeoutSeconds 90/);
+  assert.match(helper, /\$startInfo\.Arguments = '--regenerate-shortcuts'/);
+  assert.match(appHost, /ShortcutReconciler\.Regenerate\(\)/);
+  assert.match(reconciler, /Environment\.SpecialFolder\.DesktopDirectory/);
+  assert.match(reconciler, /Environment\.SpecialFolder\.Startup/);
   assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
   assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
 });
