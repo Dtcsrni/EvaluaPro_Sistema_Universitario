@@ -12615,6 +12615,7 @@ li.empty-state-card {
 
   .alumnos-panel .campo--search .auth-input-box input {
     font-size: 0.75rem;
+    padding-inline: 0.45rem !important;
   }
 
   .alumnos-form--panoramico .campo .auth-input-box__icon {

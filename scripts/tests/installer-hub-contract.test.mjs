@@ -166,7 +166,11 @@ Write-Output 'PRIVATE_ACL_CREATED_AND_EXISTING_PATH_REJECTED'
   }
 });
 
-test('el contrato PowerShell acepta protectedSecrets opcional y rechaza extensiones desconocidas', () => {
+test('el contrato PowerShell acepta protectedSecrets opcional y rechaza extensiones desconocidas', {
+  skip: process.platform !== 'win32'
+    ? 'Este contrato de runtime se valida con Windows PowerShell en el job Windows del instalador.'
+    : false
+}, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-request-contract-'));
   const requestPath = path.join(tempRoot, 'request.json');
   const escapedRequestPath = requestPath.replace(/'/g, "''");

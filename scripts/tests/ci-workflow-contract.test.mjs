@@ -1001,6 +1001,8 @@ test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releas
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
   const installerGate = extractJobBlock(workflow, 'installer_windows');
+  assert.match(installerBuild, /runs-on: windows-latest/);
+  assert.match(installerBuild, /name: Etapa contract-check Installer Hub[\s\S]*?npm run test:installer-hub:contract/);
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
 
