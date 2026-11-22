@@ -29,11 +29,10 @@ if (-not (Test-Path -LiteralPath $heroPath)) {
 }
 
 $normalizedFlavorId = if ($null -eq $FlavorId) { '' } else { [string]$FlavorId }
-$accent = switch ($normalizedFlavorId.Trim().ToLowerInvariant()) {
-  'saas-completo' { [System.Drawing.ColorTranslator]::FromHtml('#5B4EE4') }
-  'docente-local' { [System.Drawing.ColorTranslator]::FromHtml('#0891B2') }
-  default { [System.Drawing.ColorTranslator]::FromHtml('#0891B2') }
+if ($normalizedFlavorId.Trim().ToLowerInvariant() -ne 'docente-local') {
+  throw "Flavor no soportado para icono: $FlavorId"
 }
+$accent = [System.Drawing.ColorTranslator]::FromHtml('#0891B2')
 
 $size = 256
 $bitmap = New-Object System.Drawing.Bitmap $size, $size

@@ -8,7 +8,7 @@ param(
   [switch]$SkipStabilityChecks,
   [switch]$IncludeBundle,
   [switch]$IsolateBundleIdentity,
-  [string]$Flavor = 'all'
+  [string]$Flavor = 'docente-local'
 )
 
 Set-StrictMode -Version Latest

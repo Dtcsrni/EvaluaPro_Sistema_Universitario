@@ -12,7 +12,7 @@ import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 
-test('build-msi compila MSI + Bundle multi-flavor con -IncludeBundle (solo Windows)', () => {
+test('build-msi compila MSI + Bundle docente-local con -IncludeBundle (solo Windows)', () => {
   if (process.platform !== 'win32') {
     test.skip('Prueba solo valida en Windows.');
     return;
@@ -30,7 +30,7 @@ test('build-msi compila MSI + Bundle multi-flavor con -IncludeBundle (solo Windo
       '-SkipStabilityChecks',
       '-IncludeBundle',
       '-Flavor',
-      'all'
+      'docente-local'
     ],
     { cwd: root, encoding: 'utf8' }
   );
@@ -43,22 +43,15 @@ test('build-msi compila MSI + Bundle multi-flavor con -IncludeBundle (solo Windo
 
   const installerDir = path.join(root, 'dist', 'installer');
   const internalDir = path.join(installerDir, '_internal');
-  const saasPublicDir = path.join(installerDir, 'saas-completo');
   const docentePublicDir = path.join(installerDir, 'docente-local');
-  const saasFiles = fs.existsSync(saasPublicDir) ? fs.readdirSync(saasPublicDir) : [];
   const docenteFiles = fs.existsSync(docentePublicDir) ? fs.readdirSync(docentePublicDir) : [];
-  const saasVersioned = saasFiles.find((name) => /^EvaluaPro-InstallerHub-saas-completo-v.+\.exe$/i.test(name));
   const docenteVersioned = docenteFiles.find((name) => /^EvaluaPro-InstallerHub-docente-local-v.+\.exe$/i.test(name));
-  assert.equal(fs.existsSync(path.join(internalDir, 'saas-completo', 'EvaluaPro-saas-completo.msi')), true);
-  assert.equal(Boolean(saasVersioned), true);
   assert.equal(fs.existsSync(path.join(internalDir, 'docente-local', 'EvaluaPro-docente-local.msi')), true);
   assert.equal(Boolean(docenteVersioned), true);
-  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-InstallerHub-saas-completo.exe')), false);
   assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-InstallerHub-docente-local.exe')), false);
   assert.equal(fs.existsSync(path.join(internalDir, 'installer-local-paths.json')), true);
-  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-saas-completo.msi')), false);
   assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-docente-local.msi')), false);
-  assert.equal(fs.existsSync(path.join(installerDir, 'EvaluaPro-saas-completo-Setup.exe')), false);
+  assert.equal(fs.existsSync(path.join(installerDir, 'saas-completo')), false);
   assert.equal(fs.existsSync(path.join(installerDir, 'installer-hub-payload-docente-local')), false);
   assert.equal(fs.existsSync(path.join(installerDir, 'installer-local-paths.json')), true);
 });

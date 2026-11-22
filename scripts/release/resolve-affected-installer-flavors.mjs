@@ -56,8 +56,7 @@ function shouldAffectAll(file) {
     p === 'package.json' ||
     p === 'package-lock.json' ||
     p === '.github/workflows/release-beta.yml' ||
-    p === '.github/workflows/ci-installer-windows.yml' ||
-    p === 'docker-compose.yml'
+    p === '.github/workflows/ci-installer-windows.yml'
   );
 }
 
@@ -106,7 +105,9 @@ function main() {
     ? Array.from(resolveAffectedFlavors({ changedFiles, flavors, defaultFlavorId }))
     : Array.from(new Set(flavors));
 
-  const buildFlavorArg = affected.length === flavors.length ? 'all' : affected.join(',');
+  const buildFlavorArg = affected.length === flavors.length && affected.length > 1
+    ? 'all'
+    : affected.join(',');
   const outputs = {
     flavors_csv: affected.join(','),
     build_flavor_arg: buildFlavorArg,

@@ -195,7 +195,7 @@
     "verify:docente:experimental": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-docente-experimental-mirrors.ps1 -Mode verify",
     "sync:docente:experimental": "npm run mirror:docente:experimental",
     "msi:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1",
-    "installer:hub:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor all",
+    "installer:hub:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle -Flavor docente-local",
     "installer:docente:baseline": "node scripts/installer-docente-baseline.mjs --json",
     "installer:docente:baseline:enforce": "node scripts/installer-docente-baseline.mjs --json --enforce",
     "installer:hashes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-hashes.ps1",

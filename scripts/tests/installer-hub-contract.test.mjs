@@ -514,9 +514,9 @@ test('installer prereq manifest incluye contrato minimo', () => {
   assert.equal(typeof manifest.version, 'string');
   assert.equal(typeof manifest.defaultProfile, 'string');
   assert.equal(Array.isArray(manifest.profiles), true);
-  assert.equal(manifest.profiles.length >= 2, true);
+  assert.deepEqual(manifest.profiles.map((item) => item.profileId), ['docente-local']);
   assert.equal(Array.isArray(manifest.prerequisites), true);
-  assert.equal(manifest.prerequisites.length >= 2, true);
+  assert.deepEqual(manifest.prerequisites.map((item) => item.name), ['Node.js']);
 
   for (const item of manifest.prerequisites) {
     assert.equal(typeof item.name, 'string');
@@ -528,24 +528,9 @@ test('installer prereq manifest incluye contrato minimo', () => {
     assert.equal(typeof item.detectRule.type, 'string');
   }
 
-  const dockerRuntime = manifest.prerequisites.find((item) => item.detectRule?.type === 'docker_runtime_windows');
-  assert.ok(dockerRuntime);
-  assert.equal(dockerRuntime.name, 'Docker Runtime Windows');
-  assert.match(dockerRuntime.downloadUrl, /wsl\/install/i);
-
-  const nodeWsl = manifest.prerequisites.find((item) => item.detectRule?.type === 'node_major_wsl');
-  assert.ok(nodeWsl);
-  assert.equal(nodeWsl.name, 'Node.js WSL2');
-  assert.equal(nodeWsl.detectRule.minMajor, 24);
-
   const docenteProfile = manifest.profiles.find((item) => item.profileId === 'docente-local');
-  const saasProfile = manifest.profiles.find((item) => item.profileId === 'saas-completo');
   assert.ok(docenteProfile);
-  assert.ok(saasProfile);
   assert.equal(docenteProfile.prerequisites.includes('Node.js'), true);
-  assert.equal(docenteProfile.prerequisites.includes('Node.js WSL2'), false);
-  assert.equal(docenteProfile.prerequisites.includes('Docker Runtime Windows'), false);
-  assert.equal(saasProfile.prerequisites.includes('Node.js'), true);
 });
 
 test('canal update por defecto es stable en config y scripts', () => {
@@ -619,7 +604,7 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
 
-test('docente-local ejecuta SQLite nativo sin exigir Docker', () => {
+test('docente-local ejecuta SQLite nativo sin runtime de contenedor', () => {
   const launcherDashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
   const bundleWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Bundle.wxs'), 'utf8');
@@ -3080,24 +3065,16 @@ test('launcher broker conserva el lock de un dashboard vivo durante su primera r
   assert.match(broker, /Lockfile stale: dashboard no responde en puerto/);
 });
 
-test('dashboard usa runtime nativo en docente-local y soporta flavors institucionales', () => {
+test('runtime nativo y catálogo se limitan a la instalación local', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  const flavors = JSON.parse(fs.readFileSync(path.join(root, 'config', 'installer-flavors.json'), 'utf8'));
 
-  assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
+  assert.deepEqual(flavors.flavors.map((flavor) => flavor.flavorId), ['docente-local']);
+  assert.equal(flavors.flavors[0].requireDockerRuntime, false);
   assert.match(dashboard, /native-node-sqlite/);
-  assert.match(dashboard, /function requiresDockerRuntime/);
   assert.match(dashboard, /nativeDocenteCommand/);
   assert.match(dashboard, /start-docente-native\.mjs/);
   assert.match(dashboard, /not-required/);
-  assert.match(dashboard, /function dockerCliArgs/);
-  assert.match(dashboard, /function dockerCommandForShell/);
-  assert.match(dashboard, /wsl', '-d', 'Ubuntu', '-u', 'root'/);
-  assert.match(dashboard, /--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod'/);
-  assert.match(dashboard, /desktop-manual/);
-  assert.match(dashboard, /desktop-unapproved/);
-  assert.match(dashboard, /EVALUAPRO_DOCKER_RUNTIME=desktop/);
-  assert.match(dashboard, /runtime: dockerRuntime/);
-  assert.doesNotMatch(dashboard, /docenteWslTarget|No requerido para docente-local/);
 });
 
 test('baseline docente publica solo el runtime nativo y los límites del bundle', () => {

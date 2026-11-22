@@ -277,7 +277,6 @@
     "shared": {
       "paths": [
         "package-lock.json",
-        "docker-compose.yml",
         "apps/backend/src/compartido/**",
         "scripts/retry.mjs",
         "tsconfig.base.json",

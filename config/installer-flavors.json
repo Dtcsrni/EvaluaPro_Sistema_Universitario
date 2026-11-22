@@ -3,23 +3,6 @@
   "defaultFlavorId": "docente-local",
   "flavors": [
     {
-      "flavorId": "saas-completo",
-      "displayName": "EvaluaPro SaaS Completo",
-      "productName": "EvaluaPro SaaS Completo",
-      "installFolderName": "EvaluaPro",
-      "description": "Despliegue completo local para operacion SaaS institucional y servicio a docentes.",
-      "installerHubExeName": "EvaluaPro-InstallerHub-saas-completo.exe",
-      "msiName": "EvaluaPro-saas-completo.msi",
-      "bundleName": "EvaluaPro-InstallerHub-saas-completo.exe",
-      "deploymentTarget": "windows-saas-local",
-      "prerequisitesProfile": "saas-completo",
-      "requireDockerRuntime": true,
-      "requireLocalPortal": true,
-      "minDiskGb": 8,
-      "upgradeCode": "E5CBF5D2-F6AF-4E6D-9B63-8DF259C47951",
-      "bundleUpgradeCode": "6EA80CBA-C4F5-4434-8B27-B66480ABAB4A"
-    },
-    {
       "flavorId": "docente-local",
       "displayName": "EvaluaPro",
       "productName": "EvaluaPro",

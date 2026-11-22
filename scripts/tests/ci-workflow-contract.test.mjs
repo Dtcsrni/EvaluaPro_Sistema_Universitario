@@ -635,7 +635,7 @@ test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vites
   assert.match(upload, /include-hidden-files:\s*true/);
 });
 
-test('el empaquetado Docker cloud permanece retirado', () => {
+test('el empaquetado de contenedores permanece fuera del producto soportado', () => {
   assert.equal(fs.existsSync(path.join(workflowDir, 'package.yml')), false);
 });
 
@@ -814,31 +814,32 @@ test('release stable gate resuelve SemVer del commit candidato y pasa argumentos
   assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{ inputs\.evidence_dir \}\}/);
 });
 
-test('Dockerfile backend incluye schema y config Prisma antes del build', () => {
-  const dockerfile = fs.readFileSync(backendDockerfilePath, 'utf8');
-  const prismaIndex = dockerfile.indexOf('COPY apps/backend/prisma ./apps/backend/prisma');
-  const prismaConfigIndex = dockerfile.indexOf('COPY apps/backend/prisma.config.mjs ./apps/backend/prisma.config.mjs');
-  const buildIndex = dockerfile.indexOf('npm --workspace apps/backend run build');
+test('el instalador solo publica la distribución docente local', () => {
+  const flavors = JSON.parse(fs.readFileSync(path.join(root, 'config', 'installer-flavors.json'), 'utf8'));
+  const pipeline = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'pipeline.matrix.json'), 'utf8'));
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const installScript = fs.readFileSync(path.join(root, 'scripts', 'Install-EvaluaPro.ps1'), 'utf8');
+  const iconGenerator = fs.readFileSync(path.join(root, 'scripts', 'icons', 'generate-installer-flavor-icon.ps1'), 'utf8');
+  const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const containerArtifacts = [
+    '.dockerignore',
+    'docker-compose.yml',
+    'docker-compose.prod-build.yml',
+    'apps/backend/Dockerfile',
+    'apps/frontend/Dockerfile',
+    'apps/portal_alumno_cloud/Dockerfile',
+    '.github/workflows/package.yml'
+  ];
 
-  assert.ok(prismaIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma');
-  assert.ok(prismaConfigIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma.config.mjs');
-  assert.ok(buildIndex > prismaIndex, 'backend build debe ejecutarse despues de copiar Prisma');
-  assert.ok(buildIndex > prismaConfigIndex, 'backend build debe ejecutarse despues de copiar la config Prisma');
-});
-
-test('Dockerfile frontend incluye el wrapper y la política de configuración del workspace', () => {
-  const dockerfile = fs.readFileSync(frontendDockerfilePath, 'utf8');
-  const scriptIndex = dockerfile.indexOf('COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs');
-  const appVersionIndex = dockerfile.indexOf('COPY config/app-version.json ./config/app-version.json');
-  const omrPolicyIndex = dockerfile.indexOf('COPY config/omr-version-policy.json ./config/omr-version-policy.json');
-  const buildIndex = dockerfile.indexOf('npm --workspace apps/frontend run build');
-
-  assert.ok(scriptIndex >= 0, 'Dockerfile frontend debe copiar scripts/vite-build-safe.mjs');
-  assert.ok(appVersionIndex >= 0, 'Dockerfile frontend debe copiar config/app-version.json');
-  assert.ok(omrPolicyIndex >= 0, 'Dockerfile frontend debe copiar config/omr-version-policy.json');
-  assert.ok(buildIndex > scriptIndex, 'frontend build debe ejecutarse despues de copiar el wrapper');
-  assert.ok(buildIndex > appVersionIndex, 'frontend build debe ejecutarse despues de copiar app-version');
-  assert.ok(buildIndex > omrPolicyIndex, 'frontend build debe ejecutarse despues de copiar la politica OMR');
+  assert.deepEqual(flavors.flavors.map((flavor) => flavor.flavorId), ['docente-local']);
+  assert.doesNotMatch(JSON.stringify(pipeline), /docker build|image-digests\.txt/i);
+  for (const artifact of containerArtifacts) {
+    assert.equal(fs.existsSync(path.join(root, artifact)), false, `${artifact} debe estar retirado`);
+  }
+  assert.match(packageJson.scripts['installer:hub:build'], /-Flavor docente-local/);
+  assert.match(installScript, /ValidateSet\('docente-local'\)/);
+  assert.doesNotMatch(installScript + iconGenerator, /saas-completo/);
+  assert.match(buildScript, /\[string\]\$Flavor = 'docente-local'/);
 });
 
 test('release estable conserva identidad del asset verificado y lo oculta si falla la publicación', () => {

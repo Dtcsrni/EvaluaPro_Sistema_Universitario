@@ -305,7 +305,6 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `E2E_SKIP_BACKEND_BUILD` (usado en: scripts/start-docente-native.mjs)
 - `EVALUAPRO_DEVELOPER_NAME` (usado en: scripts/launcher-dashboard.mjs)
 - `EVALUAPRO_DEVELOPER_ROLE` (usado en: scripts/launcher-dashboard.mjs)
-- `EVALUAPRO_DOCKER_RUNTIME` (usado en: scripts/docker-runtime-check.mjs, scripts/launcher-dashboard.mjs)
 - `EVALUAPRO_E2E_BUILD` (usado en: scripts/start-docente-native.mjs)
 - `EVALUAPRO_EQUIPO_ID` (usado en: scripts/api/sesion-local.mjs)
 - `EVALUAPRO_FLAVOR` (usado en: scripts/start-api-local-worktree.mjs, scripts/start-docente-native.mjs)
