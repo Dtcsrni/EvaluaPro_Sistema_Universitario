@@ -3625,4 +3625,6 @@ test('SPEC-050: la identidad del dashboard tolera arranques en frío con un time
 
   assert.match(appHost, /DashboardIdentityHttpClient\s*=\s*new\(\)\s*\{\s*Timeout\s*=\s*TimeSpan\.FromSeconds\(10\)\s*\}/);
   assert.match(appHost, /DashboardIdentityHttpClient\.GetAsync/);
+  const adoption = appHost.match(/private async Task TryAdoptDashboardAsync\(int dashboardPort\)[\s\S]*?\n    private async Task<bool> VerifyDashboardIdentityAsync/)?.[0] || '';
+  assert.match(adoption, /DashboardIdentityHttpClient\.GetAsync\([^\n]*\/api\/install/);
 });

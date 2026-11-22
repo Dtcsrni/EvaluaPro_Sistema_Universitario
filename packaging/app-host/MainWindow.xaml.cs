@@ -652,7 +652,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            using var response = await HttpClient.GetAsync($"http://127.0.0.1:{dashboardPort}/api/install");
+            using var response = await DashboardIdentityHttpClient.GetAsync($"http://127.0.0.1:{dashboardPort}/api/install");
             if (!response.IsSuccessStatusCode) return;
 
             using var statusDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
