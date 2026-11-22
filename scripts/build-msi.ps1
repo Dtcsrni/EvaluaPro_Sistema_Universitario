@@ -78,9 +78,7 @@ function New-InstallerBuildStagingRoot {
   Write-Host "[msi] Staging temporal: $stagingRoot"
 
   $allowedRootFiles = @(
-    'package.json',
-    'docker-compose.yml',
-    'docker-compose.prod-build.yml'
+    'package.json'
   )
   $allowedTopLevelPrefixes = @(
     'accesos-directos/',

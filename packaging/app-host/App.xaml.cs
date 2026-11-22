@@ -18,6 +18,7 @@ public partial class App : System.Windows.Application
     private static Mutex? hubBootstrapSingletonMutex;
     private NativeTrayIcon? trayIcon;
     private static bool ownsDesktopSingleton;
+    private delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
     internal static bool IsInstallerHubInvocation { get; private set; }
     internal static bool IsTrayStartupInvocation { get; private set; }
 
@@ -250,6 +251,8 @@ public partial class App : System.Windows.Application
 
                         existingProcess.Refresh();
                         var handle = existingProcess.MainWindowHandle;
+                        if (handle == IntPtr.Zero)
+                            handle = FindTopLevelWindow(existingProcess.Id);
                         if (handle != IntPtr.Zero)
                         {
                             ShowWindow(handle, SwRestore);
@@ -266,6 +269,19 @@ public partial class App : System.Windows.Application
         {
             LogException("DesktopSingleton.Focus", ex);
         }
+    }
+
+    private static IntPtr FindTopLevelWindow(int processId)
+    {
+        var result = IntPtr.Zero;
+        EnumWindows((handle, lParam) =>
+        {
+            GetWindowThreadProcessId(handle, out var ownerProcessId);
+            if (ownerProcessId != (uint)processId) return true;
+            result = handle;
+            return false;
+        }, IntPtr.Zero);
+        return result;
     }
 
     private void App_Exit(object? sender, ExitEventArgs e)
@@ -336,6 +352,12 @@ public partial class App : System.Windows.Application
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);

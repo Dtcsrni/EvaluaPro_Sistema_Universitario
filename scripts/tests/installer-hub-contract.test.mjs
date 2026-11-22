@@ -24,8 +24,6 @@ const vmE2eInVmPath = path.join(root, 'scripts', 'ci', 'run-e2e-in-vm.ps1');
 const hostCanaryLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-host-canary.ps1');
 const autoE2eLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-auto.ps1');
 const qaSecretSetupPath = path.join(root, 'scripts', 'ci', 'set-e2e-qa-secret.ps1');
-const dockerComposePath = path.join(root, 'docker-compose.yml');
-const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const installerHubContractsModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
 const installerE2EReportDirectoryModulePath = path.join(root, 'scripts', 'tests', 'installer-e2e-report-directory.psm1');
@@ -621,16 +619,14 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
 
-test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {
+test('docente-local ejecuta SQLite nativo sin exigir Docker', () => {
   const launcherDashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
   const bundleWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Bundle.wxs'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
-  assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
   assert.match(launcherDashboard, /native-node-sqlite/);
-  assert.match(launcherDashboard, /WSL2 \+ Docker Engine/);
-  assert.match(launcherDashboard, /Docker Desktop/);
+  assert.match(launcherDashboard, /prod: 'npm run docente:prod:native'/);
   assert.match(productWxs, /WSLINSTALLED/);
   assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
@@ -640,8 +636,8 @@ test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(bundleWxs, /if \$\(var\.FlavorId\) = docente-local \?>[\s\S]*Variable Name="InstallFolder" Type="string" Value="\[LocalAppDataFolder\]EvaluaPro" bal:Overridable="yes" \/>[\s\S]*else\?>/);
   assert.doesNotMatch(bundleWxs, /Variable Name="InstallFolder" Type="string" Value="\[LocalAppDataFolder\]EvaluaPro" Persisted="yes"/);
-  assert.match(productWxs, /runtime Docker compatible/i);
-  assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
+  assert.equal(packageJson.scripts['docker:runtime:check'], undefined);
+  assert.equal(packageJson.scripts['dev:backend'], 'npm -C apps/backend run dev');
 });
 
 test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => {
@@ -668,8 +664,7 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(bundleGuard, /'burn', 'extract'/);
   assert.match(buildMsi, /function Assert-MsiAdministrativeExtractionContainsAppPayload/);
   assert.match(buildMsi, /Assert-MsiAdministrativeExtractionContainsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
-  assert.match(buildMsi, /'docker-compose\.yml'/);
-  assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
+  assert.doesNotMatch(buildMsi, /docker-compose(?:\.prod-build)?\.yml/);
   assert.match(buildMsi, /-p:AssemblyVersion=\$dotNetNumericVersion/);
   assert.match(buildMsi, /-p:FileVersion=\$dotNetNumericVersion/);
   assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
@@ -2388,29 +2383,6 @@ $runtime | ConvertTo-Json -Depth 8
   assert.equal(parsed.desktopInstalled, true);
   assert.equal(parsed.ready, false);
   assert.match(String(parsed.reason || ''), /prioriza bootstrap WSL2|WSL2 detectado/i);
-});
-
-test('Compose legacy conserva image-first y fallback build separado fuera del Hub docente', () => {
-  const compose = fs.readFileSync(dockerComposePath, 'utf8');
-  const prodBuild = fs.readFileSync(dockerComposeProdBuildPath, 'utf8');
-  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-
-  assert.match(compose, /api_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
-  assert.match(compose, /web_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
-  assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-api-docente/);
-  assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-web-docente/);
-  assert.match(compose, /BACKEND_DATABASE_URL=\$\{BACKEND_DATABASE_URL_DOCKER:-file:\/app\/data\/sqlite\/evaluapro\.db\}/);
-  assert.match(compose, /BACKEND_SQLITE_DATA_DIR_DOCKER:-\.\/apps\/backend\/data\/sqlite/);
-  assert.match(compose, /EVALUAPRO_IMAGE_TAG:-1\.2\.4/);
-  assert.doesNotMatch(compose, /api_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
-  assert.doesNotMatch(compose, /web_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
-  assert.match(prodBuild, /api_docente_prod:[\s\S]*?build:/);
-  assert.match(prodBuild, /web_docente_prod:[\s\S]*?build:/);
-  assert.match(packageJson.scripts['stack:prod:full'], /docker-compose\.prod-build\.yml/);
-  assert.match(packageJson.scripts['api:rebuild'], /docker-compose\.prod-build\.yml/);
-  assert.doesNotMatch(packageJson.scripts['stack:prod'], /--build/);
-  assert.match(packageJson.scripts['stack:prod'], /--no-build -d mongo_local api_docente_prod web_docente_prod/);
-  assert.doesNotMatch(packageJson.scripts['stack:prod'], /detect-host-ip/);
 });
 
 test('CLOUD-DOCKER-PACKAGING-RETIRED: la publicación cloud no se configura', () => {

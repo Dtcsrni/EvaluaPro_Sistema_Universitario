@@ -3382,18 +3382,6 @@
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.9 7.9 0 0 0 .1-2l2-1.6-2-3.4-2.5 1a7.8 7.8 0 0 0-1.7-1l-.4-2.7h-4l-.4 2.7c-.6.2-1.2.5-1.7 1l-2.5-1-2 3.4 2 1.6a7.9 7.9 0 0 0 .1 2l-2 1.6 2 3.4 2.5-1c.5.4 1.1.8 1.7 1l.4 2.7h4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1 2-3.4-2-1.6ZM11 15a3 3 0 1 1 2 0 3 3 0 0 1-2 0Z"/></svg>
         Configuración
       </button>
-      <button
-        id="tab-db"
-        class="tab-btn"
-        data-tab="db"
-        role="tab"
-        aria-selected="false"
-        aria-controls="panel-db"
-        tabindex="-1"
-      >
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C7.6 2 4 3.8 4 6v12c0 2.2 3.6 4 8 4s8-1.8 8-4V6c0-2.2-3.6-4-8-4zm0 2c3.9 0 6 .9 6 2s-2.1 2-6 2-6-.9-6-2 2.1-2 6-2zm0 16c-3.9 0-6-.9-6-2v-2c1.5 1.1 4.1 1.7 6 1.7s4.5-.6 6-1.7v2c0 1.1-2.1 2-6 2zm0-6c-3.9 0-6-.9-6-2V9.9C7.5 11 10.1 11.6 12 11.6s4.5-.6 6-1.7V12c0 1.1-2.1 2-6 2z"/></svg>
-        Base de datos
-      </button>
     </div>
 
     <section id="panel-main" class="tab-panel active" data-panel="main" role="tabpanel" tabindex="0" aria-labelledby="tab-main">
@@ -3673,14 +3661,6 @@
                     <div class="service-meta">Backend local (4000)</div>
                   </div>
                   <span class="service-badge" id="service-api-docente-badge">Sin comprobar</span>
-                </div>
-                <div class="service-item" id="service-mongo-local">
-                  <span class="service-dot" id="service-mongo-local-dot"></span>
-                  <div class="service-copy">
-                    <div class="service-title">MongoDB</div>
-                    <div class="service-meta">Base de datos local (27017)</div>
-                  </div>
-                  <span class="service-badge" id="service-mongo-local-badge">Sin comprobar</span>
                 </div>
                 <div class="service-item" id="service-api-portal">
                   <span class="service-dot" id="service-api-portal-dot"></span>
@@ -4099,46 +4079,6 @@
       </div>
     </section>
 
-    <section id="panel-db" class="tab-panel" data-panel="db" role="tabpanel" tabindex="0" aria-labelledby="tab-db" hidden>
-      <div class="panel-grid">
-        <div class="left-col">
-          <div class="card">
-            <h2>
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C7.6 2 4 3.8 4 6v12c0 2.2 3.6 4 8 4s8-1.8 8-4V6c0-2.2-3.6-4-8-4zm0 2c3.9 0 6 .9 6 2s-2.1 2-6 2-6-.9-6-2 2.1-2 6-2zm0 16c-3.9 0-6-.9-6-2v-2c1.5 1.1 4.1 1.7 6 1.7s4.5-.6 6-1.7v2c0 1.1-2.1 2-6 2zm0-6c-3.9 0-6-.9-6-2V9.9C7.5 11 10.1 11.6 12 11.6s4.5-.6 6-1.7V12c0 1.1-2.1 2-6 2z"/></svg>
-              Base de datos (MongoDB)
-            </h2>
-            <p class="hint">Panel recomendado: <strong>mongo-express</strong>. Se protege con Basic Auth (configurable via <code>MONGOEXPRESS_USER</code>/<code>MONGOEXPRESS_PASS</code>).</p>
-
-            <div class="pills" aria-label="Estado de mongo-express">
-              <span class="pill"><span class="dot" id="db-dot"></span> mongo-express</span>
-              <span class="pill" id="db-state">Sin comprobar</span>
-              <span class="pill"><a id="db-url" href="http://127.0.0.1:8081/" target="_blank" rel="noopener noreferrer">http://127.0.0.1:8081/</a></span>
-            </div>
-
-            <div class="toolbar toolbar-spaced">
-              <div class="toolbar-group" aria-label="Acciones de base de datos">
-                <button class="ghost-btn" id="refresh-db" type="button">Actualizar</button>
-                <button class="ghost-btn" id="open-db" type="button">Abrir en navegador</button>
-                <button class="ghost-btn" id="toggle-db-embed" type="button">Mostrar panel aquí</button>
-              </div>
-            </div>
-
-            <div id="db-embed-wrap" class="db-embed-wrap" hidden>
-              <iframe
-                id="db-iframe"
-                title="mongo-express"
-                src="about:blank"
-                class="db-iframe"
-                loading="lazy"
-                referrerpolicy="no-referrer"
-              ></iframe>
-            </div>
-
-            <p class="hint hint-spaced">Si no aparece, inicia el stack (dev o prod) y vuelve a presionar <em>Actualizar</em>.</p>
-          </div>
-        </div>
-      </div>
-    </section>
   </main>
 
     <script>
@@ -4563,7 +4503,6 @@
       apiPortal: 'API portal alumno',
       webDocenteDev: 'Web docente DEV',
       webDocenteProd: 'Web docente PROD',
-      mongoLocal: 'MongoDB'
     };
 
       const state = {
@@ -4625,13 +4564,6 @@
         continuity: null,
         update: null,
         updateNotifiedVersion: '',
-        mongoExpress: {
-        url: 'http://127.0.0.1:8081/',
-        alcanzable: false,
-        estado: 0,
-        ultimaRevisionEn: 0,
-        error: ''
-      },
       dbEmpotrada: false
     };
 
@@ -5689,12 +5621,6 @@
       );
 
       const services = {
-        mongoLocal: {
-          key: 'mongoLocal',
-          id: 'mongo-local',
-          expected: envs.dev.active || envs.prod.active,
-          info: state.salud?.mongoLocal
-        },
         apiDocente: {
           key: 'apiDocente',
           id: 'api-docente',
@@ -5743,7 +5669,6 @@
       const requireLocalPortal = Boolean(state.flavorPolicy?.requireLocalPortal);
       const detectados = new Set();
 
-      if (compose.dev?.mongo_local || compose.prod?.mongo_local || state.salud?.mongoLocal?.ok) detectados.add('mongoLocal');
       if (compose.dev?.api_docente_local || compose.prod?.api_docente_prod) detectados.add('apiDocente');
       if (compose.prod?.web_docente_prod) detectados.add('webDocenteProd');
       if (state.salud?.apiDocente?.ok) detectados.add('apiDocente');
@@ -6041,11 +5966,6 @@
       const webInfoKey = state.claveInfoWebDocente || 'webDocenteDev';
       const items = [
         {
-          id: 'mongo-local',
-          expected: contexto.expected.includes('mongoLocal'),
-          info: state.salud?.mongoLocal
-        },
-        {
           id: 'api-docente',
           expected: contexto.expected.includes('apiDocente'),
           info: state.salud?.apiDocente
@@ -6077,11 +5997,6 @@
           id: 'api-docente',
           expected: contexto.expected.includes('apiDocente'),
           info: state.salud?.apiDocente
-        },
-        {
-          id: 'mongo-local',
-          expected: contexto.expected.includes('mongoLocal'),
-          info: state.salud?.mongoLocal
         },
         {
           id: 'api-portal',
@@ -6272,7 +6187,7 @@
 
     async function refrescarSalud(forzar = false) {
       const now = Date.now();
-      const clavesEsperadas = ['mongoLocal', 'apiDocente', 'apiPortal', 'webDocenteDev', 'webDocenteProd'];
+      const clavesEsperadas = ['apiDocente', 'apiPortal', 'webDocenteDev', 'webDocenteProd'];
       const sinDatos = !state.salud || clavesEsperadas.some((clave) => !(clave in state.salud));
       const reuse = !forzar && !sinDatos && now - state.ultimaSaludEn < HEALTH_CHECK_MS;
       if (!reuse) state.ultimaSaludEn = now;
@@ -6314,77 +6229,6 @@
       actualizarTiemposHealth(now);
       actualizarAnalitica();
       aplicarAnimo();
-    }
-
-    function actualizarUiMongoExpress() {
-      const dot = $('db-dot');
-      const stateEl = $('db-state');
-      const urlEl = $('db-url');
-      const openBtn = $('open-db');
-      const iframe = $('db-iframe');
-      const wrap = $('db-embed-wrap');
-
-      const url = state.mongoExpress?.url || 'http://127.0.0.1:8081/';
-      const alcanzable = Boolean(state.mongoExpress?.alcanzable);
-      const estado = Number(state.mongoExpress?.estado || 0);
-      const error = String(state.mongoExpress?.error || '');
-
-      if (urlEl) {
-        urlEl.textContent = url;
-        urlEl.href = url;
-      }
-
-      if (dot) dot.classList.toggle('active', alcanzable);
-
-      if (stateEl) {
-        if (alcanzable) {
-          stateEl.textContent = estado ? `Disponible (HTTP ${estado})` : 'Disponible';
-        } else {
-          stateEl.textContent = error ? `No disponible (${error})` : 'No disponible';
-        }
-      }
-
-      if (openBtn) {
-        openBtn.disabled = !alcanzable;
-        openBtn.title = alcanzable ? 'Abrir mongo-express en una pestaña' : 'mongo-express no esta disponible';
-      }
-
-      if (wrap) {
-        wrap.hidden = !state.dbEmpotrada;
-      }
-
-      if (iframe && state.dbEmpotrada) {
-        if (alcanzable) {
-          const current = iframe.getAttribute('src') || '';
-          if (current !== url) iframe.setAttribute('src', url);
-        } else {
-          iframe.setAttribute('src', 'about:blank');
-        }
-      }
-    }
-
-    async function refrescarMongoExpress(forzar = false) {
-      const now = Date.now();
-      const reuse = !forzar && now - (state.mongoExpress?.ultimaRevisionEn || 0) < 5000;
-      if (reuse) {
-        actualizarUiMongoExpress();
-        return;
-      }
-
-      state.mongoExpress.ultimaRevisionEn = now;
-      try {
-        const res = await fetch('/api/mongo-express');
-        const data = await res.json();
-        state.mongoExpress.url = typeof data.url === 'string' ? data.url : state.mongoExpress.url;
-        state.mongoExpress.alcanzable = Boolean(data.reachable);
-        state.mongoExpress.estado = Number(data.status || 0);
-        state.mongoExpress.error = '';
-      } catch (error) {
-        state.mongoExpress.alcanzable = false;
-        state.mongoExpress.estado = 0;
-        state.mongoExpress.error = normalizarMensajeError(error);
-      }
-      actualizarUiMongoExpress();
     }
 
     function establecerLogsVisibles(visible) {
@@ -7715,29 +7559,6 @@
       });
     }
 
-    const botonRefrescarDb = $('refresh-db');
-    if (botonRefrescarDb) {
-      botonRefrescarDb.addEventListener('click', () => refrescarMongoExpress(true));
-    }
-
-    const botonAbrirDb = $('open-db');
-    if (botonAbrirDb) {
-      botonAbrirDb.addEventListener('click', () => {
-        if (!state.mongoExpress?.alcanzable) return;
-        window.open(state.mongoExpress.url || 'http://127.0.0.1:8081/', '_blank', 'noopener,noreferrer');
-      });
-    }
-
-    const botonAlternarDbEmpotrada = $('toggle-db-embed');
-    if (botonAlternarDbEmpotrada) {
-      botonAlternarDbEmpotrada.addEventListener('click', () => {
-        state.dbEmpotrada = !state.dbEmpotrada;
-        botonAlternarDbEmpotrada.textContent = state.dbEmpotrada ? 'Ocultar panel aquí' : 'Mostrar panel aquí';
-        actualizarUiMongoExpress();
-        if (state.pestanaActiva === 'db') refrescarMongoExpress(true);
-      });
-    }
-
     const botonCopiarInstalacion = $('copy-install');
     if (botonCopiarInstalacion) {
       botonCopiarInstalacion.addEventListener('click', async () => {
@@ -8058,8 +7879,6 @@
     refrescarContinuidad();
     refrescarEstadoUpdate();
     refrescarSenales();
-    actualizarUiMongoExpress();
-
     reprogramarRefrescoPeriodico({ refrescarAhora: false });
 
     setInterval(() => {

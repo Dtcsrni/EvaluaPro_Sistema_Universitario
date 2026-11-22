@@ -105,13 +105,16 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /Wait-AppHostCloseConfirmation -ProcessId/);
   assert.match(installerE2ESource, /close-confirmation-yes/);
   assert.match(installerE2ESource, /close-confirmation-no/);
-  assert.match(installerE2ESource, /GetExitCodeProcess\(\$processHandle, \[ref\]\$nativeExitCode\)/);
   assert.match(installerE2ESource, /app-host-error\.log/);
   assert.match(installerE2ESource, /\$errorLogLengthAfterClose -gt \$errorLogLengthBeforeClose/);
-  assert.match(installerE2ESource, /close-window-process-exit/);
+  assert.match(installerE2ESource, /El App Host PID \$\(\$identity\.Id\) terminó al elegir No; debía mantenerse en bandeja/);
+  assert.match(installerE2ESource, /close-hides-window-keeps-host/);
+  assert.match(installerE2ESource, /no debe cerrar los servicios Node|debía dejar el runtime en segundo plano/);
+  assert.match(installerE2ESource, /\.Name -ne 'EvaluaPro · Cerrar' -and \$_.NativeTitle -ne 'EvaluaPro · Cerrar'/);
+  assert.match(installerE2ESource, /\$visibleWindows\.Count -eq 0/);
   assert.match(installerE2ESource, /close-window-only'[\s\S]*?reopen-dashboard-/);
   assert.match(installerE2ESource, /no-keeps-services-healthy/);
-  assert.match(installerE2ESource, /no terminó ni mostró la confirmación de cierre/);
+  assert.match(installerE2ESource, /restored-from-tray state=healthy/);
 });
 
 test('el App Host omite candidatos obsoletos y busca un Hub local registrado por hash', () => {
@@ -151,6 +154,8 @@ test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente',
   assert.match(appSource, /Shutdown\(\)/);
   assert.match(appSource, /Process\.GetProcessesByName\("EvaluaPro"\)/);
   assert.match(appSource, /ShowWindow\(handle, SwRestore\)/);
+  assert.match(appSource, /if \(handle == IntPtr\.Zero\)\s*handle = FindTopLevelWindow\(existingProcess\.Id\)/);
+  assert.match(appSource, /GetWindowThreadProcessId\(handle, out var ownerProcessId\)/);
   assert.match(appSource, /SetForegroundWindow\(handle\)/);
   assert.match(appSource, /ReleaseDesktopSingleton\(\)/);
 });

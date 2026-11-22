@@ -845,7 +845,7 @@ describe('workflow OMR por jobs', () => {
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(calificacionesAntes);
   }, 180_000);
 
-  it('separa copias del mismo formulario, exige identidad y califica cada intento por separado', async () => {
+  it('exige variante compatible al reasignar copias y evita calificar otro examen', async () => {
     const token = await registrar('omr-copias-compartidas@prueba.test');
     const auth = { Authorization: `Bearer ${token}` };
     const base = await prepararExamen(auth);
@@ -1101,7 +1101,7 @@ describe('workflow OMR por jobs', () => {
     expect(bonoIncierto.body.autoGrading.status).toBe('partial');
     expect(bonoIncierto.body.autoGrading.results).toEqual(expect.arrayContaining([
       expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[0]?.submissionId, alumnoId: alumnos[0]!.id, status: 'requires_review', code: 'OMR_BONO_REQUIERE_REVISION_MANUAL' }),
-      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[1]?.submissionId, alumnoId: alumnos[1]!.id, status: 'requires_review', code: 'OMR_BONO_REQUIERE_REVISION_MANUAL' })
+      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[1]?.submissionId, alumnoId: alumnos[1]!.id, status: 'requires_review', code: 'OMR_COPIA_VARIANTE_INCOMPATIBLE' })
     ]));
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) } } })).toBe(calificacionesAntes);
 
@@ -1118,26 +1118,22 @@ describe('workflow OMR por jobs', () => {
     } finally {
       controlLectorQr.confirmarSinBonoEnPrueba = false;
     }
-    expect(calificacionCompartida.body.autoGrading.status).toBe('completed');
+    expect(calificacionCompartida.body.autoGrading.status).toBe('partial');
     expect(calificacionCompartida.body.autoGrading.results).toHaveLength(2);
     expect(calificacionCompartida.body.autoGrading.results).toEqual(expect.arrayContaining([
       expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[0]?.submissionId, alumnoId: alumnos[0]!.id, status: 'graded', correct: preguntasPorEscenario, total: preguntasPorEscenario, readBackVerified: true }),
-      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[1]?.submissionId, alumnoId: alumnos[1]!.id, status: 'graded', correct: 0, total: preguntasPorEscenario, readBackVerified: true })
+      expect.objectContaining({ submissionId: metadataAsignada.sharedSubmissions[1]?.submissionId, alumnoId: alumnos[1]!.id, status: 'requires_review', code: 'OMR_COPIA_VARIANTE_INCOMPATIBLE' })
     ]));
     const calificacionesSeparadas = await prisma.calificacion.findMany({
       where: { examenGeneradoId: { in: examenes.map((examen) => examen._id) }, alumnoId: { in: alumnos.map((alumno) => alumno.id) } }
     });
-    expect(calificacionesSeparadas).toHaveLength(2);
-    expect(new Set(calificacionesSeparadas.map((calificacion) => calificacion.alumnoId))).toEqual(new Set(alumnos.map((alumno) => alumno.id)));
+    expect(calificacionesSeparadas).toHaveLength(1);
+    expect(calificacionesSeparadas.map((calificacion) => calificacion.alumnoId)).toEqual([alumnos[0]!.id]);
     expect(calificacionesSeparadas.every((calificacion) => calificacion.omrAuditoria?.includes('reanalisis-local-en-servidor'))).toBe(true);
     const calificacionCorrecta = calificacionesSeparadas.find((calificacion) => calificacion.alumnoId === alumnos[0]!.id)!;
-    const calificacionIncorrecta = calificacionesSeparadas.find((calificacion) => calificacion.alumnoId === alumnos[1]!.id)!;
     expect(calificacionCorrecta.aciertos).toBe(preguntasPorEscenario);
-    expect(calificacionIncorrecta.aciertos).toBe(0);
     expect(Number(calificacionCorrecta.bonoTexto)).toBe(0);
-    expect(Number(calificacionIncorrecta.bonoTexto)).toBe(0);
     expect(Number(calificacionCorrecta.calificacionExamenFinalTexto)).toBe(5);
-    expect(Number(calificacionIncorrecta.calificacionExamenFinalTexto)).toBe(0);
   }, 600_000);
 
   it('usa el PDF consolidado del lote cuando falta el manifiesto del artefacto', async () => {

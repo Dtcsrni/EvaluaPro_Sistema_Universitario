@@ -1874,7 +1874,23 @@ function Invoke-InstalledAppHost {
   if ($Action -eq 'open-dashboard') {
     $appHostPath = [IO.Path]::GetFullPath((Join-Path $installedRoot 'EvaluaPro.exe'))
     if (-not (Test-Path -LiteralPath $appHostPath -PathType Leaf)) { throw "No existe el App Host instalado: $appHostPath" }
-    if ($script:activeNativeAppHost) { throw 'El App Host ya tiene una instancia propiedad de este E2E.' }
+    if ($script:activeNativeAppHost) {
+      $identity = $script:activeNativeAppHost
+      $existing = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
+      if (-not $existing) { throw "El App Host de bandeja PID $($identity.Id) dejó de responder o cambió de identidad." }
+      $activation = $null
+      try {
+        $activation = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
+        if (-not $activation.WaitForExit(15000)) { throw "La instancia de activación PID $($activation.Id) no cedió el control al App Host existente." }
+      } finally {
+        if ($activation) { $activation.Dispose() }
+        $existing.Dispose()
+      }
+      $state = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
+      $null = Wait-AppHostMainWindow -ProcessId ([int]$identity.Id) -TimeoutSec 15
+      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($identity.Id) restored-from-tray state=healthy runId=$RunId"
+      return $state
+    }
     $process = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
     try {
       $startedAtUtc = $process.StartTime.ToUniversalTime()
@@ -1904,8 +1920,6 @@ function Invoke-InstalledAppHost {
       $errorLogLengthBeforeClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
-      $processHandle = [IntPtr]::Zero
-      try { $processHandle = [IntPtr]$process.Handle } catch {}
       $closeRequested = $process.CloseMainWindow()
       if (-not $closeRequested) {
         $closeRequested = Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process -NativeFallbackOnly
@@ -1915,37 +1929,19 @@ function Invoke-InstalledAppHost {
       if (-not $dialog) { throw "El App Host PID $($identity.Id) no mostró la confirmación de cierre para probar No." }
       $choice = Invoke-AppHostCloseConfirmationNo -Dialog $dialog
       Add-Result -Area 'native-app-host' -Item 'close-confirmation-no' -Ok $true -Detail "choice=$choice pid=$($identity.Id) runId=$RunId"
-      if (-not $process.WaitForExit($TimeoutSec * 1000)) {
-        throw "El App Host PID $($identity.Id) no cerró su ventana después de elegir No; no se forzará el cierre."
-      }
       $process.Refresh()
-      $exitCode = $process.ExitCode
-      if ($null -eq $exitCode) {
-        if (-not $process.HasExited) { throw 'No se pudo determinar ExitCode: el App Host todavía aparece activo.' }
-        if ($processHandle -eq [IntPtr]::Zero) { throw 'No se pudo determinar ExitCode: no se conservó el handle del App Host.' }
-        if (-not ('EvaluaPro.NativeProcessExitCode' -as [type])) {
-          Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-namespace EvaluaPro {
-  public static class NativeProcessExitCode {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool GetExitCodeProcess(IntPtr processHandle, out uint exitCode);
-  }
-}
-'@
-        }
-        [uint32]$nativeExitCode = 0
-        if (-not [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($processHandle, [ref]$nativeExitCode)) {
-          $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-          throw "No se pudo recuperar ExitCode mediante GetExitCodeProcess (Win32=$nativeError)."
-        }
-        $exitCode = [int]$nativeExitCode
-        Write-E2ELog "ExitCode del App Host recuperado con GetExitCodeProcess: $exitCode"
-      }
-      if ([int]$exitCode -ne 0) {
-        throw "El App Host terminó con código $exitCode al elegir No."
-      }
+      if ($process.HasExited) { throw "El App Host PID $($identity.Id) terminó al elegir No; debía mantenerse en bandeja." }
+      $hiddenWindow = $false
+      $hideDeadline = (Get-Date).AddSeconds($TimeoutSec)
+      do {
+        $process.Refresh()
+        $visibleWindows = @(Get-AppHostTopLevelWindows -ProcessId ([int]$identity.Id) | Where-Object {
+          $_.Name -ne 'EvaluaPro · Cerrar' -and $_.NativeTitle -ne 'EvaluaPro · Cerrar'
+        })
+        if (-not $process.HasExited -and $visibleWindows.Count -eq 0) { $hiddenWindow = $true; break }
+        Start-Sleep -Milliseconds 250
+      } while ((Get-Date) -lt $hideDeadline)
+      if (-not $hiddenWindow) { throw "El App Host PID $($identity.Id) no ocultó la ventana al elegir No." }
       $errorLogLengthAfterClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
@@ -1955,9 +1951,8 @@ namespace EvaluaPro {
       $remainingNode = @(Get-InstalledNodeProcesses)
       if ($remainingNode.Count -eq 0) { throw 'La opción No cerró los servicios Node; debía dejar el runtime en segundo plano.' }
       $health = Wait-NativeDashboardHealth -TimeoutSec 15
-      $script:activeNativeAppHost = $null
-      Add-Result -Area 'native-app-host' -Item 'close-window-process-exit' -Ok $true -Detail "pid=$($identity.Id) exitCode=$exitCode exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
-      Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'close-hides-window-keeps-host' -Ok (-not $process.HasExited -and $hiddenWindow) -Detail "pid=$($identity.Id) hidden=$hiddenWindow exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "hostAlive=$(-not $process.HasExited) nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
       return $health
     } finally { $process.Dispose() }
   }

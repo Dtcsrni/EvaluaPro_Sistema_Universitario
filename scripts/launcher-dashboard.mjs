@@ -3527,7 +3527,7 @@ const baseCommands = {
   'dev-frontend': 'npm run dev:frontend',
   'dev-backend': 'npm run dev:backend',
   // En dashboard, PROD debe levantar la plataforma rapidamente (sin correr verify/tests).
-  prod: 'npm run stack:prod',
+  prod: 'npm run docente:prod:native',
   'docente-native': nativeDocenteCommand,
   'portal-dev': 'npm run dev:portal',
   'portal-prod': 'npm run portal:prod',
@@ -3928,7 +3928,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathName === '/') {
     const flavorPolicy = resolveFlavorPolicy(readInstallationManifest());
-    if (flavorPolicy.flavorId === 'docente-local' && process.env.EVALUAPRO_DEBUG !== '1') {
+    if (flavorPolicy.flavorId === 'docente-local') {
       const webPort = mode === 'dev' ? PUERTOS_RUNTIME.dev.web : PUERTOS_RUNTIME.prod.web;
       res.writeHead(302, {
         Location: `http://127.0.0.1:${webPort}/${reqUrl.search || ''}`,
@@ -4550,7 +4550,7 @@ const server = http.createServer(async (req, res) => {
 
     if (task === 'stack') {
       if (mode === 'prod') {
-        const fastRestartCommand = requiresDockerRuntime(readInstallationManifest()) ? 'npm run stack:restart' : getCommand('prod');
+        const fastRestartCommand = getCommand('prod');
         if (!fastRestartCommand) return sendJson(res, 400, { error: 'Tarea desconocida' });
         if (isRunning('prod')) {
           stopTask('prod');
