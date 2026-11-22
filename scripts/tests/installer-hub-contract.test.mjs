@@ -3571,6 +3571,14 @@ test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instala
   assert.match(helper, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
   assert.match(helper, /\$process\.Kill\(\)/);
   assert.match(helper, /\$stopped = \$process\.WaitForExit\(5000\)/);
+  const shortcutReconciliation = helper.slice(
+    helper.indexOf('function Invoke-ShortcutReconciliation {'),
+    helper.indexOf('\nfunction Get-RequestValue {')
+  );
+  assert.doesNotMatch(shortcutReconciliation, /RedirectStandard(Output|Error)\s*=\s*\$true/);
+  assert.doesNotMatch(shortcutReconciliation, /ReadToEndAsync|GetAwaiter\(\)\.GetResult\(\)/,
+    'el timeout de proceso no debe esperar EOF de pipes que puedan seguir abiertos');
+  assert.match(shortcutReconciliation, /finally\s*\{\s*\$process\.Dispose\(\)\s*\}/);
   assert.match(helper, /El proceso no terminó después de solicitar su cierre/);
   assert.match(helper, /-TimeoutSeconds 90/);
   assert.match(helper, /excedió 90 segundos; se conserva la instalación/);

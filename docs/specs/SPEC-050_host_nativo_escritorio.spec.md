@@ -1,11 +1,11 @@
 ---
 id: SPEC-050
 titulo: Shell Nativo de Escritorio EvaluaPro.exe (.NET 8 + WebView2)
-version: 1.0.0
-fecha: 2026-08-31
+version: 1.1.0
+fecha: 2026-11-22
 autor: Antigravity / Agente IA
 modulo: devops
-estado: implemented
+estado: approved
 ---
 
 # SPEC-050: Shell Nativo de Escritorio EvaluaPro.exe (.NET 8 + WebView2)
@@ -27,6 +27,7 @@ EvaluaPro requería una experiencia de usuario 100% nativa en Windows que elimin
 - **REQ-006:** `scripts/create-shortcuts.ps1` debe priorizar `EvaluaPro.exe` como destino principal del acceso directo del Escritorio (`EvaluaPro.lnk`), eliminando llamadas a `wscript.exe` cuando el binario nativo está disponible.
 - **REQ-007:** `packaging/wix/BurnBootstrapperApp/EvaluaProBootstrapperApplication.cs` debe invocar directamente `EvaluaPro.exe` al presionar el botón "Iniciar EvaluaPro" en la pantalla de resultado final.
 - **REQ-008:** `scripts/build-msi.ps1` debe publicar e incluir `EvaluaPro.exe` en el staging del instalador MSI docente.
+- **REQ-009:** La reconciliación opcional de accesos directos durante post-install debe tener un límite temporal efectivo; al vencer, debe detener el proceso, registrar degradación y permitir que la instalación continúe sin esperar la salida de pipes externos.
 
 ## Criterios de Aceptación
 - **AC-001 (REQ-001, REQ-002):** `EvaluaPro.exe` compila sin errores en .NET 8 y levanta una ventana de escritorio nativa independiente.
@@ -34,6 +35,7 @@ EvaluaPro requería una experiencia de usuario 100% nativa en Windows que elimin
 - **AC-003 (REQ-005):** Cerrar la ventana principal no deja procesos zombi en los puertos 4000, 4173 ni 4519.
 - **AC-004 (REQ-006):** El acceso directo `EvaluaPro.lnk` apunta al ejecutable `EvaluaPro.exe`.
 - **AC-005 (REQ-007, REQ-008):** El instalador WiX y el Hub enlazan la ejecución nativa de `EvaluaPro.exe`.
+- **AC-006 (REQ-009):** Si la reconciliación de accesos directos no termina dentro del límite, el helper retorna con estado degradado y el flujo post-install alcanza la respuesta final sin bloquearse por captura de stdout/stderr.
 
 ## Matriz de Trazabilidad
 
@@ -47,3 +49,4 @@ EvaluaPro requería una experiencia de usuario 100% nativa en Windows que elimin
 | REQ-006 | Creación de acceso directo hacia `EvaluaPro.exe` | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
 | REQ-007 | Lanzamiento de `EvaluaPro.exe` desde Bootstrapper Hub | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
 | REQ-008 | Empaquetado de `EvaluaPro.exe` en staging de `build-msi.ps1` | `scripts/tests/installer-hub-contract.test.mjs` | implemented |
+| REQ-009 | Timeout acotado para reconciliación opcional de accesos directos | `scripts/tests/installer-hub-contract.test.mjs` | approved |

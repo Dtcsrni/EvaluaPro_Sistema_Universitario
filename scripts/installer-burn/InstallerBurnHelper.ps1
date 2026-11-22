@@ -204,41 +204,33 @@ function Invoke-ShortcutReconciliation {
   $startInfo.WorkingDirectory = $TargetDir
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
-  $startInfo.RedirectStandardOutput = $true
-  $startInfo.RedirectStandardError = $true
 
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo = $startInfo
-  if (-not $process.Start()) { throw 'No se pudo iniciar la reconciliación de accesos directos.' }
+  try {
+    if (-not $process.Start()) { throw 'No se pudo iniciar la reconciliación de accesos directos.' }
 
-  $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-  $stderrTask = $process.StandardError.ReadToEndAsync()
-  if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-    try { $process.Kill() } catch {}
-    $stopped = $false
-    try { $stopped = $process.WaitForExit(5000) } catch {}
-    $stdout = ''
-    $stderr = ''
-    if ($stopped) {
-      $stdout = try { $stdoutTask.GetAwaiter().GetResult() } catch { '' }
-      $stderr = try { $stderrTask.GetAwaiter().GetResult() } catch { '' }
-    } else {
-      $stderr = 'El proceso no terminó después de solicitar su cierre.'
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+      try { $process.Kill() } catch {}
+      $stopped = $false
+      try { $stopped = $process.WaitForExit(5000) } catch {}
+      return [pscustomobject]@{
+        ExitCode = $null
+        TimedOut = $true
+        Stdout = ''
+        Stderr = if ($stopped) { 'El proceso excedió el tiempo límite y fue detenido.' } else { 'El proceso no terminó después de solicitar su cierre.' }
+      }
     }
+
+    $process.WaitForExit()
     return [pscustomobject]@{
-      ExitCode = $null
-      TimedOut = $true
-      Stdout = [string]$stdout
-      Stderr = [string]$stderr
+      ExitCode = $process.ExitCode
+      TimedOut = $false
+      Stdout = ''
+      Stderr = ''
     }
-  }
-
-  $process.WaitForExit()
-  return [pscustomobject]@{
-    ExitCode = $process.ExitCode
-    TimedOut = $false
-    Stdout = [string]$stdoutTask.GetAwaiter().GetResult()
-    Stderr = [string]$stderrTask.GetAwaiter().GetResult()
+  } finally {
+    $process.Dispose()
   }
 }
 
