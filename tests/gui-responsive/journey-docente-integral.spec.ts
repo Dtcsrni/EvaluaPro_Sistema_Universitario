@@ -307,9 +307,9 @@ test.describe('Journey docente integral visual', () => {
     await expect(temaIntegral).toHaveClass(/plantillas-tema-chip--selected/);
     // El banco se valida con 20 reactivos arriba; el tramo PDF/OMR usa un fixture
     // deliberadamente pequeño para medir el flujo completo sin saturar el runner.
-    await formularioPlantilla.getByLabel('Cantidad de páginas').fill('1');
+    await expect(formularioPlantilla.getByRole('status', { name: 'Presupuesto de páginas no editable' }))
+      .toHaveText('Parcial · 2 páginas · 1 hoja dúplex');
     await formularioPlantilla.getByLabel('Preguntas del examen').fill('5');
-    await expect(formularioPlantilla.getByLabel('Cantidad de páginas')).toHaveValue('1');
     await expect(formularioPlantilla.getByLabel('Preguntas del examen')).toHaveValue('5');
     await page.screenshot({ path: path.join(outputDir, '25_plantilla_formulario.png'), fullPage: true });
 
@@ -546,7 +546,8 @@ test.describe('Journey docente integral visual', () => {
     await expect(page.getByText('Modo manual activado para el examen seleccionado.', { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('spinbutton', { name: 'Aciertos obtenidos' }).fill('1');
     await expect(page.getByRole('checkbox', { name: /Confirmar marca de guía/i })).toBeDisabled();
-    await expect(page.getByText(/Calificación final: 1\.00 \/ 5\.00/i)).toBeVisible();
+    // One correct answer out of 20 is 0.25 on the 0–5 exam scale.
+    await expect(page.getByText(/Calificación final: 0\.25 \/ 5\.00/i)).toBeVisible();
     await page.screenshot({ path: path.join(outputDir, '40_calificaciones_modo_manual.png'), fullPage: true });
 
     const previsualizarCalificacion = page.getByRole('button', { name: 'Analizar marca y previsualizar', exact: true });
@@ -555,7 +556,7 @@ test.describe('Journey docente integral visual', () => {
     const previewCalificacionReal = await previewCalificacionResponse;
     expect(previewCalificacionReal.status()).toBe(200);
     const previewCalificacion = await previewCalificacionReal.json();
-    expect(Number(previewCalificacion.preview.calificacionExamenFinalTexto)).toBe(1);
+    expect(Number(previewCalificacion.preview.calificacionExamenFinalTexto)).toBe(0.25);
     expect(Number(previewCalificacion.preview.bonoTexto)).toBe(0);
     await expect(page.getByRole('button', { name: 'Guardar calificación', exact: true })).toBeEnabled();
 
@@ -566,7 +567,7 @@ test.describe('Journey docente integral visual', () => {
     expect(calificarResponseReal.status()).toBeLessThan(400);
     const calificacionGuardada = await calificarResponseReal.json();
     expect(Number(calificacionGuardada.calificacion.bonoTexto)).toBe(0);
-    expect(Number(calificacionGuardada.calificacion.calificacionExamenFinalTexto)).toBe(1);
+    expect(Number(calificacionGuardada.calificacion.calificacionExamenFinalTexto)).toBe(0.25);
     await expect(page.getByLabel('Panel de calificación').getByText('Calificación guardada', { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: path.join(outputDir, '41_calificaciones_guardada_exito.png'), fullPage: true });
 

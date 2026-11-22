@@ -117,8 +117,7 @@ export function BancoImportacionReactivos({
   const [procesando, setProcesando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<TipoMensajeImportacion>('info');
-  const [reactivosPendientes, setReactivosPendientes] = useState<string[]>([]);
-  const [reactivosEnRevision, setReactivosEnRevision] = useState<string[]>([]);
+  const [importacionConfirmada, setImportacionConfirmada] = useState(false);
   const [historialImportaciones, setHistorialImportaciones] = useState<ImportHistoryEntry[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
   const [errorHistorial, setErrorHistorial] = useState('');
@@ -127,9 +126,7 @@ export function BancoImportacionReactivos({
   const temaIds = useMemo(() => temas.map((tema) => tema._id).filter(Boolean), [temas]);
   const tieneConflictos = Boolean(preview && (preview.summary.conflict > 0 || preview.summary.error > 0));
   const historialDeMateria = historialImportaciones.filter((item) => item.periodoId === periodoId);
-  const pasoActual = reactivosPendientes.length > 0 || reactivosEnRevision.length > 0
-    ? 3
-    : preview || archivo || procesando ? 2 : 1;
+  const pasoActual = importacionConfirmada ? 3 : preview || archivo || procesando ? 2 : 1;
 
   useEffect(() => {
     let vigente = true;
@@ -182,6 +179,7 @@ export function BancoImportacionReactivos({
   function seleccionarArchivo(file: File | null) {
     setArchivo(file);
     setPreview(null);
+    setImportacionConfirmada(false);
     mostrarMensaje(file ? 'Archivo listo para validar. El servidor aún no ha escrito nada.' : 'Se quitó el archivo. Selecciona uno para validar.');
   }
 
@@ -288,59 +286,18 @@ export function BancoImportacionReactivos({
       const borradores = resultado.draftReactivoIds ?? [];
       mostrarMensaje(
         borradores.length > 0
-          ? `Importación confirmada: ${borradores.length} reactivo(s) esperan revisión.`
+          ? `Importación confirmada: ${borradores.length} reactivo(s) quedaron en borrador. Audita su contenido en la cola de revisión de la materia antes de publicar.`
           : 'Importación confirmada sin cambios nuevos.',
         'ok'
       );
       setPreview(null);
       setArchivo(null);
+      setImportacionConfirmada(true);
       if (inputRef.current) inputRef.current.value = '';
-      setReactivosPendientes(borradores);
       setRecargaHistorial((actual) => actual + 1);
       onRefrescar();
     } catch (error) {
       mostrarError(error, 'No se pudo confirmar el plan. Vuelve a generar el preview.');
-    } finally {
-      setProcesando(false);
-    }
-  }
-
-  async function cambiarEstado(ids: string[], ruta: 'revisar' | 'publicar') {
-    const resultados = await Promise.allSettled(
-      ids.map((reactivoId) => clienteApi.enviar(`/banco-preguntas/reactivos/${encodeURIComponent(reactivoId)}/${ruta}`, {}))
-    );
-    return ids.filter((_, index) => resultados[index]?.status === 'rejected');
-  }
-
-  async function enviarARevision() {
-    if (reactivosPendientes.length === 0) return;
-    try {
-      setProcesando(true);
-      const ids = reactivosPendientes;
-      const fallidos = await cambiarEstado(ids, 'revisar');
-      const exitosos = ids.filter((id) => !fallidos.includes(id));
-      setReactivosPendientes(fallidos);
-      setReactivosEnRevision((actuales) => [...actuales, ...exitosos]);
-      mostrarMensaje(fallidos.length > 0 ? `${fallidos.length} reactivo(s) requieren reintento.` : 'Reactivos enviados a revisión.', fallidos.length > 0 ? 'error' : 'ok');
-      onRefrescar();
-    } catch (error) {
-      mostrarError(error, 'No se pudieron enviar los reactivos a revisión.');
-    } finally {
-      setProcesando(false);
-    }
-  }
-
-  async function publicarPendientes() {
-    if (reactivosEnRevision.length === 0) return;
-    try {
-      setProcesando(true);
-      const ids = reactivosEnRevision;
-      const fallidos = await cambiarEstado(ids, 'publicar');
-      setReactivosEnRevision(fallidos);
-      mostrarMensaje(fallidos.length > 0 ? `${fallidos.length} reactivo(s) requieren reintento.` : 'Reactivos publicados y disponibles para el banco OMR.', fallidos.length > 0 ? 'error' : 'ok');
-      onRefrescar();
-    } catch (error) {
-      mostrarError(error, 'No se pudieron publicar los reactivos.');
     } finally {
       setProcesando(false);
     }
@@ -439,20 +396,6 @@ export function BancoImportacionReactivos({
           <Boton cargando={procesando} variante="primario" disabled={tieneConflictos} onClick={() => void confirmar()}>
             {tieneConflictos ? 'Corrige las incidencias para continuar' : 'Confirmar importación'}
           </Boton>
-        </div>
-      )}
-
-      {(reactivosPendientes.length > 0 || reactivosEnRevision.length > 0) && (
-        <div className="banco-reactivos-import__queue">
-          <div>
-            <p className="banco-reactivos-import__eyebrow">Siguiente paso</p>
-            <h3>Revisión de publicación</h3>
-            <p>{reactivosPendientes.length + reactivosEnRevision.length} reactivo(s) están fuera de producción.</p>
-          </div>
-          <div className="banco-reactivos-import__queue-actions">
-            {reactivosPendientes.length > 0 && <Boton variante="primario" cargando={procesando} onClick={() => void enviarARevision()}>Enviar a revisión ({reactivosPendientes.length})</Boton>}
-            {reactivosEnRevision.length > 0 && <Boton variante="primario" cargando={procesando} onClick={() => void publicarPendientes()}>Publicar revisados ({reactivosEnRevision.length})</Boton>}
-          </div>
         </div>
       )}
 

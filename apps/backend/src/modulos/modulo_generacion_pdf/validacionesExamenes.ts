@@ -64,6 +64,23 @@ const esquemaBookletConfig = z
     separateCoverPage: z.boolean().optional()
   })
   .strict();
+
+function validarPresupuestoPaginasPorTipo(
+  data: { tipo?: unknown; numeroPaginas?: unknown; bookletConfig?: unknown },
+  ctx: z.RefinementCtx
+) {
+  if (data.tipo !== 'parcial' && data.tipo !== 'global') return;
+  const esperado = data.tipo === 'global' ? 4 : 2;
+  const configurados = [
+    ['numeroPaginas', data.numeroPaginas],
+    ['bookletConfig', (data.bookletConfig as { targetPages?: unknown } | undefined)?.targetPages]
+  ] as const;
+  for (const [campo, valor] of configurados) {
+    if (valor !== undefined && Number(valor) !== esperado) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [campo], message: `${data.tipo} requiere exactamente ${esperado} páginas.` });
+    }
+  }
+}
 const esquemaOmrConfig = z
   .object({
     examTemplateId: z.enum(['omr-canonical-1.0.0', 'omr-canonical-v4', 'omr-inline-exam-v1']).optional(),
@@ -142,6 +159,7 @@ export const esquemaCrearPlantilla = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    validarPresupuestoPaginasPorTipo(data, ctx);
     const preguntasIds = Array.isArray(data.preguntasIds) ? data.preguntasIds : [];
     const temas = Array.isArray(data.temas) ? data.temas : [];
     if (preguntasIds.length === 0 && temas.length === 0) {
@@ -235,6 +253,7 @@ export const esquemaActualizarPlantilla = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    validarPresupuestoPaginasPorTipo(data, ctx);
     if (Array.isArray(data.preguntasIds) && data.preguntasIds.length > 0) {
       validarIdsUnicos(data.preguntasIds, ctx, 'preguntasIds');
     }

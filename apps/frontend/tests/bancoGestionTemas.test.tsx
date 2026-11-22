@@ -74,8 +74,8 @@ describe('BancoGestionTemas', () => {
 
     expect(screen.getByText('Álgebra Lineal')).toBeInTheDocument();
     expect(screen.getByText('Cálculo Diferencial')).toBeInTheDocument();
-    expect(screen.getByText(/Preguntas: 5/i)).toBeInTheDocument();
-    expect(screen.getByText(/Preguntas: 8/i)).toBeInTheDocument();
+    expect(screen.getByText(/Publicadas: 5/i)).toBeInTheDocument();
+    expect(screen.getByText(/Publicadas: 8/i)).toBeInTheDocument();
 
     const botonAgregar = screen.getByRole('button', { name: /^Agregar tema$/i });
     expect(botonAgregar).not.toBeDisabled();
@@ -83,14 +83,14 @@ describe('BancoGestionTemas', () => {
     expect(mockCrearTema).toHaveBeenCalledTimes(1);
 
     rerender(<BancoGestionTemas {...props} cargandoPreguntas />);
-    expect(screen.getAllByText('Preguntas: Cargando…')).toHaveLength(2);
-    expect(screen.queryByText('Preguntas: 0')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Publicadas: Cargando…')).toHaveLength(2);
+    expect(screen.queryByText('Publicadas: 0')).not.toBeInTheDocument();
 
     rerender(<BancoGestionTemas {...props} errorCargaPreguntas />);
-    expect(screen.getAllByText('Preguntas: No disponible')).toHaveLength(2);
+    expect(screen.getAllByText('Publicadas: No disponible')).toHaveLength(2);
 
     rerender(<BancoGestionTemas {...props} errorCargaPreguntas hayPreguntasPrevias />);
-    expect(screen.getByText('Preguntas (última carga): 5')).toBeInTheDocument();
+    expect(screen.getByText('Publicadas (última carga): 5')).toBeInTheDocument();
   });
 
   it('permite renombrar y archivar temas existentes', () => {

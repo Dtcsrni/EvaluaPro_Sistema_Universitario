@@ -6422,6 +6422,66 @@ html[data-theme="dark"] body .empty-step__num {
   border-color: color-mix(in srgb, var(--screen-accent, var(--color-primary-400)) 45%, var(--border-subtle));
 }
 
+.banco-manual-audit,
+.banco-reactivos-import__queue > .nota[role='note'] {
+  grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+}
+
+.banco-manual-audit {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--superficieSolida) 72%, transparent);
+}
+
+.banco-manual-audit summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  color: var(--ui-ink, var(--texto));
+  font-weight: 750;
+}
+
+.banco-manual-audit > ol {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  margin: 0.75rem 0 0;
+  padding-inline-start: 1.45rem;
+}
+
+.banco-manual-audit li,
+.banco-manual-audit li > details,
+.banco-manual-audit li > details > ol {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.banco-manual-audit li > details {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+}
+
+.banco-manual-audit__confirmacion {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0.7rem 0;
+  color: var(--ui-ink, var(--texto));
+  font-weight: 650;
+}
+
+.banco-manual-audit__confirmacion input[type='checkbox'] {
+  flex: 0 0 1.2rem;
+  width: 1.2rem;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  min-height: 1.2rem;
+  margin: 0.1rem 0 0;
+}
+
 .banco-reactivos-import__history,
 .banco-versiones-comparador {
   display: grid;

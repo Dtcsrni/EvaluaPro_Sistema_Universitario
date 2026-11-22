@@ -232,7 +232,7 @@ describe('flujo de examen', () => {
     const token = await registrarDocente();
     const auth = { Authorization: `Bearer ${token}` };
     await request(app).post('/api/autenticacion/preferencias/pdf').set(auth).send({
-      paginasPorTipo: { parcial: 2, global: 6, extraordinario: 8 }
+      paginasPorTipo: { parcial: 2, global: 4, extraordinario: 4 }
     }).expect(200);
     const periodo = await request(app).post('/api/periodos').set(auth).send({
       nombre: 'Preferencia de paginación', fechaInicio: '2026-01-01', fechaFin: '2026-06-01'
@@ -246,8 +246,8 @@ describe('flujo de examen', () => {
       preguntasIds
     }).expect(201);
 
-    expect(plantilla.body.plantilla.numeroPaginas).toBe(6);
-    expect(plantilla.body.plantilla.bookletConfig.targetPages).toBe(6);
+    expect(plantilla.body.plantilla.numeroPaginas).toBe(4);
+    expect(plantilla.body.plantilla.bookletConfig.targetPages).toBe(4);
   });
 
   async function registrarDocente() {
@@ -754,7 +754,7 @@ describe('flujo de examen', () => {
     }).expect(201);
     const preguntasIds = await crearPreguntasCanonicas(auth, periodoId);
     const plantillaResp = await request(app).post('/api/examenes/plantillas').set(auth).send({
-      periodoId, tipo: 'global', titulo: 'Global del periodo vigente', numeroPaginas: 2, preguntasIds
+      periodoId, tipo: 'global', titulo: 'Global del periodo vigente', numeroPaginas: 4, preguntasIds
     }).expect(201);
     const plantillaId = String(plantillaResp.body.plantilla._id);
     await request(app).post(`/api/periodos/${periodoId}/archivar`).set(auth).send({}).expect(200);

@@ -114,7 +114,7 @@ export async function prepararEscenarioFlujo(
       periodoId,
       tipo: tipoExamen,
       titulo: `Examen ${tipoExamen}`,
-      numeroPaginas: 1,
+      numeroPaginas: tipoExamen === 'global' ? 4 : 2,
       preguntasIds
     })
     .expect(201);

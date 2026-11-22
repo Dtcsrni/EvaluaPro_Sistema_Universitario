@@ -5,6 +5,7 @@
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
 import { describe, expect, it } from 'vitest';
+import { construirInicialesIdentidadAlumno } from '../../backend/src/compartido/inicialesAlumno.js';
 import {
   combinarRespuestasOmrPaginas,
   construirClaveCorrectaExamen,
@@ -13,6 +14,7 @@ import {
   idCortoMateria,
   normalizarResultadoOmr,
   serializarRespuestasDetectadasOmr,
+  obtenerInicialesAlumno,
   obtenerInicialesAvatarAlumno,
   obtenerVersionPregunta,
   obtenerVistaInicial,
@@ -44,11 +46,30 @@ const preguntaBase = {
 } as const;
 
 describe('utilidades app docente', () => {
-  it('compacta las iniciales del avatar sin alterar la normalización del nombre', () => {
-    expect(obtenerInicialesAvatarAlumno('María Fernanda González Hernández')).toBe('MH');
-    expect(obtenerInicialesAvatarAlumno('José de la Cruz')).toBe('JC');
-    expect(obtenerInicialesAvatarAlumno('Ana')).toBe('A');
+  it('representa en alumnos las mismas iniciales que usa la plantilla del examen', () => {
+    for (const nombreCompleto of [
+      'García López María José',
+      'De la Cruz Pérez Ángel',
+      'Ávila Núñez Sofía',
+      'Ana',
+      '---'
+    ]) {
+      const esperado = construirInicialesIdentidadAlumno({ nombreCompleto });
+      expect(obtenerInicialesAlumno(nombreCompleto)).toBe(esperado);
+      expect(obtenerInicialesAvatarAlumno(nombreCompleto)).toBe(esperado);
+    }
     expect(obtenerInicialesAvatarAlumno()).toBe('');
+  });
+
+  it('usa nombres y apellidos estructurados como la plantilla cuando están disponibles', () => {
+    const identidad = { nombreCompleto: 'Ana María Gómez Ruiz', nombres: 'Ana María', apellidos: 'Gómez Ruiz' };
+    const esperadas = construirInicialesIdentidadAlumno(identidad);
+    expect(obtenerInicialesAlumno(identidad)).toBe(esperadas);
+    expect(obtenerInicialesAvatarAlumno(identidad)).toBe(esperadas);
+
+    const identidadImportada = { nombres: 'María Fernanda', apellidos: 'González Hernández' };
+    expect(construirInicialesIdentidadAlumno(identidadImportada)).toBe('MFGH');
+    expect(obtenerInicialesAvatarAlumno(identidadImportada)).toBe('MFGH');
   });
 
   it('obtenerVistaInicial respeta vistas validas y aliases', () => {

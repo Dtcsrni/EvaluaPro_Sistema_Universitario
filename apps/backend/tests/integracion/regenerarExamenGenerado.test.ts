@@ -86,6 +86,9 @@ describe('regenerar examen generado', () => {
       .send({ plantillaId })
       .expect(201);
     const examenId = examenResp.body.examenGenerado._id as string;
+    const idsAntes = examenResp.body.examenGenerado.mapaOmr.paginas
+      .flatMap((pagina: { preguntas?: Array<{ idPregunta?: string }> }) => pagina.preguntas ?? [])
+      .map((pregunta: { idPregunta?: string }) => pregunta.idPregunta);
 
     // Marca descargadoEn para activar el guardrail.
     await request(app).get(`/api/examenes/generados/${examenId}/pdf`).set(auth).expect(200);
@@ -104,7 +107,11 @@ describe('regenerar examen generado', () => {
 
     const paginas = regen.body?.examenGenerado?.paginas as Array<{ preguntasDel?: number; preguntasAl?: number }>;
     expect(Array.isArray(paginas)).toBe(true);
-    expect(paginas.length).toBeGreaterThan(0);
+    expect(paginas).toHaveLength(2);
     expect(paginas.some((p) => Number(p.preguntasDel ?? 0) > 0 && Number(p.preguntasAl ?? 0) > 0)).toBe(true);
+    const idsDespues = regen.body.examenGenerado.mapaOmr.paginas
+      .flatMap((pagina: { preguntas?: Array<{ idPregunta?: string }> }) => pagina.preguntas ?? [])
+      .map((pregunta: { idPregunta?: string }) => pregunta.idPregunta);
+    expect(idsDespues).toEqual(idsAntes);
   });
 });

@@ -13,8 +13,21 @@ import { clienteApi } from '../../../clienteApiDocente';
 import { mensajeDeError } from '../../../utilidades';
 import type { EnviarConPermiso } from '../../../tipos';
 
+export type EstadoDescargaLote = {
+  loteId: string;
+  estado: 'solicitando' | 'descargando' | 'validando' | 'solicitada' | 'error';
+  recibidos: number;
+  total?: number;
+  iniciadoEn: number;
+  mensaje?: string;
+};
+
+type NotificarEstadoDescarga = (estado: EstadoDescargaLote) => void;
+
 async function validarHashDescargaPdf(blob: Blob, hashEsperado: string | null) {
-  if (!hashEsperado || !globalThis.crypto?.subtle) return;
+  if (!hashEsperado || !globalThis.crypto?.subtle) {
+    throw new Error('El servidor no proporcionó una huella verificable para el PDF. Reintenta la descarga del mismo lote.');
+  }
   const digest = await globalThis.crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   const hashReal = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   if (hashReal.toLowerCase() !== hashEsperado.trim().toLowerCase()) {
@@ -53,10 +66,11 @@ function iniciarDescargaEnNavegador(blob: Blob, nombre: string, formato: 'PDF co
   });
 }
 
-async function solicitarPdfLote(url: string, token: string) {
+async function solicitarPdfLote(url: string, token: string, signal?: AbortSignal) {
   const intentar = (authToken: string) => fetch(`${clienteApi.baseApi}${url}`, {
     credentials: 'include',
-    headers: { Authorization: `Bearer ${authToken}` }
+    headers: { Authorization: `Bearer ${authToken}` },
+    ...(signal ? { signal } : {})
   });
   let respuesta = await intentar(token);
   if (respuesta.status === 401) {
@@ -65,6 +79,64 @@ async function solicitarPdfLote(url: string, token: string) {
   }
   if (respuesta.status === 401) throw new Error('La sesión docente expiró. Inicia sesión nuevamente para descargar el paquete.');
   return respuesta;
+}
+
+async function leerDescargaConProgreso(resp: Response, loteId: string, notificar: NotificarEstadoDescarga, iniciadoEn: number) {
+  const totalHeader = Number(resp.headers.get('Content-Length'));
+  const total = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : undefined;
+  const reader = resp.body?.getReader();
+  if (!reader) {
+    const blob = await resp.blob();
+    if (total !== undefined && blob.size !== total) {
+      throw new Error(`La descarga terminó incompleta (${blob.size} de ${total} bytes). Reintenta este mismo lote.`);
+    }
+    notificar({ loteId, estado: 'descargando', recibidos: blob.size, total, iniciadoEn });
+    return blob;
+  }
+  const partes: ArrayBuffer[] = [];
+  let recibidos = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value?.byteLength) continue;
+    partes.push(new Uint8Array(value).buffer);
+    recibidos += value.byteLength;
+    notificar({ loteId, estado: 'descargando', recibidos, total, iniciadoEn });
+  }
+  if (total !== undefined && recibidos !== total) {
+    throw new Error(`La descarga terminó incompleta (${recibidos} de ${total} bytes). Reintenta este mismo lote.`);
+  }
+  return new Blob(partes, { type: resp.headers.get('Content-Type') || 'application/pdf' });
+}
+
+async function solicitarYValidarPdfLote(url: string, token: string, loteId: string, notificar: NotificarEstadoDescarga) {
+  const iniciadoEn = Date.now();
+  const controlador = new AbortController();
+  const timeout = globalThis.setTimeout(() => controlador.abort(new Error('La descarga excedió 180 segundos.')), 180_000);
+  const actualizar = (estado: EstadoDescargaLote['estado'], extras: Partial<EstadoDescargaLote> = {}) =>
+    notificar({ loteId, estado, recibidos: 0, iniciadoEn, ...extras });
+  try {
+    actualizar('solicitando');
+    const resp = await solicitarPdfLote(url, token, controlador.signal);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}. Puedes reintentar la descarga del lote ${loteId}.`);
+    const totalHeader = Number(resp.headers.get('Content-Length'));
+    actualizar('descargando', { total: Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : undefined });
+    const blob = await leerDescargaConProgreso(resp, loteId, notificar, iniciadoEn);
+    actualizar('validando', { recibidos: blob.size, total: blob.size });
+    if (blob.size < 8) throw new Error('El PDF recibido está vacío o incompleto. Reintenta este mismo lote.');
+    const firmaPdf = new TextDecoder().decode(await blob.slice(0, 5).arrayBuffer());
+    if (firmaPdf !== '%PDF-') throw new Error('El archivo recibido no tiene una cabecera PDF válida. Reintenta este mismo lote.');
+    await validarHashDescargaPdf(blob, resp.headers.get('X-EvaluaPro-PDF-SHA256'));
+    return { resp, blob, iniciadoEn };
+  } catch (error) {
+    const mensaje = error instanceof Error && error.name === 'AbortError'
+      ? `La descarga del lote ${loteId} superó 180 segundos. Puedes reintentarla sin generar otro lote.`
+      : error instanceof Error ? error.message : `No se pudo descargar el lote ${loteId}.`;
+    actualizar('error', { mensaje });
+    throw new Error(mensaje, { cause: error });
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 export type ExamenGeneradoResumen = {
   _id: string;
@@ -98,6 +170,7 @@ type Params = {
   cargarExamenesGenerados: () => Promise<void>;
   enviarConPermiso: EnviarConPermiso;
   lotePdfUrl: string | null;
+  notificarEstadoDescarga?: NotificarEstadoDescarga;
 };
 
 export function usePlantillasGeneradosActions({
@@ -115,7 +188,8 @@ export function usePlantillasGeneradosActions({
   setMensajeGeneracionError,
   cargarExamenesGenerados,
   enviarConPermiso,
-  lotePdfUrl
+  lotePdfUrl,
+  notificarEstadoDescarga = () => undefined
 }: Params) {
   const confirm = useConfirmDialog();
   const notificarRecuperacionSesion = useCallback((error: unknown) => {
@@ -268,23 +342,26 @@ export function usePlantillasGeneradosActions({
       return;
     }
     try {
-      const resp = await solicitarPdfLote(lotePdfUrl, token);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const blob = await resp.blob();
-      await validarHashDescargaPdf(blob, resp.headers.get('X-EvaluaPro-PDF-SHA256'));
+      const loteId = decodeURIComponent(lotePdfUrl.match(/\/lote\/([^/?]+)/)?.[1] ?? 'lote-generado');
+      const { resp, blob, iniciadoEn } = await solicitarYValidarPdfLote(lotePdfUrl, token, loteId, notificarEstadoDescarga);
       const cd = resp.headers.get('Content-Disposition') || '';
       const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
       const nombreDesdeHeader = match
         ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
         : '';
       iniciarDescargaEnNavegador(blob, nombreDesdeHeader || 'paquete_examenes.pdf', 'PDF consolidado');
+      notificarEstadoDescarga({ loteId, estado: 'solicitada', recibidos: blob.size, total: blob.size, iniciadoEn });
       await cargarExamenesGenerados();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo descargar el PDF de lote');
+      if (lotePdfUrl) {
+        const loteId = decodeURIComponent(lotePdfUrl.match(/\/lote\/([^/?]+)/)?.[1] ?? 'lote-generado');
+        notificarEstadoDescarga({ loteId, estado: 'error', recibidos: 0, iniciadoEn: Date.now(), mensaje: msg });
+      }
       informarErrorGeneracion(msg);
       notificarRecuperacionSesion(error);
     }
-  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]);
+  }, [avisarSinPermiso, cargarExamenesGenerados, lotePdfUrl, notificarEstadoDescarga, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]);
 
   const descargarPdfLotePorId = useCallback(
     async (loteId: string) => {
@@ -300,24 +377,25 @@ export function usePlantillasGeneradosActions({
         return;
       }
       try {
-        const resp = await solicitarPdfLote(`/examenes/generados/lote/${encodeURIComponent(lote)}/pdf`, token);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const blob = await resp.blob();
-        await validarHashDescargaPdf(blob, resp.headers.get('X-EvaluaPro-PDF-SHA256'));
+        const { resp, blob, iniciadoEn } = await solicitarYValidarPdfLote(
+          `/examenes/generados/lote/${encodeURIComponent(lote)}/pdf`, token, lote, notificarEstadoDescarga
+        );
         const cd = resp.headers.get('Content-Disposition') || '';
         const match = cd.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
         const nombreDesdeHeader = match
           ? decodeURIComponent(String(match[1] || match[2] || match[3] || '').trim().replace(/^"|"$/g, ''))
           : '';
         iniciarDescargaEnNavegador(blob, nombreDesdeHeader || `paquete_examenes_${lote}.pdf`, 'PDF consolidado');
+        notificarEstadoDescarga({ loteId: lote, estado: 'solicitada', recibidos: blob.size, total: blob.size, iniciadoEn });
         await cargarExamenesGenerados();
       } catch (error) {
         const msg = mensajeDeError(error, 'No se pudo descargar el PDF del paquete');
+        notificarEstadoDescarga({ loteId: lote, estado: 'error', recibidos: 0, iniciadoEn: Date.now(), mensaje: msg });
         informarErrorGeneracion(msg);
         notificarRecuperacionSesion(error);
       }
     },
-    [avisarSinPermiso, cargarExamenesGenerados, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]
+    [avisarSinPermiso, cargarExamenesGenerados, notificarEstadoDescarga, puedeDescargarExamenes, informarErrorGeneracion, notificarRecuperacionSesion]
   );
 
   const descargarZipLote = useCallback(async () => {

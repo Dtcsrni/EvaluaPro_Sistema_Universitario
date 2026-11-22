@@ -33,7 +33,10 @@ describe('bootstrap de clientes API locales', () => {
   it('completa solicitud anónima, consentimiento docente, intercambio y refresh delegado', async () => {
     const codeVerifier = randomBytes(32).toString('base64url');
     const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
-    const permisos = ['examenes:leer', 'omr:analizar', 'calificaciones:calificar', 'classroom:pull'];
+    const permisos = [
+      'periodos:leer', 'periodos:gestionar', 'periodos:archivar', 'alumnos:gestionar',
+      'examenes:leer', 'omr:analizar', 'calificaciones:calificar', 'classroom:pull'
+    ];
 
     const solicitud = await request(app)
       .post('/api/autenticacion/api-clientes/solicitudes')

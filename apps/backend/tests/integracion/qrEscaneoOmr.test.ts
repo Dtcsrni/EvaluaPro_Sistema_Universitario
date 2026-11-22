@@ -155,7 +155,7 @@ describe('escaneo OMR: QR asociado a examen', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Parcial 1',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);

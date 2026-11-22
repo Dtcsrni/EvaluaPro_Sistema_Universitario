@@ -145,7 +145,7 @@ describe('retención de exámenes generados', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Plantilla Retencion',
-        numeroPaginas: 1,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);

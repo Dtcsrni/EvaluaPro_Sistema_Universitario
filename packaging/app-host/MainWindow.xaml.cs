@@ -1324,7 +1324,7 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         WriteStartupDiagnostic($"Solicitud Closing: closeAuthorized={closeAuthorized}, isStopping={isStopping}, isVisible={IsVisible}, installerHub={App.IsInstallerHubInvocation}.");
         if (shutdownCompleted) return;
@@ -1336,46 +1336,59 @@ public partial class MainWindow : Window
         if (isStopping || closePromptPending) return;
         closePromptPending = true;
         WriteStartupDiagnostic("Se va a mostrar la confirmación de cierre.");
-        var choice = WpfMessageBox.Show(
-            this,
-            "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
-            "EvaluaPro · Cerrar",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
-        closePromptPending = false;
-        WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
+        // WPF no permite abrir otro Window/MessageBox mientras el Window que
+        // recibió Closing aún está marcado como cerrándose. Cancelar aquí y
+        // mostrar el prompt después del evento evita EnsureHandle/Visibility
+        // sobre una ventana en transición.
+        _ = Dispatcher.BeginInvoke(new Action(() => _ = ShowCloseConfirmationAsync()));
+    }
 
-        if (choice == MessageBoxResult.Cancel) return;
-        if (choice == MessageBoxResult.No)
-        {
-            closeAuthorized = true;
-            _ = Dispatcher.BeginInvoke(new Action(Close));
-            return;
-        }
-
-        isStopping = true;
-        var stopped = false;
+    private async Task ShowCloseConfirmationAsync()
+    {
         try
         {
-            stopped = await ShutdownServicesAsync();
+            var choice = WpfMessageBox.Show(
+                this,
+                "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
+                "EvaluaPro · Cerrar",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+            WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
+
+            if (choice == MessageBoxResult.Cancel) return;
+            if (choice == MessageBoxResult.No)
+            {
+                closeAuthorized = true;
+                _ = Dispatcher.BeginInvoke(new Action(Close));
+                return;
+            }
+
+            isStopping = true;
+            var stopped = await ShutdownServicesAsync();
+            if (!stopped)
+            {
+                isStopping = false;
+                WpfMessageBox.Show(
+                    this,
+                    "No pude verificar que los servicios de EvaluaPro se detuvieran. La ventana permanece abierta para evitar dejar servicios activos sin control.",
+                    "EvaluaPro · No se pudo detener",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            shutdownCompleted = true;
+            closeAuthorized = true;
+            _ = Dispatcher.BeginInvoke(new Action(Close));
         }
         catch (Exception ex)
         {
-            WriteStartupDiagnostic($"Falló la limpieza al cerrar la ventana: {ex.GetType().Name}.");
-        }
-        if (!stopped)
-        {
             isStopping = false;
-            WpfMessageBox.Show(
-                this,
-                "No pude verificar que los servicios de EvaluaPro se detuvieran. La ventana permanece abierta para evitar dejar servicios activos sin control.",
-                "EvaluaPro · No se pudo detener",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            return;
+            WriteStartupDiagnostic($"Falló el flujo de confirmación/cierre: {ex.GetType().Name}: {ex.Message}");
         }
-
-        shutdownCompleted = true;
-        _ = Dispatcher.BeginInvoke(new Action(Close));
+        finally
+        {
+            closePromptPending = false;
+        }
     }
 }

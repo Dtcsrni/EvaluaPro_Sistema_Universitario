@@ -26,6 +26,7 @@ import { BancoFormularioPregunta } from './features/banco/components/BancoFormul
 import { BancoGestionTemas } from './features/banco/components/BancoGestionTemas';
 import { BancoListadoPreguntas } from './features/banco/components/BancoListadoPreguntas';
 import { BancoImportacionReactivos } from './features/banco/components/BancoImportacionReactivos';
+import { textoPlanoRico } from './features/banco/components/RichTextEditor';
 import { estimarAltoPregunta, sugerirPreguntasARecortar } from './features/banco/hooks/estimadoresBanco';
 
 type ManualReactivoPreview = {
@@ -53,6 +54,55 @@ type HistorialReactivo = {
   reactivo: { id: string; externalKey: string; versionActual: number; estado: string };
   versiones: VersionHistorialReactivo[];
 };
+
+type ReactivoPendienteUi = {
+  id: string;
+  externalKey?: string;
+  version?: {
+    contentHash?: string;
+    enunciado?: string;
+    opciones?: Array<{ clave: string; texto: string; esCorrecta: boolean }>;
+  } | null;
+};
+
+function combinarReactivos(...listas: ReactivoPendienteUi[][]): ReactivoPendienteUi[] {
+  const unicos = new Map<string, ReactivoPendienteUi>();
+  for (const reactivo of listas.flat()) unicos.set(reactivo.id, reactivo);
+  return [...unicos.values()];
+}
+
+function esReactivoAuditable(reactivo: ReactivoPendienteUi): boolean {
+  const opciones = reactivo.version?.opciones ?? [];
+  const claves = new Set(opciones.map((opcion) => opcion.clave));
+  return Boolean(reactivo.version?.contentHash)
+    && Boolean(textoPlanoRico(String(reactivo.version?.enunciado ?? '')).trim())
+    && opciones.length === 5
+    && ['A', 'B', 'C', 'D', 'E'].every((clave) => claves.has(clave))
+    && opciones.every((opcion) => textoPlanoRico(opcion.texto).trim().length > 0)
+    && opciones.filter((opcion) => opcion.esCorrecta).length === 1;
+}
+
+async function listarReactivosPorEstado(periodoId: string, estado: 'draft' | 'review'): Promise<ReactivoPendienteUi[]> {
+  const reactivos: ReactivoPendienteUi[] = [];
+  const cursores = new Set<string>();
+  let cursor: string | undefined;
+  let paginas = 0;
+  do {
+    const query = new URLSearchParams({ periodoId, estado, limite: '100' });
+    if (cursor) query.set('cursor', cursor);
+    const pagina = await clienteApi.obtener<{
+      reactivos?: ReactivoPendienteUi[];
+      nextCursor?: string | null;
+    }>(`/banco-preguntas/reactivos?${query.toString()}`);
+    reactivos.push(...(pagina.reactivos ?? []).filter((reactivo) => Boolean(reactivo.id)));
+    cursor = pagina.nextCursor || undefined;
+    if (cursor && cursores.has(cursor)) throw new Error('El listado de reactivos repitió el cursor de paginación.');
+    if (cursor) cursores.add(cursor);
+    paginas += 1;
+    if (cursor && paginas >= 1000) throw new Error('El listado de reactivos excedió el límite seguro de paginación.');
+  } while (cursor);
+  return reactivos;
+}
 
 function nuevaClaveManual() {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -111,8 +161,11 @@ export function SeccionBanco({
     { texto: '', esCorrecta: false }
   ]);
   const [editando, setEditando] = useState(false);
-  const [reactivosManualesPendientes, setReactivosManualesPendientes] = useState<string[]>([]);
-  const [reactivosManualesRevision, setReactivosManualesRevision] = useState<string[]>([]);
+  const [reactivosManualesPendientes, setReactivosManualesPendientes] = useState<ReactivoPendienteUi[]>([]);
+  const [reactivosManualesRevision, setReactivosManualesRevision] = useState<ReactivoPendienteUi[]>([]);
+  const [reactivosAuditados, setReactivosAuditados] = useState<Map<string, string>>(new Map());
+  const [cargandoReactivosPendientes, setCargandoReactivosPendientes] = useState(false);
+  const [errorReactivosPendientes, setErrorReactivosPendientes] = useState('');
   const [transicionManual, setTransicionManual] = useState(false);
   const [archivandoPreguntaId, setArchivandoPreguntaId] = useState<string | null>(null);
   const [cargandoHistorialReactivo, setCargandoHistorialReactivo] = useState(false);
@@ -129,7 +182,9 @@ export function SeccionBanco({
   const [cargandoTemas, setCargandoTemas] = useState(false);
   const [errorCargaTemas, setErrorCargaTemas] = useState('');
   const solicitudTemasRef = useRef(0);
+  const solicitudReactivosPendientesRef = useRef(0);
   const periodoTemasRef = useRef('');
+  const periodoPendientesRef = useRef('');
   const [temaNuevo, setTemaNuevo] = useState('');
   const [creandoTema, setCreandoTema] = useState(false);
   const [temaEditandoId, setTemaEditandoId] = useState<string | null>(null);
@@ -195,6 +250,10 @@ export function SeccionBanco({
     setTemaId('');
   }, [periodoId, puedeLeer]);
 
+  useEffect(() => {
+    setReactivosAuditados(new Map());
+  }, [periodoId]);
+
   const refrescarTemas = useCallback(async () => {
     const solicitud = ++solicitudTemasRef.current;
     if (periodoTemasRef.current !== periodoId) {
@@ -234,6 +293,48 @@ export function SeccionBanco({
   useEffect(() => {
     void refrescarTemas();
   }, [refrescarTemas]);
+
+  const refrescarReactivosPendientes = useCallback(async () => {
+    const solicitud = ++solicitudReactivosPendientesRef.current;
+    if (!periodoId || !puedeLeer) {
+      periodoPendientesRef.current = '';
+      setReactivosManualesPendientes([]);
+      setReactivosManualesRevision([]);
+      setErrorReactivosPendientes('');
+      setCargandoReactivosPendientes(false);
+      return;
+    }
+
+    if (periodoPendientesRef.current !== periodoId) {
+      periodoPendientesRef.current = periodoId;
+      setReactivosManualesPendientes([]);
+      setReactivosManualesRevision([]);
+      setReactivosAuditados(new Map());
+    }
+    setCargandoReactivosPendientes(true);
+    setErrorReactivosPendientes('');
+    try {
+      const [borradores, revision] = await Promise.all([
+        listarReactivosPorEstado(periodoId, 'draft'),
+        listarReactivosPorEstado(periodoId, 'review')
+      ]);
+      if (solicitud !== solicitudReactivosPendientesRef.current) return;
+      setReactivosManualesPendientes(borradores);
+      setReactivosManualesRevision(revision);
+      setReactivosAuditados((actuales) => new Map([...actuales].filter(([id, hash]) =>
+        revision.some((reactivo) => reactivo.id === id && reactivo.version?.contentHash === hash)
+      )));
+    } catch (error) {
+      if (solicitud !== solicitudReactivosPendientesRef.current) return;
+      setErrorReactivosPendientes(mensajeDeError(error, 'No se pudo actualizar el estado de borradores y reactivos en revisión.'));
+    } finally {
+      if (solicitud === solicitudReactivosPendientesRef.current) setCargandoReactivosPendientes(false);
+    }
+  }, [periodoId, puedeLeer]);
+
+  useEffect(() => {
+    void refrescarReactivosPendientes();
+  }, [refrescarReactivosPendientes]);
 
   // UX: cuando ya existe al menos 1 tema, colapsa la seccion automaticamente.
   useEffect(() => {
@@ -731,7 +832,6 @@ export function SeccionBanco({
       ) as unknown as ManualReactivoConfirm;
       const reactivoIds = confirmado.draftReactivoIds ?? [];
 
-      setReactivosManualesPendientes((actuales) => [...new Set([...actuales, ...reactivoIds])]);
       mostrarMensajeBanco(reactivoIds.length > 0 ? 'Reactivo validado y guardado como borrador. Envíalo a revisión antes de publicarlo.' : 'Reactivo sin cambios: el contenido ya existía.');
       registrarAccionDocente('crear_pregunta', true, Date.now() - inicio);
       setEnunciado('');
@@ -747,6 +847,7 @@ export function SeccionBanco({
       claveManualRef.current = nuevaClaveManual();
       fechaManualRef.current = new Date().toISOString();
       onRefrescar();
+      void refrescarReactivosPendientes();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo guardar');
       mostrarMensajeBanco(msg, true);
@@ -806,8 +907,7 @@ export function SeccionBanco({
         if (!preview?.importId || !preview.planHash || preview.summary.conflict > 0 || preview.summary.error > 0) {
           throw new Error('La versión editada tiene un conflicto. Actualiza la vista y vuelve a intentarlo.');
         }
-        const confirmado = await enviarConPermiso('banco:ingestar', `/banco-preguntas/importaciones/${encodeURIComponent(preview.importId)}/confirmar`, { planHash: preview.planHash, payload: batch }, 'No tienes permiso para confirmar la versión.') as unknown as ManualReactivoConfirm;
-        setReactivosManualesPendientes((actuales) => [...new Set([...actuales, ...(confirmado.draftReactivoIds ?? [])])]);
+        await enviarConPermiso('banco:ingestar', `/banco-preguntas/importaciones/${encodeURIComponent(preview.importId)}/confirmar`, { planHash: preview.planHash, payload: batch }, 'No tienes permiso para confirmar la versión.');
       } else {
         await enviarConPermiso(
           'banco:gestionar',
@@ -825,6 +925,7 @@ export function SeccionBanco({
       registrarAccionDocente('actualizar_pregunta', true, Date.now() - inicio);
       cancelarEdicion();
       onRefrescar();
+      void refrescarReactivosPendientes();
     } catch (error) {
       const msg = mensajeDeError(error, 'No se pudo actualizar');
       mostrarMensajeBanco(msg, true);
@@ -841,29 +942,53 @@ export function SeccionBanco({
     const permiso = estado === 'revisar' ? 'banco:revisar' : 'banco:publicar';
     try {
       setTransicionManual(true);
-      const fallidos: string[] = [];
-      for (const reactivoId of fuente) {
-        try {
-          await enviarConPermiso(permiso, `/banco-preguntas/reactivos/${encodeURIComponent(reactivoId)}/${estado}`, {}, `No tienes permiso para ${estado} reactivos.`);
-        } catch {
-          fallidos.push(reactivoId);
+      if (estado === 'publicar') {
+        const versionActual = await listarReactivosPorEstado(periodoId, 'review');
+        const actualesPorId = new Map<string, string>();
+        for (const reactivo of versionActual) {
+          actualesPorId.set(reactivo.id, reactivo.version?.contentHash ?? '');
+        }
+        const contenidoSinCambios = versionActual.length === fuente.length && fuente.every((reactivo) =>
+          esReactivoAuditable(reactivo) &&
+          actualesPorId.get(reactivo.id) === reactivo.version?.contentHash &&
+          reactivosAuditados.get(reactivo.id) === reactivo.version?.contentHash
+        );
+        if (!contenidoSinCambios) {
+          setReactivosManualesRevision(versionActual);
+          setReactivosAuditados(new Map());
+          mostrarMensajeBanco('El banco cambió desde la última revisión o falta revisar algún reactivo. Vuelve a auditar los contenidos antes de publicar.', true);
+          return;
         }
       }
-      const exitosos = fuente.filter((id) => !fallidos.includes(id));
+      const fallidos: string[] = [];
+      for (const reactivo of fuente) {
+        try {
+          await enviarConPermiso(permiso, `/banco-preguntas/reactivos/${encodeURIComponent(reactivo.id)}/${estado}`, {}, `No tienes permiso para ${estado} reactivos.`);
+        } catch {
+          fallidos.push(reactivo.id);
+        }
+      }
+      const exitosos = fuente.filter((reactivo) => !fallidos.includes(reactivo.id));
       if (estado === 'revisar') {
-        setReactivosManualesPendientes(fallidos);
-        setReactivosManualesRevision((actuales) => [...new Set([...actuales, ...exitosos])]);
+        setReactivosManualesPendientes(fuente.filter((reactivo) => fallidos.includes(reactivo.id)));
+        setReactivosManualesRevision((actuales) => combinarReactivos(actuales, exitosos));
       } else {
-        setReactivosManualesRevision(fallidos);
+        setReactivosManualesRevision(fuente.filter((reactivo) => fallidos.includes(reactivo.id)));
+        setReactivosAuditados(new Map());
       }
       mostrarMensajeBanco(fallidos.length > 0
         ? `${fallidos.length} reactivo(s) no pudieron cambiar de estado; puedes reintentar.`
         : estado === 'revisar' ? 'Reactivos enviados a revisión.' : 'Reactivos revisados y publicados.', fallidos.length > 0);
       onRefrescar();
+      void refrescarReactivosPendientes();
     } finally {
       setTransicionManual(false);
     }
   }
+
+  const revisionCompleta = reactivosManualesRevision.length > 0 && reactivosManualesRevision.every((reactivo) =>
+    esReactivoAuditable(reactivo) && reactivosAuditados.get(reactivo.id) === reactivo.version?.contentHash
+  );
 
   async function archivarPregunta(preguntaId: string) {
     const pregunta = preguntas.find((item) => item._id === preguntaId);
@@ -971,17 +1096,73 @@ export function SeccionBanco({
         cancelarEdicion={cancelarEdicion}
       />
 
-      {(reactivosManualesPendientes.length > 0 || reactivosManualesRevision.length > 0) && (
+      {(reactivosManualesPendientes.length > 0 || reactivosManualesRevision.length > 0 || cargandoReactivosPendientes || errorReactivosPendientes) && (
         <section id="banco-revision" tabIndex={-1} className="banco-reactivos-import__queue" aria-label="Flujo de revisión manual">
           <div>
             <p className="banco-reactivos-import__eyebrow">Flujo manual</p>
             <h3>Revisión y publicación</h3>
-            <p>{reactivosManualesPendientes.length + reactivosManualesRevision.length} reactivo(s) aún no están publicados.</p>
+            <p>
+              {cargandoReactivosPendientes
+                ? 'Actualizando borradores y reactivos en revisión…'
+                : `${reactivosManualesPendientes.length} ${reactivosManualesPendientes.length === 1 ? 'borrador' : 'borradores'} y ${reactivosManualesRevision.length} ${reactivosManualesRevision.length === 1 ? 'reactivo en revisión' : 'reactivos en revisión'}. Aún no están disponibles para exámenes hasta publicarse.`}
+            </p>
+            {errorReactivosPendientes && <p role="status">{errorReactivosPendientes}</p>}
           </div>
           <div className="banco-reactivos-import__queue-actions">
             {reactivosManualesPendientes.length > 0 && <button type="button" className="button button-primary" disabled={transicionManual} onClick={() => void cambiarEstadoManual('revisar')}>Enviar a revisión ({reactivosManualesPendientes.length})</button>}
-            {reactivosManualesRevision.length > 0 && <button type="button" className="button button-primary" disabled={transicionManual} onClick={() => void cambiarEstadoManual('publicar')}>Publicar revisados ({reactivosManualesRevision.length})</button>}
+            {reactivosManualesRevision.length > 0 && <button type="button" className="button button-primary" disabled={transicionManual || !revisionCompleta} onClick={() => void cambiarEstadoManual('publicar')}>Publicar revisados ({reactivosManualesRevision.length})</button>}
           </div>
+          {reactivosManualesRevision.length > 0 && !revisionCompleta && (
+            <p className="nota" role="note">Abre cada reactivo en revisión, comprueba el enunciado, las cinco opciones y la clave oficial, y marca su casilla. La publicación solo se habilita cuando todos estén auditados.</p>
+          )}
+          {[{ estado: 'borrador' as const, reactivos: reactivosManualesPendientes }, { estado: 'revisión' as const, reactivos: reactivosManualesRevision }]
+            .filter(({ reactivos }) => reactivos.length > 0)
+            .map(({ estado, reactivos }) => (
+              <details className="banco-manual-audit" key={estado}>
+                <summary>Auditar contenido en {estado} ({reactivos.length})</summary>
+                <ol>
+                  {reactivos.map((reactivo, index) => {
+                    const enunciado = textoPlanoRico(String(reactivo.version?.enunciado ?? '')) || 'Enunciado no disponible';
+                    return (
+                      <li key={reactivo.id}>
+                        <details>
+                          <summary>{index + 1}. {reactivo.externalKey ? `${reactivo.externalKey} · ` : ''}{enunciado}</summary>
+                          <p>{enunciado}</p>
+                          <ol type="A">
+                            {(reactivo.version?.opciones ?? []).map((opcion) => (
+                              <li key={opcion.clave}>
+                                <span>{textoPlanoRico(opcion.texto)}</span>
+                                {opcion.esCorrecta && <strong> · Clave oficial</strong>}
+                              </li>
+                            ))}
+                            {!reactivo.version?.opciones?.length && <li>Opciones no disponibles en la consulta.</li>}
+                          </ol>
+                          {estado === 'revisión' && (
+                            <>
+                              {!esReactivoAuditable(reactivo) && <p role="alert">No es posible auditar/publicar: requiere enunciado, cinco opciones A–E no vacías y exactamente una clave oficial.</p>}
+                              <label className="banco-manual-audit__confirmacion">
+                                <input
+                                  type="checkbox"
+                                  checked={esReactivoAuditable(reactivo) && reactivosAuditados.get(reactivo.id) === reactivo.version?.contentHash}
+                                  disabled={!esReactivoAuditable(reactivo)}
+                                  onChange={(event) => setReactivosAuditados((actuales) => {
+                                    const siguiente = new Map(actuales);
+                                    if (event.target.checked && reactivo.version?.contentHash) siguiente.set(reactivo.id, reactivo.version.contentHash);
+                                    else siguiente.delete(reactivo.id);
+                                    return siguiente;
+                                  })}
+                                />
+                                <span>Confirmo que revisé este enunciado, sus opciones y la clave oficial.</span>
+                              </label>
+                            </>
+                          )}
+                        </details>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </details>
+            ))}
         </section>
       )}
 
@@ -992,6 +1173,7 @@ export function SeccionBanco({
         onRefrescar={() => {
           onRefrescar();
           void refrescarTemas();
+          void refrescarReactivosPendientes();
         }}
       />
 

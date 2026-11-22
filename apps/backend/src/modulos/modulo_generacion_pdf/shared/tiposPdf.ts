@@ -48,6 +48,10 @@ export interface ParametrosGeneracionPdf {
     lineSpacing?: number;
     /** Reparte el contenido entre el número objetivo de páginas cuando es posible. */
     distribuirEnPaginasObjetivo?: boolean;
+    /** Límite físico del cuadernillo, con relleno de caras vacías hasta el total. */
+    enforcePageBudget?: boolean;
+    /** Sonda interna: permite observar capacidad sin persistir el PDF incompleto. */
+    allowCapacityProbe?: boolean;
     logos?: { izquierdaPath?: string; derechaPath?: string };
   };
   encabezado?: EncabezadoExamen;
@@ -57,6 +61,7 @@ export interface PreguntaBase {
   id: string;
   enunciado: string;
   imagenUrl?: string;
+  tema?: string;
   opciones: Array<{ texto: string; esCorrecta: boolean }>;
 }
 

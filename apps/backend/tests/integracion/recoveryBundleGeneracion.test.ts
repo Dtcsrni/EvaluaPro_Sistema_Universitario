@@ -133,13 +133,13 @@ describe('generación PDF: recovery manifest y bundle', () => {
         periodoId,
         tipo: 'parcial',
         titulo: 'Plantilla Recovery',
-        numeroPaginas: 4,
+        numeroPaginas: 2,
         preguntasIds
       })
       .expect(201);
 
     await request(app)
-      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf`)
+      .get(`/api/examenes/plantillas/${plantilla.body.plantilla._id}/previsualizar/pdf/visual`)
       .set(auth)
       .expect(200);
 

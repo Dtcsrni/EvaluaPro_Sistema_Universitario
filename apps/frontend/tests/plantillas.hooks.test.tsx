@@ -59,6 +59,46 @@ describe('hooks de plantillas', () => {
     }));
   });
 
+  it('rechaza tamaño incompleto en navegadores sin lector de streams', async () => {
+    localStorage.setItem('tokenDocente', 'token-test');
+    const bytes = new Blob(['%PDF-1.4 corto']);
+    const digest = await crypto.subtle.digest('SHA-256', await bytes.arrayBuffer());
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: null,
+      blob: async () => bytes,
+      headers: { get: (name: string) => ({
+        'Content-Length': '999',
+        'X-EvaluaPro-PDF-SHA256': hash,
+        'Content-Type': 'application/pdf'
+      } as Record<string, string>)[name] ?? null }
+    } as Response);
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:incompleto');
+    const setMensajeGeneracion = vi.fn();
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: false,
+      puedeArchivarExamenes: false,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion,
+      cargarExamenesGenerados: async () => {},
+      enviarConPermiso: async () => ({}),
+      lotePdfUrl: null
+    }));
+
+    await act(async () => result.current.descargarPdfLotePorId('LOT-QA-INCOMPLETO'));
+    expect(createObjectUrl).not.toHaveBeenCalled();
+    expect(setMensajeGeneracion).toHaveBeenCalledWith(expect.stringContaining('incompleta'));
+  });
+
   it('rechaza un PDF de lote cuyo hash no coincide antes de iniciar la descarga', async () => {
     localStorage.setItem('tokenDocente', 'token-test');
     vi.spyOn(global, 'fetch').mockResolvedValue({
@@ -89,6 +129,65 @@ describe('hooks de plantillas', () => {
     await act(async () => result.current.descargarPdfLotePorId('LOT-QA'));
     expect(createObjectUrl).not.toHaveBeenCalled();
     expect(setMensajeGeneracion).toHaveBeenCalledWith(expect.stringContaining('integridad'));
+  });
+
+  it('expone avance por bytes, valida el PDF y permite reintentar el mismo lote después de un error', async () => {
+    localStorage.setItem('tokenDocente', 'token-test');
+    const bytesCrudos = new TextEncoder().encode('%PDF-1.4 lote recuperable');
+    const bytes = new Blob([bytesCrudos]);
+    const digest = await crypto.subtle.digest('SHA-256', await bytes.arrayBuffer());
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    const respuestaBuena = () => ({
+      ok: true,
+      status: 200,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytesCrudos.slice(0, 8));
+          controller.enqueue(bytesCrudos.slice(8));
+          controller.close();
+        }
+      }),
+      blob: async () => bytes,
+      headers: new Headers({
+        'Content-Type': 'application/pdf',
+        'X-EvaluaPro-PDF-SHA256': hash,
+        'Content-Disposition': 'attachment; filename="paquete.pdf"'
+      })
+    } as Response);
+    vi.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('error', { status: 503 }))
+      .mockImplementationOnce(async () => respuestaBuena());
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:lote-recuperable');
+    const notificarEstadoDescarga = vi.fn();
+    const { result } = renderHook(() => usePlantillasGeneradosActions({
+      avisarSinPermiso: vi.fn(),
+      puedeDescargarExamenes: true,
+      puedeRegenerarExamenes: false,
+      puedeArchivarExamenes: false,
+      descargandoExamenId: null,
+      regenerandoExamenId: null,
+      archivandoExamenId: null,
+      setDescargandoExamenId: vi.fn(),
+      setRegenerandoExamenId: vi.fn(),
+      setArchivandoExamenId: vi.fn(),
+      setMensajeGeneracion: vi.fn(),
+      cargarExamenesGenerados: vi.fn().mockResolvedValue(undefined),
+      enviarConPermiso: vi.fn(),
+      lotePdfUrl: null,
+      notificarEstadoDescarga
+    }));
+
+    await act(async () => result.current.descargarPdfLotePorId('LOT-RECUPERABLE'));
+    expect(notificarEstadoDescarga).toHaveBeenCalledWith(expect.objectContaining({
+      loteId: 'LOT-RECUPERABLE', estado: 'error', mensaje: expect.stringContaining('HTTP 503')
+    }));
+    await act(async () => result.current.descargarPdfLotePorId('LOT-RECUPERABLE'));
+
+    expect(global.fetch).toHaveBeenNthCalledWith(1, expect.stringContaining('/lote/LOT-RECUPERABLE/pdf'), expect.any(Object));
+    expect(global.fetch).toHaveBeenNthCalledWith(2, expect.stringContaining('/lote/LOT-RECUPERABLE/pdf'), expect.any(Object));
+    expect(notificarEstadoDescarga).toHaveBeenCalledWith(expect.objectContaining({ loteId: 'LOT-RECUPERABLE', estado: 'descargando' }));
+    expect(notificarEstadoDescarga).toHaveBeenCalledWith(expect.objectContaining({ loteId: 'LOT-RECUPERABLE', estado: 'validando' }));
+    expect(notificarEstadoDescarga).toHaveBeenCalledWith(expect.objectContaining({ loteId: 'LOT-RECUPERABLE', estado: 'solicitada', recibidos: bytes.size }));
   });
 
   it('renueva el token tras 401 y confirma regeneración y archivo de exámenes', async () => {
@@ -214,7 +313,7 @@ describe('hooks de plantillas', () => {
 
     await act(async () => result.current.descargarPdfLote());
 
-    expect(setMensajeGeneracion).toHaveBeenCalledWith('HTTP 500');
+    expect(setMensajeGeneracion).toHaveBeenCalledWith('HTTP 500. Puedes reintentar la descarga del lote LOT-1.');
     expect(toastSpy).not.toHaveBeenCalledWith(expect.objectContaining({ level: 'error' }));
   });
 

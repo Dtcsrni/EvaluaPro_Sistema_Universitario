@@ -7,6 +7,7 @@
 import { ErrorAplicacion } from '../../compartido/errores/errorAplicacion.js';
 import { configuracion } from '../../configuracion.js';
 import { prisma } from '../../infraestructura/baseDatos/sqlite.js';
+import { obtenerSiguienteOrdenLista } from '../modulo_alumnos/index.js';
 import { guardarPdfExamen } from '../../infraestructura/archivos/almacenLocal.js';
 import { permisosParaRoles } from '../../infraestructura/seguridad/rbac.js';
 import { generarPdfExamen } from '../modulo_generacion_pdf/index.js';
@@ -368,6 +369,7 @@ async function ensureAlumnoPlaceholder(params: {
       nombreCompleto: `Alumno Recuperado ${params.manifest.folio}`,
       correo: `alumno-recovery-${params.manifest.folio}@evaluapro.local`,
       grupo: 'RECOVERY',
+      ordenLista: await obtenerSiguienteOrdenLista(params.periodoId),
       activo: true
     }
   });

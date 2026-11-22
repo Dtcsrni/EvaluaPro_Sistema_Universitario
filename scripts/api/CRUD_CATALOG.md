@@ -4,6 +4,36 @@ Generado desde los routers backend. 270 rutas documentadas; las operaciones CRUD
 
 Los permisos y validadores se leen de los middlewares y llamadas `validarCuerpo` de cada router. Los schemas detallados de flujos críticos están en [`openapi.json`](./openapi.json); un validador `esquema...` apunta a la definición Zod del backend cuando el contrato amplio todavía no exporta campos en JSON Schema.
 
+### Scopes que pueden concederse a clientes API locales
+
+La concesión requiere consentimiento del docente y cada ruta conserva su permiso RBAC y su scope específico. `classroom:pull` no permite iniciar ni administrar OAuth.
+
+| Scope delegable |
+| --- |
+| `periodos:leer` |
+| `periodos:gestionar` |
+| `periodos:archivar` |
+| `alumnos:leer` |
+| `alumnos:gestionar` |
+| `temarios:leer` |
+| `banco:leer` |
+| `banco:gestionar` |
+| `banco:ingestar` |
+| `banco:revisar` |
+| `banco:publicar` |
+| `banco:archivar` |
+| `plantillas:leer` |
+| `plantillas:gestionar` |
+| `plantillas:previsualizar` |
+| `examenes:leer` |
+| `examenes:generar` |
+| `examenes:descargar` |
+| `omr:analizar` |
+| `calificaciones:calificar` |
+| `evaluaciones:leer` |
+| `classroom:pull` |
+| `analiticas:leer` |
+
 | Módulo | Ruta | Métodos | Sesión | Permisos | Validador de cuerpo |
 | --- | --- | --- | --- | --- | --- |
 | Administración | `/admin/docentes` | GET | Bearer | docentes:administrar | — |

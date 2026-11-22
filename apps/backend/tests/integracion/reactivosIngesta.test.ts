@@ -225,7 +225,7 @@ describe('ingesta contractual de reactivos', () => {
       periodoId,
       tipo: 'parcial',
       titulo: 'Plantilla canónica de reactivos',
-      numeroPaginas: 1,
+      numeroPaginas: 2,
       preguntasIds: [preguntaLegacy!.id]
     }).expect(201);
     const plantillaId = String(plantilla.body.plantilla._id);

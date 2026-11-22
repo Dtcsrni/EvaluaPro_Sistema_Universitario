@@ -258,10 +258,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Preparar snapshot WCAG v1.1.6
-        if: github.event_name == 'pull_request'
-        run: git fetch --no-tags origin 53e0590244c55e4ff7f9104c6ea4dd1c5c2a2e12
-
       - name: Configurar Node y dependencias bloqueadas
         uses: ./.github/actions/setup-node-project
 

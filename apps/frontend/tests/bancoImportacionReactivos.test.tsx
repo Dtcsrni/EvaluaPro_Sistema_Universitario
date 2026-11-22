@@ -214,7 +214,7 @@ describe('BancoImportacionReactivos', () => {
     expect(confirmar).not.toHaveBeenCalled();
   });
 
-  it('mantiene el flujo confirmado como borrador → revisión → publicación', async () => {
+  it('confirma borradores y deriva la auditoría/publicación a la cola durable de la materia', async () => {
     const payload = {
       contract: 'evaluapro.reactivos.batch', schemaVersion: 1, batchId: 'test-batch',
       target: { periodoId: 'bi-1', temaIds: ['tema-bi-sp'] },
@@ -231,9 +231,7 @@ describe('BancoImportacionReactivos', () => {
       rows: [{ line: 1, externalKey: 'bi-sp-001', operation: 'create', status: 'valid' }]
     });
     const enviar = vi.spyOn(clienteApi, 'enviar')
-      .mockResolvedValueOnce({ estado: 'confirmed', draftReactivoIds: ['reactivo-1'], reactivoIds: ['reactivo-1'] })
-      .mockResolvedValueOnce({ estado: 'review' })
-      .mockResolvedValueOnce({ estado: 'published' });
+      .mockResolvedValueOnce({ estado: 'confirmed', draftReactivoIds: ['reactivo-1'], reactivoIds: ['reactivo-1'] });
 
     renderImportacion();
     subirArchivo();
@@ -241,16 +239,13 @@ describe('BancoImportacionReactivos', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar importación' })).toBeEnabled());
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar importación' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /Enviar a revisión \(1\)/i })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /Enviar a revisión \(1\)/i }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /Publicar revisados \(1\)/i })).toBeInTheDocument());
+    expect(await screen.findByText(/Importación confirmada: 1 reactivo\(s\) quedaron en borrador/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Enviar a revisión \(1\)/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Publicar revisados \(1\)/i })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Audita su contenido en la cola de revisión de la materia antes de publicar/i)).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Pasos de importación' }).querySelector('[aria-current="step"]'))
       .toHaveTextContent('Revisa y publica');
-    fireEvent.click(screen.getByRole('button', { name: /Publicar revisados \(1\)/i }));
-
-    await waitFor(() => expect(screen.queryByRole('button', { name: /Publicar revisados/i })).not.toBeInTheDocument());
     expect(enviar).toHaveBeenNthCalledWith(1, '/banco-preguntas/importaciones/imp-2/confirmar', { planHash: 'plan-123456789', payload });
-    expect(enviar).toHaveBeenNthCalledWith(2, '/banco-preguntas/reactivos/reactivo-1/revisar', {});
-    expect(enviar).toHaveBeenNthCalledWith(3, '/banco-preguntas/reactivos/reactivo-1/publicar', {});
+    expect(enviar).toHaveBeenCalledTimes(1);
   });
 });

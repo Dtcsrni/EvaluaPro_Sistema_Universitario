@@ -2,7 +2,10 @@ import crypto from 'node:crypto';
 
 export const PERMISOS_API_DELEGABLES = [
   'periodos:leer',
+  'periodos:gestionar',
+  'periodos:archivar',
   'alumnos:leer',
+  'alumnos:gestionar',
   'temarios:leer',
   'banco:leer',
   'banco:gestionar',

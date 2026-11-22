@@ -406,6 +406,14 @@ test('el authoring del MSI excluye contenido de ingeniería que no se ejecuta', 
   assert.match(msiBuild, /apps\/backend\/eng\.traineddata/);
   assert.match(msiBuild, /apps\/backend\/spa\.traineddata/);
   assert.match(msiBuild, /4\.0\.0_best_int\/spa\.traineddata\.gz/);
+  for (const obsoleteOcrModelPath of [
+    'eng.traineddata',
+    'spa.traineddata',
+    'apps/backend/eng.traineddata',
+    'apps/backend/spa.traineddata'
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, obsoleteOcrModelPath)), false, `no debe persistir el modelo OCR redundante ${obsoleteOcrModelPath}`);
+  }
   assert.match(msiBuild, /better_sqlite3\.node/);
   assert.match(msiBuild, /Runtime Prisma\/SQLite validado con consulta en memoria/);
   assert.match(msiBuild, /pdf-parse/);

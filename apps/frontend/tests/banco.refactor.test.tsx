@@ -351,20 +351,50 @@ describe('banco refactor comportamiento', () => {
   });
 
   it('conserva el tema seleccionado al guardar una pregunta para facilitar la captura consecutiva', async () => {
-    const mockEnviar = vi.fn()
-      .mockResolvedValueOnce({
+    let estadoReactivo: 'draft' | 'review' | 'published' = 'draft';
+    const reactivoAuditable = {
+      id: 'reactivo-manual',
+      externalKey: 'manual-cookie',
+      version: {
+        contentHash: 'hash-v1',
+        enunciado: '¿Qué cabecera HTTP envía una cookie?',
+        opciones: [
+          { clave: 'A', texto: 'Set-Cookie', esCorrecta: true },
+          { clave: 'B', texto: 'Cookie-Header', esCorrecta: false },
+          { clave: 'C', texto: 'Authorization', esCorrecta: false },
+          { clave: 'D', texto: 'Accept', esCorrecta: false },
+          { clave: 'E', texto: 'Host', esCorrecta: false }
+        ]
+      }
+    };
+    const mockEnviar = vi.fn().mockImplementation(async (_permiso: string, ruta: string) => {
+      if (ruta.endsWith('/preview')) {
+        return {
         importId: 'imp-manual',
         planHash: 'plan-manual',
         summary: { create: 1, noOp: 0, newVersion: 0, conflict: 0, error: 0 }
-      })
-      .mockResolvedValueOnce({
-        draftReactivoIds: ['reactivo-manual'],
-        reactivoIds: ['reactivo-manual']
-      })
-      .mockResolvedValueOnce({ reactivo: { id: 'reactivo-manual', estado: 'review' } })
-      .mockResolvedValueOnce({ reactivo: { id: 'reactivo-manual', estado: 'published' } });
-    vi.spyOn(clienteApi, 'obtener').mockResolvedValue({
-      temas: [{ _id: 't-1', nombre: 'Cookies y sesiones', materiaId: 'per-1' }]
+        };
+      }
+      if (ruta.endsWith('/confirmar')) return { draftReactivoIds: ['reactivo-manual'], reactivoIds: ['reactivo-manual'] };
+      if (ruta.endsWith('/revisar')) {
+        estadoReactivo = 'review';
+        return { reactivo: { id: 'reactivo-manual', estado: 'review' } };
+      }
+      if (ruta.endsWith('/publicar')) {
+        estadoReactivo = 'published';
+        return { reactivo: { id: 'reactivo-manual', estado: 'published' } };
+      }
+      return {};
+    });
+    vi.spyOn(clienteApi, 'obtener').mockImplementation(async (ruta) => {
+      if (ruta.includes('/banco-preguntas/temas')) {
+        return { temas: [{ _id: 't-1', nombre: 'Cookies y sesiones', materiaId: 'per-1' }] };
+      }
+      if (ruta.includes('/banco-preguntas/reactivos?')) {
+        const estadoSolicitado = new URLSearchParams(ruta.split('?')[1]).get('estado');
+        return { reactivos: estadoSolicitado === estadoReactivo ? [reactivoAuditable] : [], nextCursor: null };
+      }
+      return {};
     });
 
     const { container } = render(
@@ -441,7 +471,13 @@ describe('banco refactor comportamiento', () => {
     expect(await screen.findByRole('button', { name: 'Enviar a revisión (1)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Enviar a revisión (1)' }));
     await waitFor(() => expect(mockEnviar).toHaveBeenCalledTimes(3));
-    fireEvent.click(screen.getByRole('button', { name: 'Publicar revisados (1)' }));
+    const publicar = await screen.findByRole('button', { name: 'Publicar revisados (1)' });
+    expect(publicar).toBeDisabled();
+    fireEvent.click(screen.getByText('Auditar contenido en revisión (1)'));
+    fireEvent.click(screen.getAllByText(/¿Qué cabecera HTTP envía una cookie\?/)[0]!);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que revisé este enunciado/i }));
+    await waitFor(() => expect(publicar).toBeEnabled());
+    fireEvent.click(publicar);
     await waitFor(() => expect(mockEnviar).toHaveBeenCalledTimes(4));
     expect(mockEnviar).toHaveBeenNthCalledWith(3, 'banco:revisar', '/banco-preguntas/reactivos/reactivo-manual/revisar', {}, expect.any(String));
     expect(mockEnviar).toHaveBeenNthCalledWith(4, 'banco:publicar', '/banco-preguntas/reactivos/reactivo-manual/publicar', {}, expect.any(String));
