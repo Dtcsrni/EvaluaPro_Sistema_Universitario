@@ -223,7 +223,7 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       periodoId: escenario.periodoId,
       alumnoId: escenario.alumnoId,
       componente: 'Exámen 1er Parcial',
-      calificacion: 5.01,
+      calificacion: 5.26,
       clientRequestId: '9cde3317-8a9c-4798-b101-1c7989d716be'
     }).expect(400);
     const consultaP1 = await request(app)
@@ -240,7 +240,7 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
     expect(historialCapturaP1.body.eventos).toHaveLength(1);
     expect(historialCapturaP1.body.eventos[0]).toMatchObject({
       componente: 'Exámen 1er Parcial', valorAnterior: null, valorNuevo: 4.67,
-      version: 1, escalaMaxima: 5, canalCaptura: 'api', metodoCaptura: 'captura_manual'
+      version: 1, escalaMaxima: 5.25, canalCaptura: 'api', metodoCaptura: 'captura_manual'
     });
   });
 
@@ -428,7 +428,7 @@ describe('contratos de seguridad y observabilidad de lista academica', () => {
       periodoId: escenario.periodoId,
       alumnoId: escenario.alumnoId,
       componente: 'Exámen Global',
-      calificacion: 5.01,
+      calificacion: 5.26,
       clientRequestId: 'fd6a22f0-20d5-4355-a7a5-e30b3259c710'
     }).expect(400);
 
