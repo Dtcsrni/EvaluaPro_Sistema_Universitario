@@ -43,6 +43,16 @@ describe('construirInicialesAlumno', () => {
     }
     expect(construirInicialesIdentidadAlumno({ nombreCompleto: '' })).toBe('');
     expect(construirInicialesIdentidadAlumno({ nombres: 'Ángel José', apellidos: 'Pérez de la Cruz' })).toBe('AJPC');
+
+    const identidad = { nombres: 'María Fernanda', apellidos: 'González Hernández' };
+    const encabezado = construirEncabezadoPdf({
+      periodo: { nombre: 'Materia' },
+      docenteDb: { nombreCompleto: 'Docente' },
+      instrucciones: '',
+      alumno: identidad
+    });
+    expect(construirInicialesIdentidadAlumno(identidad)).toBe('MFGH');
+    expect(encabezado.alumno?.iniciales).toBe('MFGH');
   });
 
   it('ordena las iniciales del nombre antes de los apellidos si el padrón trae apellidos primero', () => {

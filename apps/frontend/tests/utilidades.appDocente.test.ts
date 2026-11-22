@@ -66,6 +66,10 @@ describe('utilidades app docente', () => {
     const esperadas = construirInicialesIdentidadAlumno(identidad);
     expect(obtenerInicialesAlumno(identidad)).toBe(esperadas);
     expect(obtenerInicialesAvatarAlumno(identidad)).toBe(esperadas);
+
+    const identidadImportada = { nombres: 'María Fernanda', apellidos: 'González Hernández' };
+    expect(construirInicialesIdentidadAlumno(identidadImportada)).toBe('MFGH');
+    expect(obtenerInicialesAvatarAlumno(identidadImportada)).toBe('MFGH');
   });
 
   it('obtenerVistaInicial respeta vistas validas y aliases', () => {

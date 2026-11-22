@@ -4152,7 +4152,9 @@ test.describe('GUI responsive e2e · docente', () => {
       expect(tamanosTipograficos.valores.length).toBeGreaterThan(0);
       expect(Math.min(...tamanosTipograficos.etiquetas), `Rótulos legibles a ${width}px`).toBeGreaterThanOrEqual(12);
       expect(Math.min(...tamanosTipograficos.valores), `Valores legibles a ${width}px`).toBeGreaterThanOrEqual(13);
-      await expect(tarjetaMaria.locator('.alumno-avatar span')).toHaveText('MH');
+      // El avatar y la cabecera de plantilla comparten el identificador
+      // calculado a partir de nombre y apellidos estructurados.
+      await expect(tarjetaMaria.locator('.alumno-avatar span')).toHaveText('MFGH');
       const botonEditarMaria = tarjetaMaria.getByRole('button', { name: 'Editar María Fernanda González Hernández' });
       await botonEditarMaria.hover();
       await expect(page.locator('.tooltip-layer')).toHaveCount(0);
@@ -5648,7 +5650,7 @@ test.describe('GUI responsive e2e · docente', () => {
     await expect(panelGeneracion.getByRole('button', { name: 'Ver guía rápida de generación de exámenes' })).toBeVisible();
     await panelGeneracion.getByLabel('Plantilla base para el examen').selectOption(plantillaId);
     await expect(panelGeneracion.getByText('Plantilla seleccionada: Álgebra de demostración · 2A · Parcial de demostración')).toBeVisible();
-    await panelGeneracion.getByLabel('Grupo destinatario del lote').selectOption('2A');
+    await panelGeneracion.getByLabel('Alcance del lote').selectOption('2A');
     await expect(panelGeneracion.getByText('Alumno del grupo: 1 alumno')).toBeVisible();
     await expect(panelGeneracion.getByRole('button', { name: 'Paquete por grupo (1 alumno)' })).toBeVisible();
     await expect(panelGeneracion.getByText(/Total de destinatarios: 1 alumno\./)).toBeVisible();

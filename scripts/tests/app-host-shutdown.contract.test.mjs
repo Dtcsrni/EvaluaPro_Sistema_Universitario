@@ -43,8 +43,10 @@ test('el cierre nativo detiene el árbol completo del dashboard', () => {
 });
 
 test('el cierre asíncrono evita reentrada y cierra después de limpiar servicios', () => {
-  const closingHandler = hostSource.match(/private async void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
+  const closingHandler = hostSource.match(/private void MainWindow_Closing[\s\S]*?\n    }/)?.[0];
+  const closePrompt = hostSource.match(/private async Task ShowCloseConfirmationAsync\(\)[\s\S]*?\n    }/)?.[0];
   assert.ok(closingHandler, 'debe existir el manejador de cierre del App Host');
+  assert.ok(closePrompt, 'debe existir el flujo diferido de confirmación de cierre');
   assert.match(hostSource, /private bool closeAuthorized;/);
   assert.match(hostSource, /private bool closePromptPending;/);
 
@@ -53,13 +55,7 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
   const authorizeCheck = closingHandler.indexOf('if (closeAuthorized) return;');
   const cancelRequest = closingHandler.indexOf('e.Cancel = true;');
   const duplicateRequestCheck = closingHandler.indexOf('if (isStopping || closePromptPending) return;');
-  const confirm = closingHandler.indexOf('var choice = WpfMessageBox.Show(');
-  const cancelChoice = closingHandler.indexOf('if (choice == MessageBoxResult.Cancel) return;');
-  const noChoice = closingHandler.indexOf('if (choice == MessageBoxResult.No)');
-  const noChoiceClose = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(Close))', noChoice);
-  const cleanup = closingHandler.indexOf('stopped = await ShutdownServicesAsync();');
-  const cleanupFailure = closingHandler.indexOf('if (!stopped)');
-  const finalClose = closingHandler.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
+  const deferPrompt = closingHandler.indexOf('Dispatcher.BeginInvoke(new Action(() => _ = ShowCloseConfirmationAsync()))');
 
   assert.ok(shutdownReentryCheck >= 0 && shutdownReentryCheck < hubCloseCheck && hubCloseCheck < authorizeCheck,
     'el cierre repetido y el modo Hub oculto deben terminar sin abrir la confirmación docente');
@@ -67,19 +63,29 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'el cierre final autorizado debe pasar sin cancelarse');
   assert.ok(cancelRequest >= 0 && cancelRequest < duplicateRequestCheck,
     'cada solicitud concurrente debe cancelarse antes de omitir el trabajo duplicado');
-  assert.ok(duplicateRequestCheck < confirm && confirm < cancelChoice && cancelChoice < noChoice && noChoice < cleanup,
-    'la ventana debe ofrecer cancelar, cerrar sin detener servicios o solicitar la detención');
-  assert.ok(noChoiceClose > noChoice && noChoiceClose < cleanup,
-    'la opción No debe diferir Close hasta que termine el evento Closing activo');
-  assert.doesNotMatch(closingHandler.slice(noChoice, cleanup), /\n\s*Close\(\);/,
-    'la opción No no debe reentrar en Close dentro del evento Closing');
+  assert.ok(duplicateRequestCheck < deferPrompt,
+    'la ventana debe diferir el diálogo hasta que el evento Closing haya terminado');
+  assert.doesNotMatch(closingHandler, /WpfMessageBox\.Show\s*\(|\.ShowDialog\s*\(|new WindowInteropHelper\s*\(|\.Close\s*\(/,
+    'el evento Closing no debe abrir ventanas ni reentrar al cerrar el Window');
+  assert.match(closePrompt, /WpfMessageBox\.Show\(\s*this,/,
+    'el diálogo de confirmación se muestra como trabajo diferido, fuera del evento Closing');
+  assert.match(closePrompt, /if \(choice == MessageBoxResult\.Cancel\) return;/,
+    'Cancelar conserva la ventana abierta');
+  assert.match(closePrompt, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Dispatcher\.BeginInvoke\(new Action\(Close\)\)/,
+    'No cierra solo la ventana después de autorizar el cierre diferido');
   assert.match(closingHandler, /if \(isStopping \|\| closePromptPending\) return;/,
     'el diálogo de cierre no debe abrirse de nuevo mientras sigue pendiente');
-  assert.ok(cleanup < cleanupFailure && cleanupFailure < finalClose,
+  const cleanup = closePrompt.indexOf('var stopped = await ShutdownServicesAsync();');
+  const cleanupFailure = closePrompt.indexOf('if (!stopped)');
+  const finalClose = closePrompt.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
+  assert.ok(cleanup >= 0 && cleanupFailure > cleanup && cleanupFailure < finalClose,
     'el cierre final se difiere al Dispatcher después de limpiar servicios');
-  assert.match(closingHandler, /if \(!stopped\)[\s\S]*?return;/,
+  assert.match(closePrompt, /if \(!stopped\)[\s\S]*?return;/,
     'si la identidad de los servicios no puede verificarse, la ventana debe permanecer abierta');
-  assert.doesNotMatch(closingHandler, /await ShutdownServicesAsync\(\);\s*Close\(\);/);
+  assert.match(closePrompt, /finally\s*\{\s*closePromptPending = false;/,
+    'la espera modal se libera también si el usuario cancela o falla la limpieza');
+  assert.match(hostSource, /WPF no permite abrir otro Window\/MessageBox mientras el Window que[\s\S]*?mostrar el prompt después del evento/,
+    'la causa de la regresión WPF queda documentada junto a la transición diferida');
 });
 
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
