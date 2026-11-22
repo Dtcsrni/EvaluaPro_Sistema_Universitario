@@ -436,16 +436,16 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   const baselineEnd = e2e.indexOf('\nfunction Resolve-InstalledSqlitePath {', baselineStart);
   const baselineFlow = e2e.slice(baselineStart, baselineEnd);
   const baselineInstall = baselineFlow.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
-  const stopBaseline = baselineFlow.indexOf("Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
   const markerWrite = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
   const candidateInstall = baselineFlow.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade');
   const versionCheck = baselineFlow.indexOf("Get-InstalledProductVersion", candidateInstall);
   const markerVerify = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker", candidateInstall);
   assert.ok(baselineInstall >= 0 && baselineInstall < markerWrite);
+  assert.doesNotMatch(baselineFlow, /Invoke-InstalledAppHost/, 'no inicia el App Host legado; prueba el ciclo de vida sobre el candidato');
+  assert.match(baselineFlow, /Do not launch the legacy baseline App Host/);
   assert.match(e2e, /upgrade-baseline-post-install\.request\.json/);
   assert.match(e2e, /response\.ok/);
   assert.match(e2e, /official-msi-installed/);
-  assert.ok(stopBaseline >= 0 && stopBaseline < markerWrite, 'la app baseline debe cerrarse antes de escribir SQLite');
   assert.ok(markerWrite < candidateInstall);
   assert.ok(candidateInstall < versionCheck && versionCheck < markerVerify);
   assert.match(e2e, /candidateVersion -gt \$baselineVersion/);

@@ -1977,10 +1977,8 @@ function Invoke-InstalledAppHost {
           $confirmedChoice = Invoke-AppHostCloseConfirmationYes -Dialog $dialog
           Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
         } elseif ($process.HasExited) {
-          # The v1.2.3 upgrade baseline predates the close dialog; it must exit cleanly.
           $installedVersion = [version](Get-InstalledProductVersion)
-          if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
-          Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
+          throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion."
         } else {
           $hostLogPaths = @(
             (Join-Path $installedRoot 'logs\app-host.log'),
@@ -2447,13 +2445,10 @@ function Invoke-UpgradeBaselineFlow {
   if ($baselineVersion -ne [version]'1.2.3') { throw "El instalador baseline no dejó v1.2.3; versión observada: $baselineVersion" }
   Add-Result -Area 'upgrade' -Item 'baseline-version' -Ok $true -Detail ([string]$baselineVersion)
 
-  $baselineRunId = 'e2e-upgrade-baseline-' + [guid]::NewGuid().ToString('N')
-  $baselineState = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId $baselineRunId -TimeoutSec 240
-  $baselineStateValue = if ($baselineState.PSObject.Properties.Match('state').Count -gt 0) { [string]$baselineState.state } else { 'unknown' }
-  if ($baselineStateValue -notin @('healthy', 'degraded')) { throw "La app baseline no quedó saludable antes de upgrade: $baselineStateValue" }
-
   $marker = 'upgrade-' + [guid]::NewGuid().ToString('N')
-  Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-' + [guid]::NewGuid().ToString('N'))
+  # Do not launch the legacy baseline App Host: its shutdown/adoption behavior
+  # is the very behavior being replaced and can leave unowned child services.
+  # Seed the isolated SQLite directly, then exercise lifecycle on the candidate.
   Invoke-UpgradeDataMarker -Action 'write' -Marker $marker
   Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
   try {
