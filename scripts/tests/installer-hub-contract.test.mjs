@@ -3558,7 +3558,7 @@ test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instala
   const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
   const hubVerification = fs.readFileSync(installerHubVerificationModulePath, 'utf8');
 
-  assert.match(helper, /-SyncRepoOutput -SkipManifestUpdate/);
+  assert.match(helper, /\$startInfo\.Arguments = '--regenerate-shortcuts'/);
   assert.match(helper, /function Invoke-ShortcutReconciliation/);
   assert.match(helper, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
   assert.match(helper, /\$process\.Kill\(\)/);
