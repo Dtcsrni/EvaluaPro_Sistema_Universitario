@@ -52,6 +52,22 @@ test('timeouts del helper post-install conservan logs y el último hito estructu
   assert.match(capture, /ultimo_hito=/);
 });
 
+test('el conflicto Burn compara SQLite mediante snapshots online compatibles con archivos abiertos', () => {
+  const snapshotHashPath = path.join(root, 'scripts', 'tests', 'sqlite-snapshot-hash.mjs');
+  const snapshotHash = fs.readFileSync(snapshotHashPath, 'utf8');
+  const conflictStart = e2e.indexOf('function Invoke-SameVersionRelatedBundleConflict');
+  const conflictEnd = e2e.indexOf('\nfunction Invoke-PreviousVersionRelatedBundleUpgrade', conflictStart);
+  assert.ok(conflictStart >= 0 && conflictEnd > conflictStart, 'el conflicto debe tener una región de verificación delimitada');
+  const conflict = e2e.slice(conflictStart, conflictEnd);
+
+  assert.match(e2e, /function Get-InstalledDatabaseSha256/);
+  assert.equal((conflict.match(/Get-InstalledDatabaseSha256 -DatabasePath \$databasePath/g) ?? []).length, 2);
+  assert.doesNotMatch(conflict, /Get-FileHash -LiteralPath \$databasePath/);
+  assert.match(snapshotHash, /await database\.backup\(snapshotPath\)/);
+  assert.match(snapshotHash, /readonly:\s*true/);
+  assert.match(snapshotHash, /createReadStream\(snapshotPath\)/);
+});
+
 test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de igual versión', () => {
   assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
   assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);

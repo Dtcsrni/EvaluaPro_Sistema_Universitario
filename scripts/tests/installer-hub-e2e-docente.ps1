@@ -1475,7 +1475,7 @@ function Invoke-SameVersionRelatedBundleConflict {
 
   $databasePath = Join-Path $installedRoot 'data\evaluapro.db'
   $databaseExistedBefore = Test-Path -LiteralPath $databasePath -PathType Leaf
-  $databaseHashBefore = if ($databaseExistedBefore) { (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+  $databaseHashBefore = if ($databaseExistedBefore) { Get-InstalledDatabaseSha256 -DatabasePath $databasePath } else { '' }
   $appPath = Join-Path $installedRoot 'EvaluaPro.exe'
   $appExistedBefore = Test-Path -LiteralPath $appPath -PathType Leaf
   $appHashBefore = if ($appExistedBefore) { (Get-FileHash -LiteralPath $appPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
@@ -1507,7 +1507,7 @@ function Invoke-SameVersionRelatedBundleConflict {
     $appExistedAfter = Test-Path -LiteralPath $appPath -PathType Leaf
     $appHashAfter = if ($appExistedAfter) { (Get-FileHash -LiteralPath $appPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
     $databaseExistedAfter = Test-Path -LiteralPath $databasePath -PathType Leaf
-    $databaseHashAfter = if ($databaseExistedAfter) { (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+    $databaseHashAfter = if ($databaseExistedAfter) { Get-InstalledDatabaseSha256 -DatabasePath $databasePath } else { '' }
     $installStateUnchanged = $productsUnchanged -and $appExistedBefore -eq $appExistedAfter -and $appHashBefore -ceq $appHashAfter -and
       $databaseExistedBefore -eq $databaseExistedAfter -and $databaseHashBefore -ceq $databaseHashAfter -and $fixtureStillRegistered
     if ($DatabaseMarker) {
@@ -2432,6 +2432,24 @@ try {
 '@
   & $nodePath -e $script $Action $databasePath $Marker
   if ($LASTEXITCODE -ne 0) { throw "No se pudo $Action el marcador SQLite de upgrade (exit=$LASTEXITCODE)." }
+}
+
+function Get-InstalledDatabaseSha256 {
+  param([Parameter(Mandatory = $true)][string]$DatabasePath)
+  $snapshotHashScript = Join-Path $root 'scripts\tests\sqlite-snapshot-hash.mjs'
+  if (-not (Test-Path -LiteralPath $snapshotHashScript -PathType Leaf)) {
+    throw "No existe el helper de snapshot SQLite online: $snapshotHashScript"
+  }
+  $output = @(& node.exe $snapshotHashScript $DatabasePath 2>&1)
+  if ($LASTEXITCODE -ne 0) {
+    $diagnostic = ($output -join "`n").Trim()
+    throw "No se pudo calcular la huella de una instantánea coherente de SQLite: $diagnostic"
+  }
+  $hash = ([string]($output | Select-Object -Last 1)).Trim()
+  if ($hash -notmatch '^(?i)[0-9a-f]{64}$') {
+    throw "El helper SQLite devolvió una huella inválida: $hash"
+  }
+  return $hash.ToLowerInvariant()
 }
 
 function Invoke-UpgradeBaselineFlow {
