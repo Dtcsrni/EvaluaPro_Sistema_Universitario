@@ -251,7 +251,7 @@
     "vitest": "^5.0.5"
   },
   "optionalDependencies": {
-    "gcp-metadata": "^9.2.2"
+    "gcp-metadata": "^9.2.3"
   },
   "overrides": {
     "react": "19.3.1",
