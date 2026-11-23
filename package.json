@@ -232,7 +232,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^10.0.1",
-    "@mermaid-js/mermaid-cli": "^12.0.0",
+    "@mermaid-js/mermaid-cli": "^12.2.0",
     "@playwright/test": "^1.65.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
