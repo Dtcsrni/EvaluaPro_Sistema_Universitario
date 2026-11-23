@@ -99,11 +99,15 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
 
 test('el App Host admite cierre sin GUI autenticado al usuario y sesión actuales', () => {
   assert.match(appSource, /"--shutdown"/);
+  assert.match(appSource, /var exitCode = await RequestHeadlessShutdownAsync\(\);[\s\S]*?Environment\.Exit\(exitCode\);/,
+    'el cliente headless termina aunque WPF no haya abierto el bucle normal de interfaz');
   assert.match(appSource, /NamedPipeServerStream\([\s\S]*?PipeOptions\.CurrentUserOnly/);
+  assert.match(appSource, /Canal local listo para órdenes del mismo usuario y sesión/);
   assert.match(appSource, /NamedPipeClientStream\([\s\S]*?GetDesktopControlPipeName\(\)/);
   assert.match(appSource, /candidate\.SessionId == self\.SessionId[\s\S]*?PathsEqual\(TryGetExecutablePath\(candidate\), TryGetExecutablePath\(self\)\)/);
   assert.match(appSource, /ShutdownFromTrayAsync\(\)/);
-  assert.match(installerE2ESource, /MainWindowHandle -eq \[IntPtr\]::Zero[\s\S]*?ArgumentList '--shutdown'[\s\S]*?headless-shutdown/);
+  assert.match(installerE2ESource, /MainWindowHandle -eq \[IntPtr\]::Zero[\s\S]*?ArgumentList '--shutdown'[\s\S]*?WaitForExit\(\(\$TimeoutSec \+ 20\) \* 1000\)[\s\S]*?APP_HOST_SHUTDOWN_DIAGNOSTIC[\s\S]*?headless-shutdown/,
+    'el runner espera con límite, conserva los logs y evita bloquearse indefinidamente en Start-Process -Wait');
 });
 
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {

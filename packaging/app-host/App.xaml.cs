@@ -32,7 +32,11 @@ public partial class App : System.Windows.Application
         if (e.Args.Any(argument =>
             string.Equals(argument, "--shutdown", StringComparison.OrdinalIgnoreCase)))
         {
-            Shutdown(await RequestHeadlessShutdownAsync());
+            var exitCode = await RequestHeadlessShutdownAsync();
+            // This invocation intentionally never creates a WPF window. Exit
+            // directly after the bounded IPC request so the caller cannot wait
+            // forever on a dispatcher that has not entered the normal UI loop.
+            Environment.Exit(exitCode);
             return;
         }
 
@@ -111,6 +115,7 @@ public partial class App : System.Windows.Application
                         maxNumberOfServerInstances: 1,
                         PipeTransmissionMode.Byte,
                         PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+                    LogLifecycleDiagnostic("DesktopControl.Pipe", "Canal local listo para órdenes del mismo usuario y sesión.");
                     await pipe.WaitForConnectionAsync(cancellationToken);
                     using var reader = new StreamReader(pipe, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
                     await using var writer = new StreamWriter(pipe, Encoding.UTF8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
@@ -193,7 +198,7 @@ public partial class App : System.Windows.Application
             }
             catch (Exception ex)
             {
-                LogLifecycleDiagnostic("DesktopControl.Shutdown", $"No se pudo entregar la orden de cierre al host identificado: {ex.GetType().Name}.");
+                LogLifecycleDiagnostic("DesktopControl.Shutdown", $"No se pudo entregar la orden de cierre al host identificado: {ex.GetType().Name}: {ex.Message}");
                 return 3;
             }
 
