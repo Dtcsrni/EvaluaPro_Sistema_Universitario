@@ -612,10 +612,9 @@ test('docente-local ejecuta SQLite nativo sin runtime de contenedor', () => {
 
   assert.match(launcherDashboard, /native-node-sqlite/);
   assert.match(launcherDashboard, /prod: 'npm run docente:prod:native'/);
-  assert.match(productWxs, /WSLINSTALLED/);
-  assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
+  assert.doesNotMatch(productWxs, /WSLINSTALLED|DOCKERINSTALLED64|DOCKERINSTALLEDUSER|SKIP_DOCKER_RUNTIME_CHECK/);
+  assert.doesNotMatch(productWxs, /Docker|Docker Desktop|WSL2/i);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
-  assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
   assert.match(productWxs, /Distribucion docente local[\s\S]*persistencia SQLite/);
   assert.match(productWxs, /<Directory Id="INSTALLFOLDER" Name="\$\(var\.InstallFolderName\)" \/>/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
