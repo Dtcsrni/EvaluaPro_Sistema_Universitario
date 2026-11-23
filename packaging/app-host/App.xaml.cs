@@ -45,6 +45,9 @@ public partial class App : System.Windows.Application
         if (!IsInstallerHubInvocation && !TryAcquireDesktopSingleton())
         {
             FocusExistingWindow();
+            // The window is created explicitly only after singleton ownership is
+            // established; a duplicate therefore exits without opening another UI.
+            LogLifecycleDiagnostic("DesktopSingleton", "Instancia duplicada enfocó el host activo y terminó sin crear ventana.");
             Shutdown();
             return;
         }
@@ -66,6 +69,9 @@ public partial class App : System.Windows.Application
             args.Handled = true;
             System.Windows.MessageBox.Show($"Error en EvaluaPro: {args.Exception.Message}\n\nRevisa logs/app-host-error.log", "EvaluaPro", MessageBoxButton.OK, MessageBoxImage.Error);
         };
+
+        MainWindow = new MainWindow();
+        MainWindow.Show();
     }
 
     private static bool TryAcquireDesktopSingleton()

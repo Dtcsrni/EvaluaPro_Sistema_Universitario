@@ -180,10 +180,15 @@ test('elegir No conserva el proceso y programa el modo bandeja sin cerrar la ven
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {
+  const appXaml = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'App.xaml'), 'utf8');
+  assert.doesNotMatch(appXaml, /StartupUri\s*=/,
+    'la ventana se crea explícitamente tras adquirir el singleton, no por XAML antes del guard');
   assert.match(appSource, /EvaluaProDesktopSingleton/);
   assert.match(appSource, /new Mutex\(/);
   assert.match(appSource, /WaitOne\(0\)/);
   assert.match(appSource, /FocusExistingWindow\(\)/);
+  assert.match(appSource, /if \(!IsInstallerHubInvocation && !TryAcquireDesktopSingleton\(\)\)[\s\S]*?FocusExistingWindow\(\);[\s\S]*?Shutdown\(\);[\s\S]*?MainWindow = new MainWindow\(\);[\s\S]*?MainWindow\.Show\(\);/,
+    'la instancia duplicada sale antes de crear la ventana; solo el dueño crea la ventana principal');
   assert.match(appSource, /Shutdown\(\)/);
   assert.match(appSource, /Process\.GetProcessesByName\("EvaluaPro"\)/);
   assert.match(appSource, /ShowWindow\(handle, SwRestore\)/);
