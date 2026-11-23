@@ -1946,6 +1946,8 @@ function Invoke-InstalledAppHost {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
       if ($errorLogLengthAfterClose -gt $errorLogLengthBeforeClose) {
+        Copy-ArtifactIfExists -Path $appHostErrorLog -Name 'app-host-error-close-window.log' | Out-Null
+        Write-E2ELog 'Se conservó app-host-error.log como evidencia privada del cierre fallido.'
         throw 'El App Host registró una excepción al cerrar la ventana con la opción No.'
       }
       $remainingNode = @(Get-InstalledNodeProcesses)

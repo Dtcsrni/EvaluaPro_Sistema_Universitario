@@ -1353,8 +1353,10 @@ public partial class MainWindow : Window
     {
         try
         {
+            // The close event may already be unwinding when this deferred
+            // confirmation runs. An owner would make WPF query this Window's
+            // native handle/visibility during that transition.
             var choice = WpfMessageBox.Show(
-                this,
                 "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
                 "EvaluaPro · Cerrar",
                 MessageBoxButton.YesNoCancel,

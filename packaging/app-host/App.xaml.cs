@@ -298,12 +298,20 @@ public partial class App : System.Windows.Application
         trayIcon ??= new NativeTrayIcon(
             () => Dispatcher.BeginInvoke(new Action(() => RestoreWindow(window))),
             () => Dispatcher.BeginInvoke(new Action(() => _ = window.ShutdownFromTrayAsync())));
-        window.Dispatcher.BeginInvoke(new Action(() =>
+        void HideWindow()
         {
             window.ShowInTaskbar = false;
             window.Hide();
             LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
-        }));
+        }
+
+        if (window.Dispatcher.CheckAccess())
+        {
+            HideWindow();
+            return;
+        }
+
+        window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(HideWindow));
     }
 
     private static void RestoreWindow(MainWindow window)

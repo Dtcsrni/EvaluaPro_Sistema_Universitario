@@ -67,8 +67,12 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'la ventana debe diferir el diálogo hasta que el evento Closing haya terminado');
   assert.doesNotMatch(closingHandler, /WpfMessageBox\.Show\s*\(|\.ShowDialog\s*\(|new WindowInteropHelper\s*\(|\.Close\s*\(/,
     'el evento Closing no debe abrir ventanas ni reentrar al cerrar el Window');
-  assert.match(closePrompt, /WpfMessageBox\.Show\(\s*this,/,
-    'el diálogo de confirmación se muestra como trabajo diferido, fuera del evento Closing');
+  const closeConfirmation = closePrompt.match(/var choice = WpfMessageBox\.Show\([\s\S]*?MessageBoxImage\.Question\);/)?.[0];
+  assert.ok(closeConfirmation, 'debe existir una confirmación de cierre identificable');
+  assert.match(closeConfirmation, /WpfMessageBox\.Show\(\s*"¿Cerrar EvaluaPro\?/,
+    'el diálogo de confirmación no toma como owner la ventana que está cerrando');
+  assert.doesNotMatch(closeConfirmation, /WpfMessageBox\.Show\(\s*this,/,
+    'el diálogo no consulta el handle o la visibilidad de la ventana en transición');
   assert.match(closePrompt, /if \(choice == MessageBoxResult\.Cancel\) return;/,
     'Cancelar conserva la ventana abierta');
   assert.match(closePrompt, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Dispatcher\.BeginInvoke\(new Action\(Close\)\)/,
@@ -107,6 +111,7 @@ test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /close-confirmation-no/);
   assert.match(installerE2ESource, /app-host-error\.log/);
   assert.match(installerE2ESource, /\$errorLogLengthAfterClose -gt \$errorLogLengthBeforeClose/);
+  assert.match(installerE2ESource, /Copy-ArtifactIfExists -Path \$appHostErrorLog -Name 'app-host-error-close-window\.log'/);
   assert.match(installerE2ESource, /El App Host PID \$\(\$identity\.Id\) terminó al elegir No; debía mantenerse en bandeja/);
   assert.match(installerE2ESource, /close-hides-window-keeps-host/);
   assert.match(installerE2ESource, /no debe cerrar los servicios Node|debía dejar el runtime en segundo plano/);
@@ -144,6 +149,14 @@ test('el host adopta servicios sanos antes del retorno temprano y solo si coinci
   assert.match(hostSource, /dashboardProcess = Process\.Start\(psi\)/);
   assert.match(hostSource, /dashboardProcess != null && await VerifyDashboardIdentityAsync\(dashboardProcess, dashboardPort\)\) return true/);
   assert.match(hostSource, /sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos/);
+});
+
+test('entrar a bandeja oculta inmediatamente la ventana en su Dispatcher', () => {
+  const enterTray = appSource.match(/internal void EnterTrayMode\(MainWindow window\)[\s\S]*?\n    }/)?.[0];
+  assert.ok(enterTray, 'debe existir la transición explícita a la bandeja');
+  assert.match(enterTray, /if \(window\.Dispatcher\.CheckAccess\(\)\)[\s\S]*?HideWindow\(\);[\s\S]*?return;/);
+  assert.match(enterTray, /DispatcherPriority\.ApplicationIdle/,
+    'una llamada desde otro hilo espera al ciclo WPF de cierre antes de ocultar');
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {
