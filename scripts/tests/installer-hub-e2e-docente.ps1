@@ -1229,13 +1229,18 @@ function Invoke-InstallerHubMode {
   if (-not (Resize-WindowForEvidence -Window $window -Width 980 -Height 700)) { throw 'No se pudo ajustar la ventana visible del Installer Hub al mínimo documentado de 980x700 antes de la primera captura.' }
   Capture-Window -Window $window -Name ("wpf-{0}-01-splash-deteccion" -f $Mode) -RequestedWidth 980 -RequestedHeight 700 | Out-Null
 
-  if ($Mode -eq 'install') {
+  if ($Mode -eq 'install' -and -not $script:upgradingExistingInstall) {
     $termsCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptTermsCheckBox' -TimeoutSec 30
     $privacyCheckbox = Find-ById -RootElement $window -AutomationId 'AcceptPrivacyCheckBox' -TimeoutSec 30
     Write-E2ELog "Marcando y verificando consentimientos de términos y privacidad."
     Ensure-CheckboxOn -Element $termsCheckbox -Name 'AcceptTermsCheckBox'
     Ensure-CheckboxOn -Element $privacyCheckbox -Name 'AcceptPrivacyCheckBox'
     Start-Sleep -Milliseconds 500
+  } elseif ($Mode -eq 'install' -and $script:upgradingExistingInstall) {
+    # Burn skips the first-install consent step when an existing product is
+    # detected. The local-upgrade E2E starts at "Preparar" in that case, so
+    # requiring controls from the hidden first-install view causes a false fail.
+    Add-Result -Area 'install' -Item 'consent-not-applicable-existing-install' -Ok $true -Detail 'actualización sobre producto existente; el Hub omitió el paso de primera instalación'
   }
 
   $detectionTimeoutSec = 420
@@ -1982,6 +1987,17 @@ function Invoke-InstalledAppHost {
     $process = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
     if ($process) {
       try {
+        if ($process.MainWindowHandle -eq [IntPtr]::Zero) {
+          $shutdownClient = Start-Process -FilePath (Join-Path $installedRoot 'EvaluaPro.exe') -ArgumentList '--shutdown' -PassThru -Wait -WindowStyle Hidden
+          if ([int]$shutdownClient.ExitCode -ne 0) {
+            throw "La orden de cierre sin GUI terminó con exit=$($shutdownClient.ExitCode) para App Host PID $($identity.Id)."
+          }
+          $process.Refresh()
+          if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) {
+            throw "El App Host PID $($identity.Id) aceptó la orden --shutdown pero no terminó en ${TimeoutSec}s."
+          }
+          Add-Result -Area 'native-app-host' -Item 'headless-shutdown' -Ok $process.HasExited -Detail "--shutdown exit=$($shutdownClient.ExitCode) pid=$($identity.Id) runId=$RunId"
+        } else {
         $closeRequested = $process.CloseMainWindow()
         if (-not $closeRequested) {
           $closeRequested = Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process -NativeFallbackOnly
@@ -2016,6 +2032,7 @@ function Invoke-InstalledAppHost {
         }
         $process.Refresh()
         if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) { throw "El App Host PID $($identity.Id) no terminó en ${TimeoutSec}s después de confirmar el cierre; no se forzará el cierre." }
+        }
       } finally { $process.Dispose() }
     }
     $deadline = (Get-Date).AddSeconds($TimeoutSec)

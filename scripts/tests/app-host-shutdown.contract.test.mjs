@@ -97,6 +97,15 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'la causa de la regresión WPF queda documentada junto a la transición diferida');
 });
 
+test('el App Host admite cierre sin GUI autenticado al usuario y sesión actuales', () => {
+  assert.match(appSource, /"--shutdown"/);
+  assert.match(appSource, /NamedPipeServerStream\([\s\S]*?PipeOptions\.CurrentUserOnly/);
+  assert.match(appSource, /NamedPipeClientStream\([\s\S]*?GetDesktopControlPipeName\(\)/);
+  assert.match(appSource, /candidate\.SessionId == self\.SessionId[\s\S]*?PathsEqual\(TryGetExecutablePath\(candidate\), TryGetExecutablePath\(self\)\)/);
+  assert.match(appSource, /ShutdownFromTrayAsync\(\)/);
+  assert.match(installerE2ESource, /MainWindowHandle -eq \[IntPtr\]::Zero[\s\S]*?ArgumentList '--shutdown'[\s\S]*?headless-shutdown/);
+});
+
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Get-AppHostTopLevelWindows/);
   assert.match(installerE2ESource, /function Request-AppHostWindowClose/);
