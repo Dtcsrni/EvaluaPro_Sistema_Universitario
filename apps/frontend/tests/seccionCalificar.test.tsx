@@ -58,6 +58,124 @@ describe('SeccionCalificar', () => {
     expect(screen.queryByText('Tu perfil no tiene permiso para guardar esta calificación.')).not.toBeInTheDocument();
   });
 
+  it('muestra en orden los números incorrectos, sin marca o ambiguos del OMR', () => {
+    render(
+      <SeccionCalificar
+        examenId="ex-omr-incorrectas"
+        alumnoId="alu-omr-incorrectas"
+        resultadoOmr={omrResultadoMock}
+        revisionOmrConfirmada
+        respuestasDetectadas={[
+          { numeroPregunta: 1, opcion: 'A', confianza: 0.99 },
+          { numeroPregunta: 2, opcion: 'D', confianza: 0.96 },
+          { numeroPregunta: 3, opcion: null, confianza: 0.21, estadoRespuesta: 'ambigua' },
+          { numeroPregunta: 4, opcion: null, confianza: 0.02, estadoRespuesta: 'sin_marca' },
+          { numeroPregunta: 5, opcion: 'C', confianza: 0.98 }
+        ]}
+        claveCorrectaPorNumero={{ 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'C' }}
+        ordenPreguntasClave={[5, 4, 3, 2, 1]}
+        onCalificar={vi.fn()}
+        puedeCalificar
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Incorrectas: 2, 3, 4')).toBeInTheDocument();
+  });
+
+  it('muestra que no hay reactivos incorrectos cuando todas las respuestas coinciden con la clave', () => {
+    render(
+      <SeccionCalificar
+        examenId="ex-omr-todo-correcto"
+        alumnoId="alu-omr-todo-correcto"
+        resultadoOmr={omrResultadoMock}
+        revisionOmrConfirmada
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: 'A', confianza: 0.99 }]}
+        claveCorrectaPorNumero={{ 1: 'A' }}
+        ordenPreguntasClave={[1]}
+        onCalificar={vi.fn()}
+        puedeCalificar
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Incorrectas: ninguna')).toBeInTheDocument();
+  });
+
+  it('oculta la lista OMR si faltan respuestas detectadas para reactivos oficiales', () => {
+    render(
+      <SeccionCalificar
+        examenId="ex-omr-detalle-parcial"
+        alumnoId="alu-omr-detalle-parcial"
+        resultadoOmr={omrResultadoMock}
+        revisionOmrConfirmada
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: 'A', confianza: 0.99 }]}
+        claveCorrectaPorNumero={{ 1: 'A', 2: 'B' }}
+        ordenPreguntasClave={[1, 2]}
+        onCalificar={vi.fn()}
+        puedeCalificar
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/^Incorrectas:/)).not.toBeInTheDocument();
+  });
+
+  it('no infiere números incorrectos a partir de una captura manual de aciertos', () => {
+    render(
+      <SeccionCalificar
+        examenId="ex-manual-solo-total"
+        alumnoId="alu-manual-solo-total"
+        resultadoOmr={null}
+        revisionOmrConfirmada
+        respuestasDetectadas={[{ numeroPregunta: 1, opcion: null, confianza: 0 }, { numeroPregunta: 2, opcion: null, confianza: 0 }]}
+        claveCorrectaPorNumero={{ 1: 'A', 2: 'B' }}
+        ordenPreguntasClave={[1, 2]}
+        capturaManualAciertos
+        onCalificar={vi.fn()}
+        puedeCalificar
+        avisarSinPermiso={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/^Incorrectas:/)).not.toBeInTheDocument();
+  });
+
+  it('muestra los incorrectos persistidos solo si se cargó el detalle completo por reactivo', () => {
+    const props = {
+      examenId: 'ex-persistido-omr',
+      alumnoId: 'alu-persistido-omr',
+      resultadoOmr: null,
+      revisionOmrConfirmada: true,
+      respuestasDetectadas: [
+        { numeroPregunta: 1, opcion: 'A', confianza: 0.99 },
+        { numeroPregunta: 2, opcion: null, confianza: 0 }
+      ],
+      claveCorrectaPorNumero: { 1: 'A', 2: 'B' },
+      ordenPreguntasClave: [1, 2],
+      soloLectura: true,
+      resumenPersistido: {
+        aciertos: 1,
+        totalReactivos: 2,
+        calificacionFinalSobre5: 2.5,
+        detalleRespuestasDisponibles: false
+      },
+      onCalificar: vi.fn(),
+      puedeCalificar: true,
+      avisarSinPermiso: vi.fn()
+    };
+    const view = render(<SeccionCalificar {...props} />);
+
+    expect(screen.queryByText('Incorrectas: 2')).not.toBeInTheDocument();
+    view.rerender(
+      <SeccionCalificar
+        {...props}
+        resumenPersistido={{ ...props.resumenPersistido, detalleRespuestasDisponibles: true }}
+      />
+    );
+    expect(screen.getByText('Incorrectas: 2')).toBeInTheDocument();
+  });
+
   it('permite guardar OMR legible sin confirmación manual cuando las marcas ambiguas cuentan como incorrectas', () => {
     render(
       <SeccionCalificar

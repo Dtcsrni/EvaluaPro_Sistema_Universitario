@@ -405,6 +405,7 @@ export function SeccionCalificaciones({
       calificacionEquivalenteSobre10Texto?: string;
       estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
       origen?: string;
+      detalleRespuestasDisponibles?: boolean;
     };
     claveCorrectaPorNumero: Record<number, string>;
     ordenPreguntas: number[];
@@ -870,7 +871,10 @@ export function SeccionCalificaciones({
           calificacionFinalSobre5: Number.isFinite(calificacionFinalPersistida) ? calificacionFinalPersistida : 0,
           calificacionEquivalenteSobre10Texto: calificacionPayload?.calificacion?.calificacionEquivalenteSobre10Texto,
           estadoAprobatorio: calificacionPayload?.calificacion?.estadoAprobatorio,
-          origen: String(calificacionPayload?.calificacion?.origen ?? '').trim() || undefined
+          origen: String(calificacionPayload?.calificacion?.origen ?? '').trim() || undefined,
+          detalleRespuestasDisponibles: clave.ordenPreguntas.length > 0
+            && respuestasDetectadas.length === clave.ordenPreguntas.length
+            && clave.ordenPreguntas.every((numero) => respuestasPorNumero.has(numero))
         },
         claveCorrectaPorNumero: clave.claveCorrectaPorNumero,
         ordenPreguntas: clave.ordenPreguntas,
