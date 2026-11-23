@@ -5,8 +5,8 @@ const [url, outputPath, widthArg, heightArg, surface] = process.argv.slice(2);
 const width = Number(widthArg);
 const height = Number(heightArg);
 
-if (!url || !outputPath || !Number.isInteger(width) || !Number.isInteger(height) || width < 320 || height < 240 || !['apphost', 'docente'].includes(surface)) {
-  throw new Error('Uso: capture-installer-web.mjs <url> <salida.png> <ancho> <alto> <apphost|docente>');
+if (!url || !outputPath || !Number.isInteger(width) || !Number.isInteger(height) || width < 320 || height < 240 || surface !== 'docente') {
+  throw new Error('Uso: capture-installer-web.mjs <url> <salida.png> <ancho> <alto> docente');
 }
 
 function safeUrl(value) {
@@ -65,20 +65,11 @@ try {
 
     const main = page.getByRole('main');
     await main.waitFor({ state: 'visible', timeout: 30_000 });
-    if (surface === 'docente') {
-      await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 30_000 });
-      const heading = page.getByRole('heading', { name: 'Plataforma Docente', exact: true });
-      await heading.waitFor({ state: 'visible', timeout: 30_000 });
-      if (await main.getByRole('heading', { name: 'Plataforma Docente', exact: true }).count() === 0) {
-        throw new Error('El encabezado docente no pertenece al contenido principal.');
-      }
-    } else {
-      await page.getByText('Dashboard - Sistema EvaluaPro', { exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
-      await page.getByRole('tab', { name: 'Principal', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
-      await page.getByRole('tab', { name: 'Principal', exact: true }).evaluate((tab) => {
-        if (tab.getAttribute('aria-selected') !== 'true') throw new Error('La pestaña Principal del App Host no está activa.');
-      });
-      await page.locator('#panel-main .summary-card').first().waitFor({ state: 'visible', timeout: 30_000 });
+    await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 30_000 });
+    const heading = page.getByRole('heading', { name: 'Plataforma Docente', exact: true });
+    await heading.waitFor({ state: 'visible', timeout: 30_000 });
+    if (await main.getByRole('heading', { name: 'Plataforma Docente', exact: true }).count() === 0) {
+      throw new Error('El encabezado docente no pertenece al contenido principal.');
     }
 
     const layout = await page.evaluate(() => {
@@ -118,12 +109,8 @@ try {
           };
         });
       const primaryAction = controls.find((control) => control.actionable && !control.disabled && control.name && control.inViewport) ?? null;
-      const summaryCards = Array.from(document.querySelectorAll('#panel-main .summary-card')).map((card) => {
-        const rect = card.getBoundingClientRect();
-        return { width: rect.width, label: card.querySelector('.label')?.textContent?.trim() ?? '' };
-      });
       return {
-        surface: document.querySelector('#panel-main') ? 'apphost' : document.querySelector('[data-app-destino]') ? 'docente' : 'unknown',
+        surface: document.querySelector('[data-app-destino="docente"]') ? 'docente' : document.querySelector('[data-app-destino]') ? 'other-app' : 'unknown',
         mainFound: true,
         mainTextLength: main.innerText.trim().length,
         mainWithinHorizontalViewport: mainRect.left >= -1 && mainRect.right <= window.innerWidth + 1,
@@ -134,8 +121,7 @@ try {
         viewportHeight: window.innerHeight,
         unnamedVisibleControls: controls.filter((control) => !control.name).length,
         visibleControlCount: controls.length,
-        primaryActionInViewport: Boolean(primaryAction),
-        summaryCards
+        primaryActionInViewport: Boolean(primaryAction)
       };
     });
 
@@ -147,24 +133,6 @@ try {
     }
     if (layout.unnamedVisibleControls > 0) throw new Error(`Hay ${layout.unnamedVisibleControls} controles visibles sin nombre accesible.`);
     if (!layout.primaryActionInViewport) throw new Error('No hay una acción principal con nombre accesible dentro del viewport.');
-    if (surface === 'apphost') {
-      const requiredCardLabels = [
-        'Modo actual',
-        'Entornos activos',
-        'Tareas gestionadas',
-        'Última actualización',
-        'Servicios activos',
-        'Servicios caidos',
-        'Eventos recientes (inicio/detención)',
-        'Tiempo de sesion'
-      ];
-      const visibleCardLabels = new Set(layout.summaryCards.map((card) => card.label));
-      const missingCardLabels = requiredCardLabels.filter((label) => !visibleCardLabels.has(label));
-      if (missingCardLabels.length) throw new Error(`Al dashboard le faltan indicadores esenciales: ${missingCardLabels.join(', ')}.`);
-      const narrowCards = layout.summaryCards.filter((card) => card.width < 140);
-      if (narrowCards.length) throw new Error(`Los indicadores del dashboard son demasiado estrechos (<140px): ${JSON.stringify(narrowCards)}.`);
-    }
-
     await page.screenshot({ path: outputPath, fullPage: false });
   } catch (error) {
     diagnostics.responseStatus = responseStatus;

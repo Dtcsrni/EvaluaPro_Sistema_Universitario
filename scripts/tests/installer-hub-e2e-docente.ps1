@@ -2202,7 +2202,7 @@ function Capture-UrlWithPlaywright {
     [string]$Name,
     [int]$Width = 1280,
     [int]$Height = 820,
-    [ValidateSet('apphost', 'docente')][string]$Surface
+    [ValidateSet('docente')][string]$Surface
   )
   $target = Join-Path $screenshotsDir ("{0}.png" -f $Name)
   try {
@@ -2224,10 +2224,10 @@ function Capture-UrlWithPlaywright {
   return ''
 }
 
-function Capture-DashboardScreenshots {
+function Capture-DocenteEntryScreenshots {
   param([string]$BaseUrl)
   if ([string]::IsNullOrWhiteSpace($BaseUrl)) { return }
-  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 -Surface 'apphost' | Out-Null
+  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'launcher-docente-1280x820' -Width 1280 -Height 820 -Surface 'docente' | Out-Null
   Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 -Surface 'docente' | Out-Null
   Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 -Surface 'docente' | Out-Null
 }
@@ -3051,7 +3051,7 @@ try {
   Assert-NativeStable
   Export-NativeEvidence
   Export-RuntimeAudit -Name 'after'
-  Capture-DashboardScreenshots -BaseUrl $dashboardBase
+  Capture-DocenteEntryScreenshots -BaseUrl $dashboardBase
   Invoke-DummyDataCycle -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase
 

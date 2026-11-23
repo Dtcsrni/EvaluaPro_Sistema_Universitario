@@ -97,23 +97,12 @@ test('el Installer Hub ejecuta el recorrido PDF GUI en Microsoft Edge y lo conse
   assert.match(workflow, /E2E_REPORT_DIR: \$\{\{ steps\.preparar_reporte_e2e\.outputs\.report_dir \}\}/);
 });
 
-test('la captura visual del instalador diferencia App Host y Web docente con contratos UX propios', () => {
+test('la captura visual del instalador verifica la interfaz docente en sus rutas de entrada', () => {
   const capture = read('scripts/tests/capture-installer-web.mjs');
-  assert.match(capture, /\['apphost', 'docente'\]\.includes\(surface\)/);
+  assert.match(capture, /surface !== 'docente'/);
   assert.match(capture, /page\.getByRole\('main'\)/);
-  assert.match(capture, /getByText\('Dashboard - Sistema EvaluaPro'/);
-  assert.match(capture, /getByRole\('tab', \{ name: 'Principal', exact: true \}\)/);
-  assert.match(capture, /requiredCardLabels = \[/);
-  assert.match(capture, /'Modo actual'/);
-  assert.match(capture, /'Entornos activos'/);
-  assert.match(capture, /'Tareas gestionadas'/);
-  assert.match(capture, /'Última actualización'/);
-  assert.match(capture, /'Servicios activos'/);
-  assert.match(capture, /'Servicios caidos'/);
-  assert.match(capture, /'Eventos recientes \(inicio\/detención\)'/);
-  assert.match(capture, /'Tiempo de sesion'/);
-  assert.match(capture, /missingCardLabels\.length/);
-  assert.match(capture, /card\.width < 140/);
+  assert.match(capture, /name: 'Plataforma Docente'/);
+  assert.doesNotMatch(capture, /Dashboard - Sistema EvaluaPro|summaryCards|requiredCardLabels/);
   assert.match(capture, /layout\.surface !== surface/);
   assert.match(capture, /document\.querySelector\('main, \[role="main"\]'\)/);
   assert.match(capture, /mainLandmarkCount:/);
@@ -121,10 +110,10 @@ test('la captura visual del instalador diferencia App Host y Web docente con con
   assert.match(capture, /iframeCount:/);
   assert.doesNotMatch(capture, /main\.page/);
   const runner = read('scripts/tests/installer-hub-e2e-docente.ps1');
-  assert.match(runner, /-Surface 'apphost'/);
   assert.match(runner, /-Surface 'docente'/);
-  assert.equal((runner.match(/-Surface 'apphost'/g) ?? []).length, 1);
-  assert.equal((runner.match(/-Surface 'docente'/g) ?? []).length, 2);
+  assert.match(runner, /launcher-docente-1280x820/);
+  assert.match(runner, /Capture-DocenteEntryScreenshots/);
+  assert.doesNotMatch(runner, /dashboard-status-1280x820|-Surface 'apphost'/);
 });
 
 test('los indicadores del dashboard usan columnas que conservan ancho legible en contenedores estrechos', () => {

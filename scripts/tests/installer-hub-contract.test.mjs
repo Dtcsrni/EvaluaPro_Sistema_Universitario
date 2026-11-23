@@ -1457,7 +1457,7 @@ test.skip('Legacy: Installer Hub tenía runner E2E docente con guardas remotas',
   assert.match(runner, /Get-EvaluaProUninstallEntries/);
   assert.doesNotMatch(runner, /Invoke-DockerStableStack|Assert-DockerStable|Export-DockerEvidence/);
   assert.doesNotMatch(runner, /LastDockerExitCode|docker compose|docker-ps|docker-inspect|docker-logs|docker-context|docker-images/);
-  assert.match(runner, /Capture-DashboardScreenshots/);
+  assert.match(runner, /Capture-DocenteEntryScreenshots/);
   assert.match(runner, /Test-UpdateSmoke/);
   assert.match(runner, /\/api\/update\/status/);
   assert.match(runner, /update-status\.json/);
