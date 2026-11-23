@@ -111,22 +111,20 @@ public partial class App : System.Windows.Application
                 {
                     await using var pipe = new NamedPipeServerStream(
                         GetDesktopControlPipeName(),
-                        PipeDirection.InOut,
+                        PipeDirection.In,
                         maxNumberOfServerInstances: 1,
                         PipeTransmissionMode.Byte,
                         PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                     LogLifecycleDiagnostic("DesktopControl.Pipe", "Canal local listo para órdenes del mismo usuario y sesión.");
                     await pipe.WaitForConnectionAsync(cancellationToken);
                     using var reader = new StreamReader(pipe, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
-                    await using var writer = new StreamWriter(pipe, Encoding.UTF8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
                     var command = await reader.ReadLineAsync(cancellationToken);
                     if (!string.Equals(command, "shutdown", StringComparison.Ordinal))
                     {
-                        await writer.WriteLineAsync("unsupported");
                         continue;
                     }
 
-                    await writer.WriteLineAsync("accepted");
+                    LogLifecycleDiagnostic("DesktopControl.Shutdown", "Orden unidireccional recibida por el host; cierre ordenado programado.");
                     _ = Dispatcher.BeginInvoke(new Action(async () =>
                     {
                         try
@@ -181,20 +179,16 @@ public partial class App : System.Windows.Application
             }
 
             using var client = new NamedPipeClientStream(
-                ".", GetDesktopControlPipeName(), PipeDirection.InOut, PipeOptions.Asynchronous);
+                ".", GetDesktopControlPipeName(), PipeDirection.Out, PipeOptions.Asynchronous);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             try
             {
                 await client.ConnectAsync(timeout.Token);
                 using var writer = new StreamWriter(client, Encoding.UTF8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
-                using var reader = new StreamReader(client, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
                 await writer.WriteLineAsync("shutdown");
-                var response = await reader.ReadLineAsync(timeout.Token);
-                if (!string.Equals(response, "accepted", StringComparison.Ordinal))
-                {
-                    LogLifecycleDiagnostic("DesktopControl.Shutdown", $"El host rechazó la orden local; respuesta={response ?? "sin respuesta"}.");
-                    return 3;
-                }
+                await writer.FlushAsync(timeout.Token);
+                LogLifecycleDiagnostic("DesktopControl.Shutdown", "Orden de cierre enviada al host verificado.");
+                return 0;
             }
             catch (Exception ex)
             {
@@ -202,16 +196,6 @@ public partial class App : System.Windows.Application
                 return 3;
             }
 
-            try
-            {
-                await target.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45));
-                return target.HasExited ? 0 : 4;
-            }
-            catch (TimeoutException)
-            {
-                LogLifecycleDiagnostic("DesktopControl.Shutdown", $"El App Host PID {target.Id} no terminó dentro de 45 s después de aceptar el cierre.");
-                return 4;
-            }
         }
         finally
         {
