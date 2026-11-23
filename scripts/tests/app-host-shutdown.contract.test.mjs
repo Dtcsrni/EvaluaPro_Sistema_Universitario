@@ -160,6 +160,8 @@ test('entrar a bandeja espera y reintenta cambios de visibilidad tras la transic
     'una transición de cierre transitoria se reintenta con límite');
   assert.match(enterTray, /LogLifecycleDiagnostic\("Tray\.HideWindow\.Deferred"/,
     'los reintentos esperables quedan en el log operativo y no se reportan como excepción');
+  assert.match(enterTray, /LogLifecycleDiagnostic\("Tray", "Ventana oculta/,
+    'el cierre exitoso se registra en app-host.log, fuera del registro reservado a errores');
   assert.match(enterTray, /ScheduleHide\(retriesRemaining: 5\)/,
     'la espera inicial usa un número acotado de reintentos');
   assert.match(enterTray, /HasShutdownStarted \|\| window\.Dispatcher\.HasShutdownFinished/,

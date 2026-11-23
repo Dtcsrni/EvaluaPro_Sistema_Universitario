@@ -315,7 +315,7 @@ public partial class App : System.Windows.Application
                 {
                     window.ShowInTaskbar = false;
                     if (window.IsVisible) window.Hide();
-                    LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
+                    LogLifecycleDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
                 }
                 catch (InvalidOperationException ex) when (retriesRemaining > 0)
                 {
