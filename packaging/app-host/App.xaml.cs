@@ -298,26 +298,45 @@ public partial class App : System.Windows.Application
         trayIcon ??= new NativeTrayIcon(
             () => Dispatcher.BeginInvoke(new Action(() => RestoreWindow(window))),
             () => Dispatcher.BeginInvoke(new Action(() => _ = window.ShutdownFromTrayAsync())));
-        void HideWindow()
+        void ScheduleHide(int retriesRemaining)
         {
-            if (window.Dispatcher.HasShutdownStarted || window.Dispatcher.HasShutdownFinished) return;
-            if (!window.IsLoaded) return;
-            try
+            var timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
             {
-                window.ShowInTaskbar = false;
-                if (window.IsVisible) window.Hide();
-                LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
-            }
-            catch (Exception ex)
+                Interval = TimeSpan.FromMilliseconds(200)
+            };
+            EventHandler? tick = null;
+            tick = (_, _) =>
             {
-                LogException("Tray.HideWindow", ex);
-            }
+                timer.Stop();
+                if (tick is not null) timer.Tick -= tick;
+                if (window.Dispatcher.HasShutdownStarted || window.Dispatcher.HasShutdownFinished) return;
+                if (!window.IsLoaded) return;
+                try
+                {
+                    window.ShowInTaskbar = false;
+                    if (window.IsVisible) window.Hide();
+                    LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
+                }
+                catch (InvalidOperationException ex) when (retriesRemaining > 0)
+                {
+                    // WPF can keep the native Window in its Closing transition
+                    // briefly after a modal confirmation returns. Retry outside
+                    // that transition instead of logging a false app-host error.
+                    LogLifecycleDiagnostic("Tray.HideWindow.Deferred", $"La ventana sigue en transición de cierre; reintento restante={retriesRemaining}. {ex.Message}");
+                    ScheduleHide(retriesRemaining - 1);
+                }
+                catch (Exception ex)
+                {
+                    LogException("Tray.HideWindow", ex);
+                }
+            };
+            timer.Tick += tick;
+            timer.Start();
         }
 
-        // A close confirmation is shown from a nested WPF dispatcher loop.
-        // Defer visibility changes until that loop and the cancelled Closing
-        // transition have fully unwound, even when called from the UI thread.
-        window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(HideWindow));
+        // The timer runs after the modal confirmation returns; bounded retries
+        // cover WPF versions that finish the cancelled Closing transition later.
+        ScheduleHide(retriesRemaining: 5);
     }
 
     private static void RestoreWindow(MainWindow window)
@@ -379,6 +398,17 @@ public partial class App : System.Windows.Application
     private static void LogException(string source, Exception? ex)
     {
         LogDiagnostic(source, ex?.ToString() ?? "Unknown error");
+    }
+
+    private static void LogLifecycleDiagnostic(string source, string message)
+    {
+        try
+        {
+            var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "logs", "app-host.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:u}] [{source}] {message}{Environment.NewLine}");
+        }
+        catch { }
     }
 
     private static void LogDiagnostic(string source, string message)

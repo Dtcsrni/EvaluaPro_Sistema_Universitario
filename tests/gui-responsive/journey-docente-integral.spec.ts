@@ -193,6 +193,11 @@ test.describe('Journey docente integral visual', () => {
   });
 
   test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page, request }) => {
+    // Este recorrido captura decenas de estados; limitar las imágenes al viewport
+    // evita acumular cientos de MB de capturas full-page y colgar Chromium al final.
+    const screenshotWithinViewport = page.screenshot.bind(page);
+    page.screenshot = (options = {}) => screenshotWithinViewport({ ...options, fullPage: false });
+
     const reactUnknownTagWarnings: string[] = [];
     page.on('pageerror', (error) => console.error(`[E2E pageerror] ${error.stack || error.message}`));
     page.on('console', (message) => {

@@ -151,13 +151,17 @@ test('el host adopta servicios sanos antes del retorno temprano y solo si coinci
   assert.match(hostSource, /sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos/);
 });
 
-test('entrar a bandeja difiere cambios de visibilidad hasta terminar la transición de cierre', () => {
+test('entrar a bandeja espera y reintenta cambios de visibilidad tras la transición de cierre', () => {
   const enterTray = appSource.match(/internal void EnterTrayMode\(MainWindow window\)[\s\S]*?\n    }/)?.[0];
   assert.ok(enterTray, 'debe existir la transición explícita a la bandeja');
-  assert.match(enterTray, /Dispatcher\.BeginInvoke\(System\.Windows\.Threading\.DispatcherPriority\.ApplicationIdle, new Action\(HideWindow\)\)/,
-    'la ocultación siempre se difiere, incluso desde el hilo UI tras el diálogo modal');
-  assert.doesNotMatch(enterTray, /HideWindow\(\);/,
-    'no se cambia Visibility dentro de la transición Closing ni de la continuación modal');
+  assert.match(enterTray, /new DispatcherTimer\(DispatcherPriority\.Background, window\.Dispatcher\)/,
+    'la ocultación se difiere fuera del diálogo modal y de la transición Closing');
+  assert.match(enterTray, /catch \(InvalidOperationException ex\) when \(retriesRemaining > 0\)[\s\S]*?ScheduleHide\(retriesRemaining - 1\)/,
+    'una transición de cierre transitoria se reintenta con límite');
+  assert.match(enterTray, /LogLifecycleDiagnostic\("Tray\.HideWindow\.Deferred"/,
+    'los reintentos esperables quedan en el log operativo y no se reportan como excepción');
+  assert.match(enterTray, /ScheduleHide\(retriesRemaining: 5\)/,
+    'la espera inicial usa un número acotado de reintentos');
   assert.match(enterTray, /HasShutdownStarted \|\| window\.Dispatcher\.HasShutdownFinished/,
     'la acción diferida debe ignorar un Dispatcher que ya terminó');
   assert.match(enterTray, /if \(window\.IsVisible\) window\.Hide\(\)/,
