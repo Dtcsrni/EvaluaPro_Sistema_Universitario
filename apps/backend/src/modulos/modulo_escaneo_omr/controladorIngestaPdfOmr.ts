@@ -1221,6 +1221,7 @@ export async function reintentarIngestaPdfOmr(req: SolicitudDocente, res: Respon
 async function procesarIngesta(jobId: string, docenteId: string, examenes: ExamenConRelaciones[], metadata: MetadataIngesta) {
   const examenesPorId = new Map(examenes.map((exam) => [exam.id.toUpperCase(), exam]));
   const examenesPorFolio = new Map(examenes.map((exam) => [exam.folio.toUpperCase(), exam]));
+  const examenesQrFueraDelLote = new Map<string, Promise<boolean>>();
   const referenciaQr = new Map<string, Set<string>>();
   const paginaReferenciaPorExamen = new Map<string, number[]>();
   const rutaPdfReferencia = resolverRutaIngesta(jobId, metadata.reference.relativePath);
@@ -1309,7 +1310,42 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
           }
         }
         if (!qr || qr.payloadSignatureValid !== true || !exam || exam.folio.toUpperCase() !== qr.folio.toUpperCase()) {
-          const paginaPendiente = errorPage(globalIndex, file.id, file.nombre, image.numero, 'OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE', 'El QR no se validó dentro del lote seleccionado; clasificar manualmente.');
+          let qrFirmadoFueraDelLote = false;
+          const identidadQrEnLote = qr
+            ? qr.examId
+              ? examenesPorId.has(qr.examId.toUpperCase())
+              : examenesPorFolio.has(qr.folio.toUpperCase())
+            : false;
+          if (qr?.payloadSignatureValid === true && !identidadQrEnLote) {
+            const claveQrAjeno = (qr.examId ?? qr.folio).toUpperCase();
+            let verificacion = examenesQrFueraDelLote.get(claveQrAjeno);
+            if (!verificacion) {
+              verificacion = prisma.examenGenerado.findFirst({
+                where: {
+                  docenteId,
+                  OR: [
+                    ...(qr.examId ? [{ id: qr.examId }] : []),
+                    { folio: qr.folio }
+                  ]
+                },
+                select: { id: true, folio: true }
+              }).then((exam) => Boolean(exam
+                && exam.folio.toUpperCase() === qr.folio.toUpperCase()
+                && (!qr.examId || exam.id.toUpperCase() === qr.examId.toUpperCase())));
+              examenesQrFueraDelLote.set(claveQrAjeno, verificacion);
+            }
+            qrFirmadoFueraDelLote = await verificacion;
+          }
+          const paginaPendiente = errorPage(
+            globalIndex,
+            file.id,
+            file.nombre,
+            image.numero,
+            qrFirmadoFueraDelLote ? 'OMR_QR_FUERA_DEL_LOTE_SELECCIONADO' : 'OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE',
+            qrFirmadoFueraDelLote
+              ? 'El QR firmado pertenece a un examen del docente que no forma parte del lote seleccionado.'
+              : 'El QR no se validó dentro del lote seleccionado; clasificar manualmente.'
+          );
           try {
             if (ocrDeshabilitado) {
               metadata.pages.push(paginaPendiente);
@@ -2311,12 +2347,12 @@ export async function previsualizarPaginaIngestaPdfOmr(req: SolicitudDocente, re
   const docenteId = obtenerDocenteId(req);
   const job = await prisma.omrScanJob.findFirst({ where: { id: String(req.params.jobId || ''), docenteId } });
   if (!job) throw new ErrorAplicacion('OMR_JOB_NO_ENCONTRADO', 'Job OMR no encontrado', 404);
-  if (job.estado !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La ingesta debe terminar antes de previsualizar páginas', 409);
+  if (job.estado !== 'completed' && job.estado !== 'failed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La página solo se puede previsualizar cuando el job terminó o falló.', 409);
 
   const pageIndex = Number(req.params.pageIndex);
   if (!Number.isSafeInteger(pageIndex) || pageIndex < 1) throw new ErrorAplicacion('OMR_PAGINA_INVALIDA', 'El índice de página debe ser un entero positivo', 400);
   const metadata = json<MetadataIngesta>(job.metadata, { version: 1, assessmentId: '', loteId: null, status: 'failed', reference: { nombre: '', relativePath: '', sha256: '', pages: 0, pagesWithQr: 0 }, files: [], pages: [], packages: [], errors: [], startedAt: '' });
-  if (metadata.status !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La ingesta debe terminar antes de previsualizar páginas', 409);
+  if (metadata.status !== job.estado) throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'El estado de la ingesta no coincide con el estado persistido del job.', 409);
   const page = metadata.pages.find((item) => item.pageIndex === pageIndex);
   if (!page) throw new ErrorAplicacion('OMR_PAGINA_NO_ENCONTRADA', 'La página no existe en esta ingesta', 404);
   const file = metadata.files.find((item) => item.id === page.sourceFileId);

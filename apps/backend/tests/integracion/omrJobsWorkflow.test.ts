@@ -222,11 +222,11 @@ describe('workflow OMR por jobs', () => {
     return respuesta.body.token as string;
   }
 
-  async function prepararExamen(auth: { Authorization: string }) {
+  async function prepararExamen(auth: { Authorization: string }, nombrePeriodo = 'Periodo OMR') {
     const periodo = await request(app)
       .post('/api/periodos')
       .set(auth)
-      .send({ nombre: 'Periodo OMR', fechaInicio: '2025-01-01', fechaFin: '2025-06-01', grupos: ['A'] })
+      .send({ nombre: nombrePeriodo, fechaInicio: '2025-01-01', fechaFin: '2025-06-01', grupos: ['A'] })
       .expect(201);
     const periodoId = periodo.body.periodo._id as string;
     const tema = await request(app)
@@ -1298,6 +1298,19 @@ describe('workflow OMR por jobs', () => {
       .parse(parsearBinario)
       .expect(200);
 
+    const calificacionesAntesPreview = await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } });
+    const previewFallido = await request(app)
+      .get(`/api/omr/ingestas/${job.jobId}/paginas/${job.pages[0].pageIndex}/preview`)
+      .set(auth)
+      .buffer(true)
+      .parse(parsearBinario)
+      .expect(200);
+    expect(previewFallido.headers['content-type']).toMatch(/^image\/png/);
+    expect(previewFallido.headers['cache-control']).toBe('private, no-store');
+    expect(previewFallido.headers['x-content-type-options']).toBe('nosniff');
+    expect(Buffer.from(previewFallido.body).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(calificacionesAntesPreview);
+
     const retryId = '02bc53df-64bb-43bf-a99c-21529a97ae33';
     const reintento = await request(app)
       .post(`/api/omr/ingestas/${job.jobId}/reintentar`)
@@ -1330,6 +1343,52 @@ describe('workflow OMR por jobs', () => {
       .set(auth)
       .send({ clientRequestId: '59f7d702-f577-4be2-8224-e9c5ea1763f0' })
       .expect(409);
+  }, 600_000);
+
+  it('distingue QR firmado de otro examen del docente y no crea calificaciones', async () => {
+    const token = await registrar('omr-jobs-foreign-qr@prueba.test');
+    const auth = { Authorization: `Bearer ${token}` };
+    const loteSeleccionado = await prepararExamen(auth);
+    const examenAjeno = await prepararExamen(auth, 'Periodo OMR ajeno');
+    const pdfReferencia = await request(app)
+      .get(`/api/examenes/generados/${loteSeleccionado.examenId}/pdf`)
+      .set(auth)
+      .buffer(true)
+      .parse(parsearBinario)
+      .expect(200);
+    const pdfEscaneado = await request(app)
+      .get(`/api/examenes/generados/${examenAjeno.examenId}/pdf`)
+      .set(auth)
+      .buffer(true)
+      .parse(parsearBinario)
+      .expect(200);
+    const calificacionesAntes = await prisma.calificacion.count({
+      where: { examenGeneradoId: { in: [loteSeleccionado.examenId, examenAjeno.examenId] } }
+    });
+    const creado = await request(app)
+      .post('/api/omr/ingestas')
+      .set(auth)
+      .field('generatedAssessmentId', loteSeleccionado.examenId)
+      .field('clientRequestId', '0f1a2b3c-4d5e-4678-9abc-0123456789ab')
+      .attach('archivos', pdfEscaneado.body as Buffer, { filename: 'qr-fuera-del-lote.pdf', contentType: 'application/pdf' })
+      .attach('referencia', pdfReferencia.body as Buffer, { filename: 'referencia-lote.pdf', contentType: 'application/pdf' })
+      .expect(202);
+
+    let job = creado.body.job;
+    const limite = Date.now() + 600_000;
+    while (job.status === 'processing' && Date.now() < limite) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      job = (await request(app).get(`/api/omr/ingestas/${job.jobId}`).set(auth).expect(200)).body.job;
+    }
+    expect(job.status).toBe('completed');
+    const registro = await prisma.omrScanJob.findUniqueOrThrow({ where: { id: job.jobId } });
+    const metadata = JSON.parse(String(registro.metadata)) as { pages: Array<{ exceptions: Array<{ code: string }> }> };
+    expect(metadata.pages).toHaveLength(2);
+    expect(metadata.pages.every((page) => page.exceptions.some((exception) => exception.code === 'OMR_QR_FUERA_DEL_LOTE_SELECCIONADO')),
+      JSON.stringify(metadata.pages.map((page) => page.exceptions.map((exception) => exception.code)))).toBe(true);
+    expect(await prisma.calificacion.count({
+      where: { examenGeneradoId: { in: [loteSeleccionado.examenId, examenAjeno.examenId] } }
+    })).toBe(calificacionesAntes);
   }, 600_000);
 
   it('rasteriza PDF por página y conserva errores de una captura sin ocultar las demás', async () => {
