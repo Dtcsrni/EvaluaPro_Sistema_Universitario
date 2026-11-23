@@ -154,8 +154,14 @@ public partial class App : System.Windows.Application
                     }
 
                     existingProcess.Refresh();
-                    if (existingProcess.MainWindowHandle != IntPtr.Zero)
+                    // MainWindowHandle is zero for a hidden tray window. Enumerate
+                    // all top-level windows before treating a process as orphaned;
+                    // otherwise a second launch can kill the healthy tray host and
+                    // become a duplicate owner of the singleton mutex.
+                    if (existingProcess.MainWindowHandle != IntPtr.Zero ||
+                        FindTopLevelWindow(existingProcess.Id) != IntPtr.Zero)
                     {
+                        LogLifecycleDiagnostic("DesktopSingleton.OrphanGuard", $"La instancia PID {existingProcess.Id} conserva una ventana superior, incluso si está oculta; no se recupera como huérfana.");
                         return false;
                     }
 

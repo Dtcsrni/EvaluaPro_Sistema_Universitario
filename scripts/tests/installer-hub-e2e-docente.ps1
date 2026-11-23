@@ -1881,7 +1881,21 @@ function Invoke-InstalledAppHost {
       $activation = $null
       try {
         $activation = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
-        if (-not $activation.WaitForExit(15000)) { throw "La instancia de activación PID $($activation.Id) no cedió el control al App Host existente." }
+        if (-not $activation.WaitForExit(15000)) {
+          $activation.Refresh()
+          $existing.Refresh()
+          $activationWindows = @(Get-AppHostTopLevelWindows -ProcessId ([int]$activation.Id))
+          $existingWindows = @(Get-AppHostTopLevelWindows -ProcessId ([int]$identity.Id))
+          $diagnostic = "activationPid=$($activation.Id) activationAlive=$(-not $activation.HasExited) activationMainHwnd=$($activation.MainWindowHandle) activationTopLevelWindows=$($activationWindows.Count) existingPid=$($identity.Id) existingAlive=$(-not $existing.HasExited) existingMainHwnd=$($existing.MainWindowHandle) existingTopLevelWindows=$($existingWindows.Count)"
+          Write-E2ELog "Reactivación singleton agotó timeout; $diagnostic"
+          $appHostLog = Join-Path $env:LOCALAPPDATA 'EvaluaPro\logs\app-host.log'
+          if (Test-Path -LiteralPath $appHostLog -PathType Leaf) {
+            Copy-ArtifactIfExists -Path $appHostLog -Name 'app-host-activation-diagnostic.log' | Out-Null
+            Get-Content -LiteralPath $appHostLog -Tail 40 -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-E2ELog "APP_HOST_LIFECYCLE: $_" }
+          }
+          throw "La instancia de activación PID $($activation.Id) no cedió el control al App Host existente. $diagnostic"
+        }
       } finally {
         if ($activation) { $activation.Dispose() }
         $existing.Dispose()

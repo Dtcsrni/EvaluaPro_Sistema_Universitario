@@ -203,7 +203,10 @@ test('el singleton recupera únicamente un App Host huérfano y reintenta la adq
   assert.match(appSource, /if \(attempt == 0 && TryRecoverOrphanedInstance\(\)\)[\s\S]*?continue;/);
   assert.match(appSource, /existingProcess\.SessionId != currentProcess\.SessionId/);
   assert.match(appSource, /PathsEqual\(TryGetExecutablePath\(existingProcess\), currentPath\)/);
-  assert.match(appSource, /existingProcess\.MainWindowHandle != IntPtr\.Zero/);
+  assert.match(appSource, /existingProcess\.MainWindowHandle != IntPtr\.Zero \|\|\s*FindTopLevelWindow\(existingProcess\.Id\) != IntPtr\.Zero/,
+    'una ventana oculta en bandeja también cuenta como host vivo y no debe recuperarse como huérfano');
+  assert.match(appSource, /LogLifecycleDiagnostic\("DesktopSingleton\.OrphanGuard"/,
+    'la protección de instancias ocultas deja una traza operativa sin registrarla como excepción');
   assert.match(appSource, /age < OrphanedInstanceMinimumAge/);
   assert.match(appSource, /existingProcess\.Kill\(entireProcessTree: true\)/);
   assert.match(appSource, /existingProcess\.WaitForExit\(3_000\)/);
