@@ -108,6 +108,8 @@ test('el App Host admite cierre sin GUI autenticado al usuario y sesión actuale
   assert.match(appSource, /ShutdownFromTrayAsync\(\)/);
   assert.match(installerE2ESource, /MainWindowHandle -eq \[IntPtr\]::Zero[\s\S]*?ArgumentList '--shutdown'[\s\S]*?WaitForExit\(\(\$TimeoutSec \+ 20\) \* 1000\)[\s\S]*?APP_HOST_SHUTDOWN_DIAGNOSTIC[\s\S]*?headless-shutdown/,
     'el runner espera con límite, conserva los logs y evita bloquearse indefinidamente en Start-Process -Wait');
+  assert.match(installerE2ESource, /\$shutdownExitCode = \[int\]\$shutdownClient\.ExitCode[\s\S]*?\$shutdownClient\.Dispose\(\)[\s\S]*?--shutdown exit=\$shutdownExitCode/,
+    'el reporte conserva el código de salida antes de disponer el proceso cliente');
 });
 
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {

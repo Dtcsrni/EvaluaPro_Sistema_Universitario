@@ -1989,6 +1989,7 @@ function Invoke-InstalledAppHost {
       try {
         if ($process.MainWindowHandle -eq [IntPtr]::Zero) {
           $shutdownClient = Start-Process -FilePath (Join-Path $installedRoot 'EvaluaPro.exe') -ArgumentList '--shutdown' -PassThru -WindowStyle Hidden
+          $shutdownExitCode = $null
           try {
             if (-not $shutdownClient.WaitForExit(($TimeoutSec + 20) * 1000)) {
               $hostLogPaths = @(
@@ -2007,7 +2008,8 @@ function Invoke-InstalledAppHost {
               throw "El cliente --shutdown no terminó dentro de $($TimeoutSec + 20)s para App Host PID $($identity.Id)."
             }
             $shutdownClient.Refresh()
-            if ([int]$shutdownClient.ExitCode -ne 0) {
+            $shutdownExitCode = [int]$shutdownClient.ExitCode
+            if ($shutdownExitCode -ne 0) {
               $hostLogPaths = @(
                 (Join-Path $installedRoot 'logs\app-host.log'),
                 (Join-Path (Join-Path $env:LOCALAPPDATA 'EvaluaPro') 'logs\app-host.log'),
@@ -2020,7 +2022,7 @@ function Invoke-InstalledAppHost {
                     ForEach-Object { Write-E2ELog "APP_HOST_SHUTDOWN_DIAGNOSTIC: $_" }
                 }
               }
-              throw "La orden de cierre sin GUI terminó con exit=$($shutdownClient.ExitCode) para App Host PID $($identity.Id)."
+              throw "La orden de cierre sin GUI terminó con exit=$shutdownExitCode para App Host PID $($identity.Id)."
             }
           } finally {
             $shutdownClient.Dispose()
@@ -2029,7 +2031,7 @@ function Invoke-InstalledAppHost {
           if (-not $process.HasExited -and -not $process.WaitForExit($TimeoutSec * 1000)) {
             throw "El App Host PID $($identity.Id) aceptó la orden --shutdown pero no terminó en ${TimeoutSec}s."
           }
-          Add-Result -Area 'native-app-host' -Item 'headless-shutdown' -Ok $process.HasExited -Detail "--shutdown exit=$($shutdownClient.ExitCode) pid=$($identity.Id) runId=$RunId"
+          Add-Result -Area 'native-app-host' -Item 'headless-shutdown' -Ok $process.HasExited -Detail "--shutdown exit=$shutdownExitCode pid=$($identity.Id) runId=$RunId"
         } else {
         $closeRequested = $process.CloseMainWindow()
         if (-not $closeRequested) {
