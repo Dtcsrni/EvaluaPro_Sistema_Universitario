@@ -300,17 +300,23 @@ public partial class App : System.Windows.Application
             () => Dispatcher.BeginInvoke(new Action(() => _ = window.ShutdownFromTrayAsync())));
         void HideWindow()
         {
-            window.ShowInTaskbar = false;
-            window.Hide();
-            LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
+            if (window.Dispatcher.HasShutdownStarted || window.Dispatcher.HasShutdownFinished) return;
+            if (!window.IsLoaded) return;
+            try
+            {
+                window.ShowInTaskbar = false;
+                if (window.IsVisible) window.Hide();
+                LogDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
+            }
+            catch (Exception ex)
+            {
+                LogException("Tray.HideWindow", ex);
+            }
         }
 
-        if (window.Dispatcher.CheckAccess())
-        {
-            HideWindow();
-            return;
-        }
-
+        // A close confirmation is shown from a nested WPF dispatcher loop.
+        // Defer visibility changes until that loop and the cancelled Closing
+        // transition have fully unwound, even when called from the UI thread.
         window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(HideWindow));
     }
 

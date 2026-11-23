@@ -1,0 +1,148 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "2026-11-23-apphost-tray-closefix",
+  "status": "draft",
+  "generatedAt": "2026-11-23T12:23:25.955Z",
+  "validationProfile": "full",
+  "agent": {
+    "name": "Codex",
+    "version": "unknown",
+    "provider": "OpenAI",
+    "kind": "assistant",
+    "channel": "desktop"
+  },
+  "request": {
+    "summary": "Corregir la excepción WPF al elegir No al cerrar EvaluaPro y mantener el host, la bandeja y las APIs disponibles."
+  },
+  "objective": "Corregir el cierre diferido a bandeja, agregar una regresión específica para la rama No, construir localmente y actualizar el runtime local solo después de validar.",
+  "scope": [
+    "AppHost WPF y modo bandeja",
+    "Contrato de cierre y spec SPEC-065",
+    "Validación local y revisión del CI existente"
+  ],
+  "constraints": [
+    "No tocar ni exponer registros de alumnos",
+    "No modificar la base de datos ni aumentar versión del producto",
+    "No repetir workflows sin cambios de código",
+    "No fusionar si quedan gates fallidos o pendientes"
+  ],
+  "actions": [
+    {
+      "status": "ok",
+      "summary": "Diferir Hide hasta ApplicationIdle y guardar excepciones locales de la acción diferida",
+      "type": "implementation",
+      "timestamp": "2026-11-23T12:23:25.955Z"
+    },
+    {
+      "status": "ok",
+      "summary": "Contratos AppHost: 10/10 pasaron; contrato Installer Hub: 192 pasaron, 12 omitidos",
+      "type": "validation",
+      "timestamp": "2026-11-23T12:23:25.955Z"
+    },
+    {
+      "status": "ok",
+      "summary": "Publicación AppHost y bundle Installer Hub 1.2.28 completados desde la rama actual",
+      "type": "validation",
+      "timestamp": "2026-11-23T12:23:25.955Z"
+    },
+    {
+      "status": "omitido",
+      "summary": "E2E de instalación local no ejecutado porque la instalación activa y su identidad de producto bloquearían el modo aislado; no se alteró registry ni datos",
+      "type": "validation",
+      "timestamp": "2026-11-23T12:23:25.955Z"
+    }
+  ],
+  "files": {
+    "read": [
+      "packaging/app-host/App.xaml.cs",
+      "scripts/tests/app-host-shutdown.contract.test.mjs",
+      "docs/specs/SPEC-065_ciclo_vida_servicios_app_host.spec.md",
+      "scripts/tests/installer-hub-e2e-docente.ps1",
+      "docs/handoff/trace.schema.json"
+    ],
+    "changed": [
+      "packaging/app-host/App.xaml.cs",
+      "scripts/tests/app-host-shutdown.contract.test.mjs",
+      "docs/specs/SPEC-065_ciclo_vida_servicios_app_host.spec.md"
+    ],
+    "artifacts": [
+      "C:/Users/evega/Documents/EvaluaPro/worktrees/stabilize-latest-20261122/dist/installer/docente-local/EvaluaPro-InstallerHub-docente-local-v1.2.28.exe"
+    ]
+  },
+  "commands": [
+    {
+      "resultSummary": "10 tests passed",
+      "name": "app-host-shutdown-contract",
+      "durationMs": 0,
+      "exitCode": 0,
+      "status": "ok",
+      "command": "node --test scripts/tests/app-host-shutdown.contract.test.mjs"
+    },
+    {
+      "resultSummary": "192 passed; 12 skipped",
+      "name": "installer-hub-contract",
+      "durationMs": 24110,
+      "exitCode": 0,
+      "status": "ok",
+      "command": "npm run test:installer-hub:contract"
+    },
+    {
+      "resultSummary": "AppHost published successfully",
+      "name": "apphost-publish",
+      "durationMs": 0,
+      "exitCode": 0,
+      "status": "ok",
+      "command": "dotnet publish packaging/app-host/EvaluaPro.AppHost.csproj -c Release -r win-x64 --self-contained true"
+    },
+    {
+      "resultSummary": "All configured local stability checks and Installer Hub bundle build passed",
+      "name": "installer-build",
+      "durationMs": 0,
+      "exitCode": 0,
+      "status": "ok",
+      "command": "npm run installer:hub:build"
+    },
+    {
+      "resultSummary": "All specifications passed the SDD audit",
+      "name": "sdd-audit",
+      "durationMs": 0,
+      "exitCode": 0,
+      "status": "ok",
+      "command": "npm run sdd:audit"
+    },
+    {
+      "resultSummary": "SQLITE_QUICK_CHECK_OK; installed database was not modified by this check",
+      "name": "sqlite-integrity",
+      "durationMs": 2100,
+      "exitCode": 0,
+      "status": "ok",
+      "command": "PRAGMA quick_check (read-only)"
+    }
+  ],
+  "decisions": [
+    "Choosing No keeps AppHost and services resident in tray; visibility change must occur only after the WPF close/modal transition unwinds.",
+    "The installer E2E runner rejects an isolated target while the active product is registered, so no real installation flow was run locally to avoid changing the active installation or registry."
+  ],
+  "assumptions": [
+    "A deferred ApplicationIdle action runs after the modal dialog returns and the cancelled Closing transition unwinds; a native E2E remains required to verify runtime behavior."
+  ],
+  "risks": [
+    "CI for the earlier commit c1e5b883 failed on the No close path; the new local fix has not yet been pushed or verified by CI.",
+    "New AppHost correction is not installed in the active local runtime yet; the grading list feature from c1e5b883 remains installed and available."
+  ],
+  "nextStep": "Stage only the three intentional source/spec/test changes and this trace, commit/push to PR #327, then run the new commit through existing CI gates and locally update the AppHost only after the close-path test is verified.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "local native E2E for choosing No",
+      "CI gates for fix commit",
+      "install verified AppHost correction",
+      "merge and sync main"
+    ]
+  },
+  "repo": {
+    "path": "C:/Users/evega/Documents/EvaluaPro/worktrees/stabilize-latest-20261122",
+    "branch": "codex/stabilize-latest-1.2.25-20261122",
+    "head": "c1e5b88318f753dadf14d1d05955e08737add38c"
+  }
+}

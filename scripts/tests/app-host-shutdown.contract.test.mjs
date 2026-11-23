@@ -151,12 +151,26 @@ test('el host adopta servicios sanos antes del retorno temprano y solo si coinci
   assert.match(hostSource, /sin identidad de dashboard verificada; no se adoptan ni se inicia sobre esos puertos/);
 });
 
-test('entrar a bandeja oculta inmediatamente la ventana en su Dispatcher', () => {
+test('entrar a bandeja difiere cambios de visibilidad hasta terminar la transición de cierre', () => {
   const enterTray = appSource.match(/internal void EnterTrayMode\(MainWindow window\)[\s\S]*?\n    }/)?.[0];
   assert.ok(enterTray, 'debe existir la transición explícita a la bandeja');
-  assert.match(enterTray, /if \(window\.Dispatcher\.CheckAccess\(\)\)[\s\S]*?HideWindow\(\);[\s\S]*?return;/);
-  assert.match(enterTray, /DispatcherPriority\.ApplicationIdle/,
-    'una llamada desde otro hilo espera al ciclo WPF de cierre antes de ocultar');
+  assert.match(enterTray, /Dispatcher\.BeginInvoke\(System\.Windows\.Threading\.DispatcherPriority\.ApplicationIdle, new Action\(HideWindow\)\)/,
+    'la ocultación siempre se difiere, incluso desde el hilo UI tras el diálogo modal');
+  assert.doesNotMatch(enterTray, /HideWindow\(\);/,
+    'no se cambia Visibility dentro de la transición Closing ni de la continuación modal');
+  assert.match(enterTray, /HasShutdownStarted \|\| window\.Dispatcher\.HasShutdownFinished/,
+    'la acción diferida debe ignorar un Dispatcher que ya terminó');
+  assert.match(enterTray, /if \(window\.IsVisible\) window\.Hide\(\)/,
+    'la ventana solo se oculta si sigue visible');
+});
+
+test('elegir No conserva el proceso y programa el modo bandeja sin cerrar la ventana en línea', () => {
+  const closePrompt = hostSource.match(/private async Task ShowCloseConfirmationAsync\(\)[\s\S]*?\n    }/)?.[0];
+  const noChoice = closePrompt?.match(/if \(choice == MessageBoxResult\.No\)[\s\S]*?\n            }/)?.[0];
+  assert.ok(noChoice, 'debe existir la rama No del diálogo de cierre');
+  assert.match(noChoice, /app\.EnterTrayMode\(this\)/);
+  assert.doesNotMatch(noChoice, /\.Hide\(|\.Close\(|ShowDialog\(|WindowInteropHelper/,
+    'la rama No delega la transición diferida y no manipula el Window en cierre');
 });
 
 test('el host nativo mantiene una sola ventana EvaluaPro y enfoca la existente', () => {
