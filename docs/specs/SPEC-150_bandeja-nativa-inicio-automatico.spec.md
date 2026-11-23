@@ -25,6 +25,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 - REQ-007: No se agrega servicio Windows, dependencia de runtime, privilegio elevado ni cambio de datos. La bandeja se ejecuta en la sesión interactiva del usuario.
 - REQ-008: En `docente-local`, una solicitud web a la raíz del supervisor redirige a la Web Docente, excepto cuando `EVALUAPRO_DEBUG=1`. Las rutas `/api/*` del supervisor permanecen disponibles para el host nativo y el panel lateral.
 - REQ-009: La salud del perfil `docente-local` no sondea ni muestra MongoDB. Las verificaciones de los servicios requeridos se ejecutan concurrentemente. Los perfiles que declaran explícitamente runtime Docker conservan su comprobación de MongoDB.
+- REQ-010: `EvaluaPro.exe --shutdown` envía una orden unidireccional de cierre al App Host de la misma ruta, usuario y sesión mediante una tubería local limitada al usuario actual. El cliente devuelve el resultado del envío; el E2E verifica por separado que el host y su árbol Node terminen dentro del timeout.
 
 ## Criterios de Aceptación
 
@@ -36,6 +37,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 6. Se conservan iconos, acceso a Installer Hub y reconciliación de shortcuts existentes.
 7. Abrir directamente el puerto del supervisor en `docente-local` redirige a la Web Docente; modo debug conserva la pantalla administrativa y `/api/status` responde para el host.
 8. En `docente-local` la respuesta de salud omite `mongoLocal`; el perfil Docker mantiene esa verificación. Las comprobaciones independientes se inician en paralelo.
+9. La orden `--shutdown` cierra desde bandeja sin interacción gráfica, conserva los servicios si la identidad del host no coincide y el E2E verifica la terminación del host y su árbol Node.
 
 ## Matriz de Trazabilidad
 
@@ -45,6 +47,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 | REQ-005 | Contrato de ShortcutReconciler en `scripts/tests/app-host-tray-lifecycle.contract.test.mjs` | Implementado; contrato pasa |
 | REQ-006..REQ-007 | Contrato de runtime nativo y empaquetado | Implementado; build local pasa; MSI no publicado |
 | REQ-008..REQ-009 | `scripts/tests/dashboard-native-health.contract.test.mjs`, `scripts/tests/dashboard-repair.test.mjs` | Implementado; 4 contratos enfocados y E2E local del supervisor pasan |
+| REQ-010 | `scripts/tests/app-host-shutdown.contract.test.mjs` + `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local actualizado; requiere E2E real Windows para verificar la terminación |
 
 ## Riesgos y decisión
 

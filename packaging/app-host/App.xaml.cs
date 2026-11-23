@@ -1,7 +1,11 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Principal;
+using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -17,13 +21,25 @@ public partial class App : System.Windows.Application
     private static Mutex? desktopSingletonMutex;
     private static Mutex? hubBootstrapSingletonMutex;
     private NativeTrayIcon? trayIcon;
+    private CancellationTokenSource? desktopControlPipeCancellation;
     private static bool ownsDesktopSingleton;
     private delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
     internal static bool IsInstallerHubInvocation { get; private set; }
     internal static bool IsTrayStartupInvocation { get; private set; }
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Any(argument =>
+            string.Equals(argument, "--shutdown", StringComparison.OrdinalIgnoreCase)))
+        {
+            var exitCode = await RequestHeadlessShutdownAsync();
+            // This invocation intentionally never creates a WPF window. Exit
+            // directly after the bounded IPC request so the caller cannot wait
+            // forever on a dispatcher that has not entered the normal UI loop.
+            Environment.Exit(exitCode);
+            return;
+        }
+
         if (e.Args.Any(argument =>
             string.Equals(argument, "--regenerate-shortcuts", StringComparison.OrdinalIgnoreCase)))
         {
@@ -71,7 +87,121 @@ public partial class App : System.Windows.Application
         };
 
         MainWindow = new MainWindow();
+        if (!IsInstallerHubInvocation) StartDesktopControlPipe();
         MainWindow.Show();
+    }
+
+    private static string GetDesktopControlPipeName()
+    {
+        var identity = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        var session = Process.GetCurrentProcess().SessionId;
+        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{identity}|{session}")))[..24];
+        return $"EvaluaPro-Desktop-{digest}";
+    }
+
+    private void StartDesktopControlPipe()
+    {
+        desktopControlPipeCancellation = new CancellationTokenSource();
+        var cancellationToken = desktopControlPipeCancellation.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await using var pipe = new NamedPipeServerStream(
+                        GetDesktopControlPipeName(),
+                        PipeDirection.In,
+                        maxNumberOfServerInstances: 1,
+                        PipeTransmissionMode.Byte,
+                        PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+                    LogLifecycleDiagnostic("DesktopControl.Pipe", "Canal local listo para órdenes del mismo usuario y sesión.");
+                    await pipe.WaitForConnectionAsync(cancellationToken);
+                    using var reader = new StreamReader(pipe, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
+                    var command = await reader.ReadLineAsync(cancellationToken);
+                    if (!string.Equals(command, "shutdown", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    LogLifecycleDiagnostic("DesktopControl.Shutdown", "Orden unidireccional recibida por el host; cierre ordenado programado.");
+                    _ = Dispatcher.BeginInvoke(new Action(async () =>
+                    {
+                        try
+                        {
+                            if (this.MainWindow is EvaluaPro.AppHost.MainWindow window) await window.ShutdownFromTrayAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            LogException("DesktopControl.Shutdown", ex);
+                        }
+                    }));
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    LogException("DesktopControl.Pipe", ex);
+                    if (!cancellationToken.IsCancellationRequested) await Task.Delay(500, cancellationToken);
+                }
+            }
+        }, cancellationToken);
+    }
+
+    private static async Task<int> RequestHeadlessShutdownAsync()
+    {
+        var self = Process.GetCurrentProcess();
+        Process? target = null;
+        try
+        {
+            foreach (var candidate in Process.GetProcessesByName("EvaluaPro"))
+            {
+                if (candidate.Id == self.Id) { candidate.Dispose(); continue; }
+                try
+                {
+                    if (candidate.SessionId == self.SessionId &&
+                        PathsEqual(TryGetExecutablePath(candidate), TryGetExecutablePath(self)))
+                    {
+                        target = candidate;
+                        break;
+                    }
+                }
+                catch { candidate.Dispose(); }
+                if (!ReferenceEquals(candidate, target)) candidate.Dispose();
+            }
+
+            if (target is null)
+            {
+                LogLifecycleDiagnostic("DesktopControl.Shutdown", "No hay un App Host instalado de esta sesión para cerrar.");
+                return 2;
+            }
+
+            using var client = new NamedPipeClientStream(
+                ".", GetDesktopControlPipeName(), PipeDirection.Out, PipeOptions.Asynchronous);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            try
+            {
+                await client.ConnectAsync(timeout.Token);
+                using var writer = new StreamWriter(client, Encoding.UTF8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
+                await writer.WriteLineAsync("shutdown");
+                await writer.FlushAsync(timeout.Token);
+                LogLifecycleDiagnostic("DesktopControl.Shutdown", "Orden de cierre enviada al host verificado.");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LogLifecycleDiagnostic("DesktopControl.Shutdown", $"No se pudo entregar la orden de cierre al host identificado: {ex.GetType().Name}: {ex.Message}");
+                return 3;
+            }
+
+        }
+        finally
+        {
+            target?.Dispose();
+            self.Dispose();
+        }
     }
 
     private static bool TryAcquireDesktopSingleton()
@@ -298,6 +428,9 @@ public partial class App : System.Windows.Application
 
     private void App_Exit(object? sender, ExitEventArgs e)
     {
+        desktopControlPipeCancellation?.Cancel();
+        desktopControlPipeCancellation?.Dispose();
+        desktopControlPipeCancellation = null;
         trayIcon?.Dispose();
         trayIcon = null;
         ReleaseDesktopSingleton();

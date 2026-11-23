@@ -97,6 +97,25 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'la causa de la regresión WPF queda documentada junto a la transición diferida');
 });
 
+test('el App Host admite cierre sin GUI autenticado al usuario y sesión actuales', () => {
+  assert.match(appSource, /"--shutdown"/);
+  assert.match(appSource, /var exitCode = await RequestHeadlessShutdownAsync\(\);[\s\S]*?Environment\.Exit\(exitCode\);/,
+    'el cliente headless termina aunque WPF no haya abierto el bucle normal de interfaz');
+  assert.match(appSource, /NamedPipeServerStream\([\s\S]*?PipeDirection\.In,[\s\S]*?PipeOptions\.CurrentUserOnly/);
+  assert.match(appSource, /Canal local listo para órdenes del mismo usuario y sesión/);
+  assert.match(appSource, /NamedPipeClientStream\([\s\S]*?GetDesktopControlPipeName\(\), PipeDirection\.Out/);
+  assert.match(appSource, /WriteLineAsync\("shutdown"\);[\s\S]*?FlushAsync\(timeout\.Token\);[\s\S]*?Orden de cierre enviada al host verificado/);
+  assert.match(appSource, /Orden unidireccional recibida por el host; cierre ordenado programado/);
+  assert.doesNotMatch(appSource, /ReadLineAsync\(timeout\.Token\)|target\.WaitForExitAsync\(\)/,
+    'el cliente no espera una respuesta inversa ni la salida del host dentro del handshake IPC');
+  assert.match(appSource, /candidate\.SessionId == self\.SessionId[\s\S]*?PathsEqual\(TryGetExecutablePath\(candidate\), TryGetExecutablePath\(self\)\)/);
+  assert.match(appSource, /ShutdownFromTrayAsync\(\)/);
+  assert.match(installerE2ESource, /MainWindowHandle -eq \[IntPtr\]::Zero[\s\S]*?ArgumentList '--shutdown'[\s\S]*?WaitForExit\(\(\$TimeoutSec \+ 20\) \* 1000\)[\s\S]*?APP_HOST_SHUTDOWN_DIAGNOSTIC[\s\S]*?headless-shutdown/,
+    'el runner espera con límite, conserva los logs y evita bloquearse indefinidamente en Start-Process -Wait');
+  assert.match(installerE2ESource, /\$shutdownExitCode = \[int\]\$shutdownClient\.ExitCode[\s\S]*?\$shutdownClient\.Dispose\(\)[\s\S]*?--shutdown exit=\$shutdownExitCode/,
+    'el reporte conserva el código de salida antes de disponer el proceso cliente');
+});
+
 test('el E2E detecta y confirma el diálogo de cierre del App Host', () => {
   assert.match(installerE2ESource, /function Get-AppHostTopLevelWindows/);
   assert.match(installerE2ESource, /function Request-AppHostWindowClose/);
