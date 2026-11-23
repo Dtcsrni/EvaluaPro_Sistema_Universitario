@@ -1,8 +1,8 @@
 ---
 id: SPEC-104
 titulo: CI/CD confiable, determinista y sin gates omitidos
-version: 1.0.0
-fecha: 2026-10-14
+version: 1.1.0
+fecha: 2026-11-22
 autor: Codex
 modulo: devops
 estado: approved
@@ -24,6 +24,7 @@ La finalidad es que una PR tenga una única decisión confiable y explicable, qu
 - **REQ-006 — Concurrencia por tipo de ejecución:** Los pushes sucesivos de una misma PR pueden cancelar trabajo obsoleto. Los `schedule`, `workflow_dispatch` integral y ejecuciones ligadas a release deben tener grupos que no se cancelen entre sí ni por una actualización ordinaria de la rama. Las publicaciones ya conservan serialización y no se cancelan.
 - **REQ-007 — Preparación y diagnósticos reutilizables:** Centralizar pasos comunes del CI cuando reduzca duplicación verificable, usando workflows reutilizables o acciones compuestas con permisos explícitos. Cada job permanece aislado y debe seguir ejecutando instalación reproducible, gates afectados y publicación de diagnósticos con retención definida.
 - **REQ-008 — Migración gradual con evidencia:** El cambio debe preservar los grupos affected-only, escalaciones `full-core`/`full-extended`, cobertura integral bajo dispatch explícito, gates visuales y E2E de Installer Hub, permisos mínimos y serialización de releases. La adopción se valida en PR y con las corridas requeridas para la ruta integral antes de retirar controles anteriores.
+- **REQ-009 — Paralelismo sin debilitar gates:** Los jobs Extended funcionales, performance/arquitectura y compliance pueden iniciar en paralelo con Core cuando el detector los requiera. El agregado Extended debe seguir dependiendo de Core y de cada job Extended aplicable, y debe fallar si cualquiera requerido falla o queda omitido.
 
 ## Criterios de Aceptación
 
@@ -35,6 +36,7 @@ La finalidad es que una PR tenga una única decisión confiable y explicable, qu
 - **AC-006:** Contratos de concurrency verifican cancelación únicamente para actualizaciones obsoletas de PR y no cancelación cruzada entre cobertura integral, schedule, dispatch y release.
 - **AC-007:** La preparación compartida no reduce aislamiento entre jobs; cada caller conserva `permissions` mínimos, checkout del SHA del evento y caché derivada de los lockfiles.
 - **AC-008:** `npm run ci:policy:audit`, los contratos CI/CD y los workflows afectados pasan. Antes de cerrar, la cobertura integral completa termina dos veces consecutivas en el mismo SHA candidato sin suites omitidas, recuperación por retry ni cambios de umbral; se conserva evidencia de los runs.
+- **AC-009:** El contrato CI verifica que los jobs Extended no dependan de la finalización del agregado Core para iniciar, mientras que `verificaciones_ext` conserva dependencias explícitas de Core y los tres jobs Extended.
 
 ## Matriz de Trazabilidad
 
@@ -48,3 +50,4 @@ La finalidad es que una PR tenga una única decisión confiable y explicable, qu
 | REQ-006 | Concurrency separada para PR/full/release | `scripts/tests/ci-redesign-contract.test.mjs` | En implementación |
 | REQ-007 | Contrato de preparación y permisos de jobs reutilizados | `scripts/tests/ci-redesign-contract.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | En implementación |
 | REQ-008 | Contratos de preservación de cobertura y gates existentes | `scripts/tests/backend-coverage-batches.test.mjs`; `scripts/tests/ci-workflow-contract.test.mjs` | En implementación |
+| REQ-009 | Jobs Extended paralelos con barrera agregada intacta | `scripts/tests/ci-workflow-contract.test.mjs`; `scripts/tests/ci-gate-summary.test.mjs` | En implementación |

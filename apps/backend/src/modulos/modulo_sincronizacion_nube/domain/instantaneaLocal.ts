@@ -46,7 +46,7 @@ type ContenidoInstantanea = {
   archivos: ArchivoInstantanea[];
 };
 
-type SobreClave = {
+export type SobreClave = {
   metodo: MetodoDesbloqueoInstantanea;
   salt?: string;
   iv: string;
@@ -72,7 +72,7 @@ export type ResultadoInstantaneaLocal = {
   metodos: MetodoDesbloqueoInstantanea[];
 };
 
-type ContextoDocente = { id: string; correo: string; hashContrasena: string | null; googleSub: string | null };
+export type ContextoDocente = { id: string; correo: string; hashContrasena: string | null; googleSub: string | null };
 
 function errorCredencial() {
   return new ErrorAplicacion('SYNC_CREDENCIAL_INVALIDA', 'La credencial no corresponde a la cuenta docente', 401);
@@ -102,14 +102,16 @@ function esSha256(valor: unknown): valor is string {
   return typeof valor === 'string' && /^[a-f0-9]{64}$/i.test(valor);
 }
 
-function resolverRutaBaseDatos(): string {
+export function resolverRutaBaseDatos(): string {
   const valor = String(process.env.BACKEND_DATABASE_URL || process.env.DATABASE_URL || '').trim();
   if (!valor.startsWith('file:')) throw new ErrorAplicacion('SYNC_SQLITE_NO_CONFIGURADO', 'La base SQLite local no está configurada', 503);
   return path.resolve(decodeURIComponent(valor.slice(5)));
 }
 
-function resolverRutaArtefactos(rutaBaseDatos: string) {
-  return path.join(path.dirname(rutaBaseDatos), 'examenes');
+export function resolverRutaArtefactos(rutaBaseDatos: string) {
+  const configurada = String(process.env.EVALUAPRO_ARCHIVOS_DIR || "").trim();
+  const ruta = configurada || path.join(path.dirname(rutaBaseDatos), "examenes");
+  return path.resolve(ruta);
 }
 
 function rutaRelativaSegura(ruta: string) {
@@ -134,11 +136,11 @@ async function listarArchivos(dir: string, prefijo = ''): Promise<string[]> {
   return resultado;
 }
 
-function derivarClavePassword(contrasena: string, salt: Buffer) {
+export function derivarClavePassword(contrasena: string, salt: Buffer) {
   return scryptSync(contrasena, salt, KDF.longitud, { N: KDF.N, r: KDF.r, p: KDF.p, maxmem: 128 * 1024 * 1024 });
 }
 
-function derivarClaveGoogle(googleSub: string) {
+export function derivarClaveGoogle(googleSub: string) {
   const secreto = String(configuracion.respaldoCifradoSecreto || '').trim();
   if (!secreto || (configuracion.entorno === 'production' && !String(process.env.EVALUAPRO_BACKUP_CIFRADO_SECRETO || '').trim())) {
     throw new ErrorAplicacion('SYNC_GOOGLE_NO_CONFIGURADO', 'La sincronización con Google requiere EVALUAPRO_BACKUP_CIFRADO_SECRETO compartido entre equipos', 503);
@@ -165,7 +167,7 @@ function descifrarGcm(cifrado: { iv: Buffer; authTag: Buffer; ciphertext: Buffer
   }
 }
 
-function envolverClave(contentKey: Buffer, clave: Buffer, metodo: MetodoDesbloqueoInstantanea, salt?: Buffer): SobreClave {
+export function envolverClave(contentKey: Buffer, clave: Buffer, metodo: MetodoDesbloqueoInstantanea, salt?: Buffer): SobreClave {
   const cifrado = cifrarGcm(contentKey, clave, Buffer.from(`EvaluaPro:${INSTANTANEA_LOCAL_FORMATO}:key:${metodo}`, 'utf8'));
   return {
     metodo,
@@ -176,7 +178,7 @@ function envolverClave(contentKey: Buffer, clave: Buffer, metodo: MetodoDesbloqu
   };
 }
 
-function desenvolverClave(sobre: SobreClave, clave: Buffer) {
+export function desenvolverClave(sobre: SobreClave, clave: Buffer) {
   return descifrarGcm(
     { iv: Buffer.from(sobre.iv, 'base64'), authTag: Buffer.from(sobre.authTag, 'base64'), ciphertext: Buffer.from(sobre.ciphertext, 'base64') },
     clave,
@@ -184,13 +186,13 @@ function desenvolverClave(sobre: SobreClave, clave: Buffer) {
   );
 }
 
-async function obtenerContextoDocente(docenteId: string): Promise<ContextoDocente> {
+export async function obtenerContextoDocente(docenteId: string): Promise<ContextoDocente> {
   const docente = await prisma.docente.findUnique({ where: { id: docenteId }, select: { id: true, correo: true, hashContrasena: true, googleSub: true } });
   if (!docente) throw new ErrorAplicacion('DOCENTE_NO_ENCONTRADO', 'No se encontró la cuenta docente', 404);
   return docente;
 }
 
-async function validarCredencialExportacion(contexto: ContextoDocente, metodo: MetodoDesbloqueoInstantanea, credencial?: string) {
+export async function validarCredencialExportacion(contexto: ContextoDocente, metodo: MetodoDesbloqueoInstantanea, credencial?: string) {
   if (metodo === 'contrasena') {
     if (!credencial || !contexto.hashContrasena || !(await compararContrasena(credencial, contexto.hashContrasena))) throw errorCredencial();
     return;
@@ -334,7 +336,7 @@ async function abrirInstantanea(archivo: Buffer, contexto: ContextoDocente, meto
   return { contenido, checksumSha256: sha256Buffer(archivo) };
 }
 
-async function validarIntegridadSqlite(ruta: string, docenteIdEsperado: string, correoEsperado: string) {
+export async function validarIntegridadSqlite(ruta: string, docenteIdEsperado: string, correoEsperado: string) {
   const cliente = crearClientePrismaSqlite(`file:${ruta.replace(/\\/g, '/')}`);
   try {
     const resultado = await cliente.$queryRawUnsafe<Array<{ integrity_check: string }>>('PRAGMA integrity_check');

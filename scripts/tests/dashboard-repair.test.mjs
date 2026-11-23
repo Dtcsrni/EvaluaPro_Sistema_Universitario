@@ -83,6 +83,7 @@ test('dashboard repair endpoints expose status, run lock and progress', { timeou
 
   const child = spawn('node', ['scripts/launcher-dashboard.mjs', '--mode', 'none', '--port', String(requestedPort), '--no-open', '--verbose'], {
     cwd: root,
+    env: { ...process.env, EVALUAPRO_TEST_INSTANCE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
   });
@@ -121,8 +122,17 @@ test('dashboard repair endpoints expose status, run lock and progress', { timeou
   assert.equal(healthRes.status, 200);
   const healthBody = await healthRes.json();
   assert.ok(healthBody.services && typeof healthBody.services === 'object');
-  assert.ok(healthBody.services.mongoLocal && typeof healthBody.services.mongoLocal === 'object');
-  assert.equal(typeof healthBody.services.mongoLocal.ok, 'boolean');
+  if (healthBody.flavorPolicy?.flavorId === 'docente-local') {
+    assert.equal(Object.hasOwn(healthBody.services, 'mongoLocal'), false);
+  } else if (healthBody.flavorPolicy?.requireDockerRuntime) {
+    assert.ok(healthBody.services.mongoLocal && typeof healthBody.services.mongoLocal.ok === 'boolean');
+  }
+
+  const rootRes = await fetch(`http://127.0.0.1:${port}/?resume=1`, { redirect: 'manual' });
+  if (healthBody.flavorPolicy?.flavorId === 'docente-local') {
+    assert.equal(rootRes.status, 302);
+    assert.equal(rootRes.headers.get('location'), 'http://127.0.0.1:4173/?resume=1');
+  }
 
   const statusRes = await fetch(`http://127.0.0.1:${port}/api/repair/status`);
   assert.equal(statusRes.status, 200);

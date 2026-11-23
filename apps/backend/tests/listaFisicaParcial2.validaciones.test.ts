@@ -8,14 +8,19 @@ const base = {
 };
 
 describe('captura manual de columnas físicas del Segundo Parcial', () => {
-  it('acepta práctica hasta 10 y examen hasta 5.25 para incluir el bono manual', () => {
+  it('acepta práctica hasta 10 y los exámenes hasta 5.25 incluyendo el bono aplicado al examen', () => {
     expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Practica 2do Parcial', calificacion: 10 }).success).toBe(true);
-    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen 2do Parcial', calificacion: 5.25 }).success).toBe(true);
+    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen 2do Parcial', calificacion: 5 }).success).toBe(true);
+    for (const componente of ['Exámen 1er Parcial', 'Exámen 2do Parcial', 'Exámen Global']) {
+      expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente, calificacion: 5.25 }).success).toBe(true);
+      expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente, calificacion: 5.26 }).success).toBe(false);
+    }
   });
 
-  it('acepta Global manual en la escala física de 0 a 5', () => {
+  it('acepta Global manual en la escala de examen con bono y rechaza sobrepasarla', () => {
     expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen Global', calificacion: 5 }).success).toBe(true);
-    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen Global', calificacion: 5.01 }).success).toBe(false);
+    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen Global', calificacion: 5.25 }).success).toBe(true);
+    expect(esquemaGuardarCalificacionLista.safeParse({ ...base, componente: 'Exámen Global', calificacion: 5.26 }).success).toBe(false);
   });
 
   it('rechaza notas fuera de escala, componente no físico y propiedades no declaradas', () => {

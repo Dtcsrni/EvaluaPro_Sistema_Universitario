@@ -76,7 +76,6 @@ test('workflows no interpolan expresiones GitHub directamente en bloques run', (
     'ci-portal.yml',
     'ci.yml',
     'ci-installer-windows.yml',
-    'package.yml',
     'release-beta.yml',
     'release-stable-gate.yml'
   ];
@@ -115,15 +114,8 @@ test('CI modular no descarga la base solo para cobertura y valida refs de public
   assert.match(installerWorkflow, /https:\/\/github\.com\/\$repository\/releases\/download\/\$tag/);
 });
 
-test('metadatos de imágenes y beta se validan antes de construir comandos o rutas', () => {
-  const packageWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'package.yml'), 'utf8');
-  assert.match(packageWorkflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);
-  assert.match(packageWorkflow, /IMAGE_VERSION:\s*\$\{\{ steps\.meta\.outputs\.version \}\}/);
-  assert.match(packageWorkflow, /docker build[\s\S]*-t "\$API_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(packageWorkflow, /docker push "\$WEB_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(packageWorkflow, /docker image inspect "\$API_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(packageWorkflow, /Metadata de imagen inválida para publicación/);
-
+test('el empaquetado Docker cloud está retirado y beta valida metadatos antes de construir rutas', () => {
+  assert.equal(fs.existsSync(path.join(root, '.github', 'workflows', 'package.yml')), false);
   const betaWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-beta.yml'), 'utf8');
   assert.match(betaWorkflow, /BETA_TAG:\s*\$\{\{ needs\.beta_gate\.outputs\.beta_tag \}\}/);
   assert.match(betaWorkflow, /BETA_VERSION:\s*\$\{\{ needs\.beta_gate\.outputs\.beta_version \}\}/);

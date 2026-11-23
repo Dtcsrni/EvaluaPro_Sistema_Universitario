@@ -39,6 +39,35 @@ test('el runner E2E docente conserva sintaxis válida de Windows PowerShell', { 
   assert.equal(result.status, 0, result.stderr || result.stdout || 'PowerShell no pudo parsear el runner E2E.');
 });
 
+test('timeouts del helper post-install conservan logs y el último hito estructurado', () => {
+  const captureStart = e2e.indexOf('function Invoke-CaptureCommand');
+  const captureEnd = e2e.indexOf('\nfunction ', captureStart + 1);
+  assert.ok(captureStart >= 0 && captureEnd > captureStart, 'el runner debe definir una captura de comandos identificable');
+  const capture = e2e.slice(captureStart, captureEnd);
+
+  assert.match(capture, /if\s*\(-not\s*\$process\.WaitForExit\(\$TimeoutSec\s*\*\s*1000\)\)/);
+  assert.match(capture, /Copy-ArtifactIfExists\s+-Path\s+\$stdout/);
+  assert.match(capture, /Copy-ArtifactIfExists\s+-Path\s+\$stderr/);
+  assert.match(capture, /EVALUAPRO_PROGRESS/);
+  assert.match(capture, /ultimo_hito=/);
+});
+
+test('el conflicto Burn compara SQLite mediante snapshots online compatibles con archivos abiertos', () => {
+  const snapshotHashPath = path.join(root, 'scripts', 'tests', 'sqlite-snapshot-hash.mjs');
+  const snapshotHash = fs.readFileSync(snapshotHashPath, 'utf8');
+  const conflictStart = e2e.indexOf('function Invoke-SameVersionRelatedBundleConflict');
+  const conflictEnd = e2e.indexOf('\nfunction Invoke-PreviousVersionRelatedBundleUpgrade', conflictStart);
+  assert.ok(conflictStart >= 0 && conflictEnd > conflictStart, 'el conflicto debe tener una región de verificación delimitada');
+  const conflict = e2e.slice(conflictStart, conflictEnd);
+
+  assert.match(e2e, /function Get-InstalledDatabaseSha256/);
+  assert.equal((conflict.match(/Get-InstalledDatabaseSha256 -DatabasePath \$databasePath/g) ?? []).length, 2);
+  assert.doesNotMatch(conflict, /Get-FileHash -LiteralPath \$databasePath/);
+  assert.match(snapshotHash, /await database\.backup\(snapshotPath\)/);
+  assert.match(snapshotHash, /readonly:\s*true/);
+  assert.match(snapshotHash, /createReadStream\(snapshotPath\)/);
+});
+
 test('el E2E aislado reproduce y valida el conflicto de bundle relacionado de igual versión', () => {
   assert.match(sameVersionFixture, /Name="QA Bundle Relation Fixture"/);
   assert.match(sameVersionFixture, /UpgradeCode="\$\(var\.BundleUpgradeCode\)"/);
@@ -282,7 +311,11 @@ test('el módulo de reportes se importa con el parámetro real de Windows PowerS
     "if (-not (Get-Command Initialize-InstallerHubE2EReportDirectory -ErrorAction SilentlyContinue)) { exit 1 }"
   ].join('; ');
   const powershellPath = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  const result = spawnSync(powershellPath, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command], { encoding: 'utf8' });
+  const result = spawnSync(powershellPath, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+    encoding: 'utf8',
+    timeout: 20_000,
+    windowsHide: true
+  });
 
   assert.equal(result.error, undefined, `No se pudo validar Import-Module: ${result.error?.message ?? ''}`);
   assert.equal(result.status, 0, `Windows PowerShell no pudo cargar el módulo: ${result.stderr || result.stdout}`);
@@ -419,16 +452,16 @@ test('upgrade E2E prueba instalación baseline → versión candidata → datos 
   const baselineEnd = e2e.indexOf('\nfunction Resolve-InstalledSqlitePath {', baselineStart);
   const baselineFlow = e2e.slice(baselineStart, baselineEnd);
   const baselineInstall = baselineFlow.indexOf('Install-OfficialUpgradeBaselineMsi -VerifiedBundlePath $verifiedBaseline');
-  const stopBaseline = baselineFlow.indexOf("Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-", baselineInstall);
   const markerWrite = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'write' -Marker $marker");
   const candidateInstall = baselineFlow.indexOf('Invoke-PreviousVersionRelatedBundleUpgrade');
   const versionCheck = baselineFlow.indexOf("Get-InstalledProductVersion", candidateInstall);
   const markerVerify = baselineFlow.indexOf("Invoke-UpgradeDataMarker -Action 'verify' -Marker $marker", candidateInstall);
   assert.ok(baselineInstall >= 0 && baselineInstall < markerWrite);
+  assert.doesNotMatch(baselineFlow, /Invoke-InstalledAppHost/, 'no inicia el App Host legado; prueba el ciclo de vida sobre el candidato');
+  assert.match(baselineFlow, /Do not launch the legacy baseline App Host/);
   assert.match(e2e, /upgrade-baseline-post-install\.request\.json/);
   assert.match(e2e, /response\.ok/);
   assert.match(e2e, /official-msi-installed/);
-  assert.ok(stopBaseline >= 0 && stopBaseline < markerWrite, 'la app baseline debe cerrarse antes de escribir SQLite');
   assert.ok(markerWrite < candidateInstall);
   assert.ok(candidateInstall < versionCheck && versionCheck < markerVerify);
   assert.match(e2e, /candidateVersion -gt \$baselineVersion/);

@@ -193,6 +193,11 @@ test.describe('Journey docente integral visual', () => {
   });
 
   test('recorre diseño, generación, entrega, evaluación, calificación y publicación', async ({ page, request }) => {
+    // Este recorrido captura decenas de estados; limitar las imágenes al viewport
+    // evita acumular cientos de MB de capturas full-page y colgar Chromium al final.
+    const screenshotWithinViewport = page.screenshot.bind(page);
+    page.screenshot = (options = {}) => screenshotWithinViewport({ ...options, fullPage: false });
+
     const reactUnknownTagWarnings: string[] = [];
     page.on('pageerror', (error) => console.error(`[E2E pageerror] ${error.stack || error.message}`));
     page.on('console', (message) => {
@@ -463,15 +468,15 @@ test.describe('Journey docente integral visual', () => {
     await expect(filaListaFisica).toBeVisible({ timeout: 20_000 });
     await filaListaFisica.getByRole('button', { name: /Ver detalle de/ }).click();
     await expect(page.getByText('Examen 1er Parcial automático · referencia')).toBeVisible();
-    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5' });
-    await expect(examenPrimerParcial).toHaveAttribute('max', '5');
-    await examenPrimerParcial.fill('5');
+    const examenPrimerParcial = page.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5.25 (incluye bono de guía)' });
+    await expect(examenPrimerParcial).toHaveAttribute('max', '5.25');
+    await examenPrimerParcial.fill('5.25');
     const [examenPrimerParcialResponse] = await Promise.all([
       page.waitForResponse((response) => response.url().includes('/analiticas/lista-academica/calificaciones') && response.request().method() === 'POST'),
       page.getByRole('button', { name: 'Guardar examen' }).click()
     ]);
     expect(examenPrimerParcialResponse.status()).toBe(201);
-    await expect(examenPrimerParcial).toHaveValue('5');
+    await expect(examenPrimerParcial).toHaveValue('5.25');
     await expect(page.getByRole('button', { name: 'Guardar examen' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Segundo Parcial', exact: true }).click();

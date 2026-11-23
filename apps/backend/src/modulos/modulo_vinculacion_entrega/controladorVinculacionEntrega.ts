@@ -59,7 +59,7 @@ export async function vincularEntrega(req: SolicitudDocente, res: Response) {
       acordeonEntregado: Boolean(acordeonEntregado),
       bonoAcordeon: acordeonEntregado
         ? Number.isFinite(Number(bonoAcordeon))
-          ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
+          ? Math.max(0, Math.min(0.25, Number(bonoAcordeon)))
           : 0.25
         : 0
     }
@@ -109,7 +109,7 @@ export async function vincularEntregaPorFolio(req: SolicitudDocente, res: Respon
       acordeonEntregado: Boolean(acordeonEntregado),
       bonoAcordeon: acordeonEntregado
         ? Number.isFinite(Number(bonoAcordeon))
-          ? Math.max(0, Math.min(0.5, Number(bonoAcordeon)))
+          ? Math.max(0, Math.min(0.25, Number(bonoAcordeon)))
           : 0.25
         : 0
     }

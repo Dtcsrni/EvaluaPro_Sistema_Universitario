@@ -948,45 +948,6 @@ jobs:
           ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
 
-      - name: Configurar .NET SDK 10
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Instalar WiX CLI estable para la E2E
-        shell: powershell
-        run: |
-          dotnet tool install --global wix --version 7.0.0
-          wix eula accept wix7
-          $dotnetToolsDir = Join-Path $env:USERPROFILE ".dotnet\tools"
-          if (-not (Test-Path $dotnetToolsDir)) { throw "No se encontró la carpeta de herramientas .NET global ($dotnetToolsDir)." }
-          "$dotnetToolsDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $wixPath = Join-Path $dotnetToolsDir "wix.exe"
-          if (-not (Test-Path $wixPath)) { throw "No se encontró wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)." }
-          $wixVersion = (& $wixPath --version | Select-Object -First 1)
-          if ($wixVersion -notmatch '^7\.0\.\d+(?:[+\-].*)?$') { throw "Versión WiX no permitida: $wixVersion. Se requiere 7.0.x." }
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24.21.0
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/backend/package-lock.json
-            apps/frontend/package-lock.json
-            apps/portal_alumno_cloud/package-lock.json
-
-      - name: Instalar dependencias de la E2E
-        shell: powershell
-        run: |
-          npm install --global npm@12.2.1
-          npm ci --foreground-scripts
-          npx prisma generate --config=apps/backend/prisma.config.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npx playwright install chromium
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
       - name: Descargar y verificar EXE y sidecar desde el release draft
         id: draft_asset
         shell: powershell
@@ -1092,6 +1053,49 @@ jobs:
           "candidate_path=$candidatePath" >> $env:GITHUB_OUTPUT
           "release_id=$($release.id)" >> $env:GITHUB_OUTPUT
           Write-Host "EXE publicado verificado; tag=$tag; bytes=$((Get-Item -LiteralPath $candidatePath).Length); sha256=$actualHash"
+
+      - name: Configurar .NET SDK 10 para la E2E
+        if: steps.draft_asset.outputs.run_e2e == 'true'
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Instalar WiX CLI estable para la E2E
+        if: steps.draft_asset.outputs.run_e2e == 'true'
+        shell: powershell
+        run: |
+          dotnet tool install --global wix --version 7.0.0
+          wix eula accept wix7
+          $dotnetToolsDir = Join-Path $env:USERPROFILE ".dotnet\tools"
+          if (-not (Test-Path $dotnetToolsDir)) { throw "No se encontró la carpeta de herramientas .NET global ($dotnetToolsDir)." }
+          "$dotnetToolsDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $wixPath = Join-Path $dotnetToolsDir "wix.exe"
+          if (-not (Test-Path $wixPath)) { throw "No se encontró wix.exe en la carpeta de herramientas .NET global ($dotnetToolsDir)." }
+          $wixVersion = (& $wixPath --version | Select-Object -First 1)
+          if ($wixVersion -notmatch '^7\.0\.\d+(?:[+\-].*)?$') { throw "Versión WiX no permitida: $wixVersion. Se requiere 7.0.x." }
+
+      - name: Configurar Node.js para la E2E
+        if: steps.draft_asset.outputs.run_e2e == 'true'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.21.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/backend/package-lock.json
+            apps/frontend/package-lock.json
+            apps/portal_alumno_cloud/package-lock.json
+
+      - name: Instalar dependencias de la E2E
+        if: steps.draft_asset.outputs.run_e2e == 'true'
+        shell: powershell
+        run: |
+          npm install --global npm@12.2.1
+          npm ci --foreground-scripts
+          npx prisma generate --config=apps/backend/prisma.config.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Descargar y verificar baseline oficial v1.2.3
         if: steps.draft_asset.outputs.run_e2e == 'true'

@@ -99,7 +99,9 @@ function Invoke-EvaluaProPayloadPromotion {
       $requiredPayloadFiles += @(
         'scripts\migrate-calificacion-origen-inferida-sqlite.mjs',
         'scripts\migrate-preferencias-retencion-parcial-sqlite.mjs',
-        'scripts\migrate-resultados-extra-externos-sqlite.mjs'
+        'scripts\migrate-resultados-extra-externos-sqlite.mjs',
+        'scripts\migrate-banco-taxonomia-temario-sqlite.mjs',
+        'scripts\migrate-api-local-credentials-sqlite.mjs'
       )
     }
     foreach ($relativePath in $requiredPayloadFiles) {

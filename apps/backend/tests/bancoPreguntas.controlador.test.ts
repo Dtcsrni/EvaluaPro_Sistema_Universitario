@@ -11,6 +11,9 @@ const {
   mockObtenerDocenteId,
   mockBancoFindMany,
   mockReactivoFindMany,
+  mockReactivoAsignacionFindMany,
+  mockReactivoAsignacionDeleteMany,
+  mockReactivoAsignacionCreateMany,
   mockBancoFindUnique,
   mockBancoFindFirst,
   mockBancoCreate,
@@ -19,6 +22,11 @@ const {
   mockBancoDelete,
   mockTemaFindFirst,
   mockTemaFindMany,
+  mockCategoriaFindFirst,
+  mockCategoriaFindUnique,
+  mockCategoriaCreate,
+  mockCategoriaUpdate,
+  mockTemarioNodoFindFirst,
   mockTemaCreate,
   mockTemaUpdate,
   mockVersionCreate,
@@ -33,6 +41,9 @@ const {
   mockObtenerDocenteId: vi.fn(),
   mockBancoFindMany: vi.fn(),
   mockReactivoFindMany: vi.fn(),
+  mockReactivoAsignacionFindMany: vi.fn(),
+  mockReactivoAsignacionDeleteMany: vi.fn(),
+  mockReactivoAsignacionCreateMany: vi.fn(),
   mockBancoFindUnique: vi.fn(),
   mockBancoFindFirst: vi.fn(),
   mockBancoCreate: vi.fn(),
@@ -41,6 +52,11 @@ const {
   mockBancoDelete: vi.fn(),
   mockTemaFindFirst: vi.fn(),
   mockTemaFindMany: vi.fn(),
+  mockCategoriaFindFirst: vi.fn(),
+  mockCategoriaFindUnique: vi.fn(),
+  mockCategoriaCreate: vi.fn(),
+  mockCategoriaUpdate: vi.fn(),
+  mockTemarioNodoFindFirst: vi.fn(),
   mockTemaCreate: vi.fn(),
   mockTemaUpdate: vi.fn(),
   mockVersionCreate: vi.fn(),
@@ -63,6 +79,7 @@ vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
     reactivo: {
       findMany: mockReactivoFindMany
     },
+    reactivoAsignacion: { findMany: mockReactivoAsignacionFindMany, deleteMany: mockReactivoAsignacionDeleteMany, createMany: mockReactivoAsignacionCreateMany },
     bancoPregunta: {
       findMany: mockBancoFindMany,
       findUnique: mockBancoFindUnique,
@@ -78,6 +95,8 @@ vi.mock('../src/infraestructura/baseDatos/sqlite', () => ({
       create: mockTemaCreate,
       update: mockTemaUpdate
     },
+    categoriaBanco: { findFirst: mockCategoriaFindFirst, findUnique: mockCategoriaFindUnique, create: mockCategoriaCreate, update: mockCategoriaUpdate },
+    temarioNodo: { findFirst: mockTemarioNodoFindFirst },
     versionPregunta: {
       create: mockVersionCreate
     },
@@ -155,8 +174,16 @@ describe('controladorBancoPreguntas', () => {
     mockObtenerDocenteId.mockReturnValue('docente-1');
     mockPeriodoFindFirst.mockResolvedValue({ id: 'periodo-1', nombre: 'Materia 1' });
     mockReactivoFindMany.mockResolvedValue([]);
+    mockReactivoAsignacionFindMany.mockResolvedValue([]);
+    mockReactivoAsignacionDeleteMany.mockResolvedValue({ count: 0 });
+    mockReactivoAsignacionCreateMany.mockResolvedValue({ count: 0 });
     mockTemaFindFirst.mockResolvedValue({ id: 'tema-1', nombre: 'Tema Base', clave: 'tema base', activo: true });
     mockTemaFindMany.mockResolvedValue([{ id: 'tema-1', nombre: 'Tema Base' }]);
+    mockCategoriaFindFirst.mockResolvedValue({ id: 'categoria-1', nombre: 'Sin categoría', temarioNodoId: null });
+    mockCategoriaFindUnique.mockResolvedValue({ id: 'categoria-1', nombre: 'Sin categoría', temarioNodoId: null });
+    mockCategoriaCreate.mockResolvedValue({ id: 'categoria-1', nombre: 'Sin categoría', temarioNodoId: null });
+    mockCategoriaUpdate.mockResolvedValue({ id: 'categoria-1', nombre: 'Sin categoría', temarioNodoId: null });
+    mockTemarioNodoFindFirst.mockResolvedValue(null);
     mockBancoFindMany.mockResolvedValue([]);
     mockBancoCreate.mockResolvedValue({ id: 'preg-1' });
     mockBancoUpdateMany.mockResolvedValue({ count: 2 });
@@ -166,9 +193,13 @@ describe('controladorBancoPreguntas', () => {
     mockTemaAuditoriaCreate.mockResolvedValue({ id: 'evento-1' });
     mockTransaction.mockImplementation((operation) => operation({
       temaBanco: { findFirst: mockTemaFindFirst, create: mockTemaCreate, update: mockTemaUpdate },
+      categoriaBanco: { findFirst: mockCategoriaFindFirst, findUnique: mockCategoriaFindUnique, create: mockCategoriaCreate, update: mockCategoriaUpdate },
+      temarioNodo: { findFirst: mockTemarioNodoFindFirst },
       temaBancoAuditoria: { findUnique: mockTemaAuditoriaFindUnique, create: mockTemaAuditoriaCreate },
       periodo: { findFirst: mockPeriodoFindFirst },
       bancoPregunta: { updateMany: mockBancoUpdateMany },
+      reactivo: { findMany: mockReactivoFindMany },
+      reactivoAsignacion: { findMany: mockReactivoAsignacionFindMany, deleteMany: mockReactivoAsignacionDeleteMany, createMany: mockReactivoAsignacionCreateMany },
       examenPlantilla: { findMany: mockPlantillaFindMany, update: mockPlantillaUpdate }
     }));
   });
@@ -340,7 +371,9 @@ describe('controladorBancoPreguntas', () => {
           body: {
             periodoId: 'periodo-1',
             temaIdDestino: 'tema-1',
-            preguntasIds: ['preg-1']
+            preguntasIds: ['preg-1'],
+            confirmarReemplazo: true,
+            clientRequestId: '11111111-1111-4111-8111-111111111111'
           }
         } as never,
         crearRespuesta()
@@ -380,7 +413,9 @@ describe('controladorBancoPreguntas', () => {
         body: {
           periodoId: 'periodo-1',
           temaIdDestino: 'tema-1',
-          preguntasIds: ['preg-1', 'preg-2']
+          preguntasIds: ['preg-1', 'preg-2'],
+          confirmarReemplazo: true,
+          clientRequestId: '22222222-2222-4222-8222-222222222222'
         }
       } as never,
       res
@@ -395,7 +430,29 @@ describe('controladorBancoPreguntas', () => {
       },
       data: { tema: 'Tema Destino' }
     });
-    expect(res.json).toHaveBeenCalledWith({ movidas: 2 });
+    expect(res.json).toHaveBeenCalledWith({ movidas: 2, repetida: false });
+    expect(mockTemaAuditoriaCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ accion: 'recategorizar-masivo', clientRequestId: '22222222-2222-4222-8222-222222222222' })
+    }));
+  });
+
+  it('reemplaza solo asignaciones canónicas del periodo y audita el estado previo', async () => {
+    mockTemaFindFirst.mockResolvedValue({ id: 'tema-destino', nombre: 'Tema Destino', activo: true });
+    mockBancoFindMany.mockResolvedValueOnce([crearPreguntaRaw({ id: 'preg-1' })]).mockResolvedValueOnce([]);
+    mockReactivoFindMany.mockResolvedValue([{ id: 'reactivo-1', legacyPreguntaId: 'preg-1' }]);
+    mockReactivoAsignacionFindMany.mockResolvedValue([{ reactivoId: 'reactivo-1', periodoId: 'periodo-1', temaId: 'tema-anterior' }]);
+    const res = crearRespuesta();
+
+    await moverPreguntasTemaBanco({ body: {
+      periodoId: 'periodo-1', temaIdDestino: 'tema-destino', preguntasIds: ['preg-1'],
+      clientRequestId: '33333333-3333-4333-8333-333333333333', confirmarReemplazo: true
+    } } as never, res);
+
+    expect(mockReactivoAsignacionDeleteMany).toHaveBeenCalledWith({ where: { periodoId: 'periodo-1', reactivoId: { in: ['reactivo-1'] } } });
+    expect(mockReactivoAsignacionCreateMany).toHaveBeenCalledWith({ data: [{ reactivoId: 'reactivo-1', periodoId: 'periodo-1', temaId: 'tema-destino' }] });
+    expect(mockTemaAuditoriaCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ accion: 'recategorizar-masivo', antes: expect.stringContaining('tema-anterior') })
+    }));
   });
 
   it('quita tema a preguntas validadas por materia', async () => {
@@ -468,10 +525,38 @@ describe('controladorBancoPreguntas', () => {
         activo: true,
         archivadoEn: null,
         nombre: 'Tema Base',
-        clave: 'tema base'
+        clave: 'tema base',
+        categoriaId: 'categoria-1',
+        temarioNodoId: null
       }
     });
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('rechaza vincular una categoría a un nodo que no es nivel 1 del mismo periodo', async () => {
+    mockTemarioNodoFindFirst.mockResolvedValue(null);
+    await expect(crearTemaBanco({
+      body: { periodoId: 'periodo-1', nombre: 'Tema', categoria: 'Segundo parcial', temarioCategoriaNodoId: 'nodo-ajeno' }
+    } as never, crearRespuesta())).rejects.toMatchObject<Partial<ErrorAplicacion>>({
+      codigo: 'TEMARIO_NODO_INVALIDO', estadoHttp: 400
+    });
+    expect(mockCategoriaCreate).not.toHaveBeenCalled();
+  });
+
+  it('acepta un tema vinculado al subtema de su categoría del temario', async () => {
+    mockCategoriaFindFirst.mockResolvedValue({ id: 'categoria-1', nombre: 'Segundo parcial', temarioNodoId: 'nodo-2' });
+    mockCategoriaUpdate.mockResolvedValue({ id: 'categoria-1', nombre: 'Segundo parcial', temarioNodoId: 'nodo-2' });
+    mockTemarioNodoFindFirst
+      .mockResolvedValueOnce({ id: 'nodo-2', numero: '2' })
+      .mockResolvedValueOnce({ id: 'nodo-2-1', numero: '2.1' })
+      .mockResolvedValueOnce({ id: 'nodo-2', numero: '2' });
+    mockTemaFindFirst.mockResolvedValue(null);
+    mockTemaCreate.mockResolvedValue({ id: 'tema-2', nombre: 'SEO', categoriaId: 'categoria-1', temarioNodoId: 'nodo-2-1' });
+    await crearTemaBanco({ body: {
+      periodoId: 'periodo-1', nombre: 'SEO', categoria: 'Segundo parcial',
+      temarioCategoriaNodoId: 'nodo-2', temarioTemaNodoId: 'nodo-2-1'
+    } } as never, crearRespuesta());
+    expect(mockTemaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ categoriaId: 'categoria-1', temarioNodoId: 'nodo-2-1' }) });
   });
 
   it('actualiza tema y propaga el rename a preguntas y plantillas', async () => {
@@ -501,6 +586,8 @@ describe('controladorBancoPreguntas', () => {
       data: {
         nombre: 'Tema Nuevo',
         clave: 'tema nuevo',
+        categoriaId: 'categoria-1',
+        temarioNodoId: null,
         activo: true,
         archivadoEn: null
       }

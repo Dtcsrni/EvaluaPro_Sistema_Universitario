@@ -128,6 +128,7 @@ jobs:
           npx puppeteer browsers install chrome
           npm run diagramas:render
           npm run diagramas:consistencia:check
+          npm run test:routes:check-contract
           npm run routes:check
 
       - name: Publicar reporte affected CI
@@ -395,11 +396,9 @@ jobs:
     timeout-minutes: 60
     needs:
       - detectar_cambios
-      - verificaciones_core
     if: |
       !cancelled() &&
       needs.detectar_cambios.result == 'success' &&
-      needs.verificaciones_core.result == 'success' &&
       (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
       ((github.event_name == 'pull_request' ||
@@ -497,11 +496,9 @@ jobs:
       NODE_ENV: test
     needs:
       - detectar_cambios
-      - verificaciones_core
     if: |
       !cancelled() &&
       needs.detectar_cambios.result == 'success' &&
-      needs.verificaciones_core.result == 'success' &&
       (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
       ((github.event_name == 'pull_request' ||
@@ -553,11 +550,9 @@ jobs:
     timeout-minutes: 40
     needs:
       - detectar_cambios
-      - verificaciones_core
     if: |
       !cancelled() &&
       needs.detectar_cambios.result == 'success' &&
-      needs.verificaciones_core.result == 'success' &&
       (github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.force_full_ci) ||
       ((github.event_name == 'pull_request' ||

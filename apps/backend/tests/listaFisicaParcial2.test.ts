@@ -96,7 +96,7 @@ describe('proyección de columnas físicas del Segundo Parcial', () => {
       evidencias: [{ alumnoId: 'alumno-1', fuente: 'classroom', estadoCaptura: 'calificada', calificacionDecimal: 10, classroomData: { courseId: 'curso', courseWorkId: 'tarea', maxPoints: 100, submissionState: 'RETURNED' } }],
       calificacionesManuales: [
         { alumnoId: 'alumno-1', componente: COLUMNA_PRACTICA_PARCIAL_2, calificacion: 10 },
-        { alumnoId: 'alumno-1', componente: COLUMNA_EXAMEN_PARCIAL_2, calificacion: 5.25 }
+        { alumnoId: 'alumno-1', componente: COLUMNA_EXAMEN_PARCIAL_2, calificacion: 5 }
       ]
     });
     expect(resultado.evaluacionContinua2doParcial).toBe('5');

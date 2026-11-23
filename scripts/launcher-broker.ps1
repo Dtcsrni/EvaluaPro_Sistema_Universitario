@@ -14,10 +14,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Normalizar puerto: si se recibe 4000 (API) o 4173 (Web), normalizar a 4519 (Dashboard control plane)
-if ($Port -eq 4000 -or $Port -eq 4173) {
-  $Port = 4519
-}
+# Mantener los perfiles en puertos fijos y disjuntos.
+$runtimeMode = if ($Mode -eq 'auto') { 'prod' } else { $Mode }
+$webPort = if ($runtimeMode -eq 'dev') { 4174 } else { 4173 }
+if ($runtimeMode -eq 'dev' -and $Port -in @(4000, 4173, 4519)) { $Port = 4520 }
+if ($runtimeMode -eq 'prod' -and $Port -in @(4000, 4173)) { $Port = 4519 }
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $logDir = Join-Path $root 'logs'
@@ -206,13 +207,10 @@ function Stop-StaleDashboardOnPort([int]$candidatePort) {
 }
 
 function Clear-StaleDashboardListeners([int]$requestedPort) {
-  $ports = @($requestedPort)
-  for ($offset = 0; $offset -lt 20; $offset += 1) {
-    $ports += (4519 + $offset)
-  }
-  foreach ($port in @($ports | Select-Object -Unique)) {
-    Stop-StaleDashboardOnPort ([int]$port)
-  }
+  # Los puertos de perfil son reservados. No terminar listeners por heurística:
+  # puede pertenecer a la otra instalación o estar iniciando. El launcher Node
+  # informará el conflicto sin reasignar ni detener el servicio existente.
+  Write-BrokerLog("Se conserva cualquier listener existente; puerto solicitado=$requestedPort.")
 }
 
 function Invoke-JsonPost([string]$url, [hashtable]$body, [int]$timeoutSec = 10) {
@@ -571,7 +569,7 @@ function Open-Hub {
     Start-Process -FilePath $hubExecutablePath -WorkingDirectory (Split-Path -Path $hubExecutablePath -Parent) | Out-Null
   } else {
     Write-BrokerLog("No se encontro binario externo de Hub; abriendo seccion de gestion en la aplicacion.")
-    Open-Url "http://127.0.0.1:4173/#/cuenta"
+    Open-Url "http://127.0.0.1:$webPort/#/cuenta"
   }
 }
 
@@ -593,7 +591,7 @@ function Invoke-ManifestRefresh {
 
 try {
   Write-BrokerLog("Broker start action=$Action mode=$Mode port=$Port runId=$script:RunIdEffective")
-  $bootstrapMode = if ($Mode -eq 'auto') { 'prod' } else { $Mode }
+  $bootstrapMode = $runtimeMode
 
   switch ($Action) {
     'open-hub' {
@@ -611,12 +609,12 @@ try {
   }
 
   # REQ-030: En flavor docente-local, el Dashboard UI no debe ser accesible para docentes finales.
-  # Se redirige a la Web Docente nativa (http://127.0.0.1:4173/) a menos que esté en modo depuración/admin.
+  # Se redirige a la Web Docente del perfil activo, salvo depuración/admin.
   $isDocenteFlavor = (-not (Test-RequiresLocalPortal))
   $isAdminDebug = ($env:EVALUAPRO_DEBUG -eq '1')
   $openTargetUrl = if ($isDocenteFlavor -and -not $isAdminDebug) {
-    Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (http://127.0.0.1:4173/). UI Dashboard restringida a depuración administrativa.")
-    "http://127.0.0.1:4173/"
+    Write-BrokerLog("Flavor docente-local detectado: redirigiendo apertura a Web Docente (puerto $webPort). UI Dashboard restringida a depuración administrativa.")
+    "http://127.0.0.1:$webPort/"
   } else {
     "http://127.0.0.1:$Port/"
   }
@@ -631,10 +629,10 @@ try {
       $result = Ensure-StackReady -base $base -desiredMode $desiredMode -timeoutMs 150000
       $finalReady = Wait-DashboardReady -requestedPort $Port -timeoutMs 15000
       if ($result.ok) {
-        Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base; webUrl = "http://127.0.0.1:4173/" }
+        Set-BootstrapState -State 'healthy' -Message 'Plataforma docente lista.' -DesiredMode $desiredMode -Meta @{ degraded = [bool]$result.degraded; base = $base; webUrl = "http://127.0.0.1:$webPort/" }
         if (-not $NoOpen) { Open-Url $openTargetUrl }
       } else {
-        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base; webUrl = "http://127.0.0.1:4173/" }
+        Set-BootstrapState -State 'degraded' -Message 'Dashboard activo, pero la plataforma no alcanzo salud completa.' -DesiredMode $desiredMode -Meta @{ base = $base; webUrl = "http://127.0.0.1:$webPort/" }
         if (-not $NoOpen) { Open-Url $openTargetUrl }
       }
     }

@@ -149,6 +149,15 @@ function Get-ShortcutDefinition {
       }
     }
     'EvaluaPro - Hub' {
+      $nativeHostPath = Join-Path $root 'EvaluaPro.exe'
+      if ((Resolve-FlavorId) -eq 'docente-local' -and (Test-Path -LiteralPath $nativeHostPath)) {
+        return [ordered]@{
+          name = $Name
+          targetPath = $nativeHostPath
+          arguments = '--installer-hub'
+          iconLocation = $nativeHostPath
+        }
+      }
       return [ordered]@{
         name = $Name
         targetPath = $wscriptPath

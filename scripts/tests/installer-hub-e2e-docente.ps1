@@ -1475,7 +1475,7 @@ function Invoke-SameVersionRelatedBundleConflict {
 
   $databasePath = Join-Path $installedRoot 'data\evaluapro.db'
   $databaseExistedBefore = Test-Path -LiteralPath $databasePath -PathType Leaf
-  $databaseHashBefore = if ($databaseExistedBefore) { (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+  $databaseHashBefore = if ($databaseExistedBefore) { Get-InstalledDatabaseSha256 -DatabasePath $databasePath } else { '' }
   $appPath = Join-Path $installedRoot 'EvaluaPro.exe'
   $appExistedBefore = Test-Path -LiteralPath $appPath -PathType Leaf
   $appHashBefore = if ($appExistedBefore) { (Get-FileHash -LiteralPath $appPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
@@ -1507,7 +1507,7 @@ function Invoke-SameVersionRelatedBundleConflict {
     $appExistedAfter = Test-Path -LiteralPath $appPath -PathType Leaf
     $appHashAfter = if ($appExistedAfter) { (Get-FileHash -LiteralPath $appPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
     $databaseExistedAfter = Test-Path -LiteralPath $databasePath -PathType Leaf
-    $databaseHashAfter = if ($databaseExistedAfter) { (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+    $databaseHashAfter = if ($databaseExistedAfter) { Get-InstalledDatabaseSha256 -DatabasePath $databasePath } else { '' }
     $installStateUnchanged = $productsUnchanged -and $appExistedBefore -eq $appExistedAfter -and $appHashBefore -ceq $appHashAfter -and
       $databaseExistedBefore -eq $databaseExistedAfter -and $databaseHashBefore -ceq $databaseHashAfter -and $fixtureStillRegistered
     if ($DatabaseMarker) {
@@ -1874,7 +1874,37 @@ function Invoke-InstalledAppHost {
   if ($Action -eq 'open-dashboard') {
     $appHostPath = [IO.Path]::GetFullPath((Join-Path $installedRoot 'EvaluaPro.exe'))
     if (-not (Test-Path -LiteralPath $appHostPath -PathType Leaf)) { throw "No existe el App Host instalado: $appHostPath" }
-    if ($script:activeNativeAppHost) { throw 'El App Host ya tiene una instancia propiedad de este E2E.' }
+    if ($script:activeNativeAppHost) {
+      $identity = $script:activeNativeAppHost
+      $existing = Get-VerifiedInstalledAppHostProcess -ProcessId ([int]$identity.Id) -StartedAtUtc ([datetime]$identity.StartedAtUtc)
+      if (-not $existing) { throw "El App Host de bandeja PID $($identity.Id) dejó de responder o cambió de identidad." }
+      $activation = $null
+      try {
+        $activation = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
+        if (-not $activation.WaitForExit(15000)) {
+          $activation.Refresh()
+          $existing.Refresh()
+          $activationWindows = @(Get-AppHostTopLevelWindows -ProcessId ([int]$activation.Id))
+          $existingWindows = @(Get-AppHostTopLevelWindows -ProcessId ([int]$identity.Id))
+          $diagnostic = "activationPid=$($activation.Id) activationAlive=$(-not $activation.HasExited) activationMainHwnd=$($activation.MainWindowHandle) activationTopLevelWindows=$($activationWindows.Count) existingPid=$($identity.Id) existingAlive=$(-not $existing.HasExited) existingMainHwnd=$($existing.MainWindowHandle) existingTopLevelWindows=$($existingWindows.Count)"
+          Write-E2ELog "Reactivación singleton agotó timeout; $diagnostic"
+          $appHostLog = Join-Path $env:LOCALAPPDATA 'EvaluaPro\logs\app-host.log'
+          if (Test-Path -LiteralPath $appHostLog -PathType Leaf) {
+            Copy-ArtifactIfExists -Path $appHostLog -Name 'app-host-activation-diagnostic.log' | Out-Null
+            Get-Content -LiteralPath $appHostLog -Tail 40 -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-E2ELog "APP_HOST_LIFECYCLE: $_" }
+          }
+          throw "La instancia de activación PID $($activation.Id) no cedió el control al App Host existente. $diagnostic"
+        }
+      } finally {
+        if ($activation) { $activation.Dispose() }
+        $existing.Dispose()
+      }
+      $state = Wait-NativeDashboardHealth -TimeoutSec $TimeoutSec
+      $null = Wait-AppHostMainWindow -ProcessId ([int]$identity.Id) -TimeoutSec 15
+      Add-Result -Area 'native-app-host' -Item $Action -Ok $true -Detail "pid=$($identity.Id) restored-from-tray state=healthy runId=$RunId"
+      return $state
+    }
     $process = Start-Process -FilePath $appHostPath -WorkingDirectory $installedRoot -PassThru
     try {
       $startedAtUtc = $process.StartTime.ToUniversalTime()
@@ -1904,8 +1934,6 @@ function Invoke-InstalledAppHost {
       $errorLogLengthBeforeClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
-      $processHandle = [IntPtr]::Zero
-      try { $processHandle = [IntPtr]$process.Handle } catch {}
       $closeRequested = $process.CloseMainWindow()
       if (-not $closeRequested) {
         $closeRequested = Request-AppHostWindowClose -ProcessId ([int]$identity.Id) -Process $process -NativeFallbackOnly
@@ -1915,49 +1943,32 @@ function Invoke-InstalledAppHost {
       if (-not $dialog) { throw "El App Host PID $($identity.Id) no mostró la confirmación de cierre para probar No." }
       $choice = Invoke-AppHostCloseConfirmationNo -Dialog $dialog
       Add-Result -Area 'native-app-host' -Item 'close-confirmation-no' -Ok $true -Detail "choice=$choice pid=$($identity.Id) runId=$RunId"
-      if (-not $process.WaitForExit($TimeoutSec * 1000)) {
-        throw "El App Host PID $($identity.Id) no cerró su ventana después de elegir No; no se forzará el cierre."
-      }
       $process.Refresh()
-      $exitCode = $process.ExitCode
-      if ($null -eq $exitCode) {
-        if (-not $process.HasExited) { throw 'No se pudo determinar ExitCode: el App Host todavía aparece activo.' }
-        if ($processHandle -eq [IntPtr]::Zero) { throw 'No se pudo determinar ExitCode: no se conservó el handle del App Host.' }
-        if (-not ('EvaluaPro.NativeProcessExitCode' -as [type])) {
-          Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-namespace EvaluaPro {
-  public static class NativeProcessExitCode {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool GetExitCodeProcess(IntPtr processHandle, out uint exitCode);
-  }
-}
-'@
-        }
-        [uint32]$nativeExitCode = 0
-        if (-not [EvaluaPro.NativeProcessExitCode]::GetExitCodeProcess($processHandle, [ref]$nativeExitCode)) {
-          $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-          throw "No se pudo recuperar ExitCode mediante GetExitCodeProcess (Win32=$nativeError)."
-        }
-        $exitCode = [int]$nativeExitCode
-        Write-E2ELog "ExitCode del App Host recuperado con GetExitCodeProcess: $exitCode"
-      }
-      if ([int]$exitCode -ne 0) {
-        throw "El App Host terminó con código $exitCode al elegir No."
-      }
+      if ($process.HasExited) { throw "El App Host PID $($identity.Id) terminó al elegir No; debía mantenerse en bandeja." }
+      $hiddenWindow = $false
+      $hideDeadline = (Get-Date).AddSeconds($TimeoutSec)
+      do {
+        $process.Refresh()
+        $visibleWindows = @(Get-AppHostTopLevelWindows -ProcessId ([int]$identity.Id) | Where-Object {
+          $_.Name -ne 'EvaluaPro · Cerrar' -and $_.NativeTitle -ne 'EvaluaPro · Cerrar'
+        })
+        if (-not $process.HasExited -and $visibleWindows.Count -eq 0) { $hiddenWindow = $true; break }
+        Start-Sleep -Milliseconds 250
+      } while ((Get-Date) -lt $hideDeadline)
+      if (-not $hiddenWindow) { throw "El App Host PID $($identity.Id) no ocultó la ventana al elegir No." }
       $errorLogLengthAfterClose = if (Test-Path -LiteralPath $appHostErrorLog -PathType Leaf) {
         [long](Get-Item -LiteralPath $appHostErrorLog).Length
       } else { 0L }
       if ($errorLogLengthAfterClose -gt $errorLogLengthBeforeClose) {
+        Copy-ArtifactIfExists -Path $appHostErrorLog -Name 'app-host-error-close-window.log' | Out-Null
+        Write-E2ELog 'Se conservó app-host-error.log como evidencia privada del cierre fallido.'
         throw 'El App Host registró una excepción al cerrar la ventana con la opción No.'
       }
       $remainingNode = @(Get-InstalledNodeProcesses)
       if ($remainingNode.Count -eq 0) { throw 'La opción No cerró los servicios Node; debía dejar el runtime en segundo plano.' }
       $health = Wait-NativeDashboardHealth -TimeoutSec 15
-      $script:activeNativeAppHost = $null
-      Add-Result -Area 'native-app-host' -Item 'close-window-process-exit' -Ok $true -Detail "pid=$($identity.Id) exitCode=$exitCode exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
-      Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'close-hides-window-keeps-host' -Ok (-not $process.HasExited -and $hiddenWindow) -Detail "pid=$($identity.Id) hidden=$hiddenWindow exceptionLogGrowthBytes=$([Math]::Max(0, $errorLogLengthAfterClose - $errorLogLengthBeforeClose)) runId=$RunId"
+      Add-Result -Area 'native-app-host' -Item 'no-keeps-services-healthy' -Ok ($health.state -eq 'healthy') -Detail "hostAlive=$(-not $process.HasExited) nodeProcesses=$($remainingNode.Count) api=$($health.apiResponding) web=$($health.webStatus) runId=$RunId"
       return $health
     } finally { $process.Dispose() }
   }
@@ -1982,10 +1993,8 @@ namespace EvaluaPro {
           $confirmedChoice = Invoke-AppHostCloseConfirmationYes -Dialog $dialog
           Add-Result -Area 'native-app-host' -Item 'close-confirmation-yes' -Ok $true -Detail "choice=$confirmedChoice pid=$($identity.Id) runId=$RunId"
         } elseif ($process.HasExited) {
-          # The v1.2.3 upgrade baseline predates the close dialog; it must exit cleanly.
           $installedVersion = [version](Get-InstalledProductVersion)
-          if ($installedVersion -ne [version]'1.2.3') { throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion." }
-          Add-Result -Area 'native-app-host' -Item 'legacy-close-without-confirmation' -Ok $true -Detail "version=$installedVersion pid=$($identity.Id) runId=$RunId"
+          throw "App Host PID $($identity.Id) cerró sin confirmación en la versión $installedVersion."
         } else {
           $hostLogPaths = @(
             (Join-Path $installedRoot 'logs\app-host.log'),
@@ -2041,6 +2050,30 @@ function Invoke-CaptureCommand {
   try { $processHandle = [IntPtr]$process.Handle } catch {}
   if (-not $process.WaitForExit($TimeoutSec * 1000)) {
     try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+    try { $null = $process.WaitForExit(5000) } catch {}
+    Copy-ArtifactIfExists -Path $stdout -Name ("{0}.stdout.log" -f $Name) | Out-Null
+    Copy-ArtifactIfExists -Path $stderr -Name ("{0}.stderr.log" -f $Name) | Out-Null
+
+    # InstallerBurnHelper emits bounded progress events on stdout. Preserve
+    # only those structured milestones in the job log so timeouts identify the
+    # stalled stage without dumping arbitrary helper output or configuration.
+    $progressSummary = @()
+    if (Test-Path -LiteralPath $stdout -PathType Leaf) {
+      foreach ($line in @(Get-Content -LiteralPath $stdout -Tail 200 -ErrorAction SilentlyContinue)) {
+        if ($line -notmatch '^EVALUAPRO_PROGRESS:(\{.*\})\s*$') { continue }
+        try {
+          $event = $Matches[1] | ConvertFrom-Json -ErrorAction Stop
+          $percent = [int]$event.Percent
+          $status = [string]$event.Status
+          if ($percent -ge 0 -and $percent -le 100 -and -not [string]::IsNullOrWhiteSpace($status)) {
+            $progressSummary += ("{0}% {1}" -f $percent, $status)
+          }
+        } catch { }
+      }
+    }
+    $lastProgress = if ($progressSummary.Count -gt 0) { $progressSummary[-1] } else { 'sin hitos EVALUAPRO_PROGRESS capturados' }
+    Add-Result -Area 'command' -Item $Name -Ok $false -Detail ("timeout={0}s; pid={1}; ultimo_hito={2}" -f $TimeoutSec, $process.Id, $lastProgress)
+    Write-E2ELog ("Timeout {0}s en {1}; pid={2}; último hito: {3}. Logs stdout/stderr adjuntos." -f $TimeoutSec, $Name, $process.Id, $lastProgress)
     throw "Timeout ejecutando $Name"
   }
   # Wait for redirected streams to EOF so .NET populates ExitCode
@@ -2185,7 +2218,7 @@ function Capture-UrlWithPlaywright {
     [string]$Name,
     [int]$Width = 1280,
     [int]$Height = 820,
-    [ValidateSet('apphost', 'docente')][string]$Surface
+    [ValidateSet('docente')][string]$Surface
   )
   $target = Join-Path $screenshotsDir ("{0}.png" -f $Name)
   try {
@@ -2207,10 +2240,10 @@ function Capture-UrlWithPlaywright {
   return ''
 }
 
-function Capture-DashboardScreenshots {
+function Capture-DocenteEntryScreenshots {
   param([string]$BaseUrl)
   if ([string]::IsNullOrWhiteSpace($BaseUrl)) { return }
-  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'dashboard-status-1280x820' -Width 1280 -Height 820 -Surface 'apphost' | Out-Null
+  Capture-UrlWithPlaywright -Url $BaseUrl -Name 'launcher-docente-1280x820' -Width 1280 -Height 820 -Surface 'docente' | Out-Null
   Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x820' -Width 1280 -Height 820 -Surface 'docente' | Out-Null
   Capture-UrlWithPlaywright -Url 'http://127.0.0.1:4173' -Name 'web-docente-1280x720' -Width 1280 -Height 720 -Surface 'docente' | Out-Null
 }
@@ -2417,6 +2450,24 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "No se pudo $Action el marcador SQLite de upgrade (exit=$LASTEXITCODE)." }
 }
 
+function Get-InstalledDatabaseSha256 {
+  param([Parameter(Mandatory = $true)][string]$DatabasePath)
+  $snapshotHashScript = Join-Path $root 'scripts\tests\sqlite-snapshot-hash.mjs'
+  if (-not (Test-Path -LiteralPath $snapshotHashScript -PathType Leaf)) {
+    throw "No existe el helper de snapshot SQLite online: $snapshotHashScript"
+  }
+  $output = @(& node.exe $snapshotHashScript $DatabasePath 2>&1)
+  if ($LASTEXITCODE -ne 0) {
+    $diagnostic = ($output -join "`n").Trim()
+    throw "No se pudo calcular la huella de una instantánea coherente de SQLite: $diagnostic"
+  }
+  $hash = ([string]($output | Select-Object -Last 1)).Trim()
+  if ($hash -notmatch '^(?i)[0-9a-f]{64}$') {
+    throw "El helper SQLite devolvió una huella inválida: $hash"
+  }
+  return $hash.ToLowerInvariant()
+}
+
 function Invoke-UpgradeBaselineFlow {
   param([Parameter(Mandatory = $true)][string]$BaselinePath)
   $verifiedBaseline = Assert-OfficialUpgradeBaseline -Path $BaselinePath
@@ -2428,13 +2479,10 @@ function Invoke-UpgradeBaselineFlow {
   if ($baselineVersion -ne [version]'1.2.3') { throw "El instalador baseline no dejó v1.2.3; versión observada: $baselineVersion" }
   Add-Result -Area 'upgrade' -Item 'baseline-version' -Ok $true -Detail ([string]$baselineVersion)
 
-  $baselineRunId = 'e2e-upgrade-baseline-' + [guid]::NewGuid().ToString('N')
-  $baselineState = Invoke-InstalledAppHost -Action 'open-dashboard' -RunId $baselineRunId -TimeoutSec 240
-  $baselineStateValue = if ($baselineState.PSObject.Properties.Match('state').Count -gt 0) { [string]$baselineState.state } else { 'unknown' }
-  if ($baselineStateValue -notin @('healthy', 'degraded')) { throw "La app baseline no quedó saludable antes de upgrade: $baselineStateValue" }
-
   $marker = 'upgrade-' + [guid]::NewGuid().ToString('N')
-  Invoke-InstalledAppHost -Action 'stop-all' -RunId ('upgrade-stop-' + [guid]::NewGuid().ToString('N'))
+  # Do not launch the legacy baseline App Host: its shutdown/adoption behavior
+  # is the very behavior being replaced and can leave unowned child services.
+  # Seed the isolated SQLite directly, then exercise lifecycle on the candidate.
   Invoke-UpgradeDataMarker -Action 'write' -Marker $marker
   Add-Result -Area 'upgrade' -Item 'baseline-data-marker' -Ok $true -Detail 'marcador SQLite escrito en la base instalada temporal'
   try {
@@ -3019,7 +3067,7 @@ try {
   Assert-NativeStable
   Export-NativeEvidence
   Export-RuntimeAudit -Name 'after'
-  Capture-DashboardScreenshots -BaseUrl $dashboardBase
+  Capture-DocenteEntryScreenshots -BaseUrl $dashboardBase
   Invoke-DummyDataCycle -BaseUrl $dashboardBase
   Test-UpdateSmoke -BaseUrl $dashboardBase
 

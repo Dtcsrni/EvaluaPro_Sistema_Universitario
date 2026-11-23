@@ -15,6 +15,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+if ($Mode -eq 'dev' -and $Port -eq 4519) { $Port = 4520 }
+if ($Mode -eq 'dev' -and $Port -ne 4520 -and $env:EVALUAPRO_TEST_INSTANCE -ne '1') {
+  throw "El dashboard de desarrollo usa el puerto reservado 4520; recibido $Port."
+}
+if ($Mode -eq 'prod' -and $Port -ne 4519 -and $env:EVALUAPRO_TEST_INSTANCE -ne '1') {
+  throw "El dashboard de producción usa el puerto reservado 4519; recibido $Port."
+}
 
 $logDir = Join-Path $root 'logs'
 if (-not (Test-Path $logDir)) {

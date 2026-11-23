@@ -475,12 +475,14 @@ test('parseJsonOutput preserva UTF-8 valido y repara mojibake sin degradar acent
   assert.equal(mojibake.issues[0], 'Falta archivo crítico');
 });
 
-test('bundle Burn no duplica el gate Docker del MSI cuando Installer Hub ya valida prerequisitos', () => {
+test('MSI docente-local no conserva gates Docker retirados del producto', () => {
   const productWxs = fs.readFileSync(productWxsPath, 'utf8');
   const bundleWxs = fs.readFileSync(bundleWxsPath, 'utf8');
 
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
-  assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
+  assert.doesNotMatch(productWxs, /WSLINSTALLED|DOCKERINSTALLED64|DOCKERINSTALLEDUSER|SKIP_DOCKER_RUNTIME_CHECK/);
+  assert.doesNotMatch(productWxs, /Docker|Docker Desktop|WSL2/i);
+  assert.match(productWxs, /persistencia SQLite/);
 });
 
 test('smoke GUI no destructivo valida el bundle Burn publico empaquetado', { timeout: 120_000 }, async () => {

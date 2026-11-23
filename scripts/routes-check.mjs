@@ -19,6 +19,12 @@ function envFlag(nombre, defaultValue = true) {
 
 // Flags “estrictos” (se pueden apagar temporalmente en CI/local sin tocar el script)
 const STRICT_PATHS = envFlag('ROUTES_CHECK_STRICT_PATHS', true);
+// These middleware parse and validate non-JSON request bodies themselves.
+// Keep the set explicit: a route may bypass validarCuerpo only when its named
+// middleware owns a strict, tested body contract (for example, a binary stream).
+const MIDDLEWARES_VALIDACION_CUERPO_ESTRICTA = new Set([
+  'recibirInstantaneaLocal'
+]);
 const STRICT_PORTAL_METHODS = envFlag('ROUTES_CHECK_STRICT_PORTAL_METHODS', true);
 
 function listarArchivosRecursivo(dir, filtro) {
@@ -229,8 +235,10 @@ function checarBackend() {
       }
 
       const usaValidacionMultipartDiferida = validaIngestaOmrDespuesDeMulter && call.includes('validarIngestaPdf');
-      const tieneValidar = call.includes('validarCuerpo(') || usaValidacionMultipartDiferida;
-      const tieneStrict = call.includes('strict: true') || usaValidacionMultipartDiferida;
+      const usaValidadorCuerpoEstricto = [...MIDDLEWARES_VALIDACION_CUERPO_ESTRICTA]
+        .some((middleware) => new RegExp(`(?:^|,)\\s*${middleware}\\s*(?=,|\\))`).test(call));
+      const tieneValidar = call.includes('validarCuerpo(') || usaValidacionMultipartDiferida || usaValidadorCuerpoEstricto;
+      const tieneStrict = call.includes('strict: true') || usaValidacionMultipartDiferida || usaValidadorCuerpoEstricto;
       const usaMiddlewareDelegado = /\.\.\.\s*middlewares[A-Za-z0-9_]+\./.test(call);
       if (usaMiddlewareDelegado) {
         continue;

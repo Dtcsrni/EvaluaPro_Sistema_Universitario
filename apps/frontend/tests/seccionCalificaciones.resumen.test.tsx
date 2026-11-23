@@ -630,7 +630,7 @@ describe('ConsultaCalificaciones', () => {
 
     await user.click(await screen.findByRole('button', { name: /^Ver detalle de Pérez López Ana/ }));
     await user.click(screen.getByRole('button', { name: 'Global y bono' }));
-    const global = screen.getByRole('spinbutton', { name: 'Examen Global manual · 0–5' });
+    const global = screen.getByRole('spinbutton', { name: 'Examen Global manual · 0–5.25 (incluye bono de guía)' });
     await user.clear(global);
     await user.type(global, '4.5');
     await user.click(screen.getByRole('button', { name: 'Guardar Global' }));
@@ -644,7 +644,7 @@ describe('ConsultaCalificaciones', () => {
     })));
   });
 
-  it('captura el examen del primer parcial en escala 0–5 y presenta las columnas nombradas del Excel', async () => {
+  it('captura el examen del primer parcial en escala 0–5.25 y presenta las columnas nombradas del Excel', async () => {
     const user = userEvent.setup();
     render(
       <ConsultaCalificaciones
@@ -670,7 +670,7 @@ describe('ConsultaCalificaciones', () => {
     expect(avisoSinDato).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Primer Parcial' }));
-    await user.type(screen.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5' }), '4.67');
+    await user.type(screen.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5.25 (incluye bono de guía)' }), '4.67');
     await user.click(screen.getAllByRole('button', { name: 'Guardar examen' })[0]);
 
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('/analiticas/lista-academica/calificaciones', expect.objectContaining({
@@ -696,10 +696,10 @@ describe('ConsultaCalificaciones', () => {
 
     await user.click(await screen.findByRole('button', { name: /^Ver detalle de Pérez López Ana/ }));
     await user.click(screen.getByRole('button', { name: 'Primer Parcial' }));
-    await user.type(screen.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5' }), '5.01');
+    await user.type(screen.getByRole('spinbutton', { name: 'Examen 1er Parcial · 0–5.25 (incluye bono de guía)' }), '5.26');
     await user.click(screen.getByRole('button', { name: 'Guardar examen' }));
 
-    expect(screen.getByText('La calificación de “Examen 1er Parcial” debe estar entre 0 y 5.')).toBeInTheDocument();
+    expect(screen.getByText('La calificación de “Examen 1er Parcial” debe estar entre 0 y 5.25.')).toBeInTheDocument();
     expect(enviarMock).not.toHaveBeenCalled();
   });
 

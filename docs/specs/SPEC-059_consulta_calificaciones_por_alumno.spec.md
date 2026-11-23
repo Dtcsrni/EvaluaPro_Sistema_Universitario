@@ -1,8 +1,8 @@
 ---
 id: SPEC-059
 titulo: Consulta clara de calificaciones por alumno y examen
-version: 1.6.5
-fecha: 2026-09-30
+version: 1.6.6
+fecha: 2026-10-24
 autor: EvaluaPro Team
 modulo: frontend_calificaciones
 estado: approved
@@ -45,7 +45,7 @@ punto de entrada de la pantalla, sin retirar el flujo OMR ni la calificación ma
   Parcial con sus nombres: “Tareas y Ejercicios 2do Parcial”, “Practica 2do
   Parcial”, “Evaluación Continua 2do Parcial”, “Exámen 2do Parcial” y
   “Calificación Segundo Parcial”. Las tareas y práctica están en escala 0–10;
-  evaluación continua y examen en escala 0–5.
+  evaluación continua y examen en escala 0–5. El +0.25 se aplica solo cuando aparece escrito en el área de calificación del examen, y el resultado nunca supera 5.
 - REQ-010: El valor de “Tareas y Ejercicios 2do Parcial” debe calcularse como
   `10 × suma(puntos obtenidos) ÷ suma(puntos posibles)`, solo con actividades
   seleccionadas y asignadas explícitamente a esa columna en Corte 2. Una entrega
@@ -180,7 +180,7 @@ punto de entrada de la pantalla, sin retirar el flujo OMR ni la calificación ma
 | AC-014 | Columna única, fórmulas de prioridad y recálculo en apertura del XLSX | apps/backend/tests/analiticas.xlsx.sv.contract.test.ts | Prueba focal ejecutada: columna BB y fórmulas enlazadas; recálculo al abrir habilitado en ExcelJS |
 | REQ-020, AC-016 | Entrega de exportaciones CSV/XLSX desde la GUI | apps/frontend/tests/seccionCalificaciones.manualSelector.test.tsx | Pruebas focales pasan para ambas extensiones. E2E Edge confirmó descarga XLSX de 4 filas, encabezado único BB, 28 fórmulas y recálculo al abrir; el archivo físico quedó en Descargas. Las fórmulas aún no tienen caché de resultados antes de abrir Excel. |
 | REQ-021, AC-017 | Descargas CSV/XLSX autenticadas mediante SDK API | scripts/tests/evaluapro-client.test.mjs; apps/backend/tests/integracion/apiSdkExportaciones.test.ts | SDK 39/39; integración 1/1 con servidor HTTP real, bearer, periodo aislado y conservación de bytes. |
-| REQ-022, AC-018 | Validación local del periodo, etiquetas y escalas del SDK | scripts/tests/evaluapro-client.test.mjs | Prueba focal aprobada: periodo obligatorio, componente exacto y topes 10, 5.25, 5 y 1 antes de llamar a la API. |
+| REQ-022, AC-018 | Validación local del periodo, etiquetas y escalas del SDK | scripts/tests/evaluapro-client.test.mjs | Prueba existente actualizada; no ejecutada en este cambio. Contrato esperado: periodo obligatorio, componente exacto y topes 10, 5, 5 y 1 antes de llamar a la API. |
 | Captura UI y accesibilidad visual | Captura/edición manual por nombre de columna; contraste en tema claro | apps/frontend/tests/seccionCalificaciones.resumen.test.tsx; tests/gui-responsive/journey-docente-integral.spec.ts | Implementado y E2E Edge verificado |
 | REQ-019, AC-015 | Consulta de materias archivadas en solo lectura y API por periodo | apps/frontend/tests/seccionCalificaciones.resumen.test.tsx; apps/backend/tests/integracion/listaAcademicaContratos.test.ts | Implementado; pruebas de regresión añadidas |
 

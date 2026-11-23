@@ -1,93 +1,42 @@
 # WiX Packaging (MSI)
 
-Empaquetado Windows para primera version estable distribuible.
-Responsable: `I.S.C. Erick Renato Vega Ceron`.
+Empaquetado Windows del único perfil soportado: `docente-local`.
 
-## Estructura
-- `Product.wxs`: MSI principal por flavor (`EvaluaPro-<flavor>.msi`).
-- `Bundle.wxs`: bundle publico por flavor (`EvaluaPro-InstallerHub-<flavor>.exe`) basado en WiX Burn.
-- `BurnBootstrapperApp/`: Bootstrapper Application personalizada en `WPF .NET 8`; el flujo público `docente-local` usa el helper nativo incluido y no inicia PowerShell en runtime.
-- `Fragments/AppFiles.wxs`: archivos instalados.
-- `Fragments/Shortcuts.wxs`: accesos directos Dev/Prod.
-- `Fragments/Cleanup.wxs`: limpieza de logs/menu en uninstall.
-- `../../docs/DESIGN.md`: contrato UI/UX del Installer Hub.
+## Componentes
 
-## Requisitos
-- WiX Toolset v7.0.x estable (`wix` en PATH) y EULA `wix7` aceptada explícitamente (`wix eula accept wix7`).
-- Node.js 24+ para tareas de build/empaquetado en host.
-- Runtime Docker compatible para Windows:
-  - WSL2 + Docker Engine (default).
-  - Docker Desktop (compatibilidad opcional).
-- Para `docente-local` instalado:
-  - Windows usa runtime Node embebido privado del producto.
-  - `WSL2` debe quedar con `Docker Engine + Node 24`.
-- Para compilar bundle, el script resuelve automaticamente la extension BA de WiX 7 (`WixToolset.Bal.wixext` / `WixToolset.BootstrapperApplications.wixext.dll`).
+- `Product.wxs`: MSI per-user para Windows.
+- `Bundle.wxs`: bundle público de WiX Burn.
+- `BurnBootstrapperApp/`: interfaz WPF .NET del Installer Hub.
+- `Fragments/`: archivos y accesos directos instalados.
+
+El runtime distribuido usa Node embebido, API local y SQLite. No requiere MongoDB,
+Docker ni WSL. Los paquetes de contenedor y el flavor SaaS heredado fueron retirados.
+
+## Requisitos de build
+
+- Windows.
+- Node.js 24+ para build y empaquetado.
+- WiX Toolset 7 estable y licencia `wix7` aceptada explícitamente.
+- .NET SDK requerido por el host y el bootstrapper.
 
 ## Build
 
-Este empaquetado es solo para Windows. En WSL/Linux, `scripts/build-msi.ps1` falla al inicio con un mensaje explicito y no intenta ejecutar WiX.
-
-Desde la raiz:
-
-```powershell
-npm run msi:build
-```
-
-El build MSI ejecuta checks de estabilidad antes de empaquetar y genera los MSI por flavor.
-
-`npm run msi:build`:
-- compila `EvaluaPro-saas-completo.msi` y `EvaluaPro-docente-local.msi`.
-- compila el bundle Burn publico solo si se habilita bundle:
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-msi.ps1 -IncludeBundle`
-  - o `EVALUAPRO_BUILD_BUNDLE=1`.
-
-Build oficial del entrypoint Windows:
+Desde la raíz del repositorio:
 
 ```powershell
 npm run installer:hub:build
 ```
 
-Ese comando publica la BA `WPF .NET 8`, valida icono canónico multi-size y genera:
-- `EvaluaPro-InstallerHub-saas-completo.exe`
-- `EvaluaPro-InstallerHub-docente-local.exe`
+El comando construye únicamente `docente-local` y produce el MSI, bundle y manifiesto
+en `dist/installer/`. El script no modifica la instalación activa; el E2E real del
+instalador es una tarea local separada y requiere `-IUnderstandThisMutatesPc`.
 
-Politica operativa:
-- `EvaluaPro-InstallerHub-<flavor>.exe` es la fuente publica oficial de instalacion Windows.
-- el MSI sigue siendo el payload principal del bundle y puede conservarse como artefacto tecnico interno.
+## CI
 
-Artefactos tecnicos esperados:
-- `dist/installer/_internal/EvaluaPro-saas-completo.msi`
-- `dist/installer/_internal/EvaluaPro-docente-local.msi`
-- `dist/installer/_internal/*.wixpdb`
-- `dist/installer/_internal/burn-bootstrapper-app/`
+- `.github/workflows/ci-installer-windows.yml` compila el bundle y ejecuta sus gates de
+  build, huella, smoke GUI y antivirus.
+- Las E2E de instalación deben ejecutarse localmente con el bundle candidato exacto.
 
-## CI Windows
-- Workflow: `.github/workflows/ci-installer-windows.yml`.
-- Se ejecuta en `main`, `tags v*` y manual.
-- Publica BA `.NET 8`, compila MSI + bundle Burn (`-SkipStabilityChecks -IncludeBundle`) y publica artefactos.
-
-## Notas
-- El acceso directo principal **EvaluaPro** de `docente-local` ejecuta directamente:
-  - `EvaluaPro.exe` (host nativo WPF/WebView2 con icono embebido)
-- El acceso directo principal de flavors con bandeja conserva:
-  - `launcher-tray-hidden.vbs prod 4519` (flavors heredados; excluido de `docente-local`)
-- El acceso directo **Dev** ejecuta:
-  - `launcher-tray-hidden.vbs dev 4519` (flavors heredados; excluido de `docente-local`)
-- `config/shortcuts-manifest.json` es la fuente única de nombres, iconos y launchers.
-- `scripts/create-shortcuts.ps1` se conserva para desarrollo/flavors heredados. En `docente-local`, WiX/MSI crea los accesos nativos y los reconcilia en instalación/actualización.
-- Instalacion/actualizacion:
-  - genera automaticamente accesos directos de menu inicio.
-  - por defecto tambien genera accesos directos en escritorio (`InstallDesktopShortcuts=1`).
-  - por defecto tambien mantiene accesos en menu inicio (`InstallStartMenuShortcuts=1`).
-  - los overrides MSI siguen existiendo para automatizacion interna, pero no forman parte del flujo soportado a usuario final.
-- El instalador aplica upgrade in-place si detecta una version previa.
-- La instalacion es per-machine y solicita elevacion (UAC) al inicio.
-- El instalador valida prerequisitos no autoconfigurables:
-  - runtime Docker compatible (`WSL2 + Docker Engine` o `Docker Desktop`)
-  - para `docente-local`, `Node.js 24+` host + runtime Node embebido local valido + `Node 24` dentro de la distro `WSL2`
-  - para `saas-completo`, `Node.js 24+` host mientras ese flavor no migre a runtime embebido
-- La BA personalizada orquesta:
-  - deteccion de prerequisitos,
-  - `install|repair|uninstall`,
-  - chain MSI manejado por Burn,
-  - helper post-install para `.env`, `update-config.json`, bootstrap WSL2, verificacion y blindaje local de licencia.
+Los accesos directos de `docente-local` usan `EvaluaPro.exe`, que aloja la ventana,
+la bandeja y los servicios locales. Los scripts de launcher heredados no son parte
+del paquete distribuido.

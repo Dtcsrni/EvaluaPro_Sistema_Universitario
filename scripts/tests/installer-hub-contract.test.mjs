@@ -24,9 +24,6 @@ const vmE2eInVmPath = path.join(root, 'scripts', 'ci', 'run-e2e-in-vm.ps1');
 const hostCanaryLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-host-canary.ps1');
 const autoE2eLauncherPath = path.join(root, 'scripts', 'ci', 'run-e2e-auto.ps1');
 const qaSecretSetupPath = path.join(root, 'scripts', 'ci', 'set-e2e-qa-secret.ps1');
-const dockerComposePath = path.join(root, 'docker-compose.yml');
-const dockerComposeProdBuildPath = path.join(root, 'docker-compose.prod-build.yml');
-const packageWorkflowPath = path.join(root, '.github', 'workflows', 'package.yml');
 const burnHelperPath = path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1');
 const installerHubContractsModulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'InstallerHubContracts.psm1');
 const installerE2EReportDirectoryModulePath = path.join(root, 'scripts', 'tests', 'installer-e2e-report-directory.psm1');
@@ -166,7 +163,11 @@ Write-Output 'PRIVATE_ACL_CREATED_AND_EXISTING_PATH_REJECTED'
   }
 });
 
-test('el contrato PowerShell acepta protectedSecrets opcional y rechaza extensiones desconocidas', () => {
+test('el contrato PowerShell acepta protectedSecrets opcional y rechaza extensiones desconocidas', {
+  skip: process.platform !== 'win32'
+    ? 'Este contrato de runtime se valida con Windows PowerShell en el job Windows del instalador.'
+    : false
+}, () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-installerhub-request-contract-'));
   const requestPath = path.join(tempRoot, 'request.json');
   const escapedRequestPath = requestPath.replace(/'/g, "''");
@@ -513,9 +514,9 @@ test('installer prereq manifest incluye contrato minimo', () => {
   assert.equal(typeof manifest.version, 'string');
   assert.equal(typeof manifest.defaultProfile, 'string');
   assert.equal(Array.isArray(manifest.profiles), true);
-  assert.equal(manifest.profiles.length >= 2, true);
+  assert.deepEqual(manifest.profiles.map((item) => item.profileId), ['docente-local']);
   assert.equal(Array.isArray(manifest.prerequisites), true);
-  assert.equal(manifest.prerequisites.length >= 2, true);
+  assert.deepEqual(manifest.prerequisites.map((item) => item.name), ['Node.js']);
 
   for (const item of manifest.prerequisites) {
     assert.equal(typeof item.name, 'string');
@@ -527,24 +528,9 @@ test('installer prereq manifest incluye contrato minimo', () => {
     assert.equal(typeof item.detectRule.type, 'string');
   }
 
-  const dockerRuntime = manifest.prerequisites.find((item) => item.detectRule?.type === 'docker_runtime_windows');
-  assert.ok(dockerRuntime);
-  assert.equal(dockerRuntime.name, 'Docker Runtime Windows');
-  assert.match(dockerRuntime.downloadUrl, /wsl\/install/i);
-
-  const nodeWsl = manifest.prerequisites.find((item) => item.detectRule?.type === 'node_major_wsl');
-  assert.ok(nodeWsl);
-  assert.equal(nodeWsl.name, 'Node.js WSL2');
-  assert.equal(nodeWsl.detectRule.minMajor, 24);
-
   const docenteProfile = manifest.profiles.find((item) => item.profileId === 'docente-local');
-  const saasProfile = manifest.profiles.find((item) => item.profileId === 'saas-completo');
   assert.ok(docenteProfile);
-  assert.ok(saasProfile);
   assert.equal(docenteProfile.prerequisites.includes('Node.js'), true);
-  assert.equal(docenteProfile.prerequisites.includes('Node.js WSL2'), false);
-  assert.equal(docenteProfile.prerequisites.includes('Docker Runtime Windows'), false);
-  assert.equal(saasProfile.prerequisites.includes('Node.js'), true);
 });
 
 test('canal update por defecto es stable en config y scripts', () => {
@@ -618,27 +604,24 @@ test('workflow beta publica solo hubs en assets de prerelease', () => {
   assert.doesNotMatch(workflow, /build-installer-hub\.ps1/);
 });
 
-test('runtime Docker Windows queda abstracto en dashboard, WiX y package scripts', () => {
+test('docente-local ejecuta SQLite nativo sin runtime de contenedor', () => {
   const launcherDashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
   const productWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Product.wxs'), 'utf8');
   const bundleWxs = fs.readFileSync(path.join(root, 'packaging', 'wix', 'Bundle.wxs'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
-  assert.match(launcherDashboard, /EVALUAPRO_DOCKER_RUNTIME/);
   assert.match(launcherDashboard, /native-node-sqlite/);
-  assert.match(launcherDashboard, /WSL2 \+ Docker Engine/);
-  assert.match(launcherDashboard, /Docker Desktop/);
-  assert.match(productWxs, /WSLINSTALLED/);
-  assert.match(productWxs, /\<\?if \$\(var\.FlavorId\) != docente-local \?\>/);
+  assert.match(launcherDashboard, /prod: 'npm run docente:prod:native'/);
+  assert.doesNotMatch(productWxs, /WSLINSTALLED|DOCKERINSTALLED64|DOCKERINSTALLEDUSER|SKIP_DOCKER_RUNTIME_CHECK/);
+  assert.doesNotMatch(productWxs, /Docker|Docker Desktop|WSL2/i);
   assert.match(productWxs, /Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1/);
-  assert.match(productWxs, /SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED/);
   assert.match(productWxs, /Distribucion docente local[\s\S]*persistencia SQLite/);
   assert.match(productWxs, /<Directory Id="INSTALLFOLDER" Name="\$\(var\.InstallFolderName\)" \/>/);
   assert.match(bundleWxs, /MsiProperty Name="REQUIRE_INSTALLER_HUB" Value="1"/);
   assert.match(bundleWxs, /if \$\(var\.FlavorId\) = docente-local \?>[\s\S]*Variable Name="InstallFolder" Type="string" Value="\[LocalAppDataFolder\]EvaluaPro" bal:Overridable="yes" \/>[\s\S]*else\?>/);
   assert.doesNotMatch(bundleWxs, /Variable Name="InstallFolder" Type="string" Value="\[LocalAppDataFolder\]EvaluaPro" Persisted="yes"/);
-  assert.match(productWxs, /runtime Docker compatible/i);
-  assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
+  assert.equal(packageJson.scripts['docker:runtime:check'], undefined);
+  assert.equal(packageJson.scripts['dev:backend'], 'npm -C apps/backend run dev');
 });
 
 test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => {
@@ -665,8 +648,7 @@ test('build-msi valida contenedor adjunto Burn antes de publicar bundle', () => 
   assert.match(bundleGuard, /'burn', 'extract'/);
   assert.match(buildMsi, /function Assert-MsiAdministrativeExtractionContainsAppPayload/);
   assert.match(buildMsi, /Assert-MsiAdministrativeExtractionContainsAppPayload -MsiPath \$productOut -InstallFolderName \$installFolderName/);
-  assert.match(buildMsi, /'docker-compose\.yml'/);
-  assert.match(buildMsi, /'docker-compose\.prod-build\.yml'/);
+  assert.doesNotMatch(buildMsi, /docker-compose(?:\.prod-build)?\.yml/);
   assert.match(buildMsi, /-p:AssemblyVersion=\$dotNetNumericVersion/);
   assert.match(buildMsi, /-p:FileVersion=\$dotNetNumericVersion/);
   assert.match(buildMsi, /-p:InformationalVersion=\$VersionTag/);
@@ -1475,7 +1457,7 @@ test.skip('Legacy: Installer Hub tenía runner E2E docente con guardas remotas',
   assert.match(runner, /Get-EvaluaProUninstallEntries/);
   assert.doesNotMatch(runner, /Invoke-DockerStableStack|Assert-DockerStable|Export-DockerEvidence/);
   assert.doesNotMatch(runner, /LastDockerExitCode|docker compose|docker-ps|docker-inspect|docker-logs|docker-context|docker-images/);
-  assert.match(runner, /Capture-DashboardScreenshots/);
+  assert.match(runner, /Capture-DocenteEntryScreenshots/);
   assert.match(runner, /Test-UpdateSmoke/);
   assert.match(runner, /\/api\/update\/status/);
   assert.match(runner, /update-status\.json/);
@@ -2387,50 +2369,8 @@ $runtime | ConvertTo-Json -Depth 8
   assert.match(String(parsed.reason || ''), /prioriza bootstrap WSL2|WSL2 detectado/i);
 });
 
-test('Compose legacy conserva image-first y fallback build separado fuera del Hub docente', () => {
-  const compose = fs.readFileSync(dockerComposePath, 'utf8');
-  const prodBuild = fs.readFileSync(dockerComposeProdBuildPath, 'utf8');
-  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-
-  assert.match(compose, /api_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
-  assert.match(compose, /web_docente_local:[\s\S]*?profiles:\s*\["dev"\]/);
-  assert.match(compose, /api_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_API_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-api-docente/);
-  assert.match(compose, /web_docente_prod:[\s\S]*?image:\s*\$\{EVALUAPRO_WEB_DOCENTE_IMAGE:-ghcr\.io\/dtcsrni\/evaluapro-web-docente/);
-  assert.match(compose, /BACKEND_DATABASE_URL=\$\{BACKEND_DATABASE_URL_DOCKER:-file:\/app\/data\/sqlite\/evaluapro\.db\}/);
-  assert.match(compose, /BACKEND_SQLITE_DATA_DIR_DOCKER:-\.\/apps\/backend\/data\/sqlite/);
-  assert.match(compose, /EVALUAPRO_IMAGE_TAG:-1\.2\.4/);
-  assert.doesNotMatch(compose, /api_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
-  assert.doesNotMatch(compose, /web_docente_prod:[\s\S]*?build:[\s\S]*?profiles:\s*\["prod"\]/);
-  assert.match(prodBuild, /api_docente_prod:[\s\S]*?build:/);
-  assert.match(prodBuild, /web_docente_prod:[\s\S]*?build:/);
-  assert.match(packageJson.scripts['stack:prod:full'], /docker-compose\.prod-build\.yml/);
-  assert.match(packageJson.scripts['api:rebuild'], /docker-compose\.prod-build\.yml/);
-  assert.doesNotMatch(packageJson.scripts['stack:prod'], /--build/);
-  assert.match(packageJson.scripts['stack:prod'], /--no-build -d mongo_local api_docente_prod web_docente_prod/);
-  assert.doesNotMatch(packageJson.scripts['stack:prod'], /detect-host-ip/);
-});
-
-test('package workflow publica imagenes docente GHCR versionadas', () => {
-  const workflow = fs.readFileSync(packageWorkflowPath, 'utf8');
-  const backendDockerfile = fs.readFileSync(path.join(root, 'apps', 'backend', 'Dockerfile'), 'utf8');
-  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-
-  assert.match(workflow, /packages:\s*write/);
-  assert.match(workflow, /docker\/login-action@[0-9a-f]{40} # v3/);
-  assert.match(workflow, /ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
-  assert.match(workflow, /ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
-  assert.match(workflow, /API_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.api_image \}\}/);
-  assert.match(workflow, /WEB_IMAGE:\s*\$\{\{ steps\.meta\.outputs\.web_image \}\}/);
-  assert.match(workflow, /docker push "\$API_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(workflow, /docker push "\$WEB_IMAGE:\$IMAGE_VERSION"/);
-  assert.match(backendDockerfile, /COPY --from=builder \/app\/node_modules\/\.prisma \/app\/node_modules\/\.prisma/);
-  assert.match(backendDockerfile, /COPY scripts\/migrate-\*\.mjs \.\/apps\/backend\/scripts\//);
-  assert.match(backendDockerfile, /COPY --from=builder \/app\/apps\/backend\/scripts \.\/apps\/backend\/scripts/);
-  assert.match(backendDockerfile, /COPY --from=builder \/app\/config\/app-version\.json \/app\/config\/version-catalog\.json \.\/config/);
-  assert.match(backendDockerfile, /ARG BUILD_COMMIT=local[\s\S]*?ENV GITHUB_SHA=\$\{BUILD_COMMIT\}/);
-  assert.match(backendDockerfile, new RegExp(`npm install -g npm@${packageJson.packageManager.replace('npm@', '')}`, 'g'));
-  assert.match(workflow, /Smoke de Prisma Client en imagen runtime[\s\S]*?PrismaClient no está disponible en la imagen runtime[\s\S]*?La versión de API no coincide con el tag de imagen[\s\S]*?El commit de API no coincide con el SHA del build/);
-  assert.doesNotMatch(workflow, /docker push \$\{\{/);
+test('CLOUD-DOCKER-PACKAGING-RETIRED: la publicación cloud no se configura', () => {
+  assert.equal(fs.existsSync(path.join(root, '.github', 'workflows', 'package.yml')), false);
 });
 
 test.skip('bootstrap guiado WSL2 genera guia local y permite simulacion de cierre', () => {
@@ -3124,24 +3064,16 @@ test('launcher broker conserva el lock de un dashboard vivo durante su primera r
   assert.match(broker, /Lockfile stale: dashboard no responde en puerto/);
 });
 
-test('dashboard usa runtime nativo en docente-local y soporta flavors institucionales', () => {
+test('runtime nativo y catálogo se limitan a la instalación local', () => {
   const dashboard = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  const flavors = JSON.parse(fs.readFileSync(path.join(root, 'config', 'installer-flavors.json'), 'utf8'));
 
-  assert.match(dashboard, /function resolveEffectiveDockerRuntime/);
+  assert.deepEqual(flavors.flavors.map((flavor) => flavor.flavorId), ['docente-local']);
+  assert.equal(flavors.flavors[0].requireDockerRuntime, false);
   assert.match(dashboard, /native-node-sqlite/);
-  assert.match(dashboard, /function requiresDockerRuntime/);
   assert.match(dashboard, /nativeDocenteCommand/);
   assert.match(dashboard, /start-docente-native\.mjs/);
   assert.match(dashboard, /not-required/);
-  assert.match(dashboard, /function dockerCliArgs/);
-  assert.match(dashboard, /function dockerCommandForShell/);
-  assert.match(dashboard, /wsl', '-d', 'Ubuntu', '-u', 'root'/);
-  assert.match(dashboard, /--no-build', '-d', 'mongo_local', 'api_docente_prod', 'web_docente_prod'/);
-  assert.match(dashboard, /desktop-manual/);
-  assert.match(dashboard, /desktop-unapproved/);
-  assert.match(dashboard, /EVALUAPRO_DOCKER_RUNTIME=desktop/);
-  assert.match(dashboard, /runtime: dockerRuntime/);
-  assert.doesNotMatch(dashboard, /docenteWslTarget|No requerido para docente-local/);
 });
 
 test('baseline docente publica solo el runtime nativo y los límites del bundle', () => {
@@ -3541,14 +3473,18 @@ test('SPEC-050: cada acceso declarado tiene launcher e icono canónicos', () => 
   assert.equal(names.has('EvaluaPro - Hub'), true);
 });
 
-test('SPEC-050: post-install regenera tambien los shortcuts locales y el build no empaqueta .lnk absolutos', () => {
+test('SPEC-050-POST-INSTALL-NATIVE-SHORTCUTS: actualiza accesos locales y evita empaquetar .lnk absolutos', () => {
   const helper = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'InstallerBurnHelper.ps1'), 'utf8');
   const buildMsi = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
-  const shortcuts = fs.readFileSync(path.join(root, 'scripts', 'create-shortcuts.ps1'), 'utf8');
+  const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'App.xaml.cs'), 'utf8');
+  const reconciler = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'ShortcutReconciler.cs'), 'utf8');
   const trackedLinks = execFileSync('git', ['ls-files', '-z', '--', 'accesos-directos/*.lnk'], { cwd: root, encoding: 'utf8' });
 
-  assert.match(helper, /-OutputDir accesos-directos -Force -SyncRepoOutput -SkipManifestUpdate -Port 4519/);
-  assert.match(shortcuts, /\[switch\]\$SyncRepoOutput/);
+  assert.match(helper, /-TargetDir \$targetDir -TimeoutSeconds 90/);
+  assert.match(helper, /\$startInfo\.Arguments = '--regenerate-shortcuts'/);
+  assert.match(appHost, /ShortcutReconciler\.Regenerate\(\)/);
+  assert.match(reconciler, /Environment\.SpecialFolder\.DesktopDirectory/);
+  assert.match(reconciler, /Environment\.SpecialFolder\.Startup/);
   assert.match(buildMsi, /\$relativePath -match '\^accesos-directos\/\[\^\/\]\+\\\.lnk\$'/);
   assert.equal(trackedLinks, '', 'Los accesos .lnk generados no deben versionarse.');
 });
@@ -3558,11 +3494,19 @@ test('SPEC-INSTALLER-ROLLBACK-CLEANUP: un fallo de shortcuts conserva la instala
   const verifier = fs.readFileSync(path.join(root, 'scripts', 'installer-burn', 'modules', 'PostInstallVerifier.psm1'), 'utf8');
   const hubVerification = fs.readFileSync(installerHubVerificationModulePath, 'utf8');
 
-  assert.match(helper, /-SyncRepoOutput -SkipManifestUpdate/);
+  assert.match(helper, /\$startInfo\.Arguments = '--regenerate-shortcuts'/);
   assert.match(helper, /function Invoke-ShortcutReconciliation/);
   assert.match(helper, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
   assert.match(helper, /\$process\.Kill\(\)/);
   assert.match(helper, /\$stopped = \$process\.WaitForExit\(5000\)/);
+  const shortcutReconciliation = helper.slice(
+    helper.indexOf('function Invoke-ShortcutReconciliation {'),
+    helper.indexOf('\nfunction Get-RequestValue {')
+  );
+  assert.doesNotMatch(shortcutReconciliation, /RedirectStandard(Output|Error)\s*=\s*\$true/);
+  assert.doesNotMatch(shortcutReconciliation, /ReadToEndAsync|GetAwaiter\(\)\.GetResult\(\)/,
+    'el timeout de proceso no debe esperar EOF de pipes que puedan seguir abiertos');
+  assert.match(shortcutReconciliation, /finally\s*\{\s*\$process\.Dispose\(\)\s*\}/);
   assert.match(helper, /El proceso no terminó después de solicitar su cierre/);
   assert.match(helper, /-TimeoutSeconds 90/);
   assert.match(helper, /excedió 90 segundos; se conserva la instalación/);
@@ -3622,4 +3566,13 @@ test('build-msi limpia el workspace npm opcional sin Remove-Item', { skip: proce
     windowsHide: true,
     timeout: 30_000
   });
+});
+
+test('SPEC-050: la identidad del dashboard tolera arranques en frío con un timeout acotado', () => {
+  const appHost = fs.readFileSync(path.join(root, 'packaging', 'app-host', 'MainWindow.xaml.cs'), 'utf8');
+
+  assert.match(appHost, /DashboardIdentityHttpClient\s*=\s*new\(\)\s*\{\s*Timeout\s*=\s*TimeSpan\.FromSeconds\(10\)\s*\}/);
+  assert.match(appHost, /DashboardIdentityHttpClient\.GetAsync/);
+  const adoption = appHost.match(/private async Task TryAdoptDashboardAsync\(int dashboardPort\)[\s\S]*?\n    private async Task<bool> VerifyDashboardIdentityAsync/)?.[0] || '';
+  assert.match(adoption, /DashboardIdentityHttpClient\.GetAsync\([^\n]*\/api\/install/);
 });

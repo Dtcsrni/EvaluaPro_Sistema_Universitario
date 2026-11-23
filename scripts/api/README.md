@@ -19,6 +19,23 @@ Cuando la cuenta usa Google, el cliente también ofrece `loginGoogle(credential)
 aplicación; el SDK lo intercambia en `/autenticacion/google` por la sesión API.
 La credencial y el token son secretos efímeros: no los registres ni los persistas.
 
+### Sesión API local reutilizable en Windows
+
+Para evitar iniciar sesión en cada proceso, solicita una credencial delegada una sola vez:
+
+```powershell
+$env:EVALUAPRO_URL = 'http://127.0.0.1:4000'
+node scripts/api/sesion-local.mjs authorize
+```
+
+La CLI muestra un código de cinco minutos; en EvaluaPro abre **Cuenta → Acceso de clientes API locales**, verifica el nombre y los permisos y autoriza explícitamente. Por defecto solicita solo lectura para periodos, temarios, banco, plantillas y exámenes. Para pedir otros permisos usa `--permissions=permiso1,permiso2`; la UI permite conceder un subconjunto.
+
+El secreto renovable se entrega una sola vez al proceso y se guarda en Windows Credential Manager del usuario actual. Los JWT duran 15 minutos y permanecen en memoria. No se leen cookies, `localStorage`, perfiles del navegador, contraseñas ni credenciales Google. La credencial puede inspeccionarse con `node scripts/api/sesion-local.mjs status` y revocarse con `node scripts/api/sesion-local.mjs revoke`; la revocación también borra la copia local. No imprimas ni registres el cuerpo de la respuesta de intercambio o renovación.
+
+El backend conserva solo el hash del secreto renovable y aplica scopes, roles vigentes, expiración y revocación. Si cambias de servidor/base URL, debes autorizarlo por separado. El cliente `EvaluaproClient` carga automáticamente la credencial local guardada en Windows al primer endpoint protegido cuando usa `fetch` nativo y no se proporciona un Bearer; con un transporte personalizado se activa mediante `autoRecoverApiSession: true`.
+
+Con el scope `omr:analizar`, el cliente local puede usar el ciclo de ingesta OMR permitido por las rutas del catálogo: crear/consultar procesos, recuperar originales y previews, resolver páginas, reintentar y finalizar. La previsualización y la escritura de calificaciones OMR requieren además `calificaciones:calificar`; la escritura mantiene confirmación explícita e idempotencia. Las rutas OMR no incluidas en el catálogo siguen denegadas.
+
 ## Reglas de operación
 
 - El SDK trae helpers para los flujos automatizados más usados; `request()` también permite consumir otras operaciones del catálogo sin navegador. Antes de usar una ruta sin helper, consulta `CRUD_CATALOG.md`, OpenAPI y el validador Zod/servicio real. `request()` genérico no impone las confirmaciones locales de cada helper: el agente debe conservar confirmación/autorización, concurrencia, idempotencia y reglas de dominio de esa operación.

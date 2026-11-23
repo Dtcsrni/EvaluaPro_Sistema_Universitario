@@ -44,7 +44,7 @@ export function calcularCalificacionExacta(
   const numerador = new Decimal(aciertos).mul(5);
   const denominador = new Decimal(totalReactivos || 1);
   const calificacionBase = numerador.div(denominador);
-  const bono = Decimal.min(new Decimal(0.5), new Decimal(bonoSolicitado || 0));
+  const bono = Decimal.min(new Decimal(0.25), Decimal.max(new Decimal(0), new Decimal(bonoSolicitado || 0)));
   const calificacionFinal = Decimal.min(new Decimal(5), calificacionBase.add(bono));
 
   return {

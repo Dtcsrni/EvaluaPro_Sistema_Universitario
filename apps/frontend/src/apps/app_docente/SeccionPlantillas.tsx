@@ -20,7 +20,7 @@ import { PlantillasOmrWorkflow, type ArchivoOmrLote, type TrabajoOmrResumen } fr
 import { crearContenidoConfirmacionGeneracionLote } from './features/plantillas/confirmacionGeneracionLote';
 import type { CalificacionManualDesdeIngesta } from './capturasRevisionManual';
 import { sincronizarResumenTrabajoOmr } from './features/plantillas/estadoTrabajoOmr';
-import { agruparLotesOmr, cargarCandidatosOmr } from './features/plantillas/archivoOmr';
+import { agruparExamenesOmrPorLote, cargarExamenesOmrReferenciables } from './features/plantillas/archivoOmr';
 import { guardarTabPlantillas, leerTabPlantillasInicial, type TabPlantillas } from './features/plantillas/tabPlantillasState';
 import { cargarExamenesActivosDeLote, describirLote } from './features/plantillas/historialLotes';
 import { derivarDisponibilidadPlantilla } from './features/plantillas/datosPlantilla';
@@ -395,14 +395,10 @@ export function SeccionPlantillas({
     try {
       const periodosArchivados = await clienteApi.obtener<{ periodos: Periodo[] }>('/periodos?activo=false');
       setPeriodosArchivadosOmr(Array.isArray(periodosArchivados.periodos) ? periodosArchivados.periodos : []);
-      const acumulados = await cargarCandidatosOmr<ExamenGeneradoResumen>(async (archivado, cursor) => {
-        const query = new URLSearchParams({ archivado: String(archivado), limite: '200' });
-        if (cursor) query.set('cursor', cursor);
-        return clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(
-          `/examenes/generados?${query.toString()}`
-        );
-      });
-      setExamenesArchivadosOmr(acumulados.filter((examen) => Boolean(examen.loteId) && examen.origenGeneracion === 'lote'));
+      const acumulados = await cargarExamenesOmrReferenciables<ExamenGeneradoResumen>((query) =>
+        clienteApi.obtener<{ examenes: ExamenGeneradoResumen[]; nextCursor?: string | null }>(`/examenes/generados${query}`)
+      );
+      setExamenesArchivadosOmr(acumulados);
       setArchivoOmrCargado(true);
     } catch (error) {
       setExamenesArchivadosOmr([]);
@@ -420,7 +416,7 @@ export function SeccionPlantillas({
   }, [cargarArchivoOmr, cargandoLotesArchivadosOmr, puedeLeerExamenes]);
 
   const lotesArchivadosOmr = useMemo<ArchivoOmrLote[]>(
-    () => agruparLotesOmr(examenesArchivadosOmr, [...periodos, ...periodosArchivadosOmr]),
+    () => agruparExamenesOmrPorLote(examenesArchivadosOmr, [...periodos, ...periodosArchivadosOmr]),
     [examenesArchivadosOmr, periodos, periodosArchivadosOmr]
   );
 

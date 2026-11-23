@@ -4259,7 +4259,13 @@ test.describe('GUI responsive e2e · docente', () => {
           return caja.width > 0 && caja.height > 0 && estilo.display !== 'none' && estilo.visibility !== 'hidden'
             && Number(estilo.opacity) !== 0 && caja.right > 0 && caja.left < window.innerWidth
             && caja.bottom > 0 && caja.top < window.innerHeight && areaCubierta(caja) / (caja.width * caja.height) >= 0.99;
-        }).map((control) => control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName);
+        }).map((control) => {
+          const bounds = control.getBoundingClientRect();
+          return {
+            nombre: control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName,
+            rect: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height }
+          };
+        });
         return {
           existe: true,
           posicion: getComputedStyle(toast).position,

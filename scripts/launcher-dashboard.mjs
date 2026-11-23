@@ -21,6 +21,7 @@ import { X509Certificate, randomUUID } from 'node:crypto';
 import { spawn, spawnSync, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { createUpdateManager } from './update-manager.mjs';
+import { PUERTOS_RUNTIME } from './runtime-profiles.mjs';
 
 // Resolve paths relative to this script.
 const __filename = fileURLToPath(import.meta.url);
@@ -35,6 +36,8 @@ const nativeDocenteCommand = `"${nativeNodePath}" "${path.join(root, 'scripts', 
 const args = process.argv.slice(2);
 const mode = getArgValue('--mode', 'none');
 const portArg = getArgValue('--port', '');
+const runtimeProfileName = mode === 'dev' ? 'dev' : 'prod';
+const runtimeDashboardPort = PUERTOS_RUNTIME[mode === 'dev' ? 'dev' : 'prod'].dashboard;
 const noOpen = args.includes('--no-open');
 const verbose = args.includes('--verbose');
 const fullLogs = args.includes('--full-logs');
@@ -1526,15 +1529,20 @@ function checkTcpPort(host, port, timeoutMs = 2000) {
 async function collectHealth() {
   const httpsState = resolveHttpsState();
   const devScheme = httpsState.mode === 'https' ? 'https' : 'http';
-  const apiPort = Number(process.env.PUERTO_API || process.env.PORT || 4000) || 4000;
+  const apiPort = Number(process.env.PUERTO_API || (mode === 'dev' ? PUERTOS_RUNTIME.dev.api : PUERTOS_RUNTIME.prod.api));
+  const webPort = mode === 'dev' ? PUERTOS_RUNTIME.dev.web : PUERTOS_RUNTIME.prod.web;
   const portalPort = Number(process.env.PUERTO_PORTAL || 8080) || 8080;
-  const entries = await Promise.all([
-    Promise.resolve(['mongoLocal', await checkTcpPort('127.0.0.1', 27017, 2200)]),
-    Promise.resolve(['apiDocente', await checkHealth(`http://127.0.0.1:${apiPort}/api/salud`)]),
-    Promise.resolve(['apiPortal', await checkHealth(`http://127.0.0.1:${portalPort}/api/portal/salud`)]),
-    Promise.resolve(['webDocenteDev', await checkHealth(`${devScheme}://127.0.0.1:5173`)]),
-    Promise.resolve(['webDocenteProd', await checkHealth('http://127.0.0.1:4173')])
-  ]);
+  const flavorPolicy = resolveFlavorPolicy(readInstallationManifest());
+  const checks = [
+    ['apiDocente', () => checkHealth(`http://127.0.0.1:${apiPort}/api/salud`)],
+    ['apiPortal', () => checkHealth(`http://127.0.0.1:${portalPort}/api/portal/salud`)],
+    ['viteDev', () => checkHealth(`${devScheme}://127.0.0.1:5173`)],
+    [mode === 'dev' ? 'webDocenteDev' : 'webDocenteProd', () => checkHealth(`http://127.0.0.1:${webPort}`)]
+  ];
+  if (flavorPolicy.requireDockerRuntime) {
+    checks.push(['mongoLocal', () => checkTcpPort('127.0.0.1', 27017, 2200)]);
+  }
+  const entries = await Promise.all(checks.map(async ([name, check]) => [name, await check()]));
   const services = Object.fromEntries(entries);
 
   const warmupMs = Math.max(5000, Number(process.env.DASHBOARD_HEALTH_WARMUP_MS || 45000));
@@ -3349,6 +3357,12 @@ function startTask(name, command) {
   const proc = isNativeRuntime
     ? spawn(nativeNodePath, [path.join(root, 'scripts', 'start-docente-native.mjs')], {
       cwd: root,
+      env: {
+        ...process.env,
+        EVALUAPRO_MODE: runtimeProfileName,
+        EVALUAPRO_RUNTIME_PROFILE: runtimeProfileName,
+        PUERTO_DASHBOARD: String(listeningPort || runtimeDashboardPort)
+      },
       windowsHide: true
     })
     : spawn('cmd.exe', ['/d', '/s', '/c', command], {
@@ -3513,7 +3527,7 @@ const baseCommands = {
   'dev-frontend': 'npm run dev:frontend',
   'dev-backend': 'npm run dev:backend',
   // En dashboard, PROD debe levantar la plataforma rapidamente (sin correr verify/tests).
-  prod: 'npm run stack:prod',
+  prod: 'npm run docente:prod:native',
   'docente-native': nativeDocenteCommand,
   'portal-dev': 'npm run dev:portal',
   'portal-prod': 'npm run portal:prod',
@@ -3913,6 +3927,17 @@ const server = http.createServer(async (req, res) => {
   const pathName = reqUrl.pathname;
 
   if (req.method === 'GET' && pathName === '/') {
+    const flavorPolicy = resolveFlavorPolicy(readInstallationManifest());
+    if (flavorPolicy.flavorId === 'docente-local') {
+      const webPort = mode === 'dev' ? PUERTOS_RUNTIME.dev.web : PUERTOS_RUNTIME.prod.web;
+      res.writeHead(302, {
+        Location: `http://127.0.0.1:${webPort}/${reqUrl.search || ''}`,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      res.end();
+      return;
+    }
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
@@ -4525,7 +4550,7 @@ const server = http.createServer(async (req, res) => {
 
     if (task === 'stack') {
       if (mode === 'prod') {
-        const fastRestartCommand = requiresDockerRuntime(readInstallationManifest()) ? 'npm run stack:restart' : getCommand('prod');
+        const fastRestartCommand = getCommand('prod');
         if (!fastRestartCommand) return sendJson(res, 400, { error: 'Tarea desconocida' });
         if (isRunning('prod')) {
           stopTask('prod');
@@ -4591,7 +4616,12 @@ const server = http.createServer(async (req, res) => {
 
   const requestedPort = portArg ? Number(portArg) : null;
   const hasRequestedPort = Number.isFinite(requestedPort);
-  let port = hasRequestedPort ? requestedPort : await findPort(4519);
+  if (hasRequestedPort && requestedPort !== runtimeDashboardPort && process.env.EVALUAPRO_TEST_INSTANCE !== '1') {
+    logSystem(`El perfil ${runtimeProfileName} está reservado al puerto ${runtimeDashboardPort}; se rechazó ${requestedPort}.`, 'error', { console: true });
+    clearSingletonLock();
+    return;
+  }
+  let port = hasRequestedPort ? requestedPort : runtimeDashboardPort;
 
   if (!await isPortFree(port)) {
     const url = `http://127.0.0.1:${port}`;
@@ -4602,18 +4632,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (hasRequestedPort) {
-      const fallback = await findPort(port + 1);
-      const fallbackOk = fallback !== port && await isPortFree(fallback);
-      if (fallbackOk) {
-        logSystem(`Puerto ocupado: ${port}. Usando ${fallback}.`, 'warn', { console: true });
-        port = fallback;
-      } else {
-        logSystem(`Puerto ocupado: ${port}. Cierra la instancia previa o cambia --port.`, 'error', { console: true });
-        clearSingletonLock();
-        return;
-      }
-    } else {
+    if (process.env.EVALUAPRO_TEST_INSTANCE === '1') {
       const fallback = await findPort(port + 1);
       const fallbackOk = fallback !== port && await isPortFree(fallback);
       if (fallbackOk) {
@@ -4623,6 +4642,10 @@ const server = http.createServer(async (req, res) => {
         clearSingletonLock();
         return;
       }
+    } else {
+      logSystem(`Puerto reservado ${port} ocupado. No se reasignará el perfil ${runtimeProfileName} a otro puerto.`, 'error', { console: true });
+      clearSingletonLock();
+      return;
     }
   }
 

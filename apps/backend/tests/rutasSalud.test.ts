@@ -5,6 +5,7 @@
  * Limites: no alterar el contrato público `/api/salud/*`.
  */
 import express from 'express';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -72,6 +73,31 @@ describe('rutasSalud', () => {
 
     await request(app).get('/salud').expect(200);
     await request(app).get('/salud/live').expect(200);
+  });
+
+  it('publica identidad de perfil y base para impedir adoptar otra SQLite', async () => {
+    const previousProfile = process.env.EVALUAPRO_RUNTIME_PROFILE;
+    const previousDatabaseUrl = process.env.BACKEND_DATABASE_URL;
+    const previousFallbackUrl = process.env.DATABASE_URL;
+    process.env.EVALUAPRO_RUNTIME_PROFILE = 'dev';
+    process.env.BACKEND_DATABASE_URL = 'file:C:/checkout/data-dev/evaluapro.db';
+    delete process.env.DATABASE_URL;
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue(1) as any;
+
+    try {
+      const ready = await request(app).get('/salud/ready').expect(200);
+      expect(ready.body.runtime).toEqual({
+        profile: 'dev',
+        databaseIdentity: createHash('sha256').update('dev\nfile:C:/checkout/data-dev/evaluapro.db').digest('hex').slice(0, 16)
+      });
+    } finally {
+      if (previousProfile === undefined) delete process.env.EVALUAPRO_RUNTIME_PROFILE;
+      else process.env.EVALUAPRO_RUNTIME_PROFILE = previousProfile;
+      if (previousDatabaseUrl === undefined) delete process.env.BACKEND_DATABASE_URL;
+      else process.env.BACKEND_DATABASE_URL = previousDatabaseUrl;
+      if (previousFallbackUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previousFallbackUrl;
+    }
   });
 
   it('expone liveness y métricas Prometheus con el gauge de SQLite', async () => {

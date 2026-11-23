@@ -31,6 +31,7 @@ import {
   tieneIntentoParcialPendienteOmr,
   debeUsarGeometriaLocalOmr,
   determinarOrientacionCapturaOmr,
+  aplicarAbstencionPorDiscrepanciasEntrePasadasOmr,
   aplicarAbstencionPorOrientacionOmr,
   type RespuestaDetectadaOmr,
   type ResultadoOmr,
@@ -67,6 +68,41 @@ function crearEvidencia(
 }
 
 describe('consenso OMR v2', () => {
+  it('deja en cero una lectura compacta cuando dos pasadas confiables discrepan', () => {
+    const crearResultado = (opcion: 'B' | 'E'): ResultadoOmr => ({
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion,
+        confianza: 0.84,
+        scoresPorOpcion: [],
+        flags: [],
+        estadoRespuesta: 'respondida'
+      }],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.84,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.85,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2'
+    });
+    const primera = crearResultado('E');
+    const segunda = crearResultado('B');
+
+    const discrepante = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(primera, [primera, segunda], true);
+    const concordante = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(primera, [primera, crearResultado('E')], true);
+
+    expect(discrepante.respuestasDetectadas[0]?.opcion).toBeNull();
+    expect(discrepante.respuestasDetectadas[0]?.estadoRespuesta).toBe('ambigua');
+    expect(discrepante.respuestasDetectadas[0]?.flags).toContain('bajo_contraste');
+    expect(discrepante.ratioAmbiguas).toBe(1);
+    expect(concordante.respuestasDetectadas[0]?.opcion).toBe('E');
+  });
+
   it('no autocalifica candidatas parciales sin contraste central suficiente', () => {
     expect(debeAbstenerseMarcaParcialOmr({ score: 0.185, fillRatioCore: 0.25, shapeCompactness: 0.3, centerDarknessDelta: 0.075, contrasteCromaticoLocal: 0.02, margenCromatico: 0.01 })).toBe(true);
     expect(debeAbstenerseMarcaParcialOmr({ score: 0.523, fillRatioCore: 1, shapeCompactness: 0.834, centerDarknessDelta: 0.111, contrasteCromaticoLocal: 0, margenCromatico: 0 })).toBe(false);
@@ -1047,6 +1083,19 @@ describe('consenso OMR v2', () => {
     expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: true })).toBe(true);
     expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: false })).toBe(false);
     expect(debeUsarGeometriaLocalOmr({ ...base, tieneFiducialesLocales: true, deshabilitada: true })).toBe(false);
+    expect(debeUsarGeometriaLocalOmr({
+      ...base,
+      referenciaGlobalFuerte: true,
+      transformacion: 'homografia',
+      qrDetectado: true,
+      tieneFiducialesLocales: true
+    })).toBe(false);
+    expect(debeUsarGeometriaLocalOmr({
+      ...base,
+      referenciaGlobalFuerte: true,
+      transformacion: 'homografia',
+      tieneFiducialesLocales: false
+    })).toBe(false);
   });
 
   it('conserva la geometria fuerte y reserva fiduciales locales para una escala seleccionada aunque haya QR', () => {
@@ -1076,6 +1125,7 @@ describe('consenso OMR v2', () => {
       tieneFiducialesLocales: true
     };
     expect(debeReactivarGeometriaLocalTrasEscalaOmr(base)).toBe(true);
+    expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, qrDetectado: true })).toBe(true);
     expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, coordenadasEstrictas: true })).toBe(false);
     expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, forceSimpleScale: true })).toBe(false);
     expect(debeReactivarGeometriaLocalTrasEscalaOmr({ ...base, qrDetectado: true })).toBe(true);

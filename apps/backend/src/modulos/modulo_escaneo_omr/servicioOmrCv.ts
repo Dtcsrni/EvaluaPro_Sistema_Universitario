@@ -3391,7 +3391,7 @@ function puntuarResultadoOmr(resultado: ResultadoOmr) {
   );
 }
 
-function debeIntentarSegundoPase(resultado: ResultadoOmr) {
+function debeIntentarSegundoPase(resultado: ResultadoOmr, validarPerfilCompacto = false) {
   if (!OMR_SECOND_PASS_ENABLED) return false;
   const cobertura = resultado.respuestasDetectadas.length > 0
     ? resultado.respuestasDetectadas.filter((respuesta) => respuesta.opcion != null).length /
@@ -3399,6 +3399,13 @@ function debeIntentarSegundoPase(resultado: ResultadoOmr) {
     : 0;
   if (cobertura < 0.75) return true;
   if (resultado.respuestasDetectadas.some(tieneIntentoParcialPendienteOmr)) return true;
+  if (
+    validarPerfilCompacto &&
+    resultado.estadoAnalisis === 'ok' &&
+    resultado.geomQuality >= 0.65 &&
+    resultado.respuestasDetectadas.length > 0 &&
+    resultado.respuestasDetectadas.every((respuesta) => respuesta.opcion != null)
+  ) return true;
   if (
     resultado.estadoAnalisis === 'ok' &&
     !resultado.respuestasDetectadas.some((respuesta) => respuesta.opcion == null)
@@ -3545,6 +3552,51 @@ export function aplicarAbstencionPorOrientacionOmr(resultado: ResultadoOmr): Res
       resultado.geomQuality,
       { forzarRevision: requiereAbstencion }
     )
+  };
+}
+
+export function aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
+  resultado: ResultadoOmr,
+  pasadas: readonly ResultadoOmr[],
+  habilitada: boolean
+): ResultadoOmr {
+  if (!habilitada || pasadas.length < 2) return resultado;
+  let discrepancias = 0;
+  const respuestasDetectadas = resultado.respuestasDetectadas.map((respuesta) => {
+    const opcionesConfiables = new Set(pasadas.flatMap((pasada) => {
+      const lectura = pasada.respuestasDetectadas.find((item) => item.numeroPregunta === respuesta.numeroPregunta);
+      if (
+        !lectura || lectura.opcion == null || lectura.confianza < OMR_AUTO_CONF_MIN ||
+        lectura.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')
+      ) return [];
+      return [lectura.opcion];
+    }));
+    if (opcionesConfiables.size < 2) return respuesta;
+    discrepancias += 1;
+    return {
+      ...respuesta,
+      opcion: null,
+      confianza: Math.min(0.5, respuesta.confianza),
+      flags: Array.from(new Set([...respuesta.flags, 'bajo_contraste'])) as RespuestaDetectadaOmr['flags'],
+      estadoRespuesta: 'ambigua' as const
+    };
+  });
+  if (discrepancias === 0) return resultado;
+  const confianzaPromedioPagina = respuestasDetectadas.reduce(
+    (total, respuesta) => total + Math.max(0, respuesta.confianza), 0
+  ) / Math.max(1, respuestasDetectadas.length);
+  const ratioAmbiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length /
+    Math.max(1, respuestasDetectadas.length);
+  const motivo = `${discrepancias} respuesta(s) quedaron sin calificar por desacuerdo entre pasadas OMR independientes`;
+  return {
+    ...resultado,
+    respuestasDetectadas,
+    confianzaPromedioPagina,
+    ratioAmbiguas,
+    estadoAnalisis: resultado.estadoAnalisis === 'rechazado_calidad' ? 'rechazado_calidad' : 'requiere_revision',
+    motivosRevision: Array.from(new Set([...resultado.motivosRevision, motivo])).slice(0, 24),
+    advertencias: Array.from(new Set([...resultado.advertencias, motivo])),
+    resumenRespuestas: resumirRespuestasOmr(respuestasDetectadas, resultado.calidadPagina, resultado.geomQuality, { forzarRevision: true })
   };
 }
 
@@ -6507,7 +6559,10 @@ export async function analizarOmr(
     orientationMode
   };
 
-  if (!opcionesInternas?.noRetry && debeIntentarSegundoPase(resultadoBase)) {
+  const perfilHorizontalCompacto = mapaPagina.preguntas.some(
+    (pregunta) => Number.isFinite(pregunta.perfilOmr?.pasoX) && Number(pregunta.perfilOmr?.pasoX) > 0.4
+  );
+  if (!opcionesInternas?.noRetry && debeIntentarSegundoPase(resultadoBase, perfilHorizontalCompacto)) {
     const coberturaBase = resultadoBase.respuestasDetectadas.length > 0
       ? resultadoBase.respuestasDetectadas.filter((respuesta) => respuesta.opcion != null).length /
         resultadoBase.respuestasDetectadas.length
@@ -6765,11 +6820,16 @@ export async function analizarOmr(
         resultadoElegido = resultadoRasgosAislados;
       }
     }
-    return agregarIntentosNoResueltosAlResultadoOmr(
+    const resultadoFinal = agregarIntentosNoResueltosAlResultadoOmr(
       aplicarAbstencionPorOrientacionOmr(anularRespuestasAmbiguasParaCalificacion(resultadoElegido)),
       {
         permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
       }
+    );
+    return aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
+      resultadoFinal,
+      [resultadoBase, resultadoRescate],
+      perfilHorizontalCompacto
     );
   } else if (!opcionesInternas?.noRetry && resultadoBase.estadoAnalisis !== 'ok') {
     resultadoBase.advertencias.push('Segundo pase OMR omitido: geometria o señal no apta para rescate');

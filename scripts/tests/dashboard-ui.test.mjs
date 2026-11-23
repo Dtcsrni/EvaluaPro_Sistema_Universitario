@@ -244,8 +244,8 @@ test('dashboard UI muestra PROD detectado con salud real y tareas separadas', as
   assert.equal(text(dom, 'running-count'), '1');
   assert.equal(text(dom, 'running'), '-');
   assert.equal(text(dom, 'running-chip'), 'Tareas: 0');
-  assert.equal(text(dom, 'stack-real'), 'Arriba (3/3 OK)');
-  assert.equal(text(dom, 'health-ok'), '3');
+  assert.equal(text(dom, 'stack-real'), 'Arriba (2/2 OK)');
+  assert.equal(text(dom, 'health-ok'), '2');
   assert.equal(text(dom, 'health-down'), '0');
   assert.equal(envState(dom, 'prod'), 'Detectado');
   assert.equal(text(dom, 'alert-title'), 'Sin alertas activas');
@@ -338,8 +338,8 @@ test('dashboard UI eleva alerta principal cuando falla la salud real', async () 
     }
   }));
 
-  assert.equal(text(dom, 'stack-real'), 'Parcial (2/3 OK)');
-  assert.equal(text(dom, 'health-ok'), '2');
+  assert.equal(text(dom, 'stack-real'), 'Parcial (1/2 OK)');
+  assert.equal(text(dom, 'health-ok'), '1');
   assert.equal(text(dom, 'health-down'), '1');
   assert.equal(text(dom, 'alert-title'), 'Error detectado');
   assert.ok(text(dom, 'alert-message').includes('API docente'));

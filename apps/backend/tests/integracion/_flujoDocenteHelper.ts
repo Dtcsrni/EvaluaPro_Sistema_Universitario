@@ -158,7 +158,7 @@ export async function prepararEscenarioFlujo(
           alumnoId,
           aciertos: totalReactivosExamen,
           totalReactivos: totalReactivosExamen,
-          bonoSolicitado: 0.5,
+          bonoSolicitado: 0.25,
           evaluacionContinua: 5
         };
 

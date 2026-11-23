@@ -5,7 +5,6 @@ Este documento resume la estructura vigente del repositorio.
 ## Raiz
 - `README.md`: guia principal.
 - `package.json`: scripts globales y workspaces.
-- `docker-compose.yml`: stack local dev/prod.
 - `docs/`: documentacion tecnica y operativa.
 - `scripts/`: utilidades de arranque, dashboard, docs y diagramas.
 - `apps/`: aplicaciones del monorepo.

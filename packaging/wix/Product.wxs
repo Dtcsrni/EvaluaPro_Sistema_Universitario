@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <?if $(var.FlavorId) = docente-local ?>
-    <?define PackageScope="perUser" ?>
-  <?else?>
-    <?define PackageScope="perMachine" ?>
-  <?endif?>
+  <?define PackageScope="perUser" ?>
   <Package
     Name="$(var.ProductName)"
     Manufacturer="I.S.C. Erick Renato Vega Ceron"
@@ -20,36 +16,8 @@
     <MediaTemplate EmbedCab="yes" CompressionLevel="mszip" MaximumUncompressedMediaSize="2048" />
     <Property Id="INSTALL_DESKTOP_SHORTCUTS" Value="1" />
     <Property Id="INSTALL_STARTMENU_SHORTCUTS" Value="1" />
-    <?if $(var.FlavorId) != docente-local ?>
-    <Property Id="NODEINSTALLED64">
-      <RegistrySearch Root="HKLM" Key="SOFTWARE\Node.js" Name="InstallPath" Type="raw" />
-    </Property>
-    <Property Id="NODEINSTALLEDUSER">
-      <RegistrySearch Root="HKCU" Key="SOFTWARE\Node.js" Name="InstallPath" Type="raw" />
-    </Property>
-    <?endif?>
-    <?if $(var.FlavorId) != docente-local ?>
-    <Property Id="DOCKERINSTALLED64">
-      <RegistrySearch Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Docker Desktop" Name="DisplayName" Type="raw" />
-    </Property>
-    <Property Id="DOCKERINSTALLEDUSER">
-      <RegistrySearch Root="HKCU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Docker Desktop" Name="DisplayName" Type="raw" />
-    </Property>
-    <Property Id="WSLINSTALLED">
-      <DirectorySearch Id="SearchSystemFolderForWsl" Path="[SystemFolder]">
-        <FileSearch Id="SearchWslExe" Name="wsl.exe" />
-      </DirectorySearch>
-    </Property>
-    <?endif?>
     <Property Id="REQUIRE_INSTALLER_HUB" Value="0" />
-    <Property Id="SKIP_DOCKER_RUNTIME_CHECK" Value="0" />
     <Launch Condition="Installed OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1" Message="Instalacion directa no permitida. Usa exclusivamente EvaluaPro-InstallerHub para instalar y gestionar prerequisitos de forma segura." />
-    <?if $(var.FlavorId) != docente-local ?>
-    <Launch Condition="NODEINSTALLED64 OR NODEINSTALLEDUSER" Message="No se detecto Node.js 24+. Instala Node.js antes de usar EvaluaPro." />
-    <?endif?>
-    <?if $(var.FlavorId) != docente-local ?>
-    <Launch Condition="SKIP_DOCKER_RUNTIME_CHECK = 1 OR REQUIRE_INSTALLER_HUB = 1 OR BURNMSIINSTALL = 1 OR DOCKERINSTALLED64 OR DOCKERINSTALLEDUSER OR WSLINSTALLED" Message="No se detecto un runtime Docker compatible. Instala/habilita WSL2 con Docker Engine o Docker Desktop en compatibilidad. Si prefieres instalacion guiada de requisitos, usa EvaluaPro-InstallerHub." />
-    <?endif?>
 
     <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
       <ComponentGroupRef Id="CG.AppFiles" />
@@ -57,7 +25,6 @@
       <ComponentGroupRef Id="CG.Cleanup" />
     </Feature>
 
-    <?if $(var.FlavorId) = docente-local ?>
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
       <Directory Id="EvaluaProInstallerDataFolder" Name="EvaluaProInstaller">
@@ -66,11 +33,6 @@
         </Directory>
       </Directory>
     </StandardDirectory>
-    <?else?>
-    <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
-    </StandardDirectory>
-    <?endif?>
     <StandardDirectory Id="DesktopFolder" />
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationProgramsFolder" Name="EvaluaPro" />
@@ -88,10 +50,6 @@
     <Property Id="ARPCONTACT" Value="I.S.C. Erick Renato Vega Ceron" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario" />
-    <?if $(var.FlavorId) = docente-local ?>
     <Property Id="ARPCOMMENTS" Value="Distribucion docente local ($(var.FlavorId)) con runtime Node embebido en Windows, API local, Web docente y persistencia SQLite." />
-    <?else?>
-    <Property Id="ARPCOMMENTS" Value="Distribucion estable local ($(var.FlavorId)) con autoconfiguracion de stack/portal cuando es posible. Requiere Node.js 24+ y un runtime Docker compatible (WSL2 + Docker Engine por defecto o Docker Desktop en compatibilidad)." />
-    <?endif?>
   </Package>
 </Wix>

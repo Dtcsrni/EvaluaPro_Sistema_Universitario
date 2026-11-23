@@ -10,11 +10,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+const modeArgIndex = process.argv.indexOf('--mode');
+const runtimeMode = modeArgIndex >= 0 && process.argv[modeArgIndex + 1] === 'dev' ? 'dev' : 'prod';
+
 // Carga variables desde el .env del root sin depender de dotenv.
 // - Soporta valores con comillas simples/dobles y comentarios finales.
 // - No pisa variables ya definidas en el proceso.
 function cargarEnvLocal() {
-  const rutaEnv = path.resolve(process.cwd(), '.env');
+  const rutaEnv = path.resolve(process.cwd(), runtimeMode === 'dev' ? '.env.dev' : '.env');
   if (!fs.existsSync(rutaEnv)) return;
   const contenido = fs.readFileSync(rutaEnv, 'utf8');
   for (const linea of contenido.split(/\r?\n/)) {
@@ -51,7 +54,8 @@ function parseEnvLine(line) {
 
 cargarEnvLocal();
 
-const base = String(process.env.VITE_API_PROXY_TARGET || 'http://localhost:4000').trim();
+const defaultApiPort = runtimeMode === 'dev' ? 4001 : 4000;
+const base = String(process.env.VITE_API_PROXY_TARGET || `http://localhost:${defaultApiPort}`).trim();
 const healthPath = String(process.env.API_HEALTHCHECK_PATH || '/api/salud').trim() || '/api/salud';
 const timeoutMs = clampNumber(process.env.API_HEALTHCHECK_TIMEOUT_MS, 90_000, 5_000, 10 * 60_000);
 const intervalMs = clampNumber(process.env.API_HEALTHCHECK_INTERVAL_MS, 250, 100, 10_000);
@@ -62,7 +66,7 @@ function crearUrl() {
   try {
     return new URL(healthPath, base).toString();
   } catch {
-    return 'http://localhost:4000/api/salud';
+    return `http://localhost:${defaultApiPort}/api/salud`;
   }
 }
 

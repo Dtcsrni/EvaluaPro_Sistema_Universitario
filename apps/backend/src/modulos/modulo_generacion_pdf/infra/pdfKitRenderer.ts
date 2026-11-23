@@ -3413,79 +3413,6 @@ export class PdfKitRenderer {
             inlineRows: filas
           };
         }
-        if (omrEsquemaHorizontal && totalOpciones === 5) {
-          const indicePrincipal = ordenOpciones.reduce((mejor, indiceOpcion) => {
-            const actual = compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto).length;
-            const anterior = compactarOpcionBancoParaPdf(pregunta.opciones[mejor]?.texto).length;
-            return actual > anterior ? indiceOpcion : mejor;
-          }, ordenOpciones[0] ?? 0);
-          const longitudPrincipal = compactarOpcionBancoParaPdf(pregunta.opciones[indicePrincipal]?.texto).length;
-           // Mantener el orden natural A-B-C-D-E para opciones ricas. Solo una
-           // respuesta excepcionalmente extensa merece ocupar una fila propia;
-           // con textos normales, promover la opción más larga desordena la
-           // lectura y hace parecer que los fondos están desalineados.
-           if (longitudPrincipal >= 90) {
-            const lineasPrincipal = envolverTextoMixto({
-              texto: compactarOpcionBancoParaPdf(pregunta.opciones[indicePrincipal]?.texto),
-              maxWidth: Math.max(80, anchoOpcionesTotal - 6 - prefixWidth),
-              fuente,
-              fuenteBold,
-              fuenteItalica,
-              fuenteMono,
-              sizeTexto: sizeOpcion,
-              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-              sizeCodigoBloque,
-              lineHeightTexto: lineaOpcion,
-              lineHeightCodigo: lineaCodigoBloque
-            });
-            const restantes = ordenOpciones
-              .filter((indiceOpcion) => indiceOpcion !== indicePrincipal)
-              .map((indiceOpcion, indice) => ({
-                indiceOpcion,
-                letra: String.fromCharCode(65 + ordenOpciones.indexOf(indiceOpcion)),
-                indice
-              }));
-            const gutter = 4;
-            const anchoRestante = (anchoOpcionesTotal - gutter * 3) / 4;
-            const lineasRestantes = restantes.map((item) => envolverTextoMixto({
-              texto: compactarOpcionBancoParaPdf(pregunta.opciones[item.indiceOpcion]?.texto),
-              maxWidth: Math.max(20, anchoRestante - prefixWidth),
-              fuente,
-              fuenteBold,
-              fuenteItalica,
-              fuenteMono,
-              sizeTexto: sizeOpcion,
-              sizeCodigoInline: Math.min(sizeCodigoInline, sizeOpcion),
-              sizeCodigoBloque,
-              lineHeightTexto: lineaOpcion,
-              lineHeightCodigo: lineaCodigoBloque
-            }));
-            const altoPrincipal = Math.max(alturaMinimaFilaOpcion, lineasPrincipal.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion);
-            const altoRestantes = Math.max(
-              alturaMinimaFilaOpcion,
-              ...lineasRestantes.map((lineas) => lineas.reduce((total, linea) => total + linea.lineHeight, 0) + rellenoVerticalOpcion)
-            );
-            return {
-              columnas: 4,
-              porColumna: 1,
-              gutterCols: gutter,
-              colWidth: anchoRestante,
-              alturas: [altoRestantes],
-              alturaGrid: altoPrincipal + separacionTarjetaOpcion + altoRestantes + separacionTarjetaOpcion,
-              opcionPrincipal: {
-                indiceOpcion: indicePrincipal,
-                letra: String.fromCharCode(65 + ordenOpciones.indexOf(indicePrincipal)),
-                lineas: lineasPrincipal,
-                alto: altoPrincipal
-              },
-              opcionesRestantes: restantes.map((item, indice) => ({
-                ...item,
-                lineas: lineasRestantes[indice] ?? [],
-                alto: altoRestantes
-              }))
-            };
-          }
-        }
         // Si las cinco respuestas caben en una linea por celda, usar una
         // fila reduce la altura del reactivo sin bajar la tipografia. La
         // reticula 3+2 se conserva como fallback ante cualquier wrap o ancho
@@ -3531,8 +3458,10 @@ export class PdfKitRenderer {
 
         // Las respuestas que no caben en cinco celdas de una linea conservan
         // la reticula 3+2 ya validada para el perfil horizontal.
+        const hayOpcionExtensa = totalOpciones === 5
+          && ordenOpciones.some((indiceOpcion) => compactarOpcionBancoParaPdf(pregunta.opciones[indiceOpcion]?.texto).length >= 90);
         const candidatos = totalOpciones >= 5
-          ? (omrEsquemaHorizontal ? [3] : [2])
+          ? (omrEsquemaHorizontal ? [hayOpcionExtensa ? 2 : 3] : [2])
           : [1, 2];
         return candidatos
           .map((columnas) => {
@@ -4207,64 +4136,6 @@ export class PdfKitRenderer {
             colorTexto: colorTinta,
             registrarRuns: (run) => textRunsPregunta.push(run)
           });
-        } else if ('opcionPrincipal' in layoutOpciones) {
-          const layoutEspecial = layoutOpciones as typeof layoutOpciones & {
-            opcionPrincipal: {
-              indiceOpcion: number;
-              letra: string;
-              lineas: LineaSegmentos[];
-              alto: number;
-            };
-            opcionesRestantes: Array<{
-              indiceOpcion: number;
-              letra: string;
-              indice: number;
-              lineas: LineaSegmentos[];
-              alto: number;
-            }>;
-          };
-          const principal = layoutEspecial.opcionPrincipal;
-          const restantes = layoutEspecial.opcionesRestantes;
-          const dibujarTarjetaAncha = (
-            xCol: number,
-            yLocal: number,
-            anchoTarjeta: number,
-            item: { indiceOpcion: number; letra: string },
-            lineas: LineaSegmentos[],
-            altoFila: number
-          ) => {
-            const yTexto = yLocal - Math.max(0, (altoFila - (lineas.reduce((total, linea) => total + linea.lineHeight, 0))) / 2);
-            const etiqueta = `${item.letra})`;
-            dibujarEtiquetaInciso(etiqueta, xCol, yTexto);
-            dibujarLineasMixtas({
-              page,
-              lineas,
-              x: xCol + prefixWidth,
-              y: yTexto,
-              colorTexto: colorTinta,
-              registrarRuns: (run) => textRunsPregunta.push(run)
-            });
-          };
-          dibujarTarjetaAncha(
-            xTextoPreguntaRender,
-            yInicioOpciones,
-            anchoOpcionesTotal,
-            principal,
-            principal.lineas,
-            principal.alto
-          );
-          const yFilaRestantes = yInicioOpciones - principal.alto - separacionTarjetaOpcion;
-          for (let indice = 0; indice < restantes.length; indice += 1) {
-            const item = restantes[indice]!;
-            dibujarTarjetaAncha(
-              xTextoPreguntaRender + indice * (layoutOpciones.colWidth + layoutOpciones.gutterCols),
-              yFilaRestantes,
-              layoutOpciones.colWidth,
-              item,
-              item.lineas,
-              item.alto
-            );
-          }
         } else {
         const itemsCols = Array.from({ length: columnas }, () => [] as Array<{ indiceOpcion: number; letra: string }>);
         ordenOpciones.forEach((indiceOpcion, indice) => {

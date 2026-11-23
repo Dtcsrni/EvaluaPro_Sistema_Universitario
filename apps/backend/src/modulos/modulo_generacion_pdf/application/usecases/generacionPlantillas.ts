@@ -734,17 +734,23 @@ async function generarExamenesLoteUseCaseInterno(params: {
           const questions = ordenarPreguntasParaCapacidad(preguntasBaseLote, seedCompartida);
           varianteCompartida = { preguntas: questions, mapaVariante: generarVarianteDeterminista(questions, seedCompartida) };
         }
-        // If the full common variant fits, keep identical form order for all. Only
-        // when capacity forces selection do we use the per-student seeded traversal.
-        preguntasCandidatas = varianteCompartida.preguntas;
-        mapaVariante = varianteCompartida.mapaVariante;
+        // `shared` shares each question's option order, not a fixed question
+        // sequence/count. Traverse the pool with the student's stable seed so
+        // the physical page budget can produce per-exam counts while remaining
+        // reproducible for retries of this loteId.
+        preguntasCandidatas = ordenarPreguntasParaCapacidad(preguntasBaseLote, semillaExamen);
+        mapaVariante = {
+          ordenPreguntas: preguntasCandidatas.map((pregunta) => pregunta.id),
+          ordenOpcionesPorPregunta: varianteCompartida.mapaVariante.ordenOpcionesPorPregunta
+        };
       } else {
-          preguntasCandidatas = esExtraordinarioArchivado
-          ? preguntasBaseLote
-          : ordenarPreguntasParaCapacidad(preguntasBaseLote, semillaExamen);
-        mapaVariante = esExtraordinarioArchivado && previewArchivado
-          ? previewArchivado.mapaVariante
-          : generarVarianteDeterminista(preguntasCandidatas, semillaExamen);
+        // Un extraordinario desde una plantilla archivada es una generación
+        // nueva: conserva intacta la fuente archivada, pero adapta su selección
+        // al presupuesto físico con una semilla reproducible por alumno.
+        preguntasCandidatas = ordenarPreguntasParaCapacidad(preguntasBaseLote, semillaExamen);
+        // La previsualización validada fija el blueprint y su contenido, pero
+        // cada alumno conserva una variante reproducible propia del lote.
+        mapaVariante = generarVarianteDeterminista(preguntasCandidatas, semillaExamen);
       }
       const esUltimoIntentoVariante = intento + 1 >= maxIntentosVarianteUnica;
       const folio = randomUUID().split('-')[0].toUpperCase();
@@ -763,8 +769,8 @@ async function generarExamenesLoteUseCaseInterno(params: {
           omrTemplateId,
           bookletConfig: {
             ...bookletConfig,
-            enforcePageBudget: !esExtraordinarioArchivado,
-            allowCapacityProbe: !esExtraordinarioArchivado,
+            enforcePageBudget: true,
+            allowCapacityProbe: true,
             distribuirEnPaginasObjetivo: true
           },
           encabezado: construirEncabezadoPdf({
@@ -787,7 +793,7 @@ async function generarExamenesLoteUseCaseInterno(params: {
         let preguntasPersistidas = preguntasCandidatas;
         const mapaVarianteUsada = construirMapaVarianteUsadaDesdeOmr(mapaVariante, render.mapaOmr);
         const reactivosNoIncluidosPorCapacidad = render.preguntasRestantes;
-        if (!esExtraordinarioArchivado && render.preguntasRestantes > 0) {
+        if (render.preguntasRestantes > 0) {
           const preguntasPorId = new Map(preguntasCandidatas.map((pregunta) => [pregunta.id, pregunta]));
           preguntasPersistidas = mapaVarianteUsada.ordenPreguntas
             .map((id) => preguntasPorId.get(id))

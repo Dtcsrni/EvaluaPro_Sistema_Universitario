@@ -7,7 +7,7 @@ param(
   [string]$InstallersDir = 'C:\Instaladores',
   [string]$ExpectedSha256 = '',
   [switch]$SkipHashCheck,
-  [ValidateSet('saas-completo', 'docente-local')]
+  [ValidateSet('docente-local')]
   [string]$FlavorId = 'docente-local'
 )
 

@@ -35,6 +35,7 @@ export const esquemaAsignarAlumnoCopiaOmr = z.object({ studentId: z.string().tri
 
 export const esquemaReintentarIngestaOmr = z.object({ clientRequestId: z.string().uuid() }).strict();
 export const esquemaCalificarIngestaPdfOmr = z.object({ clientRequestId: z.string().uuid() }).strict();
+export const esquemaPrevisualizarCalificacionIngestaOmr = z.object({}).strict();
 
 const esquemaAssessmentIdsMultipart = z.preprocess((value) => {
   if (typeof value !== 'string') return value;

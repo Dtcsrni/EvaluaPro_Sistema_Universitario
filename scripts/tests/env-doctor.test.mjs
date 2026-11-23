@@ -247,7 +247,9 @@ test('contrato de salida mantiene llaves principales', () => {
   );
 });
 
-test('regresion: contrato docker runtime check no se altera', () => {
+test('la configuración de desarrollo local no depende de Docker', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.equal(packageJson.scripts['docker:runtime:check'], 'node scripts/docker-runtime-check.mjs');
+  assert.equal(packageJson.scripts['docker:runtime:check'], undefined);
+  assert.equal(packageJson.scripts['dev:backend'], 'npm -C apps/backend run dev');
+  assert.equal(packageJson.scripts['docente:prod:native'], 'node scripts/start-docente-native.mjs');
 });

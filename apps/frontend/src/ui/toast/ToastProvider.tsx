@@ -106,8 +106,8 @@ function ubicarHostFlujo(host: HTMLDivElement) {
   }))).sort((a, b) =>
     (rectFoco ? proporcionCubierta(rectFoco, { left: a.left, top: a.top, width: ancho, height: alto }) : 0) -
       (rectFoco ? proporcionCubierta(rectFoco, { left: b.left, top: b.top, width: ancho, height: alto }) : 0) ||
-    a.totalControl - b.totalControl || a.maxControl - b.maxControl ||
-    a.totalTexto - b.totalTexto || a.maxTexto - b.maxTexto || a.top - b.top || a.left - b.left)[0];
+    a.maxControl - b.maxControl || a.totalControl - b.totalControl ||
+    a.maxTexto - b.maxTexto || a.totalTexto - b.totalTexto || a.top - b.top || a.left - b.left)[0];
   host.style.position = 'fixed';
   const margenSuperior = Number.parseFloat(getComputedStyle(viewport).marginTop) || 0;
   host.style.top = `${Math.max(0, (mejor?.top ?? 10) - margenSuperior)}px`;

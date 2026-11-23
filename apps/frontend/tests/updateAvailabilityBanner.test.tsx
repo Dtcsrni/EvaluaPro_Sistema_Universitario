@@ -36,6 +36,17 @@ describe('UpdateAvailabilityBanner', () => {
     expect(postMessage).toHaveBeenCalledWith({ type: 'EVALUAPRO_UPDATE_HUB', version: '9.9.9' });
   });
 
+  it('reconoce el tag hub-v usado por la release estable del Installer Hub', async () => {
+    mockRelease({
+      ...stableRelease,
+      tag_name: 'hub-v9.9.9',
+      html_url: 'https://github.com/Dtcsrni/EvaluaPro_Sistema_Universitario/releases/tag/hub-v9.9.9'
+    });
+
+    render(<UpdateAvailabilityBanner />);
+    expect(await screen.findByRole('button', { name: 'Actualizar a v9.9.9' })).toBeInTheDocument();
+  });
+
   it.each([
     ['beta', { ...stableRelease, prerelease: true }],
     ['tag no semver estable', { ...stableRelease, tag_name: 'v9.9.9-beta.1' }],

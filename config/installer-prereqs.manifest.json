@@ -3,14 +3,6 @@
   "defaultProfile": "docente-local",
   "profiles": [
     {
-      "profileId": "saas-completo",
-      "description": "Prerequisitos para despliegue local SaaS completo",
-      "prerequisites": [
-        "Node.js",
-        "Docker Runtime Windows"
-      ]
-    },
-    {
       "profileId": "docente-local",
       "description": "Prerequisitos para stack docente local estable sobre Windows (Node.js nativo + SQLite)",
       "prerequisites": [
@@ -31,33 +23,6 @@
         "type": "node_major",
         "minMajor": 24
       }
-    },
-    {
-      "name": "Docker Runtime Windows",
-      "version": "docker-compatible-runtime",
-      "downloadUrl": "https://learn.microsoft.com/windows/wsl/install",
-      "sha256": "GUIDED_BOOTSTRAP",
-      "sha256Url": "",
-      "sha256Pattern": "",
-      "silentArgs": "bootstrap-guided",
-      "detectRule": {
-        "type": "docker_runtime_windows"
-      },
-      "usageScope": "stack-docente-minimo"
-    },
-    {
-      "name": "Node.js WSL2",
-      "version": "24.x",
-      "downloadUrl": "https://deb.nodesource.com/setup_24.x",
-      "sha256": "GUIDED_BOOTSTRAP",
-      "sha256Url": "",
-      "sha256Pattern": "",
-      "silentArgs": "bootstrap-guided",
-      "detectRule": {
-        "type": "node_major_wsl",
-        "minMajor": 24
-      },
-      "usageScope": "stack-docente-minimo-wsl2-engine"
     }
   ]
 }

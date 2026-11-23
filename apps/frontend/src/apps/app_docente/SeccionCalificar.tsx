@@ -99,6 +99,7 @@ export function SeccionCalificar({
     calificacionEquivalenteSobre10Texto?: string;
     estadoAprobatorio?: 'Aprobatoria' | 'No aprobatoria';
     origen?: string;
+    detalleRespuestasDisponibles?: boolean;
   };
   onCalificar: (payload: {
     examenGeneradoId: string;
@@ -308,6 +309,25 @@ export function SeccionCalificar({
   const bloqueoPorSeleccionIncompleta = !examenId || !alumnoId;
   const bloqueoPorClaveIncompleta = reactivosOficiales.length === 0 || reactivosSinClave.length > 0;
   const bloqueoPorSoloLectura = Boolean(soloLectura);
+  const detalleRespuestasCompleto = reactivosOficiales.length > 0
+    && reactivosOficiales.every((numero) => respuestasTrabajoPorNumero.has(numero));
+  const revisionOmrLista = Boolean(
+    resultadoOmr && (resultadoOmr.estadoAnalisis === 'ok' || revisionOmrConfirmada)
+  );
+  const mostrarListaIncorrectas = !edicionManualAciertos
+    && !bloqueoPorClaveIncompleta
+    && detalleRespuestasCompleto
+    && (revisionOmrLista || Boolean(soloLectura && resumenPersistido?.detalleRespuestasDisponibles));
+  const numerosIncorrectos = useMemo(
+    () => reactivosOficiales
+      .filter((numero) => {
+        const correcta = normalizarOpcion(claveCorrectaPorNumero[numero]);
+        const detectada = normalizarOpcion(respuestasTrabajoPorNumero.get(numero)?.opcion ?? null);
+        return Boolean(correcta) && detectada !== correcta;
+      })
+      .sort((a, b) => a - b),
+    [claveCorrectaPorNumero, reactivosOficiales, respuestasTrabajoPorNumero]
+  );
   const calificacionCeroManual = Boolean(edicionManualAciertos && aciertosManualesValidos && aciertosManualesNumero === 0);
   const calificacionSinRespuestas = Boolean(
     !resultadoOmr
@@ -467,6 +487,9 @@ export function SeccionCalificar({
           Aciertos: {edicionManualAciertos && !aciertosManualesValidos ? 'pendiente' : edicionManualAciertos ? aciertosParaCalificar : aciertosMostrados}/{totalMostrado}
         </span>
         <span>Calificación final: {edicionManualAciertos && !aciertosManualesValidos ? 'pendiente' : edicionManualAciertos ? notaFinalSobre5.toFixed(2) : notaFinalMostrada.toFixed(2)} / 5.00</span>
+        {mostrarListaIncorrectas ? (
+          <span>Incorrectas: {numerosIncorrectos.length ? numerosIncorrectos.join(', ') : 'ninguna'}</span>
+        ) : null}
         {esExtraordinario && totalMostrado > 0 && !(edicionManualAciertos && !aciertosManualesValidos) ? (
           <>
             <span>Equivalente: {notaEquivalenteSobre10.toFixed(2)} / 10.00</span>

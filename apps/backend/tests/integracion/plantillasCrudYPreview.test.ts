@@ -565,6 +565,7 @@ describe('plantillas CRUD + previsualizacion', () => {
       const enunciado = `Reactivo ${indice + 1}. ${'Analiza la evidencia y selecciona la interpretación que corresponda. '.repeat(12)}`.slice(0, largo);
       await prisma.bancoPregunta.create({
         data: {
+          id: `10000000-0000-4000-8000-${String(indice + 1).padStart(12, '0')}`,
           docenteId: docente.id,
           periodoId,
           tema: `Tema ${tema}`,

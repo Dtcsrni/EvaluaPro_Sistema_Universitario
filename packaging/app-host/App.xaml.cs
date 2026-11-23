@@ -16,8 +16,11 @@ public partial class App : System.Windows.Application
     private static readonly TimeSpan OrphanedInstanceMinimumAge = TimeSpan.FromSeconds(30);
     private static Mutex? desktopSingletonMutex;
     private static Mutex? hubBootstrapSingletonMutex;
+    private NativeTrayIcon? trayIcon;
     private static bool ownsDesktopSingleton;
+    private delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
     internal static bool IsInstallerHubInvocation { get; private set; }
+    internal static bool IsTrayStartupInvocation { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -30,6 +33,8 @@ public partial class App : System.Windows.Application
 
         IsInstallerHubInvocation = e.Args.Any(argument =>
             string.Equals(argument, "--installer-hub", StringComparison.OrdinalIgnoreCase));
+        IsTrayStartupInvocation = e.Args.Any(argument =>
+            string.Equals(argument, "--tray-start", StringComparison.OrdinalIgnoreCase));
 
         if (IsInstallerHubInvocation && !TryAcquireHubBootstrapSingleton())
         {
@@ -40,6 +45,9 @@ public partial class App : System.Windows.Application
         if (!IsInstallerHubInvocation && !TryAcquireDesktopSingleton())
         {
             FocusExistingWindow();
+            // The window is created explicitly only after singleton ownership is
+            // established; a duplicate therefore exits without opening another UI.
+            LogLifecycleDiagnostic("DesktopSingleton", "Instancia duplicada enfocó el host activo y terminó sin crear ventana.");
             Shutdown();
             return;
         }
@@ -61,6 +69,9 @@ public partial class App : System.Windows.Application
             args.Handled = true;
             System.Windows.MessageBox.Show($"Error en EvaluaPro: {args.Exception.Message}\n\nRevisa logs/app-host-error.log", "EvaluaPro", MessageBoxButton.OK, MessageBoxImage.Error);
         };
+
+        MainWindow = new MainWindow();
+        MainWindow.Show();
     }
 
     private static bool TryAcquireDesktopSingleton()
@@ -143,8 +154,14 @@ public partial class App : System.Windows.Application
                     }
 
                     existingProcess.Refresh();
-                    if (existingProcess.MainWindowHandle != IntPtr.Zero)
+                    // MainWindowHandle is zero for a hidden tray window. Enumerate
+                    // all top-level windows before treating a process as orphaned;
+                    // otherwise a second launch can kill the healthy tray host and
+                    // become a duplicate owner of the singleton mutex.
+                    if (existingProcess.MainWindowHandle != IntPtr.Zero ||
+                        FindTopLevelWindow(existingProcess.Id) != IntPtr.Zero)
                     {
+                        LogLifecycleDiagnostic("DesktopSingleton.OrphanGuard", $"La instancia PID {existingProcess.Id} conserva una ventana superior, incluso si está oculta; no se recupera como huérfana.");
                         return false;
                     }
 
@@ -246,6 +263,8 @@ public partial class App : System.Windows.Application
 
                         existingProcess.Refresh();
                         var handle = existingProcess.MainWindowHandle;
+                        if (handle == IntPtr.Zero)
+                            handle = FindTopLevelWindow(existingProcess.Id);
                         if (handle != IntPtr.Zero)
                         {
                             ShowWindow(handle, SwRestore);
@@ -264,10 +283,80 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private static IntPtr FindTopLevelWindow(int processId)
+    {
+        var result = IntPtr.Zero;
+        EnumWindows((handle, lParam) =>
+        {
+            GetWindowThreadProcessId(handle, out var ownerProcessId);
+            if (ownerProcessId != (uint)processId) return true;
+            result = handle;
+            return false;
+        }, IntPtr.Zero);
+        return result;
+    }
+
     private void App_Exit(object? sender, ExitEventArgs e)
     {
+        trayIcon?.Dispose();
+        trayIcon = null;
         ReleaseDesktopSingleton();
         ReleaseHubBootstrapSingleton();
+    }
+
+    internal void EnterTrayMode(MainWindow window)
+    {
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        trayIcon ??= new NativeTrayIcon(
+            () => Dispatcher.BeginInvoke(new Action(() => RestoreWindow(window))),
+            () => Dispatcher.BeginInvoke(new Action(() => _ = window.ShutdownFromTrayAsync())));
+        void ScheduleHide(int retriesRemaining)
+        {
+            var timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+            {
+                Interval = TimeSpan.FromMilliseconds(200)
+            };
+            EventHandler? tick = null;
+            tick = (_, _) =>
+            {
+                timer.Stop();
+                if (tick is not null) timer.Tick -= tick;
+                if (window.Dispatcher.HasShutdownStarted || window.Dispatcher.HasShutdownFinished) return;
+                if (!window.IsLoaded) return;
+                try
+                {
+                    window.ShowInTaskbar = false;
+                    if (window.IsVisible) window.Hide();
+                    LogLifecycleDiagnostic("Tray", "Ventana oculta; API y dashboard continúan en el host local.");
+                }
+                catch (InvalidOperationException ex) when (retriesRemaining > 0)
+                {
+                    // WPF can keep the native Window in its Closing transition
+                    // briefly after a modal confirmation returns. Retry outside
+                    // that transition instead of logging a false app-host error.
+                    LogLifecycleDiagnostic("Tray.HideWindow.Deferred", $"La ventana sigue en transición de cierre; reintento restante={retriesRemaining}. {ex.Message}");
+                    ScheduleHide(retriesRemaining - 1);
+                }
+                catch (Exception ex)
+                {
+                    LogException("Tray.HideWindow", ex);
+                }
+            };
+            timer.Tick += tick;
+            timer.Start();
+        }
+
+        // The timer runs after the modal confirmation returns; bounded retries
+        // cover WPF versions that finish the cancelled Closing transition later.
+        ScheduleHide(retriesRemaining: 5);
+    }
+
+    private static void RestoreWindow(MainWindow window)
+    {
+        window.ShowInTaskbar = true;
+        if (!window.IsVisible) window.Show();
+        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+        window.Activate();
     }
 
     private static void ReleaseHubBootstrapSingleton()
@@ -310,11 +399,28 @@ public partial class App : System.Windows.Application
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     private static void LogException(string source, Exception? ex)
     {
         LogDiagnostic(source, ex?.ToString() ?? "Unknown error");
+    }
+
+    private static void LogLifecycleDiagnostic(string source, string message)
+    {
+        try
+        {
+            var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EvaluaPro", "logs", "app-host.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:u}] [{source}] {message}{Environment.NewLine}");
+        }
+        catch { }
     }
 
     private static void LogDiagnostic(string source, string message)

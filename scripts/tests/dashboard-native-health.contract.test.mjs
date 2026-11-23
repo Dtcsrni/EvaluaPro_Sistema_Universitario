@@ -6,12 +6,28 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const source = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+const dashboard = fs.readFileSync(path.join(root, 'scripts', 'dashboard.html'), 'utf8');
 
 test('el flavor docente-local no queda bloqueado por MongoDB', () => {
   assert.match(source, /requireMongo\s*=\s*requiresDockerRuntime\(\)/);
   assert.match(source, /const mongoOk = !requireMongo \|\| Boolean\(services\?\.mongoLocal\?\.ok\)/);
   assert.match(source, /flavorPolicy\.requireDockerRuntime/);
   assert.match(source, /waitForLifecycleHealth\(desiredMode, requireLocalPortal, requireMongo/);
+});
+
+test('docente-local omite MongoDB y consulta salud de servicios en paralelo', () => {
+  assert.match(source, /if \(flavorPolicy\.requireDockerRuntime\) \{\s*checks\.push\(\['mongoLocal'/);
+  assert.match(source, /Promise\.all\(checks\.map\(async \(\[name, check\]\) => \[name, await check\(\)\]\)\)/);
+});
+
+test('abrir la raíz del dashboard en docente-local lleva a la Web Docente', () => {
+  assert.match(source, /flavorPolicy\.flavorId === 'docente-local'/);
+  assert.match(source, /Location: `http:\/\/127\.0\.0\.1:\$\{webPort\}\/\$\{reqUrl\.search \|\| ''\}`/);
+  assert.ok(source.includes("pathName === '/api/status'"), 'las rutas internas del supervisor siguen expuestas');
+});
+
+test('la interfaz de supervisor ya no ofrece el panel obsoleto de MongoDB', () => {
+  assert.doesNotMatch(dashboard, /panel-db|mongo-express|MONGOEXPRESS_/i);
 });
 
 test('repara procesos nativos obsoletos y espera su salida antes de reiniciar', () => {

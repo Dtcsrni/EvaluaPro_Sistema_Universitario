@@ -23,6 +23,9 @@ namespace EvaluaPro.AppHost;
 public partial class MainWindow : Window
 {
     private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+    // /api/install performs filesystem and process-identity checks during cold
+    // start; allow a bounded grace period on slower machines/CI runners.
+    private static readonly HttpClient DashboardIdentityHttpClient = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly SemaphoreSlim startupSemaphore = new(1, 1);
     private Process? dashboardProcess;
     private DateTime? dashboardProcessStartTimeUtc;
@@ -440,6 +443,8 @@ public partial class MainWindow : Window
             var fadeOut = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(300));
             fadeOut.Completed += (_, _) => SplashOverlay.Visibility = Visibility.Collapsed;
             SplashOverlay.BeginAnimation(OpacityProperty, fadeOut);
+                if (App.IsTrayStartupInvocation && System.Windows.Application.Current is App app)
+                    app.EnterTrayMode(this);
         }
         else
         {
@@ -605,6 +610,7 @@ public partial class MainWindow : Window
                 };
                 psi.EnvironmentVariables["NODE_ENV"] = "production";
                 psi.EnvironmentVariables["EVALUAPRO_FLAVOR"] = "docente-local";
+                psi.EnvironmentVariables["DASHBOARD_TRAY_AUTOSTART"] = "0";
                 var googleDesktopClientSecret = Environment.GetEnvironmentVariable(
                     "GOOGLE_DESKTOP_CLIENT_SECRET",
                     EnvironmentVariableTarget.User);
@@ -646,7 +652,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            using var response = await HttpClient.GetAsync($"http://127.0.0.1:{dashboardPort}/api/install");
+            using var response = await DashboardIdentityHttpClient.GetAsync($"http://127.0.0.1:{dashboardPort}/api/install");
             if (!response.IsSuccessStatusCode) return;
 
             using var statusDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -704,7 +710,7 @@ public partial class MainWindow : Window
                 return false;
             }
 
-            using var response = await HttpClient.GetAsync($"http://127.0.0.1:{expectedPort}/api/install");
+            using var response = await DashboardIdentityHttpClient.GetAsync($"http://127.0.0.1:{expectedPort}/api/install");
             if (!response.IsSuccessStatusCode) return false;
             using var statusDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             return TryGetDashboardIdentity(statusDocument.RootElement, out var statusPid, out var statusPort, out var statusRoot, out var statusStartedAt, out var statusInstanceId) &&
@@ -1347,8 +1353,10 @@ public partial class MainWindow : Window
     {
         try
         {
+            // The close event may already be unwinding when this deferred
+            // confirmation runs. An owner would make WPF query this Window's
+            // native handle/visibility during that transition.
             var choice = WpfMessageBox.Show(
-                this,
                 "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
                 "EvaluaPro · Cerrar",
                 MessageBoxButton.YesNoCancel,
@@ -1358,8 +1366,7 @@ public partial class MainWindow : Window
             if (choice == MessageBoxResult.Cancel) return;
             if (choice == MessageBoxResult.No)
             {
-                closeAuthorized = true;
-                _ = Dispatcher.BeginInvoke(new Action(Close));
+                if (System.Windows.Application.Current is App app) app.EnterTrayMode(this);
                 return;
             }
 
@@ -1379,7 +1386,10 @@ public partial class MainWindow : Window
 
             shutdownCompleted = true;
             closeAuthorized = true;
-            _ = Dispatcher.BeginInvoke(new Action(Close));
+            // El usuario pudo haber elegido antes "No" y dejado WPF en
+            // OnExplicitShutdown. Cerrar solo la ventana no termina entonces
+            // el host aunque los servicios ya se hayan detenido.
+            _ = Dispatcher.BeginInvoke(new Action(() => System.Windows.Application.Current.Shutdown()));
         }
         catch (Exception ex)
         {
@@ -1390,5 +1400,30 @@ public partial class MainWindow : Window
         {
             closePromptPending = false;
         }
+    }
+
+    internal async Task ShutdownFromTrayAsync()
+    {
+        if (isStopping || shutdownCompleted) return;
+        isStopping = true;
+        var stopped = await ShutdownServicesAsync();
+        if (!stopped)
+        {
+            isStopping = false;
+            ShowInTaskbar = true;
+            if (!IsVisible) Show();
+            Activate();
+            WpfMessageBox.Show(
+                this,
+                "No pude verificar que los servicios de EvaluaPro se detuvieran. La aplicación sigue activa; revisa el log de diagnóstico.",
+                "EvaluaPro · No se pudo detener",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        shutdownCompleted = true;
+        closeAuthorized = true;
+        System.Windows.Application.Current.Shutdown();
     }
 }

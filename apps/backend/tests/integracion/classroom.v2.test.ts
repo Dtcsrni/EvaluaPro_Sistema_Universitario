@@ -29,7 +29,10 @@ vi.mock('../../src/modulos/modulo_integraciones_classroom/servicioClassroomGoogl
     { id: 'cw-1', title: 'Actividad 1', description: 'Desc', maxPoints: 100, state: 'PUBLISHED' }
   ]),
   listarActividadesClassroomConEstado: vi.fn(async () => ({ completa: true, items: [
-    { id: 'cw-1', title: 'Actividad 1', description: 'Desc', maxPoints: 100, state: 'PUBLISHED' }
+    {
+      id: 'cw-1', title: 'Actividad 1', description: 'Desc', maxPoints: 100, state: 'PUBLISHED',
+      materials: [{ driveFile: { driveFile: { id: 'drive-1', title: 'Guía', alternateLink: 'https://drive.google.com/file/d/drive-1/view' } } }]
+    }
   ] })),
   listarTemasClassroomConEstado: vi.fn(async () => ({ completa: true, items: [] })),
   desconectarOauthClassroom: vi.fn(async () => undefined)
@@ -151,6 +154,23 @@ describe('classroom v2', () => {
       .set(auth)
       .expect(200);
     expect(actividades.body?.actividades).toHaveLength(1);
+    expect(actividades.body?.actividades?.[0]?.materials).toEqual([
+      expect.objectContaining({ tipo: 'Google Drive', titulo: 'Guía', url: 'https://drive.google.com/file/d/drive-1/view' })
+    ]);
+
+    const contenidoActividad = await request(app)
+      .get('/api/evaluaciones/v2/classroom/cursos/course-1/actividades/cw-1/contenido')
+      .set(auth)
+      .expect(200);
+    expect(contenidoActividad.body?.actividad?.contenidos).toEqual([
+      expect.objectContaining({
+        titulo: 'Guía',
+        url: 'https://drive.google.com/file/d/drive-1/view',
+        texto: '',
+        error: expect.stringContaining('permisos actuales')
+      })
+    ]);
+    expect(vi.mocked(classroomGet)).not.toHaveBeenCalledWith('token-mock', expect.stringContaining('drive'));
 
     const roster = await request(app)
       .get(`/api/evaluaciones/v2/classroom/cursos/course-1/alumnos?periodoId=${encodeURIComponent(String(periodo._id))}`)

@@ -132,11 +132,12 @@ type PaqueteClasificado = {
   submissionId?: string;
 };
 export type ResultadoAutoCalificacionOmr = {
-  status: 'saved' | 'already_recorded' | 'needs_review' | 'failed';
+  status: 'saved' | 'preview' | 'already_recorded' | 'needs_review' | 'failed';
   calificacionId?: string;
   aciertos?: number;
   totalReactivos?: number;
   calificacionExamen?: string;
+  preview?: Record<string, unknown>;
   reasonCodes?: string[];
 };
 type CalificadorAutomaticoOmr = (args: { docenteId: string; body: unknown }) => Promise<{ statusCode: number; body: unknown }>;
@@ -579,6 +580,35 @@ export async function prevalidarReferenciaIngestaPdfOmr(req: SolicitudDocente, r
       const { exacta, paginasCoincidentes } = evaluarIndiceQrReferencia(indexado, lote.esperados);
       if (exacta) coincidencias.push({ assessmentId: lote.assessmentId, loteId, examCount: lote.examenes.length, expectedPages: lote.esperados.size, matchedPages: paginasCoincidentes });
     }
+    // Los lotes históricos pueden conservar el PDF consolidado íntegro aunque
+    // el mapa OMR no tenga geometría QR suficiente para reconstruir el índice.
+    // En ese caso, solo el SHA-256 exacto del artefacto persistido puede
+    // identificar el lote; nunca se infiere identidad desde un QR parcial.
+    if (coincidencias.length === 0) {
+      const loteIdsSeleccionados = [...new Set(seleccionados.map((item) => item.loteId).filter((id): id is string => Boolean(id)))];
+      if (loteIdsSeleccionados.length > 0) {
+        const digestReferencia = sha256(bytes);
+        const artefactosCoincidentes = await prisma.examenLoteArtefactoPdf.findMany({
+          where: { docenteId, loteId: { in: loteIdsSeleccionados }, sha256: digestReferencia, totalPaginas: indexado.paginas },
+          select: { loteId: true, totalPaginas: true, totalExamenes: true }
+        });
+        // Si el mismo digest estuviera asociado a varios lotes, la referencia
+        // no basta para elegir uno de forma inequívoca.
+        if (artefactosCoincidentes.length === 1) {
+          const artefacto = artefactosCoincidentes[0]!;
+          const diagnostico = diagnosticosCandidatos.find((item) => item.loteId === artefacto.loteId);
+          if (diagnostico && diagnostico.examCount === artefacto.totalExamenes) {
+            coincidencias.push({
+              assessmentId: diagnostico.assessmentId,
+              loteId: artefacto.loteId,
+              examCount: diagnostico.examCount,
+              expectedPages: artefacto.totalPaginas,
+              matchedPages: indexado.paginas
+            });
+          }
+        }
+      }
+    }
     res.status(200).json({
       reference: {
         pages: indexado.paginas,
@@ -751,8 +781,9 @@ export async function calificarGrupoIngestaOmr(args: {
   docenteId: string;
   exam: Pick<ExamenConRelaciones, 'id' | 'folio' | 'alumnoId' | 'mapaOmr' | 'mapaVariante'>;
   pages: Array<Pick<PaginaProcesada, 'examPage' | 'scanStatus' | 'autoGradable' | 'manualReviewRequired' | 'responses' | 'omrAnalysis'>>;
+  soloPreview?: boolean;
 }): Promise<ResultadoAutoCalificacionOmr> {
-  const { docenteId, exam, pages } = args;
+  const { docenteId, exam, pages, soloPreview = false } = args;
   const map = json<any>(exam.mapaOmr, null);
   const variant = json<any>(exam.mapaVariante, null);
   const expectedPageMaps = (Array.isArray(map?.paginas) ? map.paginas : [])
@@ -853,6 +884,7 @@ export async function calificarGrupoIngestaOmr(args: {
     alumnoId: exam.alumnoId,
     totalReactivos: expectedQuestionCount,
     clientRequestId: uuidCalificacionAutomatica(docenteId, exam.id),
+    ...(soloPreview ? { soloPreview: true } : {}),
     respuestasDetectadas: responses.map((response) => ({
       numeroPregunta: response.numeroPregunta,
       opcion: response.opcion,
@@ -893,6 +925,19 @@ export async function calificarGrupoIngestaOmr(args: {
   const grade = responseBody.calificacion && typeof responseBody.calificacion === 'object'
     ? responseBody.calificacion as Record<string, unknown>
     : null;
+  const preview = responseBody.preview && typeof responseBody.preview === 'object'
+    ? responseBody.preview as Record<string, unknown>
+    : null;
+  if (soloPreview) {
+    if (!preview) return { status: 'failed', reasonCodes: ['PREVIEW_CALIFICACION_NO_CONFIRMADA'] };
+    return {
+      status: 'preview',
+      aciertos: Number(preview.aciertos),
+      totalReactivos: Number(preview.totalReactivos),
+      calificacionExamen: String(preview.calificacionExamenFinalTexto ?? ''),
+      preview
+    };
+  }
   if (!grade?.id) return { status: 'failed', reasonCodes: ['CALIFICACION_NO_CONFIRMADA'] };
   return {
     status: 'saved',
@@ -1176,6 +1221,7 @@ export async function reintentarIngestaPdfOmr(req: SolicitudDocente, res: Respon
 async function procesarIngesta(jobId: string, docenteId: string, examenes: ExamenConRelaciones[], metadata: MetadataIngesta) {
   const examenesPorId = new Map(examenes.map((exam) => [exam.id.toUpperCase(), exam]));
   const examenesPorFolio = new Map(examenes.map((exam) => [exam.folio.toUpperCase(), exam]));
+  const examenesQrFueraDelLote = new Map<string, Promise<boolean>>();
   const referenciaQr = new Map<string, Set<string>>();
   const paginaReferenciaPorExamen = new Map<string, number[]>();
   const rutaPdfReferencia = resolverRutaIngesta(jobId, metadata.reference.relativePath);
@@ -1264,7 +1310,42 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
           }
         }
         if (!qr || qr.payloadSignatureValid !== true || !exam || exam.folio.toUpperCase() !== qr.folio.toUpperCase()) {
-          const paginaPendiente = errorPage(globalIndex, file.id, file.nombre, image.numero, 'OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE', 'El QR no se validó dentro del lote seleccionado; clasificar manualmente.');
+          let qrFirmadoFueraDelLote = false;
+          const identidadQrEnLote = qr
+            ? qr.examId
+              ? examenesPorId.has(qr.examId.toUpperCase())
+              : examenesPorFolio.has(qr.folio.toUpperCase())
+            : false;
+          if (qr?.payloadSignatureValid === true && !identidadQrEnLote) {
+            const claveQrAjeno = (qr.examId ?? qr.folio).toUpperCase();
+            let verificacion = examenesQrFueraDelLote.get(claveQrAjeno);
+            if (!verificacion) {
+              verificacion = prisma.examenGenerado.findFirst({
+                where: {
+                  docenteId,
+                  OR: [
+                    ...(qr.examId ? [{ id: qr.examId }] : []),
+                    { folio: qr.folio }
+                  ]
+                },
+                select: { id: true, folio: true }
+              }).then((exam) => Boolean(exam
+                && exam.folio.toUpperCase() === qr.folio.toUpperCase()
+                && (!qr.examId || exam.id.toUpperCase() === qr.examId.toUpperCase())));
+              examenesQrFueraDelLote.set(claveQrAjeno, verificacion);
+            }
+            qrFirmadoFueraDelLote = await verificacion;
+          }
+          const paginaPendiente = errorPage(
+            globalIndex,
+            file.id,
+            file.nombre,
+            image.numero,
+            qrFirmadoFueraDelLote ? 'OMR_QR_FUERA_DEL_LOTE_SELECCIONADO' : 'OMR_QR_NO_VALIDO_O_FUERA_DE_LOTE',
+            qrFirmadoFueraDelLote
+              ? 'El QR firmado pertenece a un examen del docente que no forma parte del lote seleccionado.'
+              : 'El QR no se validó dentro del lote seleccionado; clasificar manualmente.'
+          );
           try {
             if (ocrDeshabilitado) {
               metadata.pages.push(paginaPendiente);
@@ -1981,6 +2062,85 @@ export async function calificarIngestaPdfOmr(req: SolicitudDocente, res: Respons
   }
 }
 
+export async function previsualizarCalificacionIngestaOmr(req: SolicitudDocente, res: Response) {
+  const docenteId = obtenerDocenteId(req);
+  const jobId = String(req.params.jobId ?? '').trim();
+  const job = await prisma.omrScanJob.findFirst({ where: { id: jobId, docenteId } });
+  if (!job) throw new ErrorAplicacion('OMR_JOB_NO_ENCONTRADO', 'Job OMR no encontrado', 404);
+  if (job.estado !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La ingesta debe terminar antes de previsualizar la calificación.', 409);
+
+  const metadata = json<MetadataIngesta>(job.metadata, {
+    version: 1, assessmentId: '', loteId: null, status: 'failed',
+    reference: { nombre: '', relativePath: '', sha256: '', pages: 0, pagesWithQr: 0 },
+    files: [], pages: [], packages: [], errors: [], startedAt: ''
+  });
+  if (metadata.status !== 'completed' || !metadata.loteId) {
+    throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'El job no contiene una ingesta completa de un lote identificable.', 409);
+  }
+  if (metadata.sharedFormCopies) {
+    const submissions = metadata.sharedSubmissions ?? [];
+    const assignedStudents = submissions.map((submission) => submission.studentId).filter((studentId): studentId is string => Boolean(studentId));
+    if (submissions.length === 0 || submissions.some((submission) => submission.status !== 'ready' || !submission.studentId) || new Set(assignedStudents).size !== submissions.length) {
+      throw new ErrorAplicacion('OMR_COPIAS_NO_LISTAS', 'Completa todas las copias y confirma un alumno distinto para cada una antes de previsualizar la calificación.', 409);
+    }
+  }
+
+  const examenes = await buscarExamenesLote(metadata.assessmentId, docenteId);
+  if (examenes.length === 0 || examenes.length > 100) {
+    throw new ErrorAplicacion('OMR_LOTE_TAMANO_INVALIDO', 'El lote debe contener de 1 a 100 exámenes.', 422);
+  }
+  const attempts: Array<Record<string, unknown>> = [];
+  const trabajos = metadata.sharedFormCopies
+    ? (metadata.sharedSubmissions ?? []).map((submission) => {
+        const target = examenes.find((candidate) => candidate.alumnoId === submission.studentId);
+        const form = examenes.find((candidate) => candidate.id === submission.formExamId);
+        const formSummary = form ? candidatosIngestaOmr([form])[0] : undefined;
+        const targetSummary = target ? candidatosIngestaOmr([target])[0] : undefined;
+        const compatible = Boolean(formSummary?.variantVerified && targetSummary?.variantVerified
+          && formSummary.answerKeySnapshotVerified && targetSummary.answerKeySnapshotVerified
+          && JSON.stringify([...(formSummary.variantHashes ?? [])].sort()) === JSON.stringify([...(targetSummary.variantHashes ?? [])].sort())
+          && JSON.stringify([...(formSummary.answerKeyHashes ?? [])].sort()) === JSON.stringify([...(targetSummary.answerKeyHashes ?? [])].sort()));
+        return { submission, form, target, exam: target && form && compatible ? { ...form, alumnoId: target.alumnoId } : null };
+      })
+    : examenes.map((exam) => ({ submission: null, form: exam, target: exam, exam }));
+
+  for (const trabajo of trabajos) {
+    const { submission, form, target, exam } = trabajo;
+    const examId = target?.id ?? submission?.formExamId;
+    const submissionId = submission?.submissionId;
+    if (!exam || !form || !target || String(form.loteId ?? '').toUpperCase() !== String(metadata.loteId).toUpperCase()) {
+      attempts.push({ examId, submissionId, status: 'requires_review', reasonCodes: ['OMR_COPIA_VARIANTE_INCOMPATIBLE'] });
+      continue;
+    }
+    const pages = metadata.pages
+      .filter((page) => page.examId === form.id && (!submissionId || page.submissionId === submissionId))
+      .map((page) => ({
+        examPage: page.examPage,
+        scanStatus: page.scanStatus,
+        autoGradable: page.autoGradable,
+        manualReviewRequired: page.manualReviewRequired,
+        responses: page.responses,
+        omrAnalysis: page.omrAnalysis
+      }));
+    const resultado = await calificarGrupoIngestaOmr({ docenteId, exam, pages, soloPreview: true });
+    attempts.push({
+      examId,
+      submissionId,
+      folio: target.folio,
+      alumnoId: target.alumnoId,
+      status: resultado.status === 'preview' ? 'preview' : 'requires_review',
+      ...(resultado.preview ? { preview: resultado.preview } : {}),
+      ...(resultado.reasonCodes ? { reasonCodes: resultado.reasonCodes } : {}),
+      ...(resultado.aciertos !== undefined ? { correct: resultado.aciertos } : {}),
+      ...(resultado.totalReactivos !== undefined ? { total: resultado.totalReactivos } : {}),
+      ...(resultado.calificacionExamen !== undefined ? { gradeText: resultado.calificacionExamen } : {})
+    });
+  }
+
+  res.setHeader('Cache-Control', 'private, no-store');
+  return res.status(200).json({ jobId, loteId: metadata.loteId, attempts });
+}
+
 export async function recuperarIngestaPdfOmrPorClave(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const clientRequestId = String(req.params.clientRequestId ?? '').trim();
@@ -2187,12 +2347,12 @@ export async function previsualizarPaginaIngestaPdfOmr(req: SolicitudDocente, re
   const docenteId = obtenerDocenteId(req);
   const job = await prisma.omrScanJob.findFirst({ where: { id: String(req.params.jobId || ''), docenteId } });
   if (!job) throw new ErrorAplicacion('OMR_JOB_NO_ENCONTRADO', 'Job OMR no encontrado', 404);
-  if (job.estado !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La ingesta debe terminar antes de previsualizar páginas', 409);
+  if (job.estado !== 'completed' && job.estado !== 'failed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La página solo se puede previsualizar cuando el job terminó o falló.', 409);
 
   const pageIndex = Number(req.params.pageIndex);
   if (!Number.isSafeInteger(pageIndex) || pageIndex < 1) throw new ErrorAplicacion('OMR_PAGINA_INVALIDA', 'El índice de página debe ser un entero positivo', 400);
   const metadata = json<MetadataIngesta>(job.metadata, { version: 1, assessmentId: '', loteId: null, status: 'failed', reference: { nombre: '', relativePath: '', sha256: '', pages: 0, pagesWithQr: 0 }, files: [], pages: [], packages: [], errors: [], startedAt: '' });
-  if (metadata.status !== 'completed') throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'La ingesta debe terminar antes de previsualizar páginas', 409);
+  if (metadata.status !== job.estado) throw new ErrorAplicacion('OMR_INGESTA_NO_LISTA', 'El estado de la ingesta no coincide con el estado persistido del job.', 409);
   const page = metadata.pages.find((item) => item.pageIndex === pageIndex);
   if (!page) throw new ErrorAplicacion('OMR_PAGINA_NO_ENCONTRADA', 'La página no existe en esta ingesta', 404);
   const file = metadata.files.find((item) => item.id === page.sourceFileId);

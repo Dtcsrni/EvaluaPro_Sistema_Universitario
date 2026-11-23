@@ -14,11 +14,15 @@ import {
 import { calcularCalificacion } from '../src/modulos/modulo_calificacion/servicioCalificacion.js';
 
 describe('calculoCalificacion', () => {
-  it('respeta bono maximo y sin redondeo', () => {
-    const resultado = calcularCalificacionExacta(7, 10, 1);
+  it('limita el bono del examen a 0.25 y conserva el tope de 5', () => {
+    const resultado = calcularCalificacionExacta(7, 10, 0.5);
     expect(resultado.calificacionTexto).toBe('3.5');
-    expect(resultado.bonoTexto).toBe('0.5');
-    expect(resultado.calificacionFinalTexto).toBe('4');
+    expect(resultado.bonoTexto).toBe('0.25');
+    expect(resultado.calificacionFinalTexto).toBe('3.75');
+
+    const maximo = calcularCalificacionExacta(10, 10, 0.25);
+    expect(maximo.bonoTexto).toBe('0.25');
+    expect(maximo.calificacionFinalTexto).toBe('5');
   });
 
   it('aplica topes en parcial y global', () => {

@@ -239,7 +239,7 @@ export async function listarExamenesGenerados(req: SolicitudDocente, res: Respon
       acordeonEntregado,
       bonoAcordeon: acordeonEntregado
         ? Number.isFinite(bonoAcordeonRaw)
-          ? Math.max(0, Math.min(0.5, bonoAcordeonRaw))
+          ? Math.max(0, Math.min(0.25, bonoAcordeonRaw))
           : 0.25
         : 0
     });

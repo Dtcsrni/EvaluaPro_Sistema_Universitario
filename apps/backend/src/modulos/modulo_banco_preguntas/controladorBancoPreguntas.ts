@@ -25,6 +25,51 @@ function claveTema(valor: string): string {
 
 type AccionTemaBanco = 'crear' | 'actualizar' | 'archivar';
 
+function normalizarCategoria(valor: unknown): string {
+  return String(valor ?? 'Sin categoría').trim().replace(/\s+/g, ' ') || 'Sin categoría';
+}
+
+async function resolverCategoriaBanco(tx: Prisma.TransactionClient, params: {
+  docenteId: string; periodoId: string; nombre: string; temarioNodoId?: string | null;
+}) {
+  if (params.temarioNodoId) {
+    const nodo = await tx.temarioNodo.findFirst({
+      where: { id: params.temarioNodoId, nivel: 1, temario: { periodoId: params.periodoId, periodo: { docenteId: params.docenteId } } },
+      select: { id: true }
+    });
+    if (!nodo) throw new ErrorAplicacion('TEMARIO_NODO_INVALIDO', 'La categoría debe vincularse a un nodo de nivel 1 del temario de esta materia.', 400);
+  }
+  const clave = claveTema(params.nombre);
+  const existente = await tx.categoriaBanco.findFirst({ where: { docenteId: params.docenteId, periodoId: params.periodoId, clave } });
+  if (existente) {
+    if (existente.temarioNodoId && params.temarioNodoId && existente.temarioNodoId !== params.temarioNodoId) {
+      throw new ErrorAplicacion('CATEGORIA_TEMARIO_CONFLICTO', 'Esta categoría ya está vinculada a otro nodo del temario.', 409);
+    }
+    return tx.categoriaBanco.update({ where: { id: existente.id }, data: { activo: true, temarioNodoId: params.temarioNodoId === undefined ? existente.temarioNodoId : params.temarioNodoId } });
+  }
+  return tx.categoriaBanco.create({ data: { docenteId: params.docenteId, periodoId: params.periodoId, nombre: params.nombre, clave, temarioNodoId: params.temarioNodoId ?? null } });
+}
+
+async function validarTemaTemario(tx: Prisma.TransactionClient, params: {
+  docenteId: string; periodoId: string; nodoId?: string | null; categoriaNodoId?: string | null;
+}) {
+  if (!params.nodoId) return;
+  const nodo = await tx.temarioNodo.findFirst({
+    where: { id: params.nodoId, nivel: 2, temario: { periodoId: params.periodoId, periodo: { docenteId: params.docenteId } } },
+    select: { id: true, numero: true }
+  });
+  if (!nodo) throw new ErrorAplicacion('TEMARIO_NODO_INVALIDO', 'El tema debe vincularse a un nodo de nivel 2 del temario de esta materia.', 400);
+  if (params.categoriaNodoId) {
+    const categoriaNodo = await tx.temarioNodo.findFirst({
+      where: { id: params.categoriaNodoId, nivel: 1, temario: { periodoId: params.periodoId, periodo: { docenteId: params.docenteId } } },
+      select: { id: true, numero: true }
+    });
+    if (!categoriaNodo || !nodo.numero.startsWith(`${categoriaNodo.numero}.`)) {
+      throw new ErrorAplicacion('TEMARIO_NODO_INCOMPATIBLE', 'El tema del temario debe ser subtema de la categoría vinculada.', 400);
+    }
+  }
+}
+
 function calcularHuellaTema(accion: AccionTemaBanco, recursoId: string | null, payload: Record<string, unknown>): string {
   return createHash('sha256').update(JSON.stringify({ accion, recursoId, payload })).digest('hex');
 }
@@ -418,10 +463,12 @@ export async function eliminarPregunta(req: SolicitudDocente, res: Response) {
  */
 export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const { periodoId, temaIdDestino, preguntasIds } = req.body as {
+  const { periodoId, temaIdDestino, preguntasIds, clientRequestId, confirmarReemplazo } = req.body as {
     periodoId?: string;
     temaIdDestino?: string;
     preguntasIds?: string[];
+    clientRequestId?: string;
+    confirmarReemplazo?: boolean;
   };
 
   const periodoIdFinal = String(periodoId ?? '').trim();
@@ -436,6 +483,12 @@ export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Respon
   }
   if (ids.length === 0) {
     throw new ErrorAplicacion('PREGUNTAS_REQUERIDAS', 'Debes enviar al menos una pregunta', 400);
+  }
+  if (!clientRequestId || confirmarReemplazo !== true) {
+    throw new ErrorAplicacion('CONFIRMACION_REQUERIDA', 'Confirma el reemplazo de temas y envía clientRequestId para registrar la operación.', 400);
+  }
+  if (new Set(ids).size !== ids.length || ids.length > 500) {
+    throw new ErrorAplicacion('PREGUNTAS_INVALIDAS', 'La selección debe ser única y no exceder 500 reactivos.', 400);
   }
 
   const materia = await prisma.periodo.findFirst({
@@ -506,12 +559,39 @@ export async function moverPreguntasTemaBanco(req: SolicitudDocente, res: Respon
     opcionesLote.add(firma);
   }
 
-  const resultado = await prisma.bancoPregunta.updateMany({
-    where: { id: { in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
-    data: { tema: nombreDestino }
+  const idsOrdenados = [...ids].sort();
+  const requestHash = calcularHuellaTema('actualizar', temaIdDestinoFinal, { accion: 'recategorizar-masivo', periodoId: periodoIdFinal, preguntasIds: idsOrdenados });
+  const resultado = await prisma.$transaction(async (tx) => {
+    const eventoPrevio = await tx.temaBancoAuditoria.findUnique({ where: { docenteId_clientRequestId: { docenteId, clientRequestId } } });
+    if (eventoPrevio) {
+      if (eventoPrevio.accion !== 'recategorizar-masivo' || eventoPrevio.requestHash !== requestHash) {
+        throw new ErrorAplicacion('TEMA_REQUEST_ID_REUTILIZADO', 'clientRequestId ya fue utilizado para otra mutación o payload.', 409);
+      }
+      return JSON.parse(eventoPrevio.despues) as { movidas: number; repetida: boolean };
+    }
+    const reactivos = await tx.reactivo.findMany({ where: { docenteId, legacyPreguntaId: { in: ids } }, select: { id: true, legacyPreguntaId: true } });
+    const asignacionesAntes = reactivos.length ? await tx.reactivoAsignacion.findMany({
+      where: { periodoId: periodoIdFinal, reactivoId: { in: reactivos.map((item) => item.id) } },
+      select: { reactivoId: true, periodoId: true, temaId: true }
+    }) : [];
+    const actualizadas = await tx.bancoPregunta.updateMany({
+      where: { id: { in: ids }, docenteId, periodoId: periodoIdFinal, activo: true },
+      data: { tema: nombreDestino }
+    });
+    if (reactivos.length) {
+      const reactivoIds = reactivos.map((item) => item.id);
+      await tx.reactivoAsignacion.deleteMany({ where: { periodoId: periodoIdFinal, reactivoId: { in: reactivoIds } } });
+      await tx.reactivoAsignacion.createMany({ data: reactivoIds.map((reactivoId) => ({ reactivoId, periodoId: periodoIdFinal, temaId: temaDestino.id })) });
+    }
+    const respuesta = { movidas: actualizadas.count, repetida: false };
+    await tx.temaBancoAuditoria.create({ data: {
+      docenteId, periodoId: periodoIdFinal, temaId: temaDestino.id, accion: 'recategorizar-masivo', clientRequestId, requestHash,
+      antes: JSON.stringify({ preguntasIds: idsOrdenados, asignaciones: asignacionesAntes }),
+      despues: JSON.stringify({ ...respuesta, temaIdDestino: temaDestino.id, preguntasIds: idsOrdenados })
+    } });
+    return respuesta;
   });
-
-  res.json({ movidas: resultado.count });
+  res.json(resultado);
 }
 
 /**
@@ -575,9 +655,11 @@ export async function listarTemasBanco(req: SolicitudDocente, res: Response) {
 
   const temas = await prisma.temaBanco.findMany({
     where: { docenteId, periodoId, activo: true },
-    orderBy: { nombre: 'asc' }
+    orderBy: { nombre: 'asc' },
+    include: { categoria: true }
   });
-  res.json({ temas });
+  const temario = await prisma.temario.findUnique({ where: { periodoId }, include: { nodos: { orderBy: { numero: 'asc' } } } });
+  res.json({ temas, temarioNodos: temario?.nodos ?? [] });
 }
 
 export async function obtenerTemaBanco(req: SolicitudDocente, res: Response) {
@@ -593,8 +675,9 @@ export async function obtenerTemaBanco(req: SolicitudDocente, res: Response) {
  */
 export async function crearTemaBanco(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
-  const { periodoId, nombre, clientRequestId: requestId } = req.body as { periodoId?: string; nombre?: string; clientRequestId?: string };
+  const { periodoId, nombre, categoria, temarioCategoriaNodoId, temarioTemaNodoId, clientRequestId: requestId } = req.body as { periodoId?: string; nombre?: string; categoria?: string; temarioCategoriaNodoId?: string | null; temarioTemaNodoId?: string | null; clientRequestId?: string };
   const nombreFinal = normalizarTema(nombre);
+  const categoriaFinal = normalizarCategoria(categoria);
   if (!periodoId) {
     throw new ErrorAplicacion('PERIODO_REQUERIDO', 'Materia requerida', 400);
   }
@@ -604,23 +687,25 @@ export async function crearTemaBanco(req: SolicitudDocente, res: Response) {
 
   const clave = claveTema(nombreFinal);
   const clientRequestId = requestId ?? randomUUID();
-  const requestHash = calcularHuellaTema('crear', null, { periodoId, nombre: nombreFinal, clave });
+  const requestHash = calcularHuellaTema('crear', null, { periodoId, nombre: nombreFinal, clave, categoria: categoriaFinal, temarioCategoriaNodoId: temarioCategoriaNodoId ?? null, temarioTemaNodoId: temarioTemaNodoId ?? null });
   const resultado = await prisma.$transaction(async (tx) => {
     const repeticion = await recuperarMutacionTema(tx, docenteId, clientRequestId, 'crear', requestHash);
     if (repeticion) return repeticion;
     const materia = await tx.periodo.findFirst({ where: { id: periodoId, docenteId }, select: { id: true } });
     if (!materia) throw new ErrorAplicacion('MATERIA_NO_ENCONTRADA', 'Materia no encontrada', 404);
+    const categoriaRecord = await resolverCategoriaBanco(tx, { docenteId, periodoId, nombre: categoriaFinal, temarioNodoId: temarioCategoriaNodoId || undefined });
+    await validarTemaTemario(tx, { docenteId, periodoId, nodoId: temarioTemaNodoId, categoriaNodoId: categoriaRecord.temarioNodoId });
     const existente = await tx.temaBanco.findFirst({ where: { docenteId, periodoId, clave } });
     let tema;
     if (existente) {
       if (existente.activo !== false) throw new ErrorAplicacion('TEMA_DUPLICADO', 'Ya existe un tema con ese nombre', 409);
-      tema = await tx.temaBanco.update({ where: { id: existente.id }, data: { activo: true, archivadoEn: null, nombre: nombreFinal, clave } });
+      tema = await tx.temaBanco.update({ where: { id: existente.id }, data: { activo: true, archivadoEn: null, nombre: nombreFinal, clave, categoriaId: categoriaRecord.id, temarioNodoId: temarioTemaNodoId ?? null } });
     } else {
-      tema = await tx.temaBanco.create({ data: { docenteId, periodoId, nombre: nombreFinal, clave, activo: true } });
+      tema = await tx.temaBanco.create({ data: { docenteId, periodoId, nombre: nombreFinal, clave, categoriaId: categoriaRecord.id, temarioNodoId: temarioTemaNodoId ?? null, activo: true } });
     }
     await registrarMutacionTema(tx, {
       docenteId, periodoId, temaId: tema.id, accion: 'crear', clientRequestId, requestHash,
-      antes: existente ?? null, despues: tema
+      antes: existente ?? null, despues: { ...tema, categoria: categoriaRecord }
     });
     return { tema, repetida: false };
   });
@@ -633,25 +718,33 @@ export async function crearTemaBanco(req: SolicitudDocente, res: Response) {
 export async function actualizarTemaBanco(req: SolicitudDocente, res: Response) {
   const docenteId = obtenerDocenteId(req);
   const temaId = String(req.params.temaId ?? '').trim();
-  const { nombre, clientRequestId: requestId } = req.body as { nombre?: string; clientRequestId?: string };
+  const { nombre, categoria, temarioCategoriaNodoId, temarioTemaNodoId, clientRequestId: requestId } = req.body as { nombre?: string; categoria?: string; temarioCategoriaNodoId?: string | null; temarioTemaNodoId?: string | null; clientRequestId?: string };
   const nombreFinal = normalizarTema(nombre);
+  const categoriaFinal = categoria === undefined ? undefined : normalizarCategoria(categoria);
   if (!nombreFinal) {
     throw new ErrorAplicacion('TEMA_INVALIDO', 'Tema invalido', 400);
   }
 
   const clientRequestId = requestId ?? randomUUID();
-  const requestHash = calcularHuellaTema('actualizar', temaId, { nombre: nombreFinal });
+  const requestHash = calcularHuellaTema('actualizar', temaId, { nombre: nombreFinal, categoria: categoriaFinal, temarioCategoriaNodoId: temarioCategoriaNodoId ?? undefined, temarioTemaNodoId: temarioTemaNodoId ?? undefined });
   const resultado = await prisma.$transaction(async (tx) => {
     const repeticion = await recuperarMutacionTema(tx, docenteId, clientRequestId, 'actualizar', requestHash);
     if (repeticion) return repeticion;
     const tema = await tx.temaBanco.findFirst({ where: { id: temaId, docenteId } });
     if (!tema) throw new ErrorAplicacion('TEMA_NO_ENCONTRADO', 'Tema no encontrado', 404);
     const periodoId = tema.periodoId;
+    const categoriaActual = tema.categoriaId ? await tx.categoriaBanco.findUnique({ where: { id: tema.categoriaId } }) : null;
+    const categoriaRecord = await resolverCategoriaBanco(tx, {
+      docenteId, periodoId, nombre: categoriaFinal ?? categoriaActual?.nombre ?? 'Sin categoría',
+      temarioNodoId: temarioCategoriaNodoId === undefined ? categoriaActual?.temarioNodoId : temarioCategoriaNodoId
+    });
+    const nodoTema = temarioTemaNodoId === undefined ? tema.temarioNodoId : temarioTemaNodoId;
+    await validarTemaTemario(tx, { docenteId, periodoId, nodoId: nodoTema, categoriaNodoId: categoriaRecord.temarioNodoId });
     const nombreAnterior = tema.nombre;
     const claveNueva = claveTema(nombreFinal);
     const duplicado = await tx.temaBanco.findFirst({ where: { docenteId, periodoId, clave: claveNueva, id: { not: temaId } } });
     if (duplicado) throw new ErrorAplicacion('TEMA_DUPLICADO', 'Ya existe un tema con ese nombre', 409);
-    const actualizado = await tx.temaBanco.update({ where: { id: temaId }, data: { nombre: nombreFinal, clave: claveNueva, activo: true, archivadoEn: null } });
+    const actualizado = await tx.temaBanco.update({ where: { id: temaId }, data: { nombre: nombreFinal, clave: claveNueva, categoriaId: categoriaRecord.id, temarioNodoId: nodoTema ?? null, activo: true, archivadoEn: null } });
     if (nombreAnterior !== nombreFinal) {
       await tx.bancoPregunta.updateMany({ where: { docenteId, periodoId, tema: nombreAnterior }, data: { tema: nombreFinal } });
       const plantillas = await tx.examenPlantilla.findMany({ where: { docenteId, periodoId }, select: { id: true, temas: true } });
@@ -665,7 +758,7 @@ export async function actualizarTemaBanco(req: SolicitudDocente, res: Response) 
     }
     await registrarMutacionTema(tx, {
       docenteId, periodoId, temaId, accion: 'actualizar', clientRequestId, requestHash,
-      antes: tema, despues: actualizado
+      antes: { ...tema, categoria: categoriaActual }, despues: { ...actualizado, categoria: categoriaRecord }
     });
     return { tema: actualizado, repetida: false };
   });

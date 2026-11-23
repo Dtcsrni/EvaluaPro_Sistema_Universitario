@@ -56,10 +56,18 @@ internal static class ShortcutReconciler
         {
             if (string.IsNullOrWhiteSpace(directory)) continue;
             Directory.CreateDirectory(directory);
-            entries.Add(CreateShortcut(directory, "EvaluaPro", executable, root, string.Empty,
+            entries.Add(CreateShortcutIfOwned(directory, "EvaluaPro", executable, root, string.Empty,
                 ResolveIcon(root, "dashboard-prod.ico", executable)));
-            entries.Add(CreateShortcut(directory, "EvaluaPro - Hub", executable, root, "--installer-hub",
+            entries.Add(CreateShortcutIfOwned(directory, "EvaluaPro - Hub", executable, root, "--installer-hub",
                 ResolveIcon(root, "installer-canonical.ico", executable)));
+        }
+
+        var startupDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+        if (!string.IsNullOrWhiteSpace(startupDirectory))
+        {
+            Directory.CreateDirectory(startupDirectory);
+            entries.Add(CreateShortcutIfOwned(startupDirectory, "EvaluaPro", executable, root, "--tray-start",
+                ResolveIcon(root, "dashboard-prod.ico", executable)));
         }
 
         WriteSuccess(executable, entries);
@@ -86,6 +94,31 @@ internal static class ShortcutReconciler
             if (File.Exists(iconPath) && Has256PixelFrame(iconPath)) return iconPath;
         }
         return executable;
+    }
+
+    private static ShortcutResult CreateShortcutIfOwned(string directory, string name, string executable, string workingDirectory, string arguments, string iconPath)
+    {
+        var linkPath = Path.Combine(directory, name + ".lnk");
+        if (File.Exists(linkPath) && !PointsToTarget(linkPath, executable))
+            return new ShortcutResult(linkPath, executable, arguments, workingDirectory, iconPath, false);
+        return CreateShortcut(directory, name, executable, workingDirectory, arguments, iconPath);
+    }
+
+    private static bool PointsToTarget(string shortcutPath, string executable)
+    {
+        object? shellLink = null;
+        try
+        {
+            shellLink = new ShellLink();
+            ((IPersistFile)shellLink).Load(shortcutPath, 0);
+            return string.Equals(Path.GetFullPath(ReadShortcutTarget((IShellLinkW)shellLink)),
+                Path.GetFullPath(executable), StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+        finally
+        {
+            if (shellLink is not null && Marshal.IsComObject(shellLink)) Marshal.FinalReleaseComObject(shellLink);
+        }
     }
 
     private static bool Has256PixelFrame(string iconPath)
@@ -190,9 +223,10 @@ internal static class ShortcutReconciler
                     .Append("\",\"arguments\":\"").Append(EscapeJson(entry.Arguments))
                     .Append("\",\"workingDirectory\":\"").Append(EscapeJson(entry.WorkingDirectory))
                     .Append("\",\"icon\":\"").Append(EscapeJson(entry.Icon))
-                    .Append("\",\"success\":true}");
+                    .Append("\",\"success\":").Append(entry.Success ? "true" : "false").Append('}');
             }
-            var json = "{\"success\":true,\"state\":\"ok\",\"schemaVersion\":2,\"executable\":\"" +
+            var success = entries.All(entry => entry.Success);
+            var json = "{\"success\":" + (success ? "true" : "false") + ",\"state\":\"" + (success ? "ok" : "degraded") + "\",\"schemaVersion\":2,\"executable\":\"" +
                 EscapeJson(executable) + "\",\"entries\":[" + serializedEntries + "]}";
             File.WriteAllText(Path.Combine(logDirectory, "shortcut-reconciliation.json"), json);
         }

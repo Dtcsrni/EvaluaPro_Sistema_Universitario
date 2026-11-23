@@ -62,9 +62,12 @@ export const esquemaTraerPaquetesServidor = z.object({
 
 // Instantanea local 1:1. La importacion usa un cuerpo binario autocontenido;
 // este esquema valida la solicitud pequena de exportacion.
+// Google ID tokens are larger than password strings; cap request size at 8 KiB.
+const MAX_CREDENCIAL_INSTANTANEA = 8192;
+
 export const esquemaExportarInstantaneaLocal = z.object({
   metodo: z.enum(['contrasena', 'google']),
-  credencial: z.string().min(1).max(256).optional()
+  credencial: z.string().min(1).max(MAX_CREDENCIAL_INSTANTANEA).optional()
 });
 
 export const esquemaImportarInstantaneaLocal = z.custom<Buffer>(
@@ -81,7 +84,7 @@ export const esquemaPublicarInstantaneaNube = z.object({
   equipoId: z.string().regex(/^[A-Za-z0-9._:-]{8,128}$/),
   leaseId: z.string().regex(/^[A-Za-z0-9-]{16,128}$/),
   metodo: z.enum(['contrasena', 'google']),
-  credencial: z.string().min(1).max(256).optional()
+  credencial: z.string().min(1).max(MAX_CREDENCIAL_INSTANTANEA).optional()
 });
 
 export const esquemaImportarInstantaneaNube = esquemaPublicarInstantaneaNube.extend({

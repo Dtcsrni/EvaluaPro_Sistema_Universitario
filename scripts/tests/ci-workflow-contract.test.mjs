@@ -253,7 +253,7 @@ test('workflow CI mantiene schedule full para jobs extended', () => {
   assert.match(compliance, /github\.event_name == 'schedule'/);
 });
 
-test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core pasó', () => {
+test('los jobs extended corren en paralelo con Core y el agregado conserva ambos gates', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8');
   const jobs = [
     extractJobBlock(workflow, 'ext_funcionales'),
@@ -264,8 +264,14 @@ test('los jobs extended ignoran dependencias de CI omitidas solo si el gate Core
   for (const job of jobs) {
     assert.match(job, /!cancelled\(\) &&/);
     assert.match(job, /needs\.detectar_cambios\.result == 'success'/);
-    assert.match(job, /needs\.verificaciones_core\.result == 'success'/);
+    assert.doesNotMatch(job, /verificaciones_core/);
   }
+
+  const aggregate = extractJobBlock(workflow, 'verificaciones_ext');
+  assert.match(aggregate, /- verificaciones_core/);
+  assert.match(aggregate, /- ext_funcionales/);
+  assert.match(aggregate, /- ext_perf_arquitectura/);
+  assert.match(aggregate, /- ext_compliance_evidencia/);
 });
 
 test('gate estable valida CI Checks y el instalador sobre el SHA candidato, sin racha histórica', () => {
@@ -378,6 +384,10 @@ test('CI reutiliza evidencia de instalador solo cuando SHA, versión y digest co
   assert.match(publisher, /needs: \[installer_windows_build, reuse_installer_candidate\]/);
   assert.match(publisher, /inputs\.candidate_run_id \|\| github\.run_id/);
   assert.match(draft, /actualHash -eq \$env:CANDIDATE_SHA256/);
+  assert.match(draft, /name: Descargar y verificar EXE y sidecar desde el release draft[\s\S]*?name: Configurar \.NET SDK 10 para la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /name: Instalar WiX CLI estable para la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /name: Configurar Node\.js para la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
+  assert.match(draft, /name: Instalar dependencias de la E2E\s+if: steps\.draft_asset\.outputs\.run_e2e == 'true'/);
   assert.match(draft, /sidecarDigest\.Groups\[1\]\.Value\.ToLowerInvariant\(\) -ne \$sidecarFileHash/);
   assert.match(draft, /needs\.reuse_installer_candidate\.outputs\.bundle_sha256 \|\| needs\.installer_windows_build\.outputs\.bundle_sha256/);
   assert.match(draft, /if: \$\{\{ always\(\) && !cancelled\(\)[\s\S]*needs\.publish_installer_release\.result == 'success'/);
@@ -514,7 +524,6 @@ test('workflows de validacion reducen GITHUB_TOKEN a lectura', () => {
 
 test('publicaciones externas serializan ejecuciones en curso', () => {
   const nonInterruptibleWorkflows = [
-    'package.yml',
     'release-beta.yml',
     'release-stable-gate.yml',
     'tag-release-guard.yml'
@@ -626,23 +635,8 @@ test('CI publica diagnósticos de cobertura aunque el runner escriba bajo .vites
   assert.match(upload, /include-hidden-files:\s*true/);
 });
 
-test('package workflow rechaza tag que no coincide con package.json antes de publicar', () => {
-  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
-  const validationIndex = workflow.indexOf('${GITHUB_REF_NAME#app-v}');
-  const pushIndex = workflow.indexOf('docker push');
-
-  assert.ok(validationIndex >= 0, 'falta validación de versión de tag');
-  assert.ok(pushIndex > validationIndex, 'la validación debe ocurrir antes de publicar imágenes');
-  assert.match(workflow, /no coincide con package\.json/);
-});
-
-test('package workflow usa namespace GHCR del owner y nombres de imagen de un segmento', () => {
-  const workflow = fs.readFileSync(path.join(workflowDir, 'package.yml'), 'utf8');
-
-  assert.match(workflow, /OWNER="\$\{GITHUB_REPOSITORY%%\/\*\}"/);
-  assert.match(workflow, /api_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-api-docente/);
-  assert.match(workflow, /web_image=ghcr\.io\/\$\{OWNER,,\}\/evaluapro-web-docente/);
-  assert.doesNotMatch(workflow, /ghcr\.io\/\$\{GITHUB_REPOSITORY,,\}/);
+test('el empaquetado de contenedores permanece fuera del producto soportado', () => {
+  assert.equal(fs.existsSync(path.join(workflowDir, 'package.yml')), false);
 });
 
 test('qa:full usa el runner fail-closed que conserva diagnósticos y valida reportes', () => {
@@ -820,31 +814,32 @@ test('release stable gate resuelve SemVer del commit candidato y pasa argumentos
   assert.match(workflow, /EVIDENCE_DIR:\s*\$\{\{ inputs\.evidence_dir \}\}/);
 });
 
-test('Dockerfile backend incluye schema y config Prisma antes del build', () => {
-  const dockerfile = fs.readFileSync(backendDockerfilePath, 'utf8');
-  const prismaIndex = dockerfile.indexOf('COPY apps/backend/prisma ./apps/backend/prisma');
-  const prismaConfigIndex = dockerfile.indexOf('COPY apps/backend/prisma.config.mjs ./apps/backend/prisma.config.mjs');
-  const buildIndex = dockerfile.indexOf('npm --workspace apps/backend run build');
+test('el instalador solo publica la distribución docente local', () => {
+  const flavors = JSON.parse(fs.readFileSync(path.join(root, 'config', 'installer-flavors.json'), 'utf8'));
+  const pipeline = JSON.parse(fs.readFileSync(path.join(root, 'ci', 'pipeline.matrix.json'), 'utf8'));
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const installScript = fs.readFileSync(path.join(root, 'scripts', 'Install-EvaluaPro.ps1'), 'utf8');
+  const iconGenerator = fs.readFileSync(path.join(root, 'scripts', 'icons', 'generate-installer-flavor-icon.ps1'), 'utf8');
+  const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-msi.ps1'), 'utf8');
+  const containerArtifacts = [
+    '.dockerignore',
+    'docker-compose.yml',
+    'docker-compose.prod-build.yml',
+    'apps/backend/Dockerfile',
+    'apps/frontend/Dockerfile',
+    'apps/portal_alumno_cloud/Dockerfile',
+    '.github/workflows/package.yml'
+  ];
 
-  assert.ok(prismaIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma');
-  assert.ok(prismaConfigIndex >= 0, 'Dockerfile backend debe copiar apps/backend/prisma.config.mjs');
-  assert.ok(buildIndex > prismaIndex, 'backend build debe ejecutarse despues de copiar Prisma');
-  assert.ok(buildIndex > prismaConfigIndex, 'backend build debe ejecutarse despues de copiar la config Prisma');
-});
-
-test('Dockerfile frontend incluye el wrapper y la política de configuración del workspace', () => {
-  const dockerfile = fs.readFileSync(frontendDockerfilePath, 'utf8');
-  const scriptIndex = dockerfile.indexOf('COPY scripts/vite-build-safe.mjs ./scripts/vite-build-safe.mjs');
-  const appVersionIndex = dockerfile.indexOf('COPY config/app-version.json ./config/app-version.json');
-  const omrPolicyIndex = dockerfile.indexOf('COPY config/omr-version-policy.json ./config/omr-version-policy.json');
-  const buildIndex = dockerfile.indexOf('npm --workspace apps/frontend run build');
-
-  assert.ok(scriptIndex >= 0, 'Dockerfile frontend debe copiar scripts/vite-build-safe.mjs');
-  assert.ok(appVersionIndex >= 0, 'Dockerfile frontend debe copiar config/app-version.json');
-  assert.ok(omrPolicyIndex >= 0, 'Dockerfile frontend debe copiar config/omr-version-policy.json');
-  assert.ok(buildIndex > scriptIndex, 'frontend build debe ejecutarse despues de copiar el wrapper');
-  assert.ok(buildIndex > appVersionIndex, 'frontend build debe ejecutarse despues de copiar app-version');
-  assert.ok(buildIndex > omrPolicyIndex, 'frontend build debe ejecutarse despues de copiar la politica OMR');
+  assert.deepEqual(flavors.flavors.map((flavor) => flavor.flavorId), ['docente-local']);
+  assert.doesNotMatch(JSON.stringify(pipeline), /docker build|image-digests\.txt/i);
+  for (const artifact of containerArtifacts) {
+    assert.equal(fs.existsSync(path.join(root, artifact)), false, `${artifact} debe estar retirado`);
+  }
+  assert.match(packageJson.scripts['installer:hub:build'], /-Flavor docente-local/);
+  assert.match(installScript, /ValidateSet\('docente-local'\)/);
+  assert.doesNotMatch(installScript + iconGenerator, /saas-completo/);
+  assert.match(buildScript, /\[string\]\$Flavor = 'docente-local'/);
 });
 
 test('release estable conserva identidad del asset verificado y lo oculta si falla la publicación', () => {
@@ -991,6 +986,8 @@ test('Installer Windows ejecuta y conserva el ciclo E2E completo para PR, releas
   const workflow = fs.readFileSync(path.join(workflowDir, 'ci-installer-windows.yml'), 'utf8');
   const installerBuild = extractJobBlock(workflow, 'installer_windows_build');
   const installerGate = extractJobBlock(workflow, 'installer_windows');
+  assert.match(installerBuild, /runs-on: windows-latest/);
+  assert.match(installerBuild, /name: Etapa contract-check Installer Hub[\s\S]*?npm run test:installer-hub:contract/);
   assert.match(installerGate, /name: Installer Windows \(MSI \+ Bundle\)/);
   assert.match(installerGate, /if: always\(\)/);
 

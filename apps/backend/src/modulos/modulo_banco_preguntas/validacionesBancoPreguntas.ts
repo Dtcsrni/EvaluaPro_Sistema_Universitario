@@ -77,6 +77,9 @@ export const esquemaCrearTemaBanco = z
   .object({
     periodoId: esquemaObjectId,
     nombre: z.string().min(1),
+    categoria: z.string().trim().min(1).max(120).default('Sin categoría'),
+    temarioCategoriaNodoId: esquemaObjectId.nullable().optional(),
+    temarioTemaNodoId: esquemaObjectId.nullable().optional(),
     clientRequestId: z.string().uuid().optional()
   })
   .strict();
@@ -84,6 +87,9 @@ export const esquemaCrearTemaBanco = z
 export const esquemaActualizarTemaBanco = z
   .object({
     nombre: z.string().min(1),
+    categoria: z.string().trim().min(1).max(120).optional(),
+    temarioCategoriaNodoId: esquemaObjectId.nullable().optional(),
+    temarioTemaNodoId: esquemaObjectId.nullable().optional(),
     clientRequestId: z.string().uuid().optional()
   })
   .strict();
@@ -101,7 +107,9 @@ export const esquemaMoverPreguntasTemaBanco = z
   .object({
     periodoId: esquemaObjectId,
     temaIdDestino: esquemaObjectId,
-    preguntasIds: z.array(esquemaObjectId).min(1)
+    preguntasIds: z.array(esquemaObjectId).min(1).max(500).refine((ids) => new Set(ids).size === ids.length, 'preguntasIds no debe contener duplicados'),
+    clientRequestId: z.string().uuid(),
+    confirmarReemplazo: z.literal(true)
   })
   .strict();
 

@@ -422,8 +422,8 @@ export async function guardarCalificacionLista(req: SolicitudDocente, res: Respo
     canalCaptura: 'gui' | 'api'; referenciaOrigen?: string;
   };
   const maximoPorComponente: Record<string, number> = {
-    'Practica 2do Parcial': 10, 'Exámen 1er Parcial': 5, 'Exámen 2do Parcial': 5.25,
-    'Exámen Global': 5, 'Bono extracurricular': 0.5, 'Solicitud Extra': 1
+    'Practica 2do Parcial': 10, 'Exámen 1er Parcial': 5.25, 'Exámen 2do Parcial': 5.25,
+    'Exámen Global': 5.25, 'Bono extracurricular': 0.5, 'Solicitud Extra': 1
   };
   const payloadCanonico = { periodoId, alumnoId, componente, calificacion, version: version ?? null, canalCaptura, referenciaOrigen: referenciaOrigen ?? null };
   const payloadHash = createHash('sha256')
