@@ -1386,7 +1386,10 @@ public partial class MainWindow : Window
 
             shutdownCompleted = true;
             closeAuthorized = true;
-            _ = Dispatcher.BeginInvoke(new Action(Close));
+            // El usuario pudo haber elegido antes "No" y dejado WPF en
+            // OnExplicitShutdown. Cerrar solo la ventana no termina entonces
+            // el host aunque los servicios ya se hayan detenido.
+            _ = Dispatcher.BeginInvoke(new Action(() => System.Windows.Application.Current.Shutdown()));
         }
         catch (Exception ex)
         {

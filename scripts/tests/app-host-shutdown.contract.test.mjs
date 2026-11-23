@@ -75,17 +75,22 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'el diálogo no consulta el handle o la visibilidad de la ventana en transición');
   assert.match(closePrompt, /if \(choice == MessageBoxResult\.Cancel\) return;/,
     'Cancelar conserva la ventana abierta');
-  assert.match(closePrompt, /if \(choice == MessageBoxResult\.No\)[\s\S]*?closeAuthorized = true;[\s\S]*?Dispatcher\.BeginInvoke\(new Action\(Close\)\)/,
-    'No cierra solo la ventana después de autorizar el cierre diferido');
+  const noChoice = closePrompt.match(/if \(choice == MessageBoxResult\.No\)[\s\S]*?\n            }/)?.[0];
+  assert.match(noChoice ?? '', /app\.EnterTrayMode\(this\);[\s\S]*?return;/,
+    'No conserva los servicios y delega el ocultamiento a la transición de bandeja');
+  assert.doesNotMatch(noChoice ?? '', /closeAuthorized\s*=\s*true|\.Close\(|\.Shutdown\(/,
+    'No no detiene el host ni cierra la ventana desde el diálogo modal');
   assert.match(closingHandler, /if \(isStopping \|\| closePromptPending\) return;/,
     'el diálogo de cierre no debe abrirse de nuevo mientras sigue pendiente');
   const cleanup = closePrompt.indexOf('var stopped = await ShutdownServicesAsync();');
   const cleanupFailure = closePrompt.indexOf('if (!stopped)');
-  const finalClose = closePrompt.lastIndexOf('Dispatcher.BeginInvoke(new Action(Close))');
+  const finalClose = closePrompt.lastIndexOf('Dispatcher.BeginInvoke(new Action(() => System.Windows.Application.Current.Shutdown()))');
   assert.ok(cleanup >= 0 && cleanupFailure > cleanup && cleanupFailure < finalClose,
-    'el cierre final se difiere al Dispatcher después de limpiar servicios');
+    'el cierre explícito de la aplicación se difiere al Dispatcher después de limpiar servicios');
   assert.match(closePrompt, /if \(!stopped\)[\s\S]*?return;/,
     'si la identidad de los servicios no puede verificarse, la ventana debe permanecer abierta');
+  assert.match(closePrompt, /System\.Windows\.Application\.Current\.Shutdown\(\)/,
+    'el cierre explícito termina WPF si la ventana ya había pasado a OnExplicitShutdown por el modo bandeja');
   assert.match(closePrompt, /finally\s*\{\s*closePromptPending = false;/,
     'la espera modal se libera también si el usuario cancela o falla la limpieza');
   assert.match(hostSource, /WPF no permite abrir otro Window\/MessageBox mientras el Window que[\s\S]*?mostrar el prompt después del evento/,
