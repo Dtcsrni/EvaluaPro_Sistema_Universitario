@@ -1168,7 +1168,16 @@ test('bootstrapper Burn WPF implementa resiliencia ante errores, msiInstalled y 
   assert.ok(bootstrapperCode.includes('payload.Lifecycle?.State, "repairable"'));
   assert.ok(bootstrapperCode.includes('payload.Prerequisites.All(prerequisite => prerequisite.Installed)'));
   assert.ok(bootstrapperCode.includes('var remediationHealthy = payload.Remediation is null'));
-  assert.match(bootstrapperCode, /hasOlderRelatedBundle && diagnosticsHealthy \? "install" : "repair"/);
+  assert.match(bootstrapperCode, /versionUpgradeAvailable/);
+  assert.match(bootstrapperCode, /GetAssemblyMetadataVersion\("EvaluaProAppVersion"\)/);
+  assert.match(bootstrapperCode, /GetHubVersion\(\)/);
+  assert.match(bootstrapperCode, /public string HubVersion \{ get; set; \}/);
+  assert.match(bootstrapperCode, /fallbackBundleUpgradeAvailable/);
+  assert.match(bootstrapperCode, /appVersionKnown && targetApp > currentApp/);
+  assert.match(bootstrapperCode, /targetApp >= currentApp && targetHub > currentHub/);
+  const installerHelper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  assert.match(installerHelper, /\["hubVersion"\]\s*=\s*ReadConfigVersion/);
+  assert.match(installerHelper, /private static string ReadConfigVersion\(/);
   assert.match(bootstrapperCode, /ResolveOperationMode\(payload, isGenuinelyInstalledHeadless\)/);
   assert.match(bootstrapperCode, /DispatcherUnhandledException/);
   assert.match(bootstrapperCode, /UnhandledException/);

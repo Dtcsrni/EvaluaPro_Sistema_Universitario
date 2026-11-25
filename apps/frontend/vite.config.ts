@@ -17,6 +17,7 @@ const __dirname = path.dirname(__filename);
 type MetaApp = {
   appVersion: string;
   displayVersion: string;
+  hubVersion: string;
   appName: string;
   developerName: string;
 };
@@ -30,8 +31,18 @@ type OmrVersionPolicy = {
   };
 };
 
+function leerVersionHub(envDir: string): string {
+  try {
+    const hubVersionRaw = fs.readFileSync(path.join(envDir, 'config', 'hub-version.json'), 'utf8');
+    return String(JSON.parse(hubVersionRaw)?.version || '0.0.0');
+  } catch {
+    // La version de Hub ausente no bloquea el build de desarrollo.
+    return '0.0.0';
+  }
+}
+
 function leerMetaApp(envDir: string): MetaApp {
-  const fallback: MetaApp = { appVersion: '0.0.0', displayVersion: '0.0.0', appName: 'evaluapro', developerName: '' };
+  const fallback: MetaApp = { appVersion: '0.0.0', displayVersion: '0.0.0', hubVersion: '0.0.0', appName: 'evaluapro', developerName: '' };
   try {
     const pkgRaw = fs.readFileSync(path.join(envDir, 'package.json'), 'utf8');
     const pkg = JSON.parse(pkgRaw);
@@ -43,9 +54,11 @@ function leerMetaApp(envDir: string): MetaApp {
     } catch {
       // fallback to package version
     }
+    const hubVersion = leerVersionHub(envDir);
     return {
       appVersion: String(pkg?.version || fallback.appVersion),
       displayVersion,
+      hubVersion,
       appName: String(pkg?.name || fallback.appName),
       developerName: typeof pkg?.author === 'string' ? String(pkg.author) : String(pkg?.author?.name || '')
     };
@@ -125,7 +138,7 @@ export default defineConfig(({ mode }) => {
   const esDesarrollo = modoRuntime === 'dev';
   const esPruebas = modoRuntime === 'test';
   validarGoogleBuild(env);
-  const { appVersion, displayVersion, appName, developerName } = leerMetaApp(envDir);
+  const { appVersion, displayVersion, hubVersion, appName, developerName } = leerMetaApp(envDir);
   const omrPolicy = leerPoliticaOmr(envDir);
   const developerNameResolved = String(env.EVALUAPRO_DEVELOPER_NAME || developerName || 'Equipo EvaluaPro');
   const developerRoleResolved = String(env.EVALUAPRO_DEVELOPER_ROLE || 'Desarrollo');
@@ -140,6 +153,7 @@ export default defineConfig(({ mode }) => {
     envDir,
     define: {
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+      'import.meta.env.VITE_HUB_VERSION': JSON.stringify(hubVersion),
       'import.meta.env.VITE_APP_DISPLAY_VERSION': JSON.stringify(displayVersion),
       'import.meta.env.VITE_EVALUAPRO_MODE': JSON.stringify(esPruebas ? 'test' : esDesarrollo ? 'dev' : 'prod'),
       'import.meta.env.VITE_APP_NAME': JSON.stringify(appName),

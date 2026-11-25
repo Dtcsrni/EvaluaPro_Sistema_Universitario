@@ -1,7 +1,7 @@
 ---
 id: SPEC-091
 titulo: Deteccion y actualizacion segura desde la aplicacion y Installer Hub
-version: 1.3.0
+version: 1.4.0
 fecha: 2026-10-27
 autor: Codex
 modulo: modulo_actualizacion_instalador
@@ -24,6 +24,7 @@ La actualizacion debe seguir funcionando sin Classroom, portal, dashboard visibl
 - REQ-006: Detener servicios de esta instalacion de forma fail-closed: si no se puede enumerar/detener el proceso propio, no reemplazar payload. Aplicar el payload con transaccion recuperable; ante fallo, restaurar el payload previo, reanudar los servicios que estaban activos y comprobar salud. Informar claramente cuando la recuperacion no pueda completarse.
 - REQ-007: Mantener el servicio de actualizacion local restringido a loopback y conservar autorizacion reforzada para aplicar. La UI no puede convertir el endpoint de actualizacion en una ruta remota ni incluir secretos en mensajes o logs.
 - REQ-008: Añadir validacion automatizada para releases stable/beta, versiones iguales y menores, assets ausentes, errores de red, confirmacion, descarga/hash/firma, cancelacion, fallos en stop/install/start/health, rollback y preservacion de datos. Cubrir el banner con pruebas de interfaz y el ciclo Windows con smoke/E2E de actualizacion entre versiones.
+- REQ-009: Comparar por separado la versión de la aplicación y la del Installer Hub. El banner `hub-vX.Y.Z` debe compararse con la versión Hub instalada. En el Hub, con diagnóstico sano, preseleccionar actualización cuando la aplicación incluida sea superior a la instalada o cuando sea igual y la versión Hub sea superior; nunca permitir que este flujo degrade la versión de la aplicación. Si la versión App instalada es legible pero la versión Hub no, se conserva la detección de bundle anterior como fallback; si la versión App no se puede determinar, no actualizar automáticamente.
 
 ## Criterios de Aceptación
 
@@ -35,6 +36,7 @@ La actualizacion debe seguir funcionando sin Classroom, portal, dashboard visibl
 6. El Hub en ejecucion no reemplaza sus propios archivos; delega en el instalador descargado tras confirmacion y reporta el resultado.
 7. La release estable solo se publica despues de generar el instalador para el SHA candidato, pasar CI/QA y el gate de promocion versionado.
 8. Si un manifiesto o entrada de registro apunta a un ejecutable antiguo sin confianza y existe un Hub descargado cuyo hash coincide con un registro oficial local, el App Host omite el archivo antiguo y puede abrir el Hub verificado; si no existe candidato confiable, falla de forma visible y no ejecuta ninguno.
+9. El banner no se muestra cuando la versión Hub remota es igual o inferior a la instalada, aunque los números de versión App y Hub sean distintos; el modo GUI detecta una versión App anterior aunque Burn no informe un bundle relacionado.
 
 ## Matriz de Trazabilidad
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icono } from '../iconos';
-import { compararVersiones, obtenerVersionTecnicaApp } from './versionInfo';
+import { compararVersiones, obtenerVersionTecnicaHub } from './versionInfo';
 
 const OWNER = 'Dtcsrni';
 const REPOSITORY = 'EvaluaPro_Sistema_Universitario';
@@ -45,7 +45,7 @@ export function UpdateAvailabilityBanner() {
         if (
           candidate.draft === true || candidate.prerelease === true || !hasInstaller || !hasChecksum
           || !/^\d+\.\d+\.\d+$/.test(version)
-          || compararVersiones(version, obtenerVersionTecnicaApp()) <= 0
+          || compararVersiones(version, obtenerVersionTecnicaHub()) <= 0
           || !releaseUrl.startsWith(`https://github.com/${OWNER}/${REPOSITORY}/releases/tag/`)
         ) return;
 
@@ -83,10 +83,10 @@ export function UpdateAvailabilityBanner() {
     <div className="mensaje update-availability-banner" role="status" aria-live="polite">
       <span className="mensaje__icono" aria-hidden="true"><Icono nombre="info" /></span>
       <span className="mensaje__contenido">
-        Hay una nueva versión disponible: <strong>v{release.version}</strong>.
+        Hay una nueva versión del Installer Hub disponible: <strong>v{release.version}</strong>.
       </span>
       <button type="button" className="btn btn-secundario" onClick={openHub}>
-        Actualizar a v{release.version}
+        Actualizar Hub a v{release.version}
       </button>
       <a href={release.url} target="_blank" rel="noopener noreferrer">
         Ver novedades
@@ -94,7 +94,7 @@ export function UpdateAvailabilityBanner() {
       <button
         type="button"
         className="btn btn-secundario"
-        aria-label={`Posponer el aviso de la versión ${release.version}`}
+        aria-label={`Posponer el aviso del Installer Hub v${release.version}`}
         onClick={() => {
           try { window.sessionStorage.setItem(POSTPONED_VERSION_KEY, release.version); } catch {
             // El posponer en memoria sigue funcionando si el storage esta bloqueado.

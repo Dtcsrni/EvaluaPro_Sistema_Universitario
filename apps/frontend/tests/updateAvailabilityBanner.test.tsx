@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UpdateAvailabilityBanner } from '../src/ui/version/UpdateAvailabilityBanner';
-import { obtenerVersionTecnicaApp } from '../src/ui/version/versionInfo';
+import { obtenerVersionTecnicaHub } from '../src/ui/version/versionInfo';
 
 const installer = 'EvaluaPro-InstallerHub-docente-local-v9.9.9.exe';
 const stableRelease = {
@@ -30,7 +30,7 @@ describe('UpdateAvailabilityBanner', () => {
 
     render(<UpdateAvailabilityBanner />);
 
-    const button = await screen.findByRole('button', { name: 'Actualizar a v9.9.9' });
+    const button = await screen.findByRole('button', { name: 'Actualizar Hub a v9.9.9' });
     expect(screen.getByRole('status')).toHaveTextContent('v9.9.9');
     fireEvent.click(button);
     expect(postMessage).toHaveBeenCalledWith({ type: 'EVALUAPRO_UPDATE_HUB', version: '9.9.9' });
@@ -44,13 +44,27 @@ describe('UpdateAvailabilityBanner', () => {
     });
 
     render(<UpdateAvailabilityBanner />);
-    expect(await screen.findByRole('button', { name: 'Actualizar a v9.9.9' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Actualizar Hub a v9.9.9' })).toBeInTheDocument();
+  });
+
+  it('oculta una release Hub igual a la versión instalada aunque la app tenga otro número', async () => {
+    const versionHub = obtenerVersionTecnicaHub();
+    const installerActual = `EvaluaPro-InstallerHub-docente-local-v${versionHub}.exe`;
+    mockRelease({
+      ...stableRelease,
+      tag_name: `hub-v${versionHub}`,
+      html_url: `https://github.com/${'Dtcsrni'}/EvaluaPro_Sistema_Universitario/releases/tag/hub-v${versionHub}`,
+      assets: [{ name: installerActual }, { name: `${installerActual}.sha256` }]
+    });
+
+    render(<UpdateAvailabilityBanner />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it.each([
     ['beta', { ...stableRelease, prerelease: true }],
     ['tag no semver estable', { ...stableRelease, tag_name: 'v9.9.9-beta.1' }],
-    ['versión igual', { ...stableRelease, tag_name: `v${obtenerVersionTecnicaApp()}` }],
     ['versión anterior', { ...stableRelease, tag_name: 'v1.0.0' }],
     ['sin instalador', { ...stableRelease, assets: [{ name: `${installer}.sha256` }] }],
     ['asset heredado sin versión', { ...stableRelease, assets: [{ name: 'EvaluaPro-InstallerHub-docente-local.exe' }, { name: 'EvaluaPro-InstallerHub-docente-local.exe.sha256' }] }],
@@ -65,7 +79,7 @@ describe('UpdateAvailabilityBanner', () => {
   it('pospone el aviso para esta sesión', async () => {
     mockRelease(stableRelease);
     render(<UpdateAvailabilityBanner />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Posponer el aviso de la versión 9.9.9' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Posponer el aviso del Installer Hub v9.9.9' }));
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
