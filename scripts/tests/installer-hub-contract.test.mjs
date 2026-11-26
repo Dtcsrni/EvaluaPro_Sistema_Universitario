@@ -2766,12 +2766,14 @@ $r | ConvertTo-Json -Depth 8
 test('la migración conserva JWT como candidato histórico y firma con una clave OMR independiente', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-jwt-omr-stability-'));
   const installDir = path.join(tempRoot, 'EvaluaPro');
+  const programDataDir = path.join(tempRoot, 'ProgramData');
   fs.mkdirSync(installDir, { recursive: true });
   const envPath = path.join(installDir, '.env');
   fs.writeFileSync(envPath, 'JWT_SECRETO=legacy-test-jwt\nNODE_ENV=production\nEVALUAPRO_FLAVOR=docente-local\n', 'utf8');
 
   const script = `
 Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$env:ProgramData = '${programDataDir.replace(/'/g, "''")}'
 $config = @{
   databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
   jwtSecreto=''
