@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -151,10 +152,11 @@ describe('contrato de replay del último lote con la plantilla OMR activa', () =
   });
 
   it('confina las rutas de imágenes al directorio del manifiesto', () => {
-    expect(() => resolverImagenLoteReal('C:/qa/manifest.json', '../outside.jpg')).toThrow('sale de la carpeta');
-    expect(() => resolverImagenLoteReal('C:/qa/manifest.json', 'page.tiff')).toThrow('Formato de imagen no admitido');
-    expect(resolverImagenLoteReal('C:/qa/manifest.json', 'page-1.jpg')).toMatchObject({
-      path: 'C:\\qa\\page-1.jpg',
+    const manifestPath = path.join(os.tmpdir(), 'qa', 'manifest.json');
+    expect(() => resolverImagenLoteReal(manifestPath, '../outside.jpg')).toThrow('sale de la carpeta');
+    expect(() => resolverImagenLoteReal(manifestPath, 'page.tiff')).toThrow('Formato de imagen no admitido');
+    expect(resolverImagenLoteReal(manifestPath, 'page-1.jpg')).toMatchObject({
+      path: path.join(os.tmpdir(), 'qa', 'page-1.jpg'),
       mimeType: 'image/jpeg'
     });
   });
