@@ -11,6 +11,8 @@ import crypto from 'node:crypto';
 export function createDefaultUpdateState(currentVersion = '0.0.0') {
   return {
     state: 'idle',
+    restartRequired: false,
+    restartInitiated: false,
     flavorId: '',
     channel: 'stable',
     currentVersion: String(currentVersion || '0.0.0'),
@@ -335,6 +337,15 @@ export function createUpdateManager(opts = {}) {
 
   async function check() {
     const currentVersion = getCurrentVersion();
+    if (!parseSemver(currentVersion)) {
+      setState({
+        state: 'error',
+        currentVersion: String(currentVersion || 'desconocida'),
+        releaseAssessment: 'local-version-unknown',
+        lastError: 'No se pudo determinar una versión confiable del Installer Hub; se bloquea la propuesta de actualización.'
+      });
+      return getStatus();
+    }
     setState({
       state: 'checking',
       currentVersion,
@@ -555,14 +566,17 @@ export function createUpdateManager(opts = {}) {
       if (!install?.ok) throw new Error(String(install?.error || 'Instalador devolvió error.'));
 
       const start = await startTasks(runningBefore);
-      if (!start?.ok) throw new Error(String(start?.error || 'No se pudo reiniciar el stack después de actualizar.'));
-
       const health = await healthCheck();
-      if (!health?.ok) throw new Error(String(health?.error || 'La validación de salud post-update falló.'));
-
       const nextVersion = String(state.availableVersion || getCurrentVersion());
+      const postInstallIssues = [
+        !start?.ok ? String(start?.error || 'No se pudo reiniciar el stack después de actualizar.') : '',
+        !health?.ok ? String(health?.error || 'La validación de salud post-update falló.') : ''
+      ].filter(Boolean);
+      if (postInstallIssues.length && !install.restartRequired) throw new Error(postInstallIssues.join(' '));
       setState({
-        state: 'idle',
+        state: install.restartRequired || install.restartInitiated ? 'restart-required' : 'idle',
+        restartRequired: Boolean(install.restartRequired),
+        restartInitiated: Boolean(install.restartInitiated),
         currentVersion: nextVersion,
         releaseAssessment: 'current',
         availableVersion: '',
@@ -570,7 +584,7 @@ export function createUpdateManager(opts = {}) {
         notes: '',
         diffSummary: null,
         preflight,
-        lastError: '',
+        lastError: postInstallIssues.join(' '),
         _assetUrl: '',
         _shaUrl: '',
         _diffSummaryUrl: '',

@@ -128,6 +128,7 @@ export type EntradaAutoCalificacionOmr = {
   ratioAmbiguas: number;
   coberturaDeteccion: number;
   respuestasDetectadas?: ReadonlyArray<{
+    numeroPregunta?: number;
     opcion: string | null;
     confianza?: number;
     estadoRespuesta?: 'respondida' | 'sin_marca' | 'ambigua' | 'doble_marca' | 'tachada';
@@ -148,6 +149,46 @@ export type EntradaAutoCalificacionOmr = {
   }>;
 };
 
+export type EvidenciaRespuestaAutoCalificacionOmr = NonNullable<EntradaAutoCalificacionOmr['respuestasDetectadas']>[number];
+
+/** Conserva únicamente las señales que consume la política, ligadas al reactivo. */
+export function proyectarEvidenciaRespuestaAutoCalificacionOmr(value: unknown): EvidenciaRespuestaAutoCalificacionOmr | null {
+  if (!value || typeof value !== 'object') return null;
+  const response = value as Record<string, unknown>;
+  const numeroPregunta = Number(response.numeroPregunta);
+  const opcionRaw = response.opcion;
+  const opcion = opcionRaw === null ? null : typeof opcionRaw === 'string' ? opcionRaw : null;
+  const estado = response.estadoRespuesta;
+  const estados = new Set(['respondida', 'sin_marca', 'ambigua', 'doble_marca', 'tachada']);
+  const confianza = Number(response.confianza);
+  const flags = Array.isArray(response.flags) ? response.flags.filter((flag): flag is string => typeof flag === 'string') : [];
+  const rawScores = response.scoresPorOpcion;
+  if (Array.isArray(rawScores) && (rawScores.length > OPCIONES_OMR.size
+    || rawScores.some((score) => !score || typeof score !== 'object'))) return null;
+  const scores = Array.isArray(rawScores) ? rawScores as Record<string, unknown>[] : [];
+  if (!Number.isSafeInteger(numeroPregunta) || numeroPregunta <= 0 || !Number.isFinite(confianza) || !estados.has(String(estado))) return null;
+  return {
+    numeroPregunta,
+    opcion,
+    confianza,
+    estadoRespuesta: estado as NonNullable<EvidenciaRespuestaAutoCalificacionOmr['estadoRespuesta']>,
+    flags,
+    scoresPorOpcion: scores.map((score) => ({
+      opcion: String(score.opcion ?? ''),
+      score: Number(score.score),
+      fillRatioCore: Number(score.fillRatioCore),
+      ...(score.fillRatioRing === undefined ? {} : { fillRatioRing: Number(score.fillRatioRing) }),
+      ...(score.nucleusFillRatio === undefined ? {} : { nucleusFillRatio: Number(score.nucleusFillRatio) }),
+      ...(score.centroidOffsetRatio === undefined ? {} : { centroidOffsetRatio: Number(score.centroidOffsetRatio) }),
+      markConfidence: Number(score.markConfidence),
+      ...(score.shapeCompactness === undefined ? {} : { shapeCompactness: Number(score.shapeCompactness) }),
+      ...(score.contraste === undefined ? {} : { contraste: Number(score.contraste) }),
+      ...(score.softCoreContrast === undefined ? {} : { softCoreContrast: Number(score.softCoreContrast) }),
+      ...(score.estadoMarca === undefined ? {} : { estadoMarca: String(score.estadoMarca) })
+    }))
+  };
+}
+
 export const UMBRALES_OMR_AUTO = {
   qualityRejectMin: Number.parseFloat(process.env.OMR_QUALITY_REJECT_MIN || '0.5'),
   qualityReviewMin: Number.parseFloat(process.env.OMR_QUALITY_REVIEW_MIN || '0.52'),
@@ -161,9 +202,6 @@ export const UMBRALES_OMR_AUTO = {
   autoHardStopConfMax: Number.parseFloat(process.env.OMR_AUTO_HARDSTOP_CONF_MAX || '0.3'),
   autoHardStopAmbiguasMin: Number.parseFloat(process.env.OMR_AUTO_HARDSTOP_AMBIGUAS_MIN || '0.85'),
   autoHardStopDeteccionMax: Number.parseFloat(process.env.OMR_AUTO_HARDSTOP_DETECCION_MAX || '0.35'),
-  // Contrato operativo actual: todas las paginas deben poder autocalificarse.
-  // Default estricto: NO forzar autocalificación. Solo habilitar por override explícito.
-  autoForceAllPages: String(process.env.OMR_AUTO_FORCE_ALL_PAGES ?? '0').trim() !== '0'
 } as const;
 
 /** Huella de configuración que afecta OMR; permite ligar la validación a su runtime. */
@@ -415,6 +453,15 @@ export function opcionParcialDominanteRecuperable(
 
   const candidata = orden[0];
   const competidora = orden[1];
+  // Un núcleo muy lleno con poca compacidad suele ser texto impreso bajo el
+  // ROI, no una respuesta circular. La pasada de scoring debe conservarlo en
+  // revisión aunque el score bruto sea dominante.
+  if (
+    candidata &&
+    candidata.fillRatioCore >= 0.65 &&
+    Number(candidata.nucleusFillRatio) >= 0.85 &&
+    Number(candidata.shapeCompactness) < 0.4
+  ) return null;
   // Si la señal dominante ocupa mucho el anillo y es poco compacta, mientras
   // otra opción también muestra núcleo y relleno medibles, la lectura puede
   // venir de texto/elementos del panel superpuestos al área de burbujas. No
@@ -570,6 +617,9 @@ export function evaluarAutoCalificableOmr(args: EntradaAutoCalificacionOmr) {
     if (['ambigua', 'doble_marca', 'tachada'].includes(String(respuesta.estadoRespuesta)) && respuesta.opcion !== null) {
       motivos.add('respuesta_estado_no_calificable');
     }
+    if (['ambigua', 'doble_marca', 'tachada'].includes(String(respuesta.estadoRespuesta))) {
+      motivos.add('respuesta_requiere_revision_humana');
+    }
     if (respuesta.estadoRespuesta === 'respondida' && tieneSegundaMarcaConEvidencia(respuesta)) {
       motivos.add('segunda_marca_con_evidencia');
     }
@@ -581,9 +631,8 @@ export function evaluarAutoCalificableOmr(args: EntradaAutoCalificacionOmr) {
         !parcialDetectadaNoCompetitivaConMarcaFuerte(respuesta)) {
       motivos.add('marca_parcial_no_competitiva');
     }
-    // Una marca ambigua, doble o tachada se registra como incorrecta; su
-    // confianza local no debe bloquear el puntaje cuando los controles de
-    // calidad, cobertura e identidad de la página sí son suficientes.
+    // Solo una omisión confirmada puede contarse como incorrecta sin revisión.
+    // Ambigüedades, dobles marcas y tachaduras requieren decisión humana.
     const omisionConAusenciaConfirmada = sinMarcaConEvidenciaDeAusencia(respuesta);
     if (!respuestaInvalidadaPorMarca && (!Number.isFinite(respuesta.confianza) ||
         (!omisionConAusenciaConfirmada && !parcialRecuperable && clamp01(Number(respuesta.confianza)) < UMBRALES_OMR_AUTO.autoConfMin))) {
@@ -598,13 +647,9 @@ export function evaluarAutoCalificableOmr(args: EntradaAutoCalificacionOmr) {
     clamp01(calidadPagina) >= UMBRALES_OMR_AUTO.qualityReviewMin &&
     clamp01(confianzaPromedioPagina) >= UMBRALES_OMR_AUTO.autoConfMin &&
     clamp01(coberturaDeteccion) >= UMBRALES_OMR_AUTO.autoDeteccionMin;
-  const autoCalificableOmr = hardStop
-    ? false
-    : UMBRALES_OMR_AUTO.autoForceAllPages
-    ? true
-    : estadoAnalisis === 'ok' && (cumpleBase || rescateAltaPrecision);
+  const autoCalificableOmr = !hardStop && estadoAnalisis === 'ok' && (cumpleBase || rescateAltaPrecision);
 
-  if (!autoCalificableOmr && !hardStop && !UMBRALES_OMR_AUTO.autoForceAllPages) {
+  if (!autoCalificableOmr && !hardStop) {
     if (estadoAnalisis !== 'ok') motivos.add('estado_analisis_no_ok');
     if (!rescateAltaPrecision) {
       if (clamp01(calidadPagina) < UMBRALES_OMR_AUTO.qualityReviewMin) motivos.add('calidad_pagina_insuficiente');

@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import QRCode from 'qrcode';
 import sharp from 'sharp';
-import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmrCv.js';
+import { analizarOmr, detectarQrConRotacionPagina } from '../src/modulos/modulo_escaneo_omr/servicioOmrCv.js';
 import {
   coincidePayloadQrExacto,
   detectarQrDetalleZxing,
@@ -157,6 +157,33 @@ function crearHojaConFiducialDireccional(giroGrados: number) {
   return { gray, width, height, puntoCaptura };
 }
 
+function crearCapturaConFranjaNegraExterna() {
+  const width = 1323;
+  const height = 1871;
+  const gray = new Uint8ClampedArray(width * height).fill(255);
+  const side = 44;
+  const markers = [
+    { x: 24, y: 128, directional: true },
+    { x: 1256, y: 148, directional: false },
+    { x: 76, y: 1700, directional: false },
+    { x: 1252, y: 1664, directional: false }
+  ];
+  for (const marker of markers) {
+    for (let y = marker.y - side / 2; y < marker.y + side / 2; y += 1) {
+      for (let x = marker.x - side / 2; x < marker.x + side / 2; x += 1) {
+        if (marker.directional && Math.hypot(x - marker.x, y - marker.y) <= 8) continue;
+        if (x >= 0 && y >= 0 && x < width && y < height) gray[Math.floor(y) * width + Math.floor(x)] = 0;
+      }
+    }
+  }
+  // Simula el borde del escáner debajo de la hoja: su región negra uniforme
+  // no debe reemplazar el cuadrado inferior derecho como ancla geométrica.
+  for (let y = 1736; y < 1767; y += 1) {
+    for (let x = 1090; x < width; x += 1) gray[y * width + x] = 0;
+  }
+  return { gray, width, height };
+}
+
 function crearCapturaConQrEsperado(
   textoQr: string,
   giroGrados: number,
@@ -278,6 +305,39 @@ function crearQrRgbaExacto(textoQr: string) {
   };
 }
 
+async function crearCapturaQrRotada(giro: 90 | 180 | 270) {
+  const textoQr = `EXAMEN:TEST-PAGE:P1:TV4:${'A'.repeat(96)}`;
+  const width = ANCHO_CARTA * 3;
+  const height = ALTO_CARTA * 3;
+  const qrSize = Math.round(28 * MM_A_PUNTOS * 3);
+  const qr = await QRCode.toBuffer(textoQr, { errorCorrectionLevel: 'H', width: qrSize, margin: 4 });
+  const side = Math.round(5.8 * MM_A_PUNTOS * 3);
+  const margin = Math.round(10 * MM_A_PUNTOS * 3);
+  const marcas = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect x="${margin}" y="${margin}" width="${side}" height="${side}" fill="black"/><rect x="${width - margin - side}" y="${margin}" width="${side}" height="${side}" fill="black"/><rect x="${margin}" y="${height - margin - side}" width="${side}" height="${side}" fill="black"/><rect x="${width - margin - side}" y="${height - margin - side}" width="${side}" height="${side}" fill="black"/></svg>`);
+  const page = await sharp({
+    create: { width, height, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } }
+  }).composite([{
+    input: qr,
+    left: width - Math.round(10 * MM_A_PUNTOS * 3) - qrSize,
+    top: Math.round(20.5 * MM_A_PUNTOS * 3)
+  }, { input: marcas }]).png().toBuffer();
+  const { data, info } = await sharp(page).rotate(giro).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data: gray } = await sharp(page).rotate(giro).greyscale().raw().toBuffer({ resolveWithObject: true });
+  return {
+    textoQr,
+    width: info.width,
+    height: info.height,
+    rgba: new Uint8ClampedArray(data),
+    gray: new Uint8ClampedArray(gray),
+    qrSizePts: 28 * MM_A_PUNTOS,
+    qrGeometry: {
+      x: ANCHO_CARTA - 10 * MM_A_PUNTOS - 28 * MM_A_PUNTOS,
+      y: ALTO_CARTA - 20.5 * MM_A_PUNTOS - 28 * MM_A_PUNTOS,
+      size: 28 * MM_A_PUNTOS
+    }
+  };
+}
+
 describe('referencia global de página OMR', () => {
   it('decodifica QR en escala de grises con el lector alterno ZXing', () => {
     const esperado = 'EXAMEN:ZXING-ALTERNATE:P2:TV4:TEST';
@@ -353,6 +413,29 @@ describe('referencia global de página OMR', () => {
     const puntoCentral = resultado.transformar({ x: 300, y: 400 });
     expect(puntoCentral.x).toBeCloseTo(300, 0);
     expect(puntoCentral.y).toBeCloseTo(ALTO_CARTA - 400, 0);
+  });
+
+  it('no usa el borde negro del escáner como fiducial inferior', () => {
+    const captura = crearCapturaConFranjaNegraExterna();
+    const resultado = obtenerTransformacion(captura.gray, captura.width, captura.height, [], null, {
+      margenMm: 10,
+      qrSizePts: 72,
+      anchoCarta: ANCHO_CARTA,
+      altoCarta: ALTO_CARTA,
+      mmAPuntos: MM_A_PUNTOS,
+      marcasPagina: {
+        tipo: 'cuadrados',
+        size: 19.84,
+        quietZone: 2.27,
+        orientacion: { esquina: 'tl', tipo: 'centro_vacio', radio: 3.4 }
+      }
+    });
+
+    expect(resultado.tipo).toBe('homografia');
+    expect(resultado.referenciaPagina.puntosDetectados).toBe(4);
+    const burbujaInferior = resultado.transformar({ x: 563.8, y: 147.2 });
+    expect(Math.abs(burbujaInferior.x - 1220)).toBeLessThan(15);
+    expect(Math.abs(burbujaInferior.y - 1435)).toBeLessThan(15);
   });
 
   it('acepta la orientación del QR cuando el fiducial direccional está oculto', () => {
@@ -570,6 +653,82 @@ describe('referencia global de página OMR', () => {
     expect(resultado.referenciaPagina.confianzaOrientacion).toBeGreaterThan(0.2);
     expect(resultado.referenciaPagina.margenOrientacion).toBeGreaterThan(0.08);
   });
+
+  it.each([0, 90, 180, 270] as const)(
+    'usa la orientación fuente del QR recuperado a %i° sin usarlo para rectificar la página',
+    (orientacion) => {
+      const textoQr = `EXAMEN:TEST-PAGE:P1:TV4:${'A'.repeat(140)}`;
+      const captura = crearCapturaConQrEsperado(textoQr, orientacion, false);
+      const resultado = obtenerTransformacion(captura.gray, captura.width, captura.height, [], null, {
+        margenMm: 10,
+        qrSizePts: captura.qrGeometry.size,
+        qrGeometry: captura.qrGeometry,
+        qrOrientacionFuenteGrados: orientacion,
+        anchoCarta: ANCHO_CARTA,
+        altoCarta: ALTO_CARTA,
+        mmAPuntos: MM_A_PUNTOS,
+        marcasPagina: { tipo: 'cuadrados', size: 5.8 * MM_A_PUNTOS }
+      });
+
+      expect(resultado.tipo).toBe('homografia');
+      expect(resultado.referenciaPagina.tipo).toBe('marcas_esquina');
+      expect(resultado.referenciaPagina.orientacionDeterminada).toBe(true);
+      expect(resultado.referenciaPagina.fuenteOrientacion).toBe('qr');
+      expect(resultado.referenciaPagina.orientacionGrados).toBe(orientacion);
+    }
+  );
+
+  it('rechaza el rescate de orientación si contradice el fiducial direccional', () => {
+    const captura = crearHojaConFiducialDireccional(90);
+    const resultado = obtenerTransformacion(captura.gray, captura.width, captura.height, [], null, {
+      margenMm: 10,
+      qrSizePts: 72,
+      qrOrientacionFuenteGrados: 0,
+      anchoCarta: ANCHO_CARTA,
+      altoCarta: ALTO_CARTA,
+      mmAPuntos: MM_A_PUNTOS,
+      marcasPagina: {
+        tipo: 'cuadrados',
+        size: 7 * MM_A_PUNTOS,
+        orientacion: { esquina: 'tl', tipo: 'centro_vacio', radio: 1.2 * MM_A_PUNTOS }
+      }
+    });
+
+    expect(resultado.referenciaPagina.conflictoOrientacion).toBe(true);
+    expect(resultado.referenciaPagina.orientacionDeterminada).toBe(false);
+    expect(resultado.referenciaPagina.fuenteOrientacion).toBe('indeterminada');
+  });
+
+  it.each([90, 180, 270] as const)(
+    'extrae la orientación fuente de un QR exacto recuperado al girar %i°',
+    async (orientacion) => {
+      const captura = await crearCapturaQrRotada(orientacion);
+      const qr = await detectarQrConRotacionPagina(
+        captura.rgba,
+        captura.width,
+        captura.height,
+        captura.qrSizePts,
+        [captura.textoQr]
+      );
+
+      expect(qr?.data).toBe(captura.textoQr);
+      expect(qr?.orientacionFuenteGrados).toBe(orientacion);
+      const transformacion = obtenerTransformacion(captura.gray, captura.width, captura.height, [], null, {
+        margenMm: 10,
+        qrSizePts: captura.qrSizePts,
+        qrOrientacionFuenteGrados: qr?.orientacionFuenteGrados,
+        anchoCarta: ANCHO_CARTA,
+        altoCarta: ALTO_CARTA,
+        mmAPuntos: MM_A_PUNTOS,
+        marcasPagina: { tipo: 'cuadrados', size: 5.8 * MM_A_PUNTOS }
+      });
+
+      expect(transformacion.tipo).toBe('homografia');
+      expect(transformacion.referenciaPagina.tipo).toBe('marcas_esquina');
+      expect(transformacion.referenciaPagina.orientacionDeterminada).toBe(true);
+      expect(transformacion.referenciaPagina.orientacionGrados).toBe(orientacion);
+    }
+  );
 
   it.each([90, 270])('recupera orientación por patrón QR si la homografía necesita ajuste local ($giro°)', (giro) => {
     const textoQr = `EXAMEN:TEST-PAGE:P1:TV4:${'A'.repeat(140)}`;

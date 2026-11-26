@@ -49,6 +49,7 @@
     "omr:build:pilot-real": "tsx scripts/omr-tv4-build-pilot-real.ts --dataset ../../omr_samples_tv4_pilot_real",
     "omr:validate:pilot-real": "tsx scripts/omr-tv4-validate-pilot-real.ts --dataset ../../omr_samples_tv4_pilot_real --report ../../reports/qa/latest/omr/canonical-pilot-real-validation.json --failure-report ../../reports/qa/latest/omr/canonical-pilot-real-failures.json",
     "omr:diagnose:pilot-real": "tsx scripts/omr-tv4-diagnose-pilot-real.ts --dataset ../../omr_samples_tv4_pilot_real --out-dir ../../reports/qa/latest/omr/canonical-pilot-real-diagnose",
+    "omr:replay:real-lot": "tsx scripts/omr-tv4-real-lot-replay.ts",
     "recovery:bundles:list": "tsx scripts/recovery-list-bundles.ts",
     "recovery:verify": "tsx scripts/recovery-verify.ts",
     "recovery:manifest:reconstruct": "tsx scripts/recovery-reconstruct-manifest.ts",

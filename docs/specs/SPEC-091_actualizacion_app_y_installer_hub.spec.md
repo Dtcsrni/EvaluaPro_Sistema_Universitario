@@ -1,8 +1,8 @@
 ---
 id: SPEC-091
 titulo: Deteccion y actualizacion segura desde la aplicacion y Installer Hub
-version: 1.4.0
-fecha: 2026-10-27
+version: 1.5.0
+fecha: 2026-11-25
 autor: Codex
 modulo: modulo_actualizacion_instalador
 estado: approved
@@ -25,6 +25,10 @@ La actualizacion debe seguir funcionando sin Classroom, portal, dashboard visibl
 - REQ-007: Mantener el servicio de actualizacion local restringido a loopback y conservar autorizacion reforzada para aplicar. La UI no puede convertir el endpoint de actualizacion en una ruta remota ni incluir secretos en mensajes o logs.
 - REQ-008: Añadir validacion automatizada para releases stable/beta, versiones iguales y menores, assets ausentes, errores de red, confirmacion, descarga/hash/firma, cancelacion, fallos en stop/install/start/health, rollback y preservacion de datos. Cubrir el banner con pruebas de interfaz y el ciclo Windows con smoke/E2E de actualizacion entre versiones.
 - REQ-009: Comparar por separado la versión de la aplicación y la del Installer Hub. El banner `hub-vX.Y.Z` debe compararse con la versión Hub instalada. En el Hub, con diagnóstico sano, preseleccionar actualización cuando la aplicación incluida sea superior a la instalada o cuando sea igual y la versión Hub sea superior; nunca permitir que este flujo degrade la versión de la aplicación. Si la versión App instalada es legible pero la versión Hub no, se conserva la detección de bundle anterior como fallback; si la versión App no se puede determinar, no actualizar automáticamente.
+- REQ-010: El supervisor compara releases `hub-vX.Y.Z` con `config/hub-version.json` o un registro local confiable de Hub, nunca con la versión App de `package.json`. Si no determina la versión Hub, falla cerrado y no propone updates. Expone `/update` de loopback con versión del software/Hub, descarga, progreso, hash, verificación Authenticode del mismo editor del Hub instalado antes de ejecutar, aplicación silenciosa, reinicio de servicios y health check; no crea un reemplazo paralelo al gestor del Hub.
+- REQ-011: El botón del banner abre `/update?run=1` local sin WebView2. El clic inicia comprobación y descarga; la aplicación requiere step-up local, que el panel puede activar con TOTP/código de recuperación sin registrar ni persistir el código.
+- REQ-012: Si el instalador termina con código Windows 3010 o 1641, el gestor informa `restart-required` en vez de tratar una instalación exitosa como fallo; distingue reinicio requerido de reinicio ya iniciado. Solo tras una confirmación explícita, step-up y aviso de 60 segundos se puede programar reinicio de Windows; el panel permite cancelarlo con step-up activo.
+- REQ-013: Consultar versión, buscar, descargar, aplicar/cancelar y gestionar el reinicio deben estar disponibles mediante API local y/o la pantalla web del supervisor, navegable en Edge o panel lateral. Ningún paso del flujo puede requerir Computer Use, WebView2, ni automatización visual; se conservan confirmación explícita, step-up y las mismas reglas de seguridad.
 
 ## Criterios de Aceptación
 
@@ -37,6 +41,9 @@ La actualizacion debe seguir funcionando sin Classroom, portal, dashboard visibl
 7. La release estable solo se publica despues de generar el instalador para el SHA candidato, pasar CI/QA y el gate de promocion versionado.
 8. Si un manifiesto o entrada de registro apunta a un ejecutable antiguo sin confianza y existe un Hub descargado cuyo hash coincide con un registro oficial local, el App Host omite el archivo antiguo y puede abrir el Hub verificado; si no existe candidato confiable, falla de forma visible y no ejecuta ninguno.
 9. El banner no se muestra cuando la versión Hub remota es igual o inferior a la instalada, aunque los números de versión App y Hub sean distintos; el modo GUI detecta una versión App anterior aunque Burn no informe un bundle relacionado.
+10. `/api/update/status.currentVersion` y `hubVersion` coinciden con `config/hub-version.json`; `appVersion` coincide con `config/app-version.json` y la compilación valida que front/back comparten versión de producto.
+11. El botón del banner abre el flujo local sin WebView2; las operaciones pasan por el gestor único del Hub, mantienen hash/firma/step-up, muestran progreso de descarga e instalación y exponen un estado de reinicio verificable.
+12. El flujo completo de actualización y reinicio puede completarse desde endpoints de loopback y desde `/update` en navegador Edge/panel lateral, sin intervención de Computer Use ni dependencia de la ventana nativa.
 
 ## Matriz de Trazabilidad
 
@@ -48,13 +55,13 @@ La actualizacion debe seguir funcionando sin Classroom, portal, dashboard visibl
 | REQ-004 | Validacion de release, hash, firma y bloqueo de activos invalidos | `scripts/tests/installer-hub-architecture.contract.test.mjs` | Implementado |
 | REQ-005 | Preflight local sin dependencia de sincronizacion remota | `scripts/tests/update-manager.test.mjs` | Pendiente de ampliar |
 | REQ-006 | Fail-closed, rollback, reinicio y salud post-update | `scripts/tests/installer-upgrade-e2e-contract.test.mjs` | Pendiente de ampliar |
-| REQ-007 | Restriccion local y autorizacion de aplicacion | `scripts/tests/update-api.test.mjs` | Pendiente de ampliar |
-| REQ-008 | Casos de regresion y transiciones de actualizacion | `scripts/tests/update-manager.test.mjs` | Pendiente de ampliar |
+| REQ-007, REQ-010..REQ-013 | Restricción loopback, versiones app/Hub, fallo cerrado, API/UI navegador, compatibilidad Edge/panel lateral, step-up y reinicio requerido | `scripts/tests/update-api.test.mjs`; `scripts/tests/update-manager.test.mjs`; `scripts/tests/installer-hub-architecture.contract.test.mjs` | Implementado; smoke Windows pendiente |
+| REQ-008 | Casos de regresion y transiciones de actualizacion | `scripts/tests/update-manager.test.mjs` | Parcial; ciclo de reemplazo y rollback real pendiente |
 
 ## Decisiones y limites
 
 - Alcance inicial: instalacion `docente-local` en Windows y canal `stable`.
-- No se implementa instalacion silenciosa ni actualizacion forzada.
+- La instalación usa el modo silencioso del instalador después de una acción explícita desde el banner y la autorización step-up local; nunca se fuerza una actualización ni se reinicia Windows sin confirmación.
 - La aplicacion informa; el Hub ejecuta el instalador. No se introduce un segundo mecanismo independiente de reemplazo de archivos.
 - El Hub debe verificar la firma del instalador descargado con una identidad de editor configurada/versionada; una suma SHA-256 por si sola detecta corrupcion, pero no autentica el origen.
 - La sustitución de PowerShell/WSH por un launcher nativo para abrir el Hub se especifica en SPEC-094; esta spec conserva el contrato de confirmación, firma, hash y delegación al Burn.

@@ -21,7 +21,14 @@ import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { cargarVariablesEnvDesdeArchivo, obtenerClavesEnvAutoritativas } from './runtime-env.mjs';
+import {
+  cargarVariablesEnvDesdeArchivo,
+  leerVariablesEnvDesdeArchivo,
+  obtenerClavesEnvAutoritativas,
+  obtenerClavesEnvIgnorar,
+  obtenerClavesEnvLimpiarSiAusentes,
+  resolverContextoEnvRuntime
+} from './runtime-env.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const logsDir = path.resolve(process.env.E2E_LOGS_DIR || path.join(root, 'logs'));
@@ -30,14 +37,18 @@ fs.mkdirSync(logsDir, { recursive: true });
 function loadRuntimeEnv() {
   const envPath = path.join(root, '.env');
   // El supervisor de escritorio puede vivir más que el `.env` instalado y
-  // heredar valores ya obsoletos. En producción nativa local, ese archivo es
-  // la fuente de verdad para SQLite y Classroom, incluida la llave que cifra
-  // la sesión OAuth persistida.
+  // heredar valores ya obsoletos. En producción nativa local, el archivo es la
+  // fuente de verdad para persistencia, autenticación y firmas OMR.
+  const valoresInstalados = leerVariablesEnvDesdeArchivo(envPath);
+  const runtime = resolverContextoEnvRuntime(valoresInstalados, process.env, {
+    installedEnvPresent: fs.existsSync(envPath)
+  });
+  process.env.NODE_ENV = runtime.nodeEnv;
+  process.env.EVALUAPRO_FLAVOR = runtime.flavor;
   cargarVariablesEnvDesdeArchivo(envPath, process.env, {
-    overrideKeys: obtenerClavesEnvAutoritativas({
-      nodeEnv: process.env.NODE_ENV || 'production',
-      flavor: process.env.EVALUAPRO_FLAVOR || 'docente-local'
-    })
+    overrideKeys: obtenerClavesEnvAutoritativas(runtime),
+    clearMissingKeys: obtenerClavesEnvLimpiarSiAusentes(runtime),
+    ignoreKeys: obtenerClavesEnvIgnorar(runtime)
   });
 }
 

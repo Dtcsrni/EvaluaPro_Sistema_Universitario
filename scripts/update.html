@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Actualizar EvaluaPro</title>
+  <style>
+    body{font:16px system-ui,sans-serif;max-width:720px;margin:8vh auto;padding:24px;color:#e8eef8;background:#09111f}main{padding:28px;border:1px solid #26364b;border-radius:18px;background:#111c2d}h1{margin-top:0}button,a{font:inherit;color:inherit}button{padding:10px 16px;margin:8px 8px 8px 0;border:1px solid #45617f;border-radius:10px;background:#1a3552;cursor:pointer}button:disabled{opacity:.55;cursor:wait}progress{width:100%;height:16px}#status{min-height:3em;white-space:pre-wrap}.muted{color:#aebdd1}
+  </style>
+</head>
+<body><main>
+  <h1>Actualizar EvaluaPro</h1>
+  <p class="muted">Se reutiliza el proceso local del Installer Hub: descarga verificada, instalación silenciosa, reinicio de servicios y validación de salud. La acción del banner inicia este flujo.</p>
+  <p id="versions">Consultando versiones locales…</p>
+  <p id="status" role="status" aria-live="polite">Listo para comprobar actualizaciones.</p>
+  <progress id="progress" max="100" value="0" aria-label="Progreso de actualización" hidden></progress>
+  <section id="step-up" hidden aria-labelledby="step-up-title">
+    <h2 id="step-up-title">Autorizar actualización local</h2>
+    <p class="muted">La instalación conserva la protección local del Hub. Ingresa un código temporal o un código de recuperación; el código no se guarda.</p>
+    <label for="step-up-method">Método</label>
+    <select id="step-up-method"><option value="totp">Código TOTP de 6 dígitos</option><option value="recovery">Código de recuperación</option></select>
+    <label for="step-up-code">Código</label>
+    <input id="step-up-code" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="23">
+    <button id="step-up-submit" type="button">Autorizar y continuar</button>
+  </section>
+  <div>
+    <button id="check">Buscar actualización</button>
+    <button id="download" disabled>Descargar y verificar</button>
+    <button id="apply" disabled>Aplicar ahora</button>
+    <button id="cancel" hidden>Cancelar descarga</button>
+    <button id="restart-windows" hidden>Solicitar reinicio de Windows</button>
+    <button id="cancel-restart" hidden>Cancelar reinicio programado</button>
+  </div>
+  <p><a href="http://127.0.0.1:4173/">Abrir / reabrir EvaluaPro</a></p>
+</main>
+<script>
+const $=id=>document.getElementById(id);let timer;let working=false;let restartScheduled=false;
+async function call(path,method='GET',payload={}){const r=await fetch(path,{method,headers:method==='GET'?{}:{'Content-Type':'application/json'},body:method==='GET'?undefined:JSON.stringify(payload),cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.detail||d.error||d.message||d.lastError||`HTTP ${r.status}`);return d}
+function show(s){if(s.update)s={...s.update,appVersion:s.appVersion,hubVersion:s.hubVersion};const busy=['checking','downloading','applying'].includes(s.state);const total=Number(s.download?.bytesTotal||0);const received=Number(s.download?.bytesReceived||0);$('versions').textContent=`Software: v${s.appVersion||'desconocido'} · Hub: v${s.hubVersion||s.currentVersion||'desconocido'}${s.availableVersion?` · Disponible: v${s.availableVersion}`:''}`;$('check').disabled=busy;$('download').disabled=busy||s.state!=='available';$('apply').disabled=busy||s.state!=='ready';$('cancel').hidden=s.state!=='downloading';$('restart-windows').hidden=s.state!=='restart-required'||Boolean(s.restartInitiated)||restartScheduled;$('cancel-restart').hidden=!restartScheduled;$('progress').hidden=!busy;if(s.state==='downloading'&&total>0){$('progress').value=Number(s.download?.percent||0)}else{$('progress').removeAttribute('value')}if(s.state==='error')$('status').textContent=`No se pudo completar: ${s.lastError||'error desconocido'}`;else if(s.state==='ready')$('status').textContent='Descarga y SHA-256 verificados.';else if(s.state==='available')$('status').textContent=`Actualización v${s.availableVersion} disponible.`;else if(s.state==='restart-required')$('status').textContent=s.restartInitiated?'Windows ya inició el reinicio para completar la actualización.':`Actualización aplicada. Windows requiere reiniciar. Guarda tu trabajo; puedes programar el reinicio por 60 segundos y cancelarlo desde esta pantalla.${s.lastError?` Revisión: ${s.lastError}`:''}`;else if(s.state==='idle'&&s.releaseAssessment==='current')$('status').textContent='El Installer Hub ya está actualizado.';else $('status').textContent=busy?`${s.state==='downloading'?total>0?`Descargando ${Number(s.download?.percent||0)}%…`:`Descargando ${(received/1048576).toFixed(1)} MB…`:s.state==='applying'?'Instalando silenciosamente y validando servicios…':'Comprobando versión estable…'}`:'Listo para comprobar actualizaciones.'}
+async function refresh(){try{show(await call('/api/update/status'))}catch(e){$('status').textContent=e.message}}
+async function applyIfAuthorized(){const auth=await call('/api/support/privileged/status');if(!auth.authorization?.active){$('step-up').hidden=false;$('status').textContent=auth.authorization?.configured?'Ingresa el código de autorización local para continuar.':'La autorización reforzada local no está configurada; inicia su configuración desde el Installer Hub.';return false}const result=await call('/api/update/apply','POST');show(result);if(result.update?.state==='restart-required')return true;if(result.update?.state==='idle')$('status').textContent='Actualización completada y servicios saludables. Reabre EvaluaPro para continuar.';return true}
+async function beginUpdate(){if(working)return;working=true;timer=setInterval(()=>void refresh(),700);try{$('status').textContent='Comprobando la versión estable del Hub…';const checked=await call('/api/update/check','POST');show(checked);if(checked.state!=='available'){if(checked.state==='idle'&&checked.releaseAssessment==='current')$('status').textContent='Todo está actualizado.';return} $('status').textContent=`Descargando v${checked.availableVersion} y verificando SHA-256…`;const downloaded=await call('/api/update/download','POST');show(downloaded);if(downloaded.state!=='ready')return;$('status').textContent='Descarga y SHA-256 verificados. Revisando autorización local…';await applyIfAuthorized()}catch(e){$('status').textContent=e.message}finally{working=false;clearInterval(timer);await refresh()}}
+$('check').onclick=beginUpdate;
+$('download').onclick=async()=>{try{show(await call('/api/update/download','POST'))}catch(e){$('status').textContent=e.message}};
+$('apply').onclick=async()=>{try{await applyIfAuthorized()}catch(e){$('status').textContent=e.message}};
+$('step-up-submit').onclick=async()=>{const method=$('step-up-method').value;const code=$('step-up-code').value.trim();$('step-up-submit').disabled=true;try{await call('/api/support/privileged/step-up','POST',{method,code});$('step-up-code').value='';$('step-up').hidden=true;$('status').textContent='Autorización local activa. Continuando con la actualización…';await applyIfAuthorized()}catch(e){$('status').textContent=e.message==='step_up_code_rejected'?'El código no fue aceptado. Revisa el reloj o usa un código de recuperación.':e.message==='step_up_rate_limited'?'Se alcanzó el límite de intentos; vuelve a intentarlo después de 15 minutos.':e.message}finally{$('step-up-submit').disabled=false}};
+$('restart-windows').onclick=async()=>{if(!confirm('Windows requiere reiniciarse. Se programará el reinicio en 60 segundos. ¿Continuar?'))return;try{await call('/api/system/restart','POST',{confirm:true});restartScheduled=true;$('status').textContent='Reinicio de Windows programado en 60 segundos. Puedes cancelarlo desde aquí.';$('restart-windows').hidden=true;$('cancel-restart').hidden=false}catch(e){$('status').textContent=e.message}};
+$('cancel-restart').onclick=async()=>{try{await call('/api/system/restart/cancel','POST');restartScheduled=false;$('status').textContent='Reinicio cancelado.';$('cancel-restart').hidden=true}catch(e){$('status').textContent=e.message}};
+$('cancel').onclick=async()=>{try{await call('/api/update/cancel','POST');clearInterval(timer);await refresh()}catch(e){$('status').textContent=e.message}};
+void refresh();if(new URLSearchParams(location.search).get('run')==='1')void beginUpdate();
+</script></body></html>

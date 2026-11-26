@@ -887,6 +887,17 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     paginasQrEsperadas
   });
 
+  // Valida primero estructura, identidad y evidencia fuente. La predicción
+  // recibida nunca sustituye las capturas originales que debe leer el servidor.
+  if (admiteReanalisisAutomatico && analisisOmr?.estadoAnalisis === 'ok' &&
+      paginasOmrEntrada.length === 0 && respuestas.length > 0) {
+    throw new ErrorAplicacion(
+      'OMR_CAPTURAS_ORIGINALES_REQUERIDAS',
+      'La autocalificación exige volver a leer localmente todas las capturas originales del examen.',
+      422
+    );
+  }
+
   if (revisionConfirmada && plantillaOmrVersion === 4) {
     await validarCapturasCompletasRevisionManual({
       paginasExamen: Array.isArray(examen.paginas) ? examen.paginas : [],
@@ -954,16 +965,6 @@ export async function calificarExamen(req: SolicitudDocente, res: Response) {
     throw new ErrorAplicacion(
       'OMR_BONO_CONFIRMACION_MANUAL_REQUERIDA',
       'Confirma visualmente en la primera página si el área de calificaciones muestra +0.25 antes de guardar.',
-      422
-    );
-  }
-
-  // Valida primero estructura, identidad, QR y confianza. La predicción recibida
-  // nunca sustituye las capturas originales que debe volver a leer el servidor.
-  if (admiteReanalisisAutomatico && paginasOmrEntrada.length === 0 && respuestas.length > 0) {
-    throw new ErrorAplicacion(
-      'OMR_CAPTURAS_ORIGINALES_REQUERIDAS',
-      'La autocalificación exige volver a leer localmente todas las capturas originales del examen.',
       422
     );
   }

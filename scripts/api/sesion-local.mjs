@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 import { EvaluaproClient } from './evaluapro-client.mjs';
+import { resolverPermisosSesion } from './sesion-local-permissions.mjs';
 
 const [comando = 'help', ...argumentos] = process.argv.slice(2);
 const baseUrl = process.env.EVALUAPRO_URL || 'http://127.0.0.1:4000';
 const equipoId = process.env.EVALUAPRO_EQUIPO_ID;
-const permisosLectura = ['periodos:leer', 'temarios:leer', 'banco:leer', 'plantillas:leer', 'examenes:leer'];
-
 function cliente() { return new EvaluaproClient({ baseUrl, equipoId }); }
 function ayuda() {
-  console.log('Uso: node scripts/api/sesion-local.mjs <authorize|status|revoke> [--permissions=p1,p2]');
+  console.log('Uso: node scripts/api/sesion-local.mjs <authorize|status|revoke> [--purpose=omr-grading | --permissions=p1,p2]');
+  console.log('omr-grading solicita/verifica omr:analizar, banco:leer y calificaciones:calificar.');
   console.log('authorize solicita consentimiento en EvaluaPro; status y revoke usan Windows Credential Manager.');
 }
 
 try {
   if (comando === 'authorize') {
-    const especificados = argumentos.find((arg) => arg.startsWith('--permissions='))?.slice('--permissions='.length);
-    const permisos = especificados ? especificados.split(',').map((item) => item.trim()).filter(Boolean) : permisosLectura;
+    const permisos = resolverPermisosSesion(argumentos);
     const api = cliente();
     const solicitud = await api.solicitarAutorizacionApi({
       nombreCliente: 'EvaluaPro API CLI', permisos,
@@ -34,8 +33,15 @@ try {
       console.log('No hay una credencial API local guardada para este servidor.');
       process.exitCode = 1;
     } else {
-      const estado = await api.preflight();
-      console.log(JSON.stringify({ authenticated: estado.authenticated, permissions: estado.permissions, api: estado.version?.version }, null, 2));
+      const requiredPermissions = resolverPermisosSesion(argumentos, { defaultPermissions: false });
+      const estado = await api.preflight({ requiredPermissions });
+      console.log(JSON.stringify({
+        authenticated: estado.authenticated,
+        permissions: estado.permissions,
+        permissionCheck: estado.permissionCheck,
+        api: estado.version?.version
+      }, null, 2));
+      if (!estado.authenticated || estado.permissionCheck.state !== 'satisfied') process.exitCode = 3;
     }
   } else if (comando === 'revoke') {
     const api = cliente();

@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
 import QRCode from 'qrcode';
 import { configuracion } from '../src/configuracion.js';
@@ -39,6 +39,54 @@ function construirQrCompactoHistorico() {
 }
 
 describe('qr examen enriquecido', () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it('verifica QR históricos con su clave OMR aunque el JWT actual haya rotado', async () => {
+    const variables = [
+      'NODE_ENV',
+      'JWT_SECRETO',
+      'OMR_QR_HMAC_KEY_ID',
+      'OMR_QR_HMAC_SECRET',
+      'OMR_QR_HMAC_SECRETS_JSON'
+    ] as const;
+    const anteriores = new Map(variables.map((key) => [key, process.env[key] ?? null]));
+    process.env.NODE_ENV = 'test';
+    process.env.JWT_SECRETO = 'jwt-rotado-en-la-actualizacion';
+    process.env.OMR_QR_HMAC_KEY_ID = 'qr-h1-v2';
+    process.env.OMR_QR_HMAC_SECRET = 'clave-omr-v2-independiente';
+    process.env.OMR_QR_HMAC_SECRETS_JSON = JSON.stringify({
+      'qr-h1-v1': 'clave-omr-v1-historica',
+      'qr-h1-v2': 'clave-omr-v2-independiente'
+    });
+    vi.resetModules();
+
+    try {
+      const { extraerResumenQrExamen } = await import('../src/modulos/modulo_generacion_pdf/domain/qrExamen.js');
+      const identidad = 'EXAMEN:FOLIO-ANTERIOR:P1:TV4';
+      const segmentos = `${identidad}:LI:LOTE-ANTERIOR:KI:QR-H1-V1`;
+      const firma = createHmac('sha256', 'clave-omr-v1-historica')
+        .update(segmentos)
+        .digest('hex')
+        .slice(0, 24)
+        .toUpperCase();
+      const qr = `${segmentos}:SG:H1${firma}`;
+
+      expect(extraerResumenQrExamen(qr)).toMatchObject({
+        keyId: 'QR-H1-V1',
+        payloadSignatureMode: 'hmac-v1',
+        payloadSignatureValid: true
+      });
+    } finally {
+      for (const [key, value] of anteriores) {
+        if (value === null) delete process.env[key];
+        else process.env[key] = value;
+      }
+      vi.resetModules();
+    }
+  });
+
   it('incluye folio, pagina, template, hashes y ordenes de variante', () => {
     const qr = construirTextoQrExamenPagina({
       folio: 'FOLIO-TV4-001',

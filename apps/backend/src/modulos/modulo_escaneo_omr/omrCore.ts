@@ -303,6 +303,21 @@ export function buscarMejorOffsetPregunta(args: {
   return { mejorDx, mejorDy };
 }
 
+/** Las coordenadas estrictas del mapa no admiten desplazamientos inferidos desde la tinta de las respuestas. */
+export function debePermitirBusquedaLocalPorPregunta(args: {
+  coordenadasEstrictas: boolean;
+  permitirRescateLocal: boolean;
+  capturaResolucionIntermedia: boolean;
+  referenciaGlobalFuerte: boolean;
+  panelHorizontalCompacto: boolean;
+  capturaMuyBajaResolucion: boolean;
+}) {
+  if (args.coordenadasEstrictas) return false;
+  return args.permitirRescateLocal ||
+    (args.capturaResolucionIntermedia && args.referenciaGlobalFuerte && args.panelHorizontalCompacto) ||
+    (args.capturaMuyBajaResolucion && args.referenciaGlobalFuerte && args.panelHorizontalCompacto);
+}
+
 export function calcularMetricasPregunta(args: {
   estado: EstadoImagenOmr;
   centros: CentroOpcion[];

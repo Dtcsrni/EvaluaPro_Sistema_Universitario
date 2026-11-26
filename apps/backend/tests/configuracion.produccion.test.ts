@@ -21,6 +21,35 @@ describe('configuracion (produccion)', () => {
     vi.resetModules();
   });
 
+  it('falla si production no recibe JWT_SECRETO tras cargar el entorno local', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.EVALUAPRO_FLAVOR = 'docente-local';
+    process.env.CORS_ORIGENES = 'http://localhost:4173';
+    delete process.env.JWT_SECRETO;
+
+    await expect(import('../src/configuracion.js')).rejects.toThrow('JWT_SECRETO es requerido en producción');
+  });
+
+  it('falla cerrado si el keyring HMAC productivo está mal formado', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.EVALUAPRO_FLAVOR = 'docente-local';
+    process.env.JWT_SECRETO = 'production-test-jwt-secret';
+    process.env.CORS_ORIGENES = 'http://localhost:4173';
+    process.env.OMR_QR_HMAC_SECRETS_JSON = '{invalid';
+
+    await expect(import('../src/configuracion.js')).rejects.toThrow('OMR_QR_HMAC_SECRETS_JSON debe ser un objeto JSON válido');
+  });
+
+  it('rechaza un keyId activo que el QR truncaría y no podría resolver', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.EVALUAPRO_FLAVOR = 'docente-local';
+    process.env.JWT_SECRETO = 'production-test-jwt-secret';
+    process.env.CORS_ORIGENES = 'http://localhost:4173';
+    process.env.OMR_QR_HMAC_KEY_ID = 'qr-key-id-that-is-too-long';
+
+    await expect(import('../src/configuracion.js')).rejects.toThrow('OMR_QR_HMAC_KEY_ID debe contener entre 1 y 20 caracteres');
+  });
+
   it('falla si faltan variables criticas del portal cloud en production', async () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRETO = 'secret';

@@ -62,6 +62,18 @@ test('selectLatestRelease reporta local-ahead-of-official y nunca propone downgr
   assert.equal(pick.assessment, 'local-ahead-of-official');
 });
 
+test('check falla cerrado si no puede determinar la versión local del Hub', async () => {
+  let fetched = false;
+  const manager = createUpdateManager({
+    getCurrentVersion: () => 'desconocida',
+    fetchImpl: async () => { fetched = true; throw new Error('No debe consultar releases'); }
+  });
+  const status = await manager.check();
+  assert.equal(status.state, 'error');
+  assert.equal(status.releaseAssessment, 'local-version-unknown');
+  assert.equal(fetched, false);
+});
+
 test('selectLatestRelease resuelve asset versionado por flavor cuando falta nombre legacy', () => {
   const pick = selectLatestRelease([{
     tag_name: 'v1.1.0',
@@ -233,6 +245,44 @@ test('apply ejecuta preflight -> stop -> install -> start -> health', async () =
 
   assert.equal(status.state, 'idle');
   assert.deepEqual(calls, ['preflight', 'stop', 'install', 'start', 'health']);
+});
+
+test('apply conserva el éxito del instalador cuando Windows solicita reinicio', async () => {
+  const manager = createUpdateManager({
+    getCurrentVersion: () => '1.0.0',
+    fetchImpl: async () => new Response(Buffer.from('X'), { status: 200 }),
+    downloadRoot: fs.mkdtempSync(path.join(os.tmpdir(), 'ep-update-')),
+    preflightSync: async () => ({ ok: true }),
+    stopTasks: async () => ({ ok: true, runningBefore: ['prod'] }),
+    runInstaller: async () => ({ ok: true, restartRequired: true }),
+    startTasks: async () => ({ ok: true }),
+    healthCheck: async () => ({ ok: true })
+  });
+  manager.setAvailableForTest({ version: '1.1.0', assetUrl: 'data:application/octet-stream;base64,WA==' });
+  await manager.download();
+  const status = await manager.apply();
+  assert.equal(status.state, 'restart-required');
+  assert.equal(status.restartRequired, true);
+  assert.equal(status.currentVersion, '1.1.0');
+});
+
+test('apply informa cuando el instalador ya inició el reinicio de Windows', async () => {
+  const manager = createUpdateManager({
+    getCurrentVersion: () => '1.0.0',
+    fetchImpl: async () => new Response(Buffer.from('X'), { status: 200 }),
+    downloadRoot: fs.mkdtempSync(path.join(os.tmpdir(), 'ep-update-')),
+    preflightSync: async () => ({ ok: true }),
+    stopTasks: async () => ({ ok: true, runningBefore: ['prod'] }),
+    runInstaller: async () => ({ ok: true, restartInitiated: true }),
+    startTasks: async () => ({ ok: true }),
+    healthCheck: async () => ({ ok: true })
+  });
+  manager.setAvailableForTest({ version: '1.1.0', assetUrl: 'data:application/octet-stream;base64,WA==' });
+  await manager.download();
+  const status = await manager.apply();
+  assert.equal(status.state, 'restart-required');
+  assert.equal(status.restartRequired, false);
+  assert.equal(status.restartInitiated, true);
 });
 
 test('apply bloquea instalación si falla preflight', async () => {

@@ -1,0 +1,263 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "no-computer-use-policy-2026-11-25",
+  "status": "final",
+  "generatedAt": "2026-11-26T05:07:19.641Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Establecer que las actividades de EvaluaPro puedan completarse sin Computer Use, mediante API o interfaces web Edge/panel lateral."
+  },
+  "objective": "Hacer explícita la independencia de Computer Use en la operación del agente y en el flujo local de actualización.",
+  "scope": [
+    "AGENTS.md: política API/panel/Edge",
+    "SPEC-091: requisito de acceso no-CUA",
+    "Validación SDD y contratos de actualización"
+  ],
+  "constraints": [
+    "Worktree aislado codex/omr-autograding-stability-20261123",
+    "No publicar ni instalar",
+    "Preservar el trabajo OMR existente"
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de lint",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_frontend_ci",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_coverage_ci",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_tdd_enforcement_ci",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_backend_ci",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de test_portal_ci",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de perf_check",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "omitido"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract_check",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-11-26T05:07:19.641Z",
+      "status": "falla"
+    }
+  ],
+  "files": {
+    "read": [],
+    "changed": [
+      "AGENTS.md",
+      "apps/backend/package-lock.json",
+      "apps/backend/package.json",
+      "apps/backend/scripts/omr-tv4-synthetic-lib.ts",
+      "apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts",
+      "apps/backend/src/modulos/modulo_calificacion/respuestaPuntuableOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/estadoRespuesta.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/omrCore.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/tests/calificacion.omr.local.test.ts",
+      "apps/backend/tests/calificacion.omr.lote.test.ts",
+      "apps/backend/tests/calificacion.omr.payload.test.ts",
+      "apps/backend/tests/integracion/omrJobsWorkflow.test.ts",
+      "apps/backend/tests/omr.consenso.robusto.test.ts",
+      "apps/backend/tests/omr.core.decision.test.ts",
+      "apps/backend/tests/omr.estado-respuesta.test.ts",
+      "apps/backend/tests/omr.geometry.reference.test.ts",
+      "apps/backend/tests/omr.jobs.policy.test.ts",
+      "apps/backend/tests/omr.politicaAutoCalificacion.test.ts",
+      "apps/backend/tests/omr.test.ts",
+      "apps/backend/tests/omr.tv4.synthetic.metrics.test.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/src/servicios_api/clienteApi.ts",
+      "apps/frontend/src/servicios_api/clienteComun.ts",
+      "apps/frontend/src/ui/version/UpdateAvailabilityBanner.tsx",
+      "apps/frontend/tests/clienteApi.test.tsx",
+      "apps/frontend/tests/clienteComun.test.ts",
+      "apps/frontend/tests/plantillasOmrWorkflow.test.tsx",
+      "apps/frontend/tests/updateAvailabilityBanner.test.tsx",
+      "apps/portal_alumno_cloud/package-lock.json",
+      "docs/specs/SPEC-091_actualizacion_app_y_installer_hub.spec.md",
+      "docs/specs/SPEC-117_calificacion_automatica_local_omr.spec.md",
+      "docs/specs/SPEC-150_bandeja-nativa-inicio-automatico.spec.md",
+      "scripts/launcher-dashboard.mjs",
+      "scripts/tests/update-api.test.mjs",
+      "scripts/tests/update-manager.test.mjs",
+      "scripts/update-manager.mjs",
+      "apps/backend/scripts/omr-tv4-real-lot-replay.ts",
+      "apps/backend/spa.traineddata",
+      "apps/backend/tests/omr.tv4.real-lot-replay.test.ts",
+      "docs/handoff/sesiones/2026-11-24/",
+      "docs/handoff/sesiones/2026-11-26/",
+      "scripts/reconnect.html",
+      "scripts/update.html",
+      "scripts/verify-update-installer-signature.ps1"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-11-26/no-computer-use-policy-2026-11-25.json",
+      "docs/handoff/sesiones/2026-11-26/no-computer-use-policy-2026-11-25.md"
+    ]
+  },
+  "commands": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "test_frontend_ci",
+      "command": "npm run test:frontend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "test_coverage_ci",
+      "command": "npm run test:coverage:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "test_tdd_enforcement_ci",
+      "command": "npm run test:tdd:enforcement:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "test_backend_ci",
+      "command": "npm run test:backend:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "test_portal_ci",
+      "command": "npm run test:portal:ci",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "perf_check",
+      "command": "npm run perf:check",
+      "status": "omitido",
+      "exitCode": null,
+      "durationMs": 0,
+      "resultSummary": "omitido por perfil quick",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "pipeline_contract_check",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3078,
+      "resultSummary": "✔ Stable Gate invoca el mismo guard para checkout inicial, checkpoints y guard final (2.0693ms) | ▶ el guard del checkout candidato solo permite EOL sin cambios semánticos | ✔ acepta diferencias CRLF/LF sin contenido distinto (441.6906ms) | ✔ acepta EOL-only en JSON de evidencia fuera de la allowlist histórica (402.8415ms) | ... | npm notice run evaluapro@1.2.29 pipeline:contract:check | npm notice run node scripts/pipeline-contract-check.mjs",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1291,
+      "resultSummary": "npm notice run evaluapro@1.2.29 docs:check | npm notice run node scripts/docs.mjs --check | [docs] desactualizado: docs/AUTO_ENV.md | [docs] corre: npm run docs:generate",
+      "timestamp": "2026-11-26T05:07:19.641Z"
+    }
+  ],
+  "decisions": [
+    "Operar por API cuando exista y por interfaz navegador en caso de interacción",
+    "No introducir persistencia paralela ni usar automatización visual como requisito",
+    "Mantener una auditoría amplia de paridad de todas las funciones como posible trabajo separado"
+  ],
+  "assumptions": [],
+  "risks": [
+    "No se hizo inventario de todas las funciones existentes de EvaluaPro; este cambio establece la política y cubre el flujo de actualización",
+    "docs:check del repositorio reporta docs/AUTO_ENV.md desactualizado en la traza rápida"
+  ],
+  "nextStep": "Esperar definición del alcance de auditoría integral; seguir usando API, panel lateral o Edge para las tareas posteriores.",
+  "completion": {
+    "isComplete": true,
+    "pendingFields": []
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro\\worktrees\\omr-autograding-stability-20261123",
+    "branch": "codex/omr-autograding-stability-20261123",
+    "commit": "2099e66f",
+    "workingTreeStatus": "M AGENTS.md\n M apps/backend/package-lock.json\n M apps/backend/package.json\n M apps/backend/scripts/omr-tv4-synthetic-lib.ts\n M apps/backend/src/modulos/modulo_calificacion/controladorCalificacion.ts\n M apps/backend/src/modulos/modulo_calificacion/respuestaPuntuableOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/omr/decision/estadoRespuesta.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/omrCore.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/servicioOmr.ts\n M apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts\n M apps/backend/tests/calificacion.omr.local.test.ts\n M apps/backend/tests/calificacion.omr.lote.test.ts\n M apps/backend/tests/calificacion.omr.payload.test.ts\n M apps/backend/tests/integracion/omrJobsWorkflow.test.ts\n M apps/backend/tests/omr.consenso.robusto.test.ts\n M apps/backend/tests/omr.core.decision.test.ts\n M apps/backend/tests/omr.estado-respuesta.test.ts\n M apps/backend/tests/omr.geometry.reference.test.ts\n M apps/backend/tests/omr.jobs.policy.test.ts\n M apps/backend/tests/omr.politicaAutoCalificacion.test.ts\n M apps/backend/tests/omr.test.ts\n M apps/backend/tests/omr.tv4.synthetic.metrics.test.ts\n M apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx\n M apps/frontend/src/servicios_api/clienteApi.ts\n M apps/frontend/src/servicios_api/clienteComun.ts\n M apps/frontend/src/ui/version/UpdateAvailabilityBanner.tsx\n M apps/frontend/tests/clienteApi.test.tsx\n M apps/frontend/tests/clienteComun.test.ts\n M apps/frontend/tests/plantillasOmrWorkflow.test.tsx\n M apps/frontend/tests/updateAvailabilityBanner.test.tsx\n M apps/portal_alumno_cloud/package-lock.json\n M docs/specs/SPEC-091_actualizacion_app_y_installer_hub.spec.md\n M docs/specs/SPEC-117_calificacion_automatica_local_omr.spec.md\n M docs/specs/SPEC-150_bandeja-nativa-inicio-automatico.spec.md\n M scripts/launcher-dashboard.mjs\n M scripts/tests/update-api.test.mjs\n M scripts/tests/update-manager.test.mjs\n M scripts/update-manager.mjs\n?? apps/backend/scripts/omr-tv4-real-lot-replay.ts\n?? apps/backend/spa.traineddata\n?? apps/backend/tests/omr.tv4.real-lot-replay.test.ts\n?? docs/handoff/sesiones/2026-11-24/\n?? docs/handoff/sesiones/2026-11-26/\n?? scripts/reconnect.html\n?? scripts/update.html\n?? scripts/verify-update-installer-signature.ps1"
+  }
+}

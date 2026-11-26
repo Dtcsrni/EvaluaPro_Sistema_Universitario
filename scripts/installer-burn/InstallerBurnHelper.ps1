@@ -508,6 +508,10 @@ function Write-InstallerRuntimeEnv {
   Set-InstallerEnvValue -Map $envMap -Key 'JWT_SECRETO' -Value $jwt
   Set-InstallerEnvValue -Map $envMap -Key 'EVALUAPRO_BACKUP_CIFRADO_SECRETO' -Value $backupSecret
   $flavorId = [string](Get-RequestConfigValue -Request $Request -Name 'flavorId' -DefaultValue 'docente-local')
+  $nodeEnv = [string](Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
+  if ($flavorId.Trim().ToLowerInvariant() -eq 'docente-local' -and $nodeEnv.Trim().ToLowerInvariant() -eq 'production') {
+    Ensure-OmrSigningConfig -EnvMap $envMap -LegacyJwtSecret $existingJwt | Out-Null
+  }
   $localAppData = [string]$env:LOCALAPPDATA
   if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = Join-Path $env:USERPROFILE 'AppData\Local' }
   $targetFullPath = [IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
@@ -531,7 +535,7 @@ function Write-InstallerRuntimeEnv {
   if ($isQaInstall) { $requestedDatabaseUrl = $localDatabaseUrl }
   Set-InstallerEnvValue -Map $envMap -Key 'DATABASE_URL' -Value $requestedDatabaseUrl
   Set-InstallerEnvValue -Map $envMap -Key 'BACKEND_DATABASE_URL' -Value $requestedDatabaseUrl
-  Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value (Get-RequestConfigValue -Request $Request -Name 'nodeEnv' -DefaultValue 'production')
+  Set-InstallerEnvValue -Map $envMap -Key 'NODE_ENV' -Value $nodeEnv
   Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_API' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoApi' -DefaultValue '4000')
   Set-InstallerEnvValue -Map $envMap -Key 'PUERTO_PORTAL' -Value (Get-RequestConfigValue -Request $Request -Name 'puertoPortal' -DefaultValue '4518')
   Set-InstallerEnvValue -Map $envMap -Key 'CORS_ORIGENES' -Value (Get-RequestConfigValue -Request $Request -Name 'corsOrigenes' -DefaultValue 'http://localhost:4173,http://127.0.0.1:4173')
@@ -590,6 +594,9 @@ function Assert-InstallerRuntimeEnv {
     'PUERTO_API',
     'CORS_ORIGENES'
   )
+  if ([string]$envMap['EVALUAPRO_FLAVOR'] -eq 'docente-local' -and [string]$envMap['NODE_ENV'] -eq 'production') {
+    $required += @('OMR_QR_HMAC_KEY_ID', 'OMR_QR_HMAC_SECRET', 'OMR_QR_HMAC_SECRETS_JSON')
+  }
   $missing = @()
   foreach ($key in $required) {
     if (-not $envMap.Contains($key) -or [string]::IsNullOrWhiteSpace([string]$envMap[$key])) {

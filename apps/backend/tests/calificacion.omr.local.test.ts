@@ -77,15 +77,15 @@ function entrada(paginasCapturadas = [
 }
 
 describe('calificacion OMR local desde capturas originales', () => {
-  it('puntúa como incorrectas las omisiones, ambigüedades y marcas múltiples', () => {
+  it('distingue omisiones calificables de ambigüedades que requieren revisión', () => {
     expect(obtenerOpcionPuntuableOmr({ opcion: null, estadoRespuesta: 'sin_marca' })).toBeNull();
     expect(obtenerOpcionPuntuableOmr({ opcion: null, estadoRespuesta: 'ambigua' })).toBeNull();
     expect(obtenerOpcionPuntuableOmr({ opcion: 'B', estadoRespuesta: 'doble_marca' })).toBeNull();
     expect(obtenerOpcionPuntuableOmr({ opcion: 'B', flags: ['doble_marca'] })).toBeNull();
     expect(obtenerOpcionPuntuableOmr({ opcion: 'B', estadoRespuesta: 'ambigua' })).toBeNull();
     expect(obtenerOpcionPuntuableOmr({ opcion: 'B', estadoRespuesta: 'respondida' })).toBe('B');
-    expect(omrRequiereResolucionManual({ opcion: null, estadoRespuesta: 'ambigua' })).toBe(false);
-    expect(omrRequiereResolucionManual({ opcion: 'B', estadoRespuesta: 'ambigua' })).toBe(false);
+    expect(omrRequiereResolucionManual({ opcion: null, estadoRespuesta: 'ambigua' })).toBe(true);
+    expect(omrRequiereResolucionManual({ opcion: 'B', estadoRespuesta: 'ambigua' })).toBe(true);
     expect(omrRequiereResolucionManual({ opcion: 'B', estadoRespuesta: 'respondida', flags: ['parcial_detectada'] })).toBe(false);
     expect(obtenerOpcionPuntuableOmr({ opcion: 'B', estadoRespuesta: 'respondida', flags: ['parcial_detectada'] })).toBe('B');
     expect(obtenerOpcionPuntuableOmr({ opcion: null, estadoRespuesta: 'ambigua', flags: ['parcial_detectada'] })).toBeNull();

@@ -21,6 +21,8 @@ export type QrDetalle = {
   calidadGeometrica?: number;
   calidadCoincidenciaMatriz?: number;
   margenCoincidenciaMatriz?: number;
+  /** Orientación del borde QR medida en el marco de la imagen fuente. */
+  orientacionFuenteGrados?: 0 | 90 | 180 | 270;
   fuenteDeteccionQr?: 'jsqr' | 'zxing' | 'preprocesado' | 'resolucion_fuente' | 'known_geometry_rescue' | 'rotacion_pagina';
 };
 
@@ -1118,7 +1120,8 @@ function detectarMarca(
   margenPts = 0,
   distanciaMaximaEsquina = Math.max(24, Math.min(width, height) * 0.15),
   radioBusquedaPx?: number,
-  fiducialDireccional?: { radio: number }
+  fiducialDireccional?: { radio: number },
+  quietZonePts = 0
 ) {
   // Las líneas canónicas pueden quedar en un solo píxel tras una captura
   // reducida; muestrear cada dos píxeles las hacía desaparecer según la fase
@@ -1159,6 +1162,9 @@ function detectarMarca(
     const radioHuecoFiducial = fiducialDireccional
       ? fiducialDireccional.radio * width / anchoCarta
       : 0;
+    const quietZonePx = Math.max(0, quietZonePts * width / anchoCarta);
+    const radioAislamiento = tamanoPx / 2 + quietZonePx + Math.max(2, quietZonePx * 0.5);
+    const halfMuestraAislamiento = Math.max(2, Math.round(Math.max(2, quietZonePx) * 0.45));
     const centroNominal = {
       x: esquina === 'tr' || esquina === 'br' ? width - margenPx - tamanoPx / 2 : margenPx + tamanoPx / 2,
       y: esquina === 'bl' || esquina === 'br' ? height - margenPx - tamanoPx / 2 : margenPx + tamanoPx / 2
@@ -1183,6 +1189,26 @@ function detectarMarca(
         }
         const densidad = oscurosCentro / Math.max(1, totalCentro);
         const mediaCentro = sumaCentro / Math.max(1, totalCentro);
+        let sectoresZonaClara = 0;
+        for (let sector = 0; sector < 8; sector += 1) {
+          const angulo = sector * Math.PI / 4;
+          const muestraX = Math.round(x + Math.cos(angulo) * radioAislamiento);
+          const muestraY = Math.round(y + Math.sin(angulo) * radioAislamiento);
+          let sumaZona = 0;
+          let pixelesZona = 0;
+          for (let dy = -halfMuestraAislamiento; dy <= halfMuestraAislamiento; dy += 1) {
+            for (let dx = -halfMuestraAislamiento; dx <= halfMuestraAislamiento; dx += 1) {
+              sumaZona += obtenerIntensidad(gray, width, height, muestraX + dx, muestraY + dy);
+              pixelesZona += 1;
+            }
+          }
+          const mediaZona = sumaZona / Math.max(1, pixelesZona);
+          if (mediaZona >= Math.max(125, mediaCentro + 75)) sectoresZonaClara += 1;
+        }
+        // Un fiducial de página es un cuadrado aislado. Una franja negra del
+        // escáner puede puntuar como núcleo uniforme, pero no conserva zona
+        // clara alrededor en las ocho direcciones.
+        if (fiducialDireccional && sectoresZonaClara < 6) continue;
         const varianzaCentro = Math.max(
           0,
           sumaCuadradoCentro / Math.max(1, totalCentro) - mediaCentro * mediaCentro
@@ -1518,12 +1544,15 @@ export function obtenerTransformacion(
     marcasPagina?: {
       tipo?: 'lineas' | 'cuadrados';
       size?: number;
+      quietZone?: number;
       orientacion?: { esquina: 'tl'; tipo: 'centro_vacio'; radio: number };
       tl?: Punto;
       tr?: Punto;
       bl?: Punto;
       br?: Punto;
     };
+    /** Orientación QR validada desde un rescate rotado; no aporta geometría OMR. */
+    qrOrientacionFuenteGrados?: 0 | 90 | 180 | 270;
     anchoCarta: number;
     altoCarta: number;
     mmAPuntos: number;
@@ -1548,7 +1577,9 @@ export function obtenerTransformacion(
   const fiducialDireccional = opciones?.marcasPagina?.orientacion;
   const tamanoMarcaPts = opciones?.marcasPagina?.size ?? 0;
   const margenPts = margenMm * mmAPuntos;
-  const radioBusqueda = fiducialDireccional ? Math.min(width, height) * 0.46 : undefined;
+  const radioBusqueda = fiducialDireccional
+    ? Math.max(24, (tamanoMarcaPts * width / anchoCarta) * 3.5)
+    : undefined;
   const buscarMarcasPagina = (region: number, toleranciaEsquina: number) => {
     const regiones = {
       tl: { x0: 0, y0: 0, x1: width * region, y1: height * region },
@@ -1558,10 +1589,10 @@ export function obtenerTransformacion(
     };
     const distanciaMaximaEsquina = Math.max(24, Math.min(width, height) * toleranciaEsquina);
     return [
-      detectarMarca(gray, width, height, regiones.tl, 'tl', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional),
-      detectarMarca(gray, width, height, regiones.tr, 'tr', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional),
-      detectarMarca(gray, width, height, regiones.bl, 'bl', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional),
-      detectarMarca(gray, width, height, regiones.br, 'br', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional)
+      detectarMarca(gray, width, height, regiones.tl, 'tl', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional, opciones?.marcasPagina?.quietZone),
+      detectarMarca(gray, width, height, regiones.tr, 'tr', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional, opciones?.marcasPagina?.quietZone),
+      detectarMarca(gray, width, height, regiones.bl, 'bl', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional, opciones?.marcasPagina?.quietZone),
+      detectarMarca(gray, width, height, regiones.br, 'br', modoMarcasPagina, tamanoMarcaPts, anchoCarta, margenPts, distanciaMaximaEsquina, radioBusqueda, fiducialDireccional, opciones?.marcasPagina?.quietZone)
     ] as const;
   };
   let marcasEncontradas = buscarMarcasPagina(qr?.location || fiducialDireccional ? 0.35 : 0.15, qr?.location || fiducialDireccional ? 0.45 : 0.15);
@@ -1643,11 +1674,15 @@ export function obtenerTransformacion(
       qrGeometry,
       altoCarta
     );
+    const orientacionQrRecuperada = opciones?.qrOrientacionFuenteGrados === undefined
+      ? undefined
+      : { orientacionGrados: opciones.qrOrientacionFuenteGrados, inclinacionGrados: 0 };
+    const orientacionQrPorPatron = qrPattern?.accepted
+      ? { orientacionGrados: qrPattern.orientacionGrados, inclinacionGrados: qrPattern.inclinacionGrados }
+      : undefined;
     const orientacionQr = qr?.location
       ? medirOrientacionReferenciaOmr(qr.location.topLeftCorner, qr.location.topRightCorner)
-      : qrPattern?.accepted
-        ? { orientacionGrados: qrPattern.orientacionGrados, inclinacionGrados: qrPattern.inclinacionGrados }
-        : undefined;
+      : orientacionQrRecuperada ?? orientacionQrPorPatron;
     const bordeSuperiorFiducial = orientacionFiducial === 90
       ? [tr!, br!]
       : orientacionFiducial === 180
@@ -1677,7 +1712,11 @@ export function obtenerTransformacion(
         })()
       : undefined;
     const orientacion = orientacionQr ?? orientacionDesdeFiducial;
-    const conflictoOrientacion = Boolean(
+    const conflictoOrientacionQr = Boolean(
+      orientacionQrRecuperada && orientacionQrPorPatron &&
+      orientacionQrRecuperada.orientacionGrados !== orientacionQrPorPatron.orientacionGrados
+    );
+    const conflictoOrientacion = conflictoOrientacionQr || Boolean(
       fiducialDireccional && orientacionQr && orientacionFiducial !== undefined &&
       orientacionFiducial !== orientacionQr.orientacionGrados
     );
@@ -1720,7 +1759,7 @@ export function obtenerTransformacion(
           ...(qrPattern ? { confianzaOrientacion: qrPattern.score, margenOrientacion: qrPattern.margin } : {}),
           fuenteOrientacion: conflictoOrientacion || !orientacionDeterminada
             ? 'indeterminada' as const
-            : qr?.location ? 'qr' as const : qrPattern?.accepted ? 'qr_patron_esperado' as const : 'fiducial_direccional' as const,
+            : qr?.location || orientacionQrRecuperada ? 'qr' as const : qrPattern?.accepted ? 'qr_patron_esperado' as const : 'fiducial_direccional' as const,
           conflictoOrientacion
         }
       };

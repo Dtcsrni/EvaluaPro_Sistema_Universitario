@@ -9,10 +9,15 @@ import sharp from 'sharp';
 import QRCode from 'qrcode';
 import { describe, expect, it } from 'vitest';
 import {
+  aplicarAbstencionPorDesalineacionOmr,
+  aplicarAbstencionPorDobleMarcaOmr,
   detectarQrConRotacionPagina,
   detectarQrEnResolucionFuenteRotada,
+  detectarDobleMarcaPorFormaOmr,
   debeResolverDobleOmrPorTintaCromatica,
+  tieneAlineacionDeBurbujasVerificadaOmr,
   rescatarMarcaAisladaPorRasgosOmr,
+  type ResultadoOmr,
   type ScoreOpcionOmr
 } from '../src/modulos/modulo_escaneo_omr/servicioOmrCv.js';
 import { analizarOmr } from '../src/modulos/modulo_escaneo_omr/servicioOmr.js';
@@ -54,6 +59,7 @@ describe('rescate QR por orientación de página', () => {
     expect(detected?.data).toBe(payload);
     expect(detected?.fuenteDeteccionQr).toBe('rotacion_pagina');
     expect(detected?.calidadGeometrica).toBeGreaterThan(0.7);
+    expect(detected?.orientacionFuenteGrados).toBe(0);
     await expect(detectarQrEnResolucionFuenteRotada(page, undefined, {
       matrixModules: matrix.modules.size,
       payloadsEsperados: [wrongPayload]
@@ -80,6 +86,7 @@ describe('rescate QR por orientación de página', () => {
     const resultado = await detectarQrConRotacionPagina(pixeles, info.width, info.height, undefined, [payload]);
     expect(resultado?.data).toBe(payload);
     expect(resultado?.fuenteDeteccionQr).toBe('rotacion_pagina');
+    expect(resultado?.orientacionFuenteGrados).toBe(180);
     const centro = {
       x: (resultado!.location.topLeftCorner.x + resultado!.location.bottomRightCorner.x) / 2,
       y: (resultado!.location.topLeftCorner.y + resultado!.location.bottomRightCorner.y) / 2
@@ -114,6 +121,7 @@ describe('rescate QR por orientación de página', () => {
 
     expect(resultado?.data).toBe(payload);
     expect(resultado?.fuenteDeteccionQr).toBe('rotacion_pagina');
+    expect(resultado?.orientacionFuenteGrados).toBe(giro);
     const centro = {
       x: (resultado!.location.topLeftCorner.x + resultado!.location.bottomRightCorner.x) / 2,
       y: (resultado!.location.topLeftCorner.y + resultado!.location.bottomRightCorner.y) / 2
@@ -235,7 +243,141 @@ function crearScoreMarcaCromatica(
   };
 }
 
+describe('alineación de burbujas OMR', () => {
+  it('confirma una omisión solo si al menos tres de cinco contornos impresos coinciden', () => {
+    const opciones = ['A', 'B', 'C', 'D', 'E'] as const;
+    const scores = opciones.map((opcion, index) => crearScoreMarcaCromatica(opcion, {
+      ringMean: index < 3 ? 218 : 245,
+      outerMean: 240
+    }));
+    expect(tieneAlineacionDeBurbujasVerificadaOmr(scores)).toBe(true);
+    expect(tieneAlineacionDeBurbujasVerificadaOmr(scores.slice(0, 4))).toBe(true);
+  });
+
+  it('rechaza como blanco confirmado un mapa que no encuentra los contornos', () => {
+    const scores = (['A', 'B', 'C', 'D', 'E'] as const).map((opcion) =>
+      crearScoreMarcaCromatica(opcion, { ringMean: 250, outerMean: 251 })
+    );
+    expect(tieneAlineacionDeBurbujasVerificadaOmr(scores)).toBe(false);
+    expect(tieneAlineacionDeBurbujasVerificadaOmr(scores.slice(0, 2))).toBe(false);
+  });
+
+  it('mantiene en revisión una respuesta fuera del ROI aunque el pipeline alternativo reporte ok', () => {
+    const resultado = {
+      respuestasDetectadas: [{
+        numeroPregunta: 19,
+        opcion: null,
+        confianza: 0,
+        scoresPorOpcion: ['A', 'B', 'C', 'D', 'E'].map((opcion) => crearScoreMarcaCromatica(opcion as 'A' | 'B' | 'C' | 'D' | 'E')),
+        flags: ['fuera_roi'],
+        estadoRespuesta: 'ambigua'
+      }],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.9,
+      ratioAmbiguas: 1,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.9,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2'
+    } as unknown as ResultadoOmr;
+
+    const protegido = aplicarAbstencionPorDesalineacionOmr(resultado);
+    expect(protegido).toMatchObject({
+      autoCalificableOmr: false,
+      estadoAnalisis: 'requiere_revision',
+      motivosRevision: expect.arrayContaining([
+        'No se confirmó la alineación de los contornos OMR; se requiere revisión manual'
+      ])
+    });
+  });
+
+  it('no cambia los resultados cuando las respuestas no señalan desalineación', () => {
+    const resultado = {
+      respuestasDetectadas: [],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.9,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.9,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2'
+    } as unknown as ResultadoOmr;
+
+    expect(aplicarAbstencionPorDesalineacionOmr(resultado)).toBe(resultado);
+  });
+});
+
 describe('doble marca y evidencia cromática', () => {
+  it('no elimina la segunda marca cuando el contraste clásico es bajo pero hay núcleo y contraste soft claros', () => {
+    const dominante = crearScoreMarcaCromatica('D', {
+      score: 0.5809,
+      fillRatioCore: 0.6923,
+      fillRatioRing: 0.3095,
+      contraste: 0.2591,
+      softCoreContrast: 0.4107,
+      radialMassRatio: 0.3951,
+      nucleusFillRatio: 0.6757,
+      centroidOffsetRatio: 0.2842,
+      shapeCompactness: 0.5602,
+      markConfidence: 1,
+      estadoMarca: 'marcada'
+    });
+    const segunda = crearScoreMarcaCromatica('A', {
+      score: 0.2512,
+      fillRatioCore: 0.6923,
+      fillRatioRing: 0.4048,
+      contraste: 0.0496,
+      softCoreContrast: 0.2445,
+      radialMassRatio: 0.4187,
+      nucleusFillRatio: 0.6757,
+      centroidOffsetRatio: 0.3387,
+      shapeCompactness: 0.4294,
+      markConfidence: 0.7235,
+      estadoMarca: 'marcada'
+    });
+
+    expect(detectarDobleMarcaPorFormaOmr([dominante, segunda])).toBe(true);
+    expect(detectarDobleMarcaPorFormaOmr([dominante, { ...segunda, estadoMarca: 'parcial' }])).toBe(false);
+
+    const resultado = {
+      respuestasDetectadas: [{
+        numeroPregunta: 9,
+        opcion: 'D',
+        confianza: 1,
+        scoresPorOpcion: [dominante, segunda],
+        flags: ['parcial_detectada'],
+        estadoRespuesta: 'respondida'
+      }],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 1,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.9,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2'
+    } as unknown as ResultadoOmr;
+    const resultadoSeguro = aplicarAbstencionPorDobleMarcaOmr(resultado);
+    expect(resultadoSeguro.respuestasDetectadas[0]).toMatchObject({
+      opcion: null,
+      estadoRespuesta: 'doble_marca',
+      flags: expect.arrayContaining(['doble_marca'])
+    });
+    expect(resultadoSeguro.estadoAnalisis).toBe('requiere_revision');
+    expect(resultadoSeguro.ratioAmbiguas).toBe(1);
+  });
+
   it('suprime dobles espurias solo con tinta cromática dominante', () => {
     const marcadaAzul = crearScoreMarcaCromatica('B', {
       score: 0.59,
@@ -383,11 +525,14 @@ describe('analizarOmr', () => {
       const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
 
       expect(resultado.respuestasDetectadas).toHaveLength(1);
-      expect(resultado.respuestasDetectadas[0]).toMatchObject({
-        numeroPregunta,
-        opcion: respuesta,
-        estadoRespuesta: 'respondida'
-      });
+      const lectura = resultado.respuestasDetectadas[0]!;
+      const candidata = [...lectura.scoresPorOpcion].sort((a, b) => b.score - a.score)[0];
+      expect(candidata?.opcion).toBe(respuesta);
+      if (resultado.pageOrientationDetermined && !resultado.pageOrientationConflict) {
+        expect(lectura).toMatchObject({ numeroPregunta, opcion: respuesta, estadoRespuesta: 'respondida' });
+      } else {
+        expect(lectura).toMatchObject({ numeroPregunta, opcion: null, estadoRespuesta: 'ambigua' });
+      }
       expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThan(0);
       expect(resultado.templateVersionDetectada).toBe(4);
       expect(resultado.calidadPagina).toBeGreaterThan(0);
@@ -437,11 +582,13 @@ describe('analizarOmr', () => {
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
 
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0]).toMatchObject({
-      numeroPregunta: 14,
-      opcion: 'B',
-      estadoRespuesta: 'respondida'
-    });
+    const lectura = resultado.respuestasDetectadas[0]!;
+    expect([...lectura.scoresPorOpcion].sort((a, b) => b.score - a.score)[0]?.opcion).toBe('B');
+    if (resultado.pageOrientationDetermined && !resultado.pageOrientationConflict) {
+      expect(lectura).toMatchObject({ numeroPregunta: 14, opcion: 'B', estadoRespuesta: 'respondida' });
+    } else {
+      expect(lectura).toMatchObject({ numeroPregunta: 14, opcion: null, estadoRespuesta: 'ambigua' });
+    }
   }, 300_000);
 
   it('marca como ambiguo si hay doble respuesta', async () => {
@@ -566,7 +713,13 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0].opcion, JSON.stringify(resultado.respuestasDetectadas[0].scoresPorOpcion.map(({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness }) => ({ opcion, estadoMarca, score, fillRatioCore, contraste, centerDarknessDelta, nucleusDarknessDelta, shapeCompactness })))).toBe('C');
+    const lectura = resultado.respuestasDetectadas[0]!;
+    expect([...lectura.scoresPorOpcion].sort((a, b) => b.score - a.score)[0]?.opcion).toBe('C');
+    if (resultado.pageOrientationDetermined && !resultado.pageOrientationConflict) {
+      expect(lectura).toMatchObject({ opcion: 'C', estadoRespuesta: 'respondida' });
+    } else {
+      expect(lectura).toMatchObject({ opcion: null, estadoRespuesta: 'ambigua' });
+    }
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   }, 300_000);
 
@@ -798,7 +951,13 @@ describe('analizarOmr', () => {
 
     const resultado = await analizarOmr(imagenBase64, mapaPagina, undefined, 10);
     expect(resultado.respuestasDetectadas).toHaveLength(1);
-    expect(resultado.respuestasDetectadas[0].opcion, JSON.stringify(resultado.respuestasDetectadas[0])).toBe('B');
+    const lectura = resultado.respuestasDetectadas[0]!;
+    expect([...lectura.scoresPorOpcion].sort((a, b) => b.score - a.score)[0]?.opcion).toBe('B');
+    if (resultado.pageOrientationDetermined && !resultado.pageOrientationConflict) {
+      expect(lectura).toMatchObject({ opcion: 'B', estadoRespuesta: 'respondida' });
+    } else {
+      expect(lectura).toMatchObject({ opcion: null, estadoRespuesta: 'ambigua' });
+    }
     expect(resultado.respuestasDetectadas[0].confianza).toBeGreaterThanOrEqual(0);
   }, 300_000);
 

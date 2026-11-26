@@ -23,17 +23,24 @@ afterEach(() => {
 });
 
 describe('UpdateAvailabilityBanner', () => {
-  it('muestra release estable compatible y lanza el flujo local del Hub', async () => {
+  it('muestra release estable compatible y abre la pantalla local del Hub', async () => {
     mockRelease(stableRelease);
-    const postMessage = vi.fn();
-    Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: { postMessage } } });
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
 
     render(<UpdateAvailabilityBanner />);
 
     const button = await screen.findByRole('button', { name: 'Actualizar Hub a v9.9.9' });
     expect(screen.getByRole('status')).toHaveTextContent('v9.9.9');
     fireEvent.click(button);
-    expect(postMessage).toHaveBeenCalledWith({ type: 'EVALUAPRO_UPDATE_HUB', version: '9.9.9' });
+    expect(open).toHaveBeenCalledWith('http://127.0.0.1:4519/update?run=1', '_blank', 'noopener,noreferrer');
+  });
+
+  it('abre el panel local del supervisor cuando la app corre en navegador', async () => {
+    mockRelease(stableRelease);
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    render(<UpdateAvailabilityBanner />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Actualizar Hub a v9.9.9' }));
+    expect(open).toHaveBeenCalledWith('http://127.0.0.1:4519/update?run=1', '_blank', 'noopener,noreferrer');
   });
 
   it('reconoce el tag hub-v usado por la release estable del Installer Hub', async () => {

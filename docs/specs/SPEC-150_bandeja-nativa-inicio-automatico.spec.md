@@ -1,7 +1,7 @@
 ---
 id: SPEC-150
 titulo: Bandeja nativa e inicio automatico para EvaluaPro docente-local
-version: 1.1.0
+version: 1.2.0
 fecha: 2026-11-25
 autor: Codex
 modulo: app-host-windows
@@ -27,6 +27,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 - REQ-009: La salud del perfil `docente-local` no sondea ni muestra MongoDB. Las verificaciones de los servicios requeridos se ejecutan concurrentemente. Los perfiles que declaran explícitamente runtime Docker conservan su comprobación de MongoDB.
 - REQ-010: `EvaluaPro.exe --shutdown` envía una orden unidireccional de cierre al App Host de la misma ruta, usuario y sesión mediante una tubería local limitada al usuario actual. El cliente devuelve el resultado del envío; el E2E verifica por separado que el host y su árbol Node terminen dentro del timeout.
 - REQ-011: La reconciliación puede archivar únicamente `EvaluaPro docente-local (bandeja).lnk` dentro de Startup cuando su destino corresponda exactamente al patrón `LocalApplicationData\Packages\OpenAI.Codex_*\LocalCache\Local\EvaluaPro\EvaluaPro.exe` y sus argumentos sean exactamente `--tray-start`. Debe moverlo a un backup local, verificar SHA-256, restaurarlo si la verificación falla y conservar cualquier acceso cuya identidad no pueda comprobarse. La operación es idempotente y registra solo estado, nombre de backup y hash.
+- REQ-012: El aviso de API no disponible ofrece «Reconectar». La acción abre `/reconnect` del supervisor local, solicita reconciliar servicios y espera la salud de la API antes de indicar recuperación.
 
 ## Criterios de Aceptación
 
@@ -40,6 +41,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 8. En `docente-local` la respuesta de salud omite `mongoLocal`; el perfil Docker mantiene esa verificación. Las comprobaciones independientes se inician en paralelo.
 9. La orden `--shutdown` cierra desde bandeja sin interacción gráfica, conserva los servicios si la identidad del host no coincide y el E2E verifica la terminación del host y su árbol Node.
 10. La reconciliación conserva cualquier acceso Startup no coincidente; el acceso heredado que cumple todos los criterios queda archivado con SHA-256 verificable y no vuelve a aparecer en una segunda ejecución.
+11. `/reconnect` permanece disponible aunque la API docente esté caída; la página solicita reconciliación y solo confirma conexión cuando `services.apiDocente.ok` es verdadero.
 
 ## Matriz de Trazabilidad
 

@@ -181,6 +181,7 @@ type CanonicalReport = {
     autoCoverageRate: number;
     autoEligibleCaptures: number;
     groundTruthCompleteCaptures: number;
+    clearlyEligibleCaptures: number;
     automaticGradeDiscordances: number;
     totalCapturas: number;
     totalPreguntas: number;
@@ -506,20 +507,25 @@ export function debeIncluirIssueSintetico(markType: MarkType, expected: Opcion |
 
 export function resumirConfianzaCoberturaAutoCalificacion(capturas: ReadonlyArray<{
   groundTruthComplete: boolean;
+  claramenteElegible?: boolean;
   autoCalificable: boolean;
   calificacionCoincide: boolean;
 }>) {
   const groundTruthCompleteCaptures = capturas.filter((captura) => captura.groundTruthComplete).length;
+  const elegiblesClaras = capturas.filter((captura) =>
+    captura.groundTruthComplete && captura.claramenteElegible !== false
+  );
   const autocalificables = capturas.filter((captura) => captura.autoCalificable);
-  const coveredCaptures = capturas.filter((captura) => captura.groundTruthComplete && captura.autoCalificable).length;
+  const coveredCaptures = elegiblesClaras.filter((captura) => captura.autoCalificable).length;
   const discordancias = autocalificables.filter((captura) =>
-    !captura.groundTruthComplete || !captura.calificacionCoincide
+    !captura.groundTruthComplete || captura.claramenteElegible === false || !captura.calificacionCoincide
   ).length;
   const calificacionesCorrectas = autocalificables.length - discordancias;
   return {
     autoEligibleCaptures: autocalificables.length,
     groundTruthCompleteCaptures,
-    autoCoverageRate: groundTruthCompleteCaptures > 0 ? coveredCaptures / groundTruthCompleteCaptures : 0,
+    clearlyEligibleCaptures: elegiblesClaras.length,
+    autoCoverageRate: elegiblesClaras.length > 0 ? coveredCaptures / elegiblesClaras.length : 0,
     autoGradeTrustRate: autocalificables.length > 0 ? calificacionesCorrectas / autocalificables.length : 1,
     automaticGradeDiscordances: discordancias
   };
@@ -854,11 +860,15 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       if (truth.markType === 'double' || truth.markType === 'smudge') return truth.opcionEsperada === null;
       return false;
     });
+    const claramenteElegible = groundTruthComplete && [...truthForCapture.values()].every((truth) =>
+      truth.markType === 'valid' || truth.markType === 'weak' || truth.markType === 'blank'
+    );
     const calificacionCoincide = expectedGrade === detectedGrade;
     gradeConsistencyCaptures += 1;
     if (calificacionCoincide) gradeConsistency += 1;
     autoGradeOutcomes.push({
       groundTruthComplete,
+      claramenteElegible,
       autoCalificable: autoDecision.autoCalificableOmr,
       calificacionCoincide
     });
@@ -876,6 +886,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       autoCalificableOmr: autoDecision.autoCalificableOmr,
       motivosAutoCalificacion: autoDecision.motivos,
       groundTruthComplete,
+      claramenteElegible,
       policyDiagnostics: autoDecision.autoCalificableOmr ? [] : detectionResult.respuestasDetectadas
         .filter((respuesta) =>
           respuesta.flags?.includes('parcial_detectada') ||
@@ -958,6 +969,7 @@ export async function evaluateSyntheticTv4Dataset(options: EvaluateDatasetOption
       autoCoverageRate: round6(autoMetrics.autoCoverageRate),
       autoEligibleCaptures: autoMetrics.autoEligibleCaptures,
       groundTruthCompleteCaptures: autoMetrics.groundTruthCompleteCaptures,
+      clearlyEligibleCaptures: autoMetrics.clearlyEligibleCaptures,
       automaticGradeDiscordances: autoMetrics.automaticGradeDiscordances,
       totalCapturas: perCapture.length,
       totalPreguntas: total

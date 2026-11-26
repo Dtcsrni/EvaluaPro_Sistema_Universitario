@@ -73,8 +73,10 @@ El backend opera de forma autónoma con valores predeterminados seguros para des
 | :--- | :--- | :--- |
 | `PUERTO_API` / `PORT` | Puerto de escucha HTTP | `4000` |
 | `DATABASE_URL` | Conexión Prisma (SQLite) | `file:./data/evaluapro.db` |
-| `JWT_SECRETO` | Secreto de firmado para tokens de sesión | Clave autogenerada en dev |
-| `OMR_QR_HMAC_SECRET` | Secreto HMAC para sellado criptográfico de QR | Clave institucional |
+| `JWT_SECRETO` | Secreto de firmado para tokens de sesión; producción local lo conserva entre actualizaciones | Requerido en producción |
+| `OMR_QR_HMAC_SECRET` | Secreto HMAC independiente para QR; el instalador conserva el histórico al rotar el JWT | Generado y persistido por el instalador local |
+| `OMR_QR_HMAC_KEY_ID` | Identificador de la clave QR activa | `qr-h1-v1` |
+| `OMR_QR_HMAC_SECRETS_JSON` | Keyring de claves OMR activas e históricas por `keyId`; JSON inválido detiene producción | Generado y persistido por el instalador local |
 | `PORTAL_ALUMNO_URL` | URL del portal cloud de alumnos | `http://localhost:8080` |
 | `PORTAL_ALUMNO_API_KEY`| Token de autenticación hacia el portal cloud | Configurable |
 

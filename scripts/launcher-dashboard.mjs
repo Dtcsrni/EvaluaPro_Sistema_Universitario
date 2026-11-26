@@ -88,6 +88,8 @@ const privilegedSupportActions = Object.freeze([
   'hub-install',
   'hub-repair',
   'hub-update-apply',
+  'windows-restart',
+  'windows-restart-cancel',
   'hub-uninstall'
 ]);
 ensureDir(logDir);
@@ -144,6 +146,8 @@ let restartTimer = null;
 // En DEV se leen desde disco por request para que cambios UI/UX se vean al refrescar.
 // En PROD se cachean en memoria (comportamiento estable/reproducible).
 const dashboardPath = path.join(__dirname, 'dashboard.html');
+const updatePagePath = path.join(__dirname, 'update.html');
+const reconnectPagePath = path.join(__dirname, 'reconnect.html');
 const manifestPath = path.join(__dirname, 'dashboard.webmanifest');
 const iconPath = path.join(__dirname, 'dashboard-icon.svg');
 const icon192Path = path.join(__dirname, 'dashboard-icon-192.png');
@@ -253,6 +257,8 @@ const continuityState = {
 let continuityTimer = null;
 let continuityRunPromise = null;
 let updateAutoCheckTimer = null;
+let stepUpFailureCount = 0;
+let stepUpFailureWindowAt = 0;
 
 loadLifecyclePolicy();
 loadContinuityPolicy();
@@ -288,6 +294,28 @@ function readRootPackageInfo() {
   } catch {
     return { name: '', version: '', authorName: '', repositoryUrl: '' };
   }
+}
+
+function readHubVersion() {
+  try {
+    const raw = fs.readFileSync(path.join(root, 'config', 'hub-version.json'), 'utf8');
+    const version = String(JSON.parse(raw)?.version || '').trim();
+    if (/^\d+\.\d+\.\d+$/.test(version)) return version;
+  } catch {}
+
+  const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
+  for (const recordPath of [
+    path.join(localAppData, 'EvaluaPro', 'trusted-hub-bundle.json'),
+    path.join(localAppData, 'EvaluaPro', 'installer-hub', 'trusted-bundle.json')
+  ]) {
+    try {
+      const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+      const version = String(record?.version || '').trim();
+      if (record?.repository === 'Dtcsrni/EvaluaPro_Sistema_Universitario' &&
+          /^[a-f0-9]{64}$/i.test(String(record?.sha256 || '')) && /^\d+\.\d+\.\d+$/.test(version)) return version;
+    } catch {}
+  }
+  return 'desconocida';
 }
 
 function readAppVersionMetadata() {
@@ -1754,6 +1782,17 @@ async function runInstallerForUpdate(filePath) {
   }
   const installerPath = String(filePath || '').trim();
   if (!installerPath) return { ok: false, error: 'No se encontró el instalador descargado.' };
+  const signatureScript = path.join(root, 'scripts', 'verify-update-installer-signature.ps1');
+  if (!fs.existsSync(signatureScript)) {
+    return { ok: false, error: 'No se encontró el verificador de firma del instalador; se bloqueó la actualización.' };
+  }
+  const signature = await runProcessCapture(getPowerShellPath(), [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+    '-File', signatureScript, '-InstallerPath', installerPath
+  ], 30_000, { cwd: root, windowsHide: true });
+  if (!signature.ok) {
+    return { ok: false, error: 'Windows no validó la firma Authenticode del mismo editor del Hub instalado; se bloqueó la actualización.' };
+  }
   const legacyProfilePath = path.join(root, 'webview2-profile');
   const stableProfilePath = path.join(path.dirname(root), 'EvaluaPro-UserData', 'webview2-profile');
   try {
@@ -1772,10 +1811,10 @@ async function runInstallerForUpdate(filePath) {
   const result = await runProcessCapture(installerPath, ['/quiet', '/norestart'], 10 * 60_000, {
     env: installerEnv
   });
-  if (!result.ok) {
+  if (![0, 3010, 1641].includes(result.code)) {
     return { ok: false, error: `Instalador falló (code=${result.code})` };
   }
-  return { ok: true };
+  return { ok: true, restartRequired: result.code === 3010, restartInitiated: result.code === 1641 };
 }
 
 async function healthCheckAfterUpdate() {
@@ -1806,7 +1845,7 @@ const updateManager = createUpdateManager({
   statePath: updateStatePath,
   downloadRoot: path.join(logDir, 'updates'),
   logger: (message) => logSystem(`[update] ${message}`, 'system'),
-  getCurrentVersion: () => String(readRootPackageInfo().version || '0.0.0'),
+  getCurrentVersion: readHubVersion,
   preflightSync: runSyncPreflightForUpdate,
   stopTasks: stopTasksForUpdate,
   startTasks: startTasksAfterUpdate,
@@ -2705,6 +2744,77 @@ function assertSupportAuthorization(action) {
   return { ok: true, status: 200, authorization };
 }
 
+async function activateSupportStepUp(code, method) {
+  if (process.platform !== 'win32') return { ok: false, status: 501, error: 'step_up_windows_only' };
+  const normalizedMethod = String(method || '').trim().toLowerCase();
+  const normalizedCode = String(code || '').trim();
+  const validShape = normalizedMethod === 'totp'
+    ? /^\d{6}$/.test(normalizedCode)
+    : normalizedMethod === 'recovery'
+      ? /^EP-[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){2}$/i.test(normalizedCode)
+      : false;
+  if (!validShape) return { ok: false, status: 400, error: 'step_up_code_invalid_format' };
+
+  const now = Date.now();
+  if (now - stepUpFailureWindowAt > 15 * 60_000) {
+    stepUpFailureCount = 0;
+    stepUpFailureWindowAt = now;
+  }
+  if (stepUpFailureCount >= 5) return { ok: false, status: 429, error: 'step_up_rate_limited' };
+
+  const modulePath = path.join(root, 'scripts', 'installer-burn', 'modules', 'LicenseClientSecurity.psm1');
+  if (!fs.existsSync(modulePath)) return { ok: false, status: 503, error: 'step_up_module_missing' };
+  const psScript = [
+    `$ErrorActionPreference='Stop'`,
+    `Import-Module -Force -WarningAction SilentlyContinue '${modulePath.replace(/'/g, "''")}'`,
+    `$code=[Console]::In.ReadLine()`,
+    normalizedMethod === 'totp'
+      ? `Invoke-EvaluaProStepUp -TotpCode $code | ConvertTo-Json -Depth 8 -Compress`
+      : `Invoke-EvaluaProStepUp -RecoveryCode $code | ConvertTo-Json -Depth 8 -Compress`
+  ].join('; ');
+
+  const executable = getPowerShellPath();
+  return new Promise((resolve) => {
+    const child = spawn(executable, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript], {
+      cwd: root,
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      try { child.kill(); } catch {}
+    }, 10_000);
+    child.stdout.on('data', (chunk) => { stdout += String(chunk || ''); });
+    child.stderr.on('data', () => {}); // Nunca persistas ni devuelvas entrada sensible o detalle del proveedor.
+    child.on('error', () => {
+      clearTimeout(timeout);
+      stepUpFailureCount += 1;
+      resolve({ ok: false, status: 503, error: 'step_up_provider_unavailable' });
+    });
+    child.on('exit', (exitCode) => {
+      clearTimeout(timeout);
+      if (timedOut) {
+        stepUpFailureCount += 1;
+        resolve({ ok: false, status: 504, error: 'step_up_provider_timeout' });
+        return;
+      }
+      try {
+        const authorization = JSON.parse(stdout.trim());
+        if (exitCode === 0 && authorization?.active) {
+          stepUpFailureCount = 0;
+          resolve({ ok: true, status: 200, authorization });
+          return;
+        }
+      } catch {}
+      stepUpFailureCount += 1;
+      resolve({ ok: false, status: 403, error: 'step_up_code_rejected' });
+    });
+    child.stdin.end(`${normalizedCode}\n`);
+  });
+}
+
 async function runPrivilegedSupportAction(action, options = {}) {
   const normalized = String(action || '').trim().toLowerCase();
   const authorized = assertSupportAuthorization(normalized);
@@ -2730,6 +2840,25 @@ async function runPrivilegedSupportAction(action, options = {}) {
   if (normalized === 'hub-update-apply') {
     const result = await updateManager.apply();
     return { ok: result?.state !== 'error', status: result?.state === 'error' ? 502 : 200, action: normalized, result };
+  }
+  if (normalized === 'windows-restart') {
+    if (options?.confirm !== true) {
+      return { ok: false, status: 428, error: 'support_confirmation_required', detail: 'El reinicio de Windows requiere confirmación explícita.', action: normalized };
+    }
+    if (process.platform !== 'win32') return { ok: false, status: 501, error: 'windows_restart_only', action: normalized };
+    const restartExe = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'shutdown.exe');
+    const result = await runProcessCapture(restartExe, ['/r', '/t', '60', '/c', 'EvaluaPro requiere reiniciar Windows para completar la actualización.'], 10_000);
+    return result.ok
+      ? { ok: true, status: 200, action: normalized, restartScheduled: true, delaySeconds: 60 }
+      : { ok: false, status: 500, action: normalized, error: 'windows_restart_failed' };
+  }
+  if (normalized === 'windows-restart-cancel') {
+    if (process.platform !== 'win32') return { ok: false, status: 501, error: 'windows_restart_only', action: normalized };
+    const cancelExe = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'shutdown.exe');
+    const result = await runProcessCapture(cancelExe, ['/a'], 10_000);
+    return result.ok
+      ? { ok: true, status: 200, action: normalized }
+      : { ok: false, status: 409, action: normalized, error: 'windows_restart_not_pending' };
   }
   if (normalized === 'hub-uninstall') {
     if (options?.confirm !== true) {
@@ -3949,6 +4078,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && (pathName === '/update' || pathName === '/reconnect')) {
+    const filePath = pathName === '/update' ? updatePagePath : reconnectPagePath;
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer'
+    });
+    res.end(fs.readFileSync(filePath, 'utf8'));
+    return;
+  }
+
   if (req.method === 'GET' && pathName === '/version-info') {
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -4214,29 +4357,45 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && pathName === '/api/update/status') {
-    return sendJson(res, 200, updateManager.getStatus());
+    return sendJson(res, 200, { ...updateManager.getStatus(), appVersion: readAppVersionMetadata().version, hubVersion: readHubVersion() });
   }
 
   if (req.method === 'POST' && pathName === '/api/update/check') {
     const status = await updateManager.check();
     const code = status.state === 'error' ? 502 : 200;
-    return sendJson(res, code, status);
+    return sendJson(res, code, { ...status, appVersion: readAppVersionMetadata().version, hubVersion: readHubVersion() });
   }
 
   if (req.method === 'POST' && pathName === '/api/update/download') {
     const status = await updateManager.download();
     const code = status.state === 'error' ? 502 : 200;
-    return sendJson(res, code, status);
+    return sendJson(res, code, { ...status, appVersion: readAppVersionMetadata().version, hubVersion: readHubVersion() });
   }
 
   if (req.method === 'POST' && pathName === '/api/update/apply') {
     const result = await runPrivilegedSupportAction('hub-update-apply');
-    return sendJson(res, result.status, result);
+    return sendJson(res, result.status, {
+      ...result,
+      appVersion: readAppVersionMetadata().version,
+      hubVersion: readHubVersion(),
+      update: updateManager.getStatus()
+    });
   }
 
   if (req.method === 'POST' && pathName === '/api/update/cancel') {
     const canceled = updateManager.cancel();
-    return sendJson(res, 200, { ok: true, canceled, status: updateManager.getStatus() });
+    return sendJson(res, 200, { ok: true, canceled, status: updateManager.getStatus(), appVersion: readAppVersionMetadata().version, hubVersion: readHubVersion() });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/system/restart') {
+    const body = await readBody(req);
+    const result = await runPrivilegedSupportAction('windows-restart', { confirm: body?.confirm === true });
+    return sendJson(res, result.status, result);
+  }
+
+  if (req.method === 'POST' && pathName === '/api/system/restart/cancel') {
+    const result = await runPrivilegedSupportAction('windows-restart-cancel');
+    return sendJson(res, result.status, result);
   }
 
   if (req.method === 'GET' && pathName === '/api/config') {
@@ -4318,6 +4477,12 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       authorization: resolveSupportAuthorization()
     });
+  }
+
+  if (req.method === 'POST' && pathName === '/api/support/privileged/step-up') {
+    const body = await readBody(req);
+    const result = await activateSupportStepUp(body?.code, body?.method);
+    return sendJson(res, result.status, result);
   }
 
   if (req.method === 'POST' && pathName === '/api/support/privileged/run') {

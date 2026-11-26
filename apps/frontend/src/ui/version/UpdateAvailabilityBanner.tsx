@@ -15,10 +15,6 @@ type LatestRelease = {
   assets?: Array<{ name?: string; browser_download_url?: string }>;
 };
 
-type HubBridgeWindow = Window & {
-  chrome?: { webview?: { postMessage?: (message: unknown) => void } };
-};
-
 export function UpdateAvailabilityBanner() {
   const [release, setRelease] = useState<{ version: string; url: string } | null>(null);
   const [postponed, setPostponed] = useState(false);
@@ -71,12 +67,11 @@ export function UpdateAvailabilityBanner() {
   if (!release || postponed) return null;
 
   const openHub = () => {
-    const webview = (window as HubBridgeWindow).chrome?.webview;
-    if (webview?.postMessage) {
-      webview.postMessage({ type: 'EVALUAPRO_UPDATE_HUB', version: release.version });
-      return;
-    }
-    window.open(release.url, '_blank', 'noopener,noreferrer');
+    const mode = String(import.meta.env.VITE_EVALUAPRO_MODE || 'prod').trim().toLowerCase();
+    const supervisorPort = mode === 'dev' ? 4520 : 4519;
+    const url = `http://127.0.0.1:${supervisorPort}/update?run=1`;
+    const tab = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!tab) window.location.assign(url);
   };
 
   return (

@@ -2044,6 +2044,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /ConvertTo-VbsStringLiteralContent/);
   assert.match(helper, /function Write-InstallerRuntimeEnv/);
   assert.match(helper, /JWT_SECRETO/);
+  assert.match(helper, /Ensure-OmrSigningConfig/);
   assert.match(helper, /New-InstallerSecret/);
   assert.match(helper, /DATABASE_URL/);
   assert.match(helper, /BACKEND_DATABASE_URL/);
@@ -2725,6 +2726,15 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /DATABASE_URL=/);
     assert.match(envRaw, /BACKEND_DATABASE_URL=/);
     assert.match(envRaw, /JWT_SECRETO=/);
+    assert.match(envRaw, /OMR_QR_HMAC_KEY_ID=qr-h1-v1/);
+    assert.match(envRaw, /OMR_QR_HMAC_SECRET=/);
+    assert.match(envRaw, /OMR_QR_HMAC_SECRETS_JSON=/);
+    const installedEnv = Object.fromEntries(envRaw.split(/\r?\n/).filter(Boolean).map((line) => {
+      const separator = line.indexOf('=');
+      return [line.slice(0, separator), line.slice(separator + 1)];
+    }));
+    assert.notEqual(installedEnv.OMR_QR_HMAC_SECRET, installedEnv.JWT_SECRETO);
+    assert.equal(JSON.parse(installedEnv.OMR_QR_HMAC_SECRETS_JSON)['qr-h1-v1'], installedEnv.OMR_QR_HMAC_SECRET);
     assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=synthetic-test-backupCifradoSecreto/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
     assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
@@ -2748,6 +2758,73 @@ $r | ConvertTo-Json -Depth 8
     assert.equal(updateConfig.repo, 'EvaluaPro_Sistema_Universitario');
     assert.equal(updateConfig.requireSha256, true);
     assert.equal(updateConfig.assetName, 'EvaluaPro-InstallerHub-docente-local.exe');
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('la configuración productiva conserva JWT y firma OMR al actualizar y rotar el JWT', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-jwt-omr-stability-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  fs.mkdirSync(installDir, { recursive: true });
+  const envPath = path.join(installDir, '.env');
+  fs.writeFileSync(envPath, 'JWT_SECRETO=legacy-test-jwt\nNODE_ENV=production\nEVALUAPRO_FLAVOR=docente-local\n', 'utf8');
+
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$config = @{
+  databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
+  jwtSecreto=''
+  nodeEnv='production'
+  puertoApi='4000'
+  puertoPortal='4518'
+  corsOrigenes='http://localhost:4173,http://127.0.0.1:4173'
+  flavorId='docente-local'
+  updateChannel='stable'
+  updateOwner='Dtcsrni'
+  updateRepo='EvaluaPro_Sistema_Universitario'
+  updateAssetName='EvaluaPro-InstallerHub-docente-local.exe'
+  updateShaAssetName='EvaluaPro-InstallerHub-docente-local.exe.sha256'
+  updateRequireSha256='1'
+}
+$first = Invoke-EvaluaProOperationalConfiguration -Mode install -InstallDir '${installDir.replace(/'/g, "''")}' -Config $config
+function Read-TestEnv([string]$path) {
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $path) {
+    $at = $line.IndexOf('=')
+    if ($at -gt 0) { $values[$line.Substring(0, $at)] = $line.Substring($at + 1) }
+  }
+  return $values
+}
+$before = Read-TestEnv '${envPath.replace(/'/g, "''")}'
+$config.jwtSecreto = 'rotated-test-jwt'
+$second = Invoke-EvaluaProOperationalConfiguration -Mode repair -InstallDir '${installDir.replace(/'/g, "''")}' -Config $config
+$after = Read-TestEnv '${envPath.replace(/'/g, "''")}'
+$ring = $after['OMR_QR_HMAC_SECRETS_JSON'] | ConvertFrom-Json
+[pscustomobject]@{
+  ok = [bool]$first.ok -and [bool]$second.ok
+  legacyJwtPreserved = $before['JWT_SECRETO'] -eq 'legacy-test-jwt'
+  requestedJwtRotationApplied = $after['JWT_SECRETO'] -eq 'rotated-test-jwt'
+  omrSecretSurvivedJwtRotation = $before['OMR_QR_HMAC_SECRET'] -eq $after['OMR_QR_HMAC_SECRET']
+  activeKeyIdStable = $before['OMR_QR_HMAC_KEY_ID'] -eq $after['OMR_QR_HMAC_KEY_ID']
+  activeKeyInRing = $ring.($after['OMR_QR_HMAC_KEY_ID']) -eq $after['OMR_QR_HMAC_SECRET']
+  secretsWereSeparated = $after['OMR_QR_HMAC_SECRET'] -ne $after['JWT_SECRETO']
+} | ConvertTo-Json -Compress
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    const parsed = parseJsonOutput(result.stdout);
+    assert.deepEqual(parsed, {
+      ok: true,
+      legacyJwtPreserved: true,
+      requestedJwtRotationApplied: true,
+      omrSecretSurvivedJwtRotation: true,
+      activeKeyIdStable: true,
+      activeKeyInRing: true,
+      secretsWereSeparated: true
+    });
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

@@ -46,23 +46,39 @@ if (entorno === 'production' && !jwtSecreto) {
 const jwtSecretoEfectivo = jwtSecreto || 'cambia-este-secreto';
 const omrQrHmacSecret = String(process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || jwtSecretoEfectivo;
 const omrQrHmacKeyId = String(process.env.OMR_QR_HMAC_KEY_ID ?? process.env.OMR_QR_RECOVERY_KEY_ID ?? 'qr-h1-v1').trim() || 'qr-h1-v1';
+if (!/^[A-Za-z0-9_-]{1,20}$/.test(omrQrHmacKeyId)) {
+  throw new Error('OMR_QR_HMAC_KEY_ID debe contener entre 1 y 20 caracteres alfanuméricos, guion o guion bajo.');
+}
 const omrRecoveryKeyId =
   String(process.env.OMR_QR_RECOVERY_KEY_ID ?? process.env.OMR_QR_HMAC_KEY_ID ?? 'recovery-h1-v1').trim() || 'recovery-h1-v1';
 const omrRecoverySecret =
   String(process.env.OMR_QR_RECOVERY_SECRET ?? process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || omrQrHmacSecret;
-function parsearMapaSecretos(raw: string, fallbackKeyId: string, fallbackSecret: string) {
+function parsearMapaSecretos(raw: string, fallbackKeyId: string, fallbackSecret: string, variableName: string) {
   const mapa: Record<string, string> = {};
   if (raw.trim()) {
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(raw) as Record<string, string>;
-      for (const [keyId, secret] of Object.entries(parsed ?? {})) {
-        const normalizedKeyId = String(keyId ?? '').trim();
-        const normalizedSecret = String(secret ?? '').trim();
-        if (!normalizedKeyId || !normalizedSecret) continue;
-        mapa[normalizedKeyId] = normalizedSecret;
-      }
+      parsed = JSON.parse(raw);
     } catch {
-      // Se conserva fallback de una sola clave para no romper arranque.
+      throw new Error(`${variableName} debe ser un objeto JSON válido de keyId a secreto.`);
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`${variableName} debe ser un objeto JSON válido de keyId a secreto.`);
+    }
+    const idsNormalizados = new Map<string, string>();
+    for (const [keyId, secret] of Object.entries(parsed)) {
+      const normalizedKeyId = String(keyId ?? '').trim();
+      const normalizedSecret = typeof secret === 'string' ? secret.trim() : '';
+      const idCanonico = normalizedKeyId.toLowerCase();
+      if (!/^[A-Za-z0-9_-]{1,32}$/.test(normalizedKeyId) || !normalizedSecret) {
+        throw new Error(`${variableName} contiene una entrada vacía o un keyId inválido.`);
+      }
+      const secretPreexistente = idsNormalizados.get(idCanonico);
+      if (secretPreexistente !== undefined && secretPreexistente !== normalizedSecret) {
+        throw new Error(`${variableName} contiene keyId duplicados con valores contradictorios.`);
+      }
+      idsNormalizados.set(idCanonico, normalizedSecret);
+      mapa[normalizedKeyId] = normalizedSecret;
     }
   }
   if (!mapa[fallbackKeyId]) {
@@ -73,12 +89,14 @@ function parsearMapaSecretos(raw: string, fallbackKeyId: string, fallbackSecret:
 const omrQrHmacSecrets = parsearMapaSecretos(
   String(process.env.OMR_QR_HMAC_SECRETS_JSON ?? '').trim(),
   omrQrHmacKeyId,
-  omrQrHmacSecret
+  omrQrHmacSecret,
+  'OMR_QR_HMAC_SECRETS_JSON'
 );
 const omrRecoverySecrets = parsearMapaSecretos(
   String(process.env.OMR_QR_RECOVERY_SECRETS_JSON ?? '').trim(),
   omrRecoveryKeyId,
-  omrRecoverySecret
+  omrRecoverySecret,
+  'OMR_QR_RECOVERY_SECRETS_JSON'
 );
 const jwtExpiraHoras = Number(process.env.JWT_EXPIRA_HORAS ?? 8);
 const refreshTokenDias = Number(process.env.REFRESH_TOKEN_DIAS ?? 30);

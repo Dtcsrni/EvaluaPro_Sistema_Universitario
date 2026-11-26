@@ -28,10 +28,14 @@ import {
   debeEvaluarRescateAltaResolucionGeometriaLocalOmr,
   rescatarMarcaTenueConsensuadaEntrePasadasOmr,
   debeAceptarConsensoGeometriaAlternaOmr,
+  debeRechazarMarcaDominanteNoCompactaOmr,
   tieneIntentoParcialPendienteOmr,
   debeUsarGeometriaLocalOmr,
   determinarOrientacionCapturaOmr,
   aplicarAbstencionPorDiscrepanciasEntrePasadasOmr,
+  rescatarMarcaDominanteRepetidaPorRasgosOmr,
+  debeEjecutarPaseAltaResolucionOmr,
+  debeEjecutarPaseAltaResolucionGeometriaLocalOmr,
   aplicarAbstencionPorOrientacionOmr,
   type RespuestaDetectadaOmr,
   type ResultadoOmr,
@@ -101,6 +105,352 @@ describe('consenso OMR v2', () => {
     expect(discrepante.respuestasDetectadas[0]?.flags).toContain('bajo_contraste');
     expect(discrepante.ratioAmbiguas).toBe(1);
     expect(concordante.respuestasDetectadas[0]?.opcion).toBe('E');
+  });
+
+  it('recupera una discrepancia con mayoría estricta de tres pasadas orientadas', () => {
+    const crearPasada = (opcion: 'B' | 'E', flags: RespuestaDetectadaOmr['flags'] = []): ResultadoOmr => ({
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion,
+        confianza: 0.84,
+        scoresPorOpcion: [],
+        flags,
+        estadoRespuesta: 'respondida'
+      }],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.84,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.85,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2',
+      pageOrientationDetermined: true,
+      pageRotationDegrees: 0
+    });
+    const resultado = {
+      ...crearPasada('B'),
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion: null,
+        confianza: 0.5,
+        scoresPorOpcion: [],
+        flags: ['bajo_contraste'] as RespuestaDetectadaOmr['flags'],
+        estadoRespuesta: 'ambigua' as const
+      }],
+      ratioAmbiguas: 1
+    };
+
+    const recuperado = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
+      resultado,
+      [crearPasada('E'), crearPasada('E'), crearPasada('B')],
+      true
+    );
+    const rescateFalsoDoble = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr({
+      ...resultado,
+      respuestasDetectadas: [{ ...resultado.respuestasDetectadas[0]!, flags: ['doble_marca'] }]
+    }, [crearPasada('E', ['doble_marca']), crearPasada('E'), crearPasada('E'), crearPasada('B')], true);
+
+    expect(recuperado.respuestasDetectadas[0]?.opcion).toBe('E');
+    expect(recuperado.respuestasDetectadas[0]?.estadoRespuesta).toBe('respondida');
+    expect(recuperado.respuestasDetectadas[0]?.confianza).toBe(0.84);
+    expect(recuperado.ratioAmbiguas).toBe(0);
+    expect(recuperado.advertencias.join(' ')).toContain('mayoría de pasadas');
+    expect(rescateFalsoDoble.respuestasDetectadas[0]?.opcion).toBe('E');
+    expect(rescateFalsoDoble.respuestasDetectadas[0]?.flags).not.toContain('doble_marca');
+  });
+
+  it('recupera relleno central dominante repetido y rechaza ruido sin suficiente núcleo', () => {
+    const crearScore = (
+      opcion: 'A' | 'B' | 'C' | 'D' | 'E',
+      cambios: Partial<ScoreOpcionOmr> = {}
+    ): ScoreOpcionOmr => ({
+      opcion,
+      score: 0.02,
+      fillRatioCore: 0.03,
+      fillRatioRing: 0.02,
+      fillDelta: 0,
+      contraste: 0.02,
+      radialMassRatio: 0.05,
+      centroidOffsetRatio: 0.5,
+      centerDarknessDelta: 0.02,
+      centerMean: 240,
+      softCoreContrast: 0.02,
+      softCentroidOffsetRatio: 0.5,
+      ringMean: 245,
+      outerMean: 245,
+      nucleusFillRatio: 0.03,
+      nucleusDarknessDelta: 0,
+      strokeLeakPenalty: 0,
+      shapeCompactness: 0.05,
+      markConfidence: 0.05,
+      estadoMarca: 'no_marcada',
+      ...cambios
+    });
+    const marcaA = crearScore('A', {
+      score: 0.28,
+      fillRatioCore: 0.533,
+      contraste: 0.111,
+      radialMassRatio: 0.366,
+      centroidOffsetRatio: 0.163,
+      centerDarknessDelta: 0.158,
+      nucleusFillRatio: 0.222,
+      shapeCompactness: 0.138,
+      markConfidence: 0.661,
+      estadoMarca: 'marcada'
+    });
+    const ruidoE = crearScore('E', {
+      score: 0.208,
+      fillRatioCore: 0.267,
+      contraste: 0.025,
+      radialMassRatio: 0.484,
+      centroidOffsetRatio: 0.015,
+      centerDarknessDelta: 0.149,
+      nucleusFillRatio: 0.467,
+      shapeCompactness: 0.221,
+      markConfidence: 0.612,
+      estadoMarca: 'marcada'
+    });
+    const opciones = (a: ScoreOpcionOmr, e = ruidoE) => [
+      a,
+      crearScore('B'),
+      crearScore('C', {
+        score: 0.179,
+        fillRatioCore: 0.267,
+        contraste: 0.102,
+        markConfidence: 0.541,
+        estadoMarca: 'marcada'
+      }),
+      crearScore('D'),
+      e
+    ];
+    const crearPasada = (scores: ScoreOpcionOmr[], opcion: RespuestaDetectadaOmr['opcion'] = null): ResultadoOmr => ({
+      respuestasDetectadas: [{
+        numeroPregunta: 16,
+        opcion,
+        confianza: opcion ? 0.62 : 0.5,
+        flags: opcion ? ['parcial_detectada'] : ['parcial_detectada', 'bajo_contraste'],
+        scoresPorOpcion: scores,
+        estadoRespuesta: opcion ? 'respondida' : 'ambigua'
+      }],
+      advertencias: [],
+      calidadPagina: 0.85,
+      estadoAnalisis: 'requiere_revision',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.5,
+      ratioAmbiguas: 1,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.85,
+      photoQuality: 0.85,
+      decisionPolicy: 'conservadora_v2',
+      pageOrientationDetermined: true,
+      pageRotationDegrees: 0
+    });
+    const primera = crearPasada(opciones(marcaA));
+    const segundaA = crearScore('A', {
+      score: 0.296,
+      fillRatioCore: 0.133,
+      contraste: 0.08,
+      markConfidence: 0.54,
+      estadoMarca: 'parcial'
+    });
+    const segunda = crearPasada(opciones(segundaA, crearScore('E', { score: 0.256, fillRatioCore: 0.267 })), 'D');
+    const tercera = crearPasada(opciones(crearScore('E', { score: 0.449, fillRatioCore: 0.4 }), crearScore('A')));
+    const ambiguo = crearPasada(opciones(marcaA));
+    const pasadas = [primera, segunda, tercera];
+
+    const recuperada = rescatarMarcaDominanteRepetidaPorRasgosOmr(16, pasadas);
+    const resultado = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(ambiguo, pasadas, true);
+    const ruidoBlanco = rescatarMarcaDominanteRepetidaPorRasgosOmr(18, [
+      ...pasadas.map((pasada) => ({
+        ...pasada,
+        respuestasDetectadas: [{
+          ...pasada.respuestasDetectadas[0]!,
+          numeroPregunta: 18,
+          scoresPorOpcion: [
+            crearScore('A'), crearScore('B'), crearScore('C'), crearScore('D'),
+            crearScore('E', {
+              score: 0.389,
+              fillRatioCore: 0.267,
+              contraste: 0.249,
+              nucleusFillRatio: 0.644,
+              centerDarknessDelta: 0.216,
+              radialMassRatio: 0.354,
+              centroidOffsetRatio: 0.247,
+              shapeCompactness: 0.143,
+              markConfidence: 0.939,
+              estadoMarca: 'marcada'
+            })
+          ]
+        }]
+      }))
+    ]);
+
+    expect(recuperada).toMatchObject({ opcion: 'A' });
+    expect(resultado.respuestasDetectadas[0]).toMatchObject({
+      opcion: 'A',
+      estadoRespuesta: 'respondida',
+      flags: []
+    });
+    expect(ruidoBlanco).toBeNull();
+    const dobleMarca = crearPasada(opciones(marcaA, crearScore('E', {
+      score: 0.3,
+      fillRatioCore: 0.48,
+      contraste: 0.1,
+      markConfidence: 0.7,
+      estadoMarca: 'marcada'
+    })));
+    expect(rescatarMarcaDominanteRepetidaPorRasgosOmr(16, [primera, segunda, dobleMarca])).toBeNull();
+  });
+
+  it('conserva abstención por marca inválida repetida o por orientación discordante', () => {
+    const crearPasada = (
+      opcion: 'B' | 'E',
+      orientacion: 0 | 180,
+      flags: RespuestaDetectadaOmr['flags'] = []
+    ): ResultadoOmr => ({
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion,
+        confianza: 0.84,
+        scoresPorOpcion: [],
+        flags,
+        estadoRespuesta: 'respondida'
+      }],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.84,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.85,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2',
+      pageOrientationDetermined: true,
+      pageRotationDegrees: orientacion
+    });
+    const resultado: ResultadoOmr = {
+      ...crearPasada('B', 0),
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion: null,
+        confianza: 0.5,
+        scoresPorOpcion: [],
+        flags: ['doble_marca'],
+        estadoRespuesta: 'ambigua'
+      }],
+      ratioAmbiguas: 1
+    };
+
+    const conMarcasInvalidas = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
+      resultado,
+      [crearPasada('E', 0, ['doble_marca']), crearPasada('E', 0, ['doble_marca']), crearPasada('B', 0)],
+      true
+    );
+    const conOrientacionConflictiva = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
+      resultado,
+      [crearPasada('E', 0), crearPasada('E', 180), crearPasada('B', 0)],
+      true
+    );
+
+    expect(conMarcasInvalidas.respuestasDetectadas[0]?.opcion).toBeNull();
+    expect(conOrientacionConflictiva.respuestasDetectadas[0]?.opcion).toBeNull();
+  });
+
+  it('no cuenta una segunda ejecución idéntica de alta resolución como un voto independiente', () => {
+    const resultado: ResultadoOmr = {
+      respuestasDetectadas: [],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.84,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.85,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2'
+    };
+    expect(debeEjecutarPaseAltaResolucionOmr({
+      resultadoExistente: resultado,
+      rescateRequerido: true,
+      conflictoRequiereRescate: false,
+      quedanPreguntasSinResolver: true
+    })).toBe(false);
+    expect(debeEjecutarPaseAltaResolucionGeometriaLocalOmr({
+      resultadoAltaResolucionExistente: true,
+      geometriaLocalDeshabilitadaEnPaseExistente: false,
+      quedanPreguntasSinResolver: true
+    })).toBe(false);
+    expect(debeEjecutarPaseAltaResolucionGeometriaLocalOmr({
+      resultadoAltaResolucionExistente: true,
+      geometriaLocalDeshabilitadaEnPaseExistente: true,
+      quedanPreguntasSinResolver: true
+    })).toBe(true);
+    expect(debeEjecutarPaseAltaResolucionOmr({
+      resultadoExistente: null,
+      rescateRequerido: false,
+      conflictoRequiereRescate: true,
+      quedanPreguntasSinResolver: true
+    })).toBe(true);
+    expect(debeEjecutarPaseAltaResolucionOmr({
+      resultadoExistente: null,
+      rescateRequerido: true,
+      conflictoRequiereRescate: false,
+      quedanPreguntasSinResolver: false
+    })).toBe(false);
+  });
+
+  it('no resuelve una mayoría si alguna pasada no conserva la rotación cardinal verificada', () => {
+    const crearPasada = (opcion: 'B' | 'E', conRotacion: boolean): ResultadoOmr => ({
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion,
+        confianza: 0.84,
+        scoresPorOpcion: [],
+        flags: [],
+        estadoRespuesta: 'respondida'
+      }],
+      advertencias: [],
+      calidadPagina: 0.9,
+      estadoAnalisis: 'ok',
+      motivosRevision: [],
+      templateVersionDetectada: 4,
+      confianzaPromedioPagina: 0.84,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv',
+      geomQuality: 0.85,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2',
+      pageOrientationDetermined: true,
+      ...(conRotacion ? { pageRotationDegrees: 0 as const } : {})
+    });
+    const resultado: ResultadoOmr = {
+      ...crearPasada('B', true),
+      respuestasDetectadas: [{
+        numeroPregunta: 8,
+        opcion: null,
+        confianza: 0.5,
+        scoresPorOpcion: [],
+        flags: ['bajo_contraste'],
+        estadoRespuesta: 'ambigua'
+      }],
+      ratioAmbiguas: 1
+    };
+    const salida = aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
+      resultado,
+      [crearPasada('E', true), crearPasada('E', false), crearPasada('B', true)],
+      true
+    );
+    expect(salida.respuestasDetectadas[0]?.opcion).toBeNull();
+    expect(salida.respuestasDetectadas[0]?.estadoRespuesta).toBe('ambigua');
   });
 
   it('no autocalifica candidatas parciales sin contraste central suficiente', () => {
@@ -465,6 +815,77 @@ describe('consenso OMR v2', () => {
     expect(vacia.respuestasDetectadas[0].opcion).toBeNull();
   });
 
+  it('rescata una marca tenue repetida con QR y homografia, pero rechaza el anillo oscurecido', () => {
+    const qrTexto = 'EXAMEN:TV4:P2:QR-TEST';
+    const crearScore = (opcion: ScoreOpcionOmr['opcion'], overrides: Partial<ScoreOpcionOmr> = {}): ScoreOpcionOmr => ({
+      opcion, score: 0, fillRatioCore: 0, fillRatioRing: 0, fillDelta: 0, contraste: 0,
+      radialMassRatio: 0, centroidOffsetRatio: 0.3, centerDarknessDelta: 0, centerMean: 245,
+      softCoreContrast: 0, softCentroidOffsetRatio: 1, ringMean: 245, outerMean: 245,
+      nucleusFillRatio: 0, nucleusDarknessDelta: 0, strokeLeakPenalty: 0,
+      shapeCompactness: 0, markConfidence: 0, estadoMarca: 'no_marcada', ...overrides
+    });
+    const pasada = (variante: 0 | 1, flags: RespuestaDetectadaOmr['flags']): RespuestaDetectadaOmr[] => {
+      const scores: ScoreOpcionOmr[] = [
+        crearScore('A', {
+          score: variante ? 0.22 : 0.108, fillRatioCore: variante ? 0.23 : 0.154,
+          fillRatioRing: 0.333, centerMean: variante ? 189.23 : 195.75,
+          ringMean: variante ? 211.88 : 205.625, outerMean: variante ? 238.25 : 232.75,
+          softCoreContrast: variante ? 0.71 : 0.073, softCentroidOffsetRatio: 0.1,
+          centroidOffsetRatio: 0.1, shapeCompactness: variante ? 0.29 : 0.272,
+          markConfidence: variante ? 0.42 : 0.17, strokeLeakPenalty: 0.1
+        }),
+        crearScore('B', { score: 0.077, fillRatioCore: 0.23, centerMean: 213.89, ringMean: 231.88, softCoreContrast: 0.07 }),
+        crearScore('C', { score: 0.089, fillRatioCore: 0.23, centerMean: 210.2, ringMean: 232.38, softCoreContrast: 0.08 }),
+        crearScore('D', { score: 0.087, fillRatioCore: 0.23, centerMean: 212.23, ringMean: 229.5, softCoreContrast: 0.07 }),
+        crearScore('E', { score: 0.106, fillRatioCore: 0.23, centerMean: 210.41, ringMean: 236.5, softCoreContrast: 0.11 })
+      ];
+      if (variante) {
+        scores[2] = { ...scores[2]!, estadoMarca: 'parcial', shapeCompactness: 0.52 };
+        scores[4] = { ...scores[4]!, estadoMarca: 'parcial' };
+      }
+      return [{ numeroPregunta: 11, opcion: null, confianza: 0, scoresPorOpcion: scores, flags, estadoRespuesta: 'ambigua' }];
+    };
+    const base = {
+      respuestasDetectadas: [{
+        numeroPregunta: 11, opcion: null, confianza: 0,
+        scoresPorOpcion: (['A', 'B', 'C', 'D', 'E'] as const).map((opcion) => crearScore(opcion)),
+        flags: ['fuera_roi'], estadoRespuesta: 'ambigua'
+      }],
+      advertencias: [], calidadPagina: 0.85, estadoAnalisis: 'requiere_revision', motivosRevision: [],
+      templateVersionDetectada: 4, confianzaPromedioPagina: 0, ratioAmbiguas: 1, engineVersion: 'omr-cv',
+      geomQuality: 0.87, photoQuality: 0.9, decisionPolicy: 'conservadora_v2', qrTexto,
+      geometryMode: 'homografia', geometryReferencePoints: 4, geometryReferenceQuality: 0.97,
+      geometryLocalEnabled: false, resumenRespuestas: { examenVacio: false }
+    } as unknown as ResultadoOmr;
+    const mapa = {
+      qr: { texto: qrTexto },
+      preguntas: [{ numeroPregunta: 11, idPregunta: 'q11', opciones: (['A', 'B', 'C', 'D', 'E'] as const).map((letra, x) => ({ letra, x, y: 10 })) }]
+    } as unknown as Parameters<typeof rescatarMarcaTenueConsensuadaEntrePasadasOmr>[2];
+
+    const recuperada = rescatarMarcaTenueConsensuadaEntrePasadasOmr(
+      base,
+      [
+        pasada(0, ['bajo_contraste', 'parcial_detectada', 'fuera_roi']),
+        pasada(1, ['doble_marca', 'bajo_contraste', 'fuera_roi'])
+      ],
+      mapa
+    );
+    expect(recuperada.respuestasDetectadas[0]).toMatchObject({ opcion: 'A', confianza: 0.72, flags: [], estadoRespuesta: 'respondida' });
+
+    const anilloOscuro = pasada(0, ['bajo_contraste'])[0]!;
+    anilloOscuro.numeroPregunta = 19;
+    anilloOscuro.scoresPorOpcion = anilloOscuro.scoresPorOpcion.map((item) => item.opcion === 'A'
+      ? { ...item, score: 0.25, centerMean: 160, ringMean: 145, shapeCompactness: 0.09, fillRatioCore: 0.15, softCoreContrast: 0.02 }
+      : item);
+    const resultadoVacio = { ...base, respuestasDetectadas: base.respuestasDetectadas.map((item) => ({ ...item, numeroPregunta: 19 })) } as unknown as ResultadoOmr;
+    const noRecuperada = rescatarMarcaTenueConsensuadaEntrePasadasOmr(
+      resultadoVacio,
+      [[anilloOscuro], [{ ...anilloOscuro, scoresPorOpcion: [...anilloOscuro.scoresPorOpcion] }]],
+      { ...mapa, preguntas: [{ ...mapa.preguntas[0]!, numeroPregunta: 19 }] }
+    );
+    expect(noRecuperada.respuestasDetectadas[0].opcion).toBeNull();
+  });
+
   it('acepta escala alterna solo con acuerdo fuerte de la candidata homografica', () => {
     const crearScore = (opcion: 'A' | 'B' | 'C' | 'D' | 'E', datos: Partial<RespuestaDetectadaOmr['scoresPorOpcion'][number]> = {}) => ({
       opcion,
@@ -583,17 +1004,19 @@ describe('consenso OMR v2', () => {
       { numeroPregunta: 1, opcion: 'D' as const, confianza: 0.7, scoresPorOpcion: [], flags: [] },
       { numeroPregunta: 2, opcion: null, confianza: 0, scoresPorOpcion: [], flags: ['bajo_contraste'] },
       { numeroPregunta: 3, opcion: null, confianza: 0, scoresPorOpcion: [], flags: ['bajo_contraste'] },
-      { numeroPregunta: 4, opcion: null, confianza: 0, scoresPorOpcion: [], flags: ['bajo_contraste'] }
+      { numeroPregunta: 4, opcion: null, confianza: 0, scoresPorOpcion: [], flags: ['bajo_contraste'] },
+      { numeroPregunta: 5, opcion: null, confianza: 0, scoresPorOpcion: [], flags: ['parcial_detectada'] }
     ];
     const rescate = [
       { numeroPregunta: 1, opcion: 'B' as const, confianza: 0.9, scoresPorOpcion: [], flags: [] },
       { numeroPregunta: 2, opcion: 'E' as const, confianza: 0.8, scoresPorOpcion: [], flags: [] },
       { numeroPregunta: 3, opcion: 'A' as const, confianza: 0.42, scoresPorOpcion: [], flags: ['parcial_detectada'] },
-      { numeroPregunta: 4, opcion: 'C' as const, confianza: 0.9, scoresPorOpcion: [], flags: ['doble_marca'] }
+      { numeroPregunta: 4, opcion: 'C' as const, confianza: 0.9, scoresPorOpcion: [], flags: ['doble_marca'] },
+      { numeroPregunta: 5, opcion: 'B' as const, confianza: 0.95, scoresPorOpcion: [], flags: ['parcial_detectada'] }
     ];
 
     expect(combinarRespuestasOmrSinPerderDeterminadas(base, rescate).map((respuesta) => respuesta.opcion))
-      .toEqual(['D', 'E', null, null]);
+      .toEqual(['D', 'E', null, null, null]);
   });
 
   it('protege literalmente toda respuesta determinada durante el consenso geométrico experimental', () => {
@@ -1282,6 +1705,33 @@ describe('consenso OMR v2', () => {
       contrasteNucleoSuave: 0.006,
       nucleoDominante: 0.2,
       compacidad: 0.09
+    })).toBe(false);
+  });
+
+  it('rechaza texto que llena un núcleo pero no conserva la forma compacta de burbuja', () => {
+    expect(debeRechazarMarcaDominanteNoCompactaOmr({
+      panelHorizontal: true,
+      scoreDominante: 0.833,
+      fillRatioCore: 0.77,
+      nucleusFillRatio: 0.97,
+      fillRatioRing: 0.29,
+      shapeCompactness: 0.36
+    })).toBe(true);
+    expect(debeRechazarMarcaDominanteNoCompactaOmr({
+      panelHorizontal: true,
+      scoreDominante: 0.98,
+      fillRatioCore: 1,
+      nucleusFillRatio: 1,
+      fillRatioRing: 0.125,
+      shapeCompactness: 0.73
+    })).toBe(false);
+    expect(debeRechazarMarcaDominanteNoCompactaOmr({
+      panelHorizontal: true,
+      scoreDominante: 0.823,
+      fillRatioCore: 0.667,
+      nucleusFillRatio: 0.644,
+      fillRatioRing: 0.208,
+      shapeCompactness: 0.443
     })).toBe(false);
   });
 

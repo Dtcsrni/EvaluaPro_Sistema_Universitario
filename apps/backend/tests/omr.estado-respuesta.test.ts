@@ -10,12 +10,302 @@ import {
   normalizarDobleMarcadaPorEvidenciaOmr,
   seleccionarNucleoTenueDominanteOmr,
   seleccionarPuntoCompactoAisladoOmr,
+  aplicarReglaMarcaClaraOmr,
+  clasificarEstadoBurbujaOmr,
   type ScoreOpcionOmr
 } from '../src/modulos/modulo_escaneo_omr/servicioOmrCv.js';
 
 const respuestaVacia = { opcion: null, flags: [] as string[] };
 
 describe('estado de respuesta OMR', () => {
+  it('solo considera marcada una burbuja con relleno compacto y evidencia centrada', () => {
+    const base = {
+      trazoTachado: false,
+      score: 0.2,
+      fillRatioCore: 0.2,
+      fillDelta: 0.12,
+      contraste: 0.15,
+      centerDarknessDelta: 0.18,
+      centroidOffsetRatio: 0.12,
+      nucleusFillRatio: 0.6,
+      shapeCompactness: 0.8,
+      markConfidence: 0.9,
+      gapCentro: 28,
+      largestComponentPixels: 120,
+      largestComponentAspectRatio: 1.2
+    };
+
+    expect(clasificarEstadoBurbujaOmr(base)).toBe('marcada');
+    // Caso real vacío 9442395C P2 Q18: los scores E/D eran altos por tinta
+    // ajena al relleno, pero sus formas no eran compactas ni tenían núcleo claro.
+    expect(clasificarEstadoBurbujaOmr({
+      ...base,
+      score: 0.3888,
+      fillRatioCore: 0.2667,
+      centerDarknessDelta: 0.2164,
+      centroidOffsetRatio: 0.2475,
+      nucleusFillRatio: 0.6444,
+      shapeCompactness: 0.1431,
+      markConfidence: 0.9387,
+      gapCentro: 55.2,
+      largestComponentPixels: 102,
+      largestComponentAspectRatio: 1.09
+    })).toBe('no_marcada');
+    expect(clasificarEstadoBurbujaOmr({
+      ...base,
+      score: 0.1852,
+      fillRatioCore: 0.2,
+      centerDarknessDelta: 0.0867,
+      centroidOffsetRatio: 0.1693,
+      nucleusFillRatio: 0,
+      shapeCompactness: 0.3083,
+      markConfidence: 0.3403,
+      gapCentro: 22.1,
+      largestComponentPixels: 26,
+      largestComponentAspectRatio: 1.5
+    })).toBe('no_marcada');
+    expect(clasificarEstadoBurbujaOmr({ ...base, trazoTachado: true })).toBe('tachada');
+  });
+
+  it('conserva un intento parcial reconocible sin publicarlo como respuesta', () => {
+    expect(clasificarEstadoBurbujaOmr({
+      trazoTachado: false,
+      score: 0.13,
+      fillRatioCore: 0.16,
+      fillDelta: 0.08,
+      contraste: 0.1,
+      centerDarknessDelta: 0.09,
+      centroidOffsetRatio: 0.3,
+      nucleusFillRatio: 0.2,
+      shapeCompactness: 0.56,
+      markConfidence: 0.3,
+      gapCentro: 10,
+      largestComponentPixels: 30,
+      largestComponentAspectRatio: 1.2
+    })).toBe('parcial');
+    expect(clasificarEstadoBurbujaOmr({
+      trazoTachado: false,
+      score: 0.13,
+      fillRatioCore: 0.16,
+      fillDelta: 0.08,
+      contraste: 0.1,
+      centerDarknessDelta: 0.09,
+      centroidOffsetRatio: 0.3,
+      nucleusFillRatio: 0.04,
+      shapeCompactness: 0.18,
+      markConfidence: 0.3,
+      gapCentro: 10,
+      largestComponentPixels: 22,
+      largestComponentAspectRatio: 2.5
+    })).toBe('parcial');
+  });
+
+  it('normaliza omisiones con ruido de segunda pasada y conserva una respuesta sólida', () => {
+    const crearScore = (
+      opcion: ScoreOpcionOmr['opcion'],
+      estadoMarca: ScoreOpcionOmr['estadoMarca'],
+      overrides: Partial<ScoreOpcionOmr> = {}
+    ): ScoreOpcionOmr => ({
+      opcion,
+      score: 0.01,
+      fillRatioCore: 0,
+      fillRatioRing: 0,
+      fillDelta: 0,
+      contraste: 0,
+      radialMassRatio: 0,
+      centroidOffsetRatio: 0.3,
+      centerDarknessDelta: 0,
+      centerMean: 255,
+      softCoreContrast: 0,
+      softCentroidOffsetRatio: 1,
+      ringMean: 230,
+      outerMean: 245,
+      nucleusFillRatio: 0,
+      nucleusDarknessDelta: 0,
+      strokeLeakPenalty: 0,
+      shapeCompactness: 0,
+      markConfidence: 0,
+      estadoMarca,
+      ...overrides
+    });
+    const base = {
+      advertencias: [],
+      calidadPagina: 0.85,
+      estadoAnalisis: 'ok' as const,
+      motivosRevision: [],
+      templateVersionDetectada: 4 as const,
+      confianzaPromedioPagina: 0.9,
+      ratioAmbiguas: 0,
+      engineVersion: 'omr-cv' as const,
+      geomQuality: 0.9,
+      photoQuality: 0.9,
+      decisionPolicy: 'conservadora_v2' as const,
+      pageOrientationDetermined: true
+    };
+    const ruidoReverso = crearScore('E', 'no_marcada', {
+      score: 0.3888,
+      fillRatioCore: 0.2667,
+      fillRatioRing: 0.125,
+      fillDelta: 0.2164,
+      contraste: 0.2486,
+      radialMassRatio: 0.3545,
+      centroidOffsetRatio: 0.2475,
+      centerDarknessDelta: 0.2164,
+      centerMean: 177,
+      ringMean: 232,
+      outerMean: 245,
+      nucleusFillRatio: 0.6444,
+      nucleusDarknessDelta: 0.5563,
+      shapeCompactness: 0.1431,
+      markConfidence: 0.9387
+    });
+    const respuestas = (seleccionada: ScoreOpcionOmr['opcion'], marcado: ScoreOpcionOmr) =>
+      (['A', 'B', 'C', 'D', 'E'] as const).map((opcion) =>
+        opcion === seleccionada ? marcado : crearScore(opcion, 'no_marcada')
+      );
+    const vacia = aplicarReglaMarcaClaraOmr({
+      ...base,
+      respuestasDetectadas: [{
+        numeroPregunta: 18,
+        opcion: 'E',
+        confianza: 0.94,
+        scoresPorOpcion: respuestas('E', ruidoReverso),
+        flags: ['fuera_roi', 'parcial_detectada', 'bajo_contraste']
+      }]
+    });
+    expect(vacia.respuestasDetectadas[0]).toMatchObject({
+      opcion: null,
+      flags: [],
+      estadoRespuesta: 'sin_marca'
+    });
+    expect(vacia.ratioAmbiguas).toBe(0);
+
+    const parcialResidual = crearScore('A', 'parcial', {
+      score: 0.2463,
+      fillRatioCore: 0.3333,
+      fillRatioRing: 0.1875,
+      centroidOffsetRatio: 0.379,
+      nucleusFillRatio: 0.4,
+      shapeCompactness: 0.3852,
+      markConfidence: 0.5636
+    });
+    const doblePorResiduo = aplicarReglaMarcaClaraOmr({
+      ...base,
+      respuestasDetectadas: [{
+        numeroPregunta: 14,
+        opcion: null,
+        confianza: 0.5,
+        scoresPorOpcion: respuestas('E', ruidoReverso).map((score) =>
+          score.opcion === 'A' ? parcialResidual : score
+        ),
+        flags: ['doble_marca', 'bajo_contraste', 'parcial_detectada'],
+        estadoRespuesta: 'ambigua'
+      }]
+    });
+    expect(doblePorResiduo.respuestasDetectadas[0]).toMatchObject({
+      opcion: null,
+      flags: [],
+      estadoRespuesta: 'sin_marca'
+    });
+    expect(doblePorResiduo.ratioAmbiguas).toBe(0);
+
+    const rellenoTenueConcentrado = crearScore('E', 'parcial', {
+      score: 0.5105,
+      fillRatioCore: 0.7692,
+      fillRatioRing: 0.0833,
+      shapeCompactness: 0.3442,
+      markConfidence: 1,
+      centroidOffsetRatio: 0.186
+    });
+    const tenueLegible = aplicarReglaMarcaClaraOmr({
+      ...base,
+      respuestasDetectadas: [{
+        numeroPregunta: 20,
+        opcion: null,
+        confianza: 0,
+        scoresPorOpcion: respuestas('E', rellenoTenueConcentrado),
+        flags: ['parcial_detectada'],
+        estadoRespuesta: 'ambigua'
+      }]
+    });
+    expect(tenueLegible.respuestasDetectadas[0]).toMatchObject({
+      opcion: 'E',
+      flags: [],
+      estadoRespuesta: 'respondida',
+      confianza: 0.95
+    });
+
+    const fueraDeBurbuja = aplicarReglaMarcaClaraOmr({
+      ...base,
+      respuestasDetectadas: [{
+        numeroPregunta: 11,
+        opcion: null,
+        confianza: 0.5,
+        scoresPorOpcion: (['A', 'B', 'C', 'D', 'E'] as const).map((opcion) =>
+          crearScore(opcion, 'no_marcada', {
+            centroidOffsetRatio: 0.98,
+            fillRatioRing: 0.7
+          })
+        ),
+        flags: ['fuera_roi'],
+        estadoRespuesta: 'ambigua'
+      }]
+    });
+    expect(fueraDeBurbuja.respuestasDetectadas[0]).toMatchObject({
+      opcion: null,
+      flags: ['fuera_roi'],
+      estadoRespuesta: 'ambigua'
+    });
+    const medicionSinBandera = aplicarReglaMarcaClaraOmr({
+      ...base,
+      respuestasDetectadas: [{
+        numeroPregunta: 11,
+        opcion: null,
+        confianza: 0.5,
+        scoresPorOpcion: (['A', 'B', 'C', 'D', 'E'] as const).map((opcion) =>
+          crearScore(opcion, 'no_marcada', {
+            centroidOffsetRatio: 0.98,
+            fillRatioRing: 0.7
+          })
+        ),
+        flags: [],
+        estadoRespuesta: 'sin_marca'
+      }]
+    });
+    expect(medicionSinBandera.respuestasDetectadas[0]).toMatchObject({
+      opcion: null,
+      flags: ['fuera_roi'],
+      estadoRespuesta: 'ambigua'
+    });
+
+    const rellenoClaro = crearScore('D', 'marcada', {
+      score: 0.938,
+      fillRatioCore: 1,
+      fillRatioRing: 0.35,
+      contraste: 0.92,
+      centerDarknessDelta: 0.62,
+      centroidOffsetRatio: 0.04,
+      nucleusFillRatio: 1,
+      shapeCompactness: 0.95,
+      markConfidence: 1
+    });
+    const marcada = aplicarReglaMarcaClaraOmr({
+      ...base,
+      respuestasDetectadas: [{
+        numeroPregunta: 17,
+        opcion: 'D',
+        confianza: 1,
+        scoresPorOpcion: respuestas('D', rellenoClaro),
+        flags: ['parcial_detectada', 'bajo_contraste']
+      }]
+    });
+    expect(marcada.respuestasDetectadas[0]).toMatchObject({
+      opcion: 'D',
+      flags: [],
+      estadoRespuesta: 'respondida'
+    });
+  });
+
   it('distingue una pregunta sin marca de una ambigua', () => {
     expect(clasificarEstadoRespuestaOmr(respuestaVacia)).toBe('sin_marca');
     expect(
@@ -132,6 +422,22 @@ describe('estado de respuesta OMR', () => {
       reactivosSinMarca: 1,
       reactivosAmbiguos: 18,
       reactivosInvalidos: 2,
+      examenVacio: false,
+      examenVacioProbable: true,
+      estadoExamen: 'vacio_probable'
+    });
+  });
+
+  it('conserva el resumen de hoja vacía probable si algunos blancos quedan fuera del ROI', () => {
+    const resumen = resumirRespuestasOmr([
+      ...Array.from({ length: 2 }, () => ({ opcion: null, flags: ['fuera_roi'] })),
+      ...Array.from({ length: 19 }, () => ({ opcion: null, flags: ['bajo_contraste', 'parcial_detectada'] }))
+    ], 0.83, 0.87);
+
+    expect(resumen).toMatchObject({
+      reactivosRespondidos: 0,
+      reactivosSinMarca: 0,
+      reactivosAmbiguos: 21,
       examenVacio: false,
       examenVacioProbable: true,
       estadoExamen: 'vacio_probable'
@@ -360,6 +666,15 @@ describe('estado de respuesta OMR', () => {
     };
 
     expect(debeAceptarMarcaCromaticaAisladaOmr(candidata)).toBe(true);
+    expect(debeAceptarMarcaCromaticaAisladaOmr({
+      ...candidata,
+      score: 0.54,
+      scoreCompetidor: 0.394,
+      contrasteCromaticoLocal: 0.222,
+      margenCromatico: 0.218,
+      fillRatioCore: 1,
+      centroidOffsetRatio: 0.25
+    })).toBe(true);
     expect(debeAceptarMarcaCromaticaAisladaOmr({
       ...candidata,
       contrasteCromaticoLocal: 0.016,

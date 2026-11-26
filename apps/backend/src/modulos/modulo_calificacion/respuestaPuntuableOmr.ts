@@ -20,6 +20,7 @@ export function obtenerOpcionPuntuableOmr(respuesta: RespuestaOmrPuntuable) {
 /** Solo falta revisión cuando no existe el reactivo o queda una candidata no resuelta. */
 export function omrRequiereResolucionManual(respuesta?: RespuestaOmrPuntuable) {
   if (!respuesta) return true;
+  if (['ambigua', 'doble_marca', 'tachada'].includes(String(respuesta.estadoRespuesta))) return true;
   if (obtenerOpcionPuntuableOmr(respuesta) === null) return false;
   const marcasSinResolver = respuesta.flags?.filter((flag) =>
     !(respuesta.estadoRespuesta === 'respondida' && flag === 'parcial_detectada')
