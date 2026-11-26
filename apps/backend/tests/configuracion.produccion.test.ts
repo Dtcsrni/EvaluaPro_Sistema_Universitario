@@ -40,6 +40,50 @@ describe('configuracion (produccion)', () => {
     await expect(import('../src/configuracion.js')).rejects.toThrow('OMR_QR_HMAC_SECRETS_JSON debe ser un objeto JSON válido');
   });
 
+  it('no reutiliza JWT como clave OMR implícita en producción', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.EVALUAPRO_FLAVOR = 'docente-local';
+    process.env.JWT_SECRETO = 'production-test-jwt-secret';
+    process.env.CORS_ORIGENES = 'http://localhost:4173';
+    for (const key of [
+      'OMR_QR_HMAC_KEY_ID',
+      'OMR_QR_HMAC_SECRET',
+      'OMR_QR_HMAC_SECRETS_JSON',
+      'OMR_QR_RECOVERY_KEY_ID',
+      'OMR_QR_RECOVERY_SECRET',
+      'OMR_QR_RECOVERY_SECRETS_JSON'
+    ]) delete process.env[key];
+
+    const { configuracion } = await import('../src/configuracion.js');
+
+    expect(configuracion.omrQrHmacSecret).toBe('');
+    expect(configuracion.omrQrHmacSecrets).toEqual({});
+    expect(configuracion.omrRecoverySecret).toBe('');
+    expect(configuracion.omrRecoverySecrets).toEqual({});
+  });
+
+  it('mantiene independientes los keyId QR y recuperación y rechaza colisiones por mayúsculas', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.EVALUAPRO_FLAVOR = 'docente-local';
+    process.env.JWT_SECRETO = 'production-test-jwt-secret';
+    process.env.CORS_ORIGENES = 'http://localhost:4173';
+    process.env.OMR_QR_RECOVERY_KEY_ID = 'recovery-custom';
+    delete process.env.OMR_QR_HMAC_KEY_ID;
+    delete process.env.OMR_QR_HMAC_SECRET;
+    delete process.env.OMR_QR_HMAC_SECRETS_JSON;
+    vi.resetModules();
+
+    const { configuracion } = await import('../src/configuracion.js');
+    expect(configuracion.omrQrHmacKeyId).toBe('qr-h1-v1');
+    expect(configuracion.omrRecoveryKeyId).toBe('recovery-custom');
+
+    vi.resetModules();
+    process.env.OMR_QR_HMAC_KEY_ID = 'qr-h1-v2';
+    process.env.OMR_QR_HMAC_SECRET = 'active-omr-secret';
+    process.env.OMR_QR_HMAC_SECRETS_JSON = JSON.stringify({ 'QR-H1-V2': 'different-secret' });
+    await expect(import('../src/configuracion.js')).rejects.toThrow('contradice el secreto configurado para el keyId activo');
+  });
+
   it('rechaza un keyId activo que el QR truncaría y no podría resolver', async () => {
     process.env.NODE_ENV = 'production';
     process.env.EVALUAPRO_FLAVOR = 'docente-local';

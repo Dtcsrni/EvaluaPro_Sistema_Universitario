@@ -26,8 +26,9 @@ function Ensure-OmrSigningConfig {
     [string]$LegacyJwtSecret = ''
   )
 
-  $keyId = [string]$EnvMap['OMR_QR_HMAC_KEY_ID']
-  if ([string]::IsNullOrWhiteSpace($keyId)) { $keyId = 'qr-h1-v1' }
+  $configuredKeyId = [string]$EnvMap['OMR_QR_HMAC_KEY_ID']
+  $keyIdWasConfigured = -not [string]::IsNullOrWhiteSpace($configuredKeyId)
+  $keyId = if ($keyIdWasConfigured) { $configuredKeyId } else { 'qr-h1-v1' }
   $keyId = $keyId.Trim()
   if ($keyId -notmatch '^[A-Za-z0-9_-]{1,20}$') {
     throw 'OMR_QR_HMAC_KEY_ID debe contener entre 1 y 20 caracteres alfanuméricos, guion o guion bajo.'
@@ -79,15 +80,22 @@ function Ensure-OmrSigningConfig {
   }
   $activeSecret = if ($ringSecret) { $ringSecret } elseif ($configuredSecret) { $configuredSecret } else { '' }
   if (-not $activeSecret) {
-    if (-not [string]::IsNullOrWhiteSpace($LegacyJwtSecret)) {
-      # La instalación anterior usaba JWT_SECRETO como fallback HMAC; conservarlo
-      # como clave OMR evita invalidar los QR que ya se imprimieron.
-      $activeSecret = $LegacyJwtSecret.Trim()
-    } else {
-      # Una instalación nueva no tiene QR históricos: inicia con una clave OMR
-      # propia para que las rotaciones JWT futuras no cambien sus firmas.
-      $activeSecret = New-GeneratedSecret
+    if ($keyRing.Count -gt 0 -or $keyIdWasConfigured) {
+      throw 'Falta la clave OMR activa en una instalación con configuración previa; se cancela para no reemplazar una firma histórica.'
     }
+    if (-not [string]::IsNullOrWhiteSpace($LegacyJwtSecret)) {
+      # Conserva JWT solo como candidato de verificación para QR históricos.
+      # No lo uses para firmar: puede no ser la clave con que se imprimieron.
+      $legacyKeyId = 'QR-H1-V1'
+      if (-not $keyRing.ContainsKey($legacyKeyId)) {
+        $keyRing[$legacyKeyId] = $LegacyJwtSecret.Trim()
+      }
+      $keyId = 'qr-h1-v2'
+    } else {
+      # Una instalación nueva comienza con una clave OMR independiente.
+      $keyId = 'qr-h1-v1'
+    }
+    $activeSecret = New-GeneratedSecret
   }
 
   $keyRing[$keyId] = $activeSecret

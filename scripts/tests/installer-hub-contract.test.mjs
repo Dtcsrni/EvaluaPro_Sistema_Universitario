@@ -2763,7 +2763,7 @@ $r | ConvertTo-Json -Depth 8
   }
 });
 
-test('la configuración productiva conserva JWT y firma OMR al actualizar y rotar el JWT', () => {
+test('la migración conserva JWT como candidato histórico y firma con una clave OMR independiente', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-jwt-omr-stability-'));
   const installDir = path.join(tempRoot, 'EvaluaPro');
   fs.mkdirSync(installDir, { recursive: true });
@@ -2801,13 +2801,16 @@ $config.jwtSecreto = 'rotated-test-jwt'
 $second = Invoke-EvaluaProOperationalConfiguration -Mode repair -InstallDir '${installDir.replace(/'/g, "''")}' -Config $config
 $after = Read-TestEnv '${envPath.replace(/'/g, "''")}'
 $ring = $after['OMR_QR_HMAC_SECRETS_JSON'] | ConvertFrom-Json
+$legacyCandidate = $ring.PSObject.Properties | Where-Object { $_.Name -ieq 'QR-H1-V1' } | Select-Object -First 1
 [pscustomobject]@{
   ok = [bool]$first.ok -and [bool]$second.ok
   legacyJwtPreserved = $before['JWT_SECRETO'] -eq 'legacy-test-jwt'
   requestedJwtRotationApplied = $after['JWT_SECRETO'] -eq 'rotated-test-jwt'
   omrSecretSurvivedJwtRotation = $before['OMR_QR_HMAC_SECRET'] -eq $after['OMR_QR_HMAC_SECRET']
   activeKeyIdStable = $before['OMR_QR_HMAC_KEY_ID'] -eq $after['OMR_QR_HMAC_KEY_ID']
+  activeKeyIdIsVersion2 = $after['OMR_QR_HMAC_KEY_ID'] -eq 'qr-h1-v2'
   activeKeyInRing = $ring.($after['OMR_QR_HMAC_KEY_ID']) -eq $after['OMR_QR_HMAC_SECRET']
+  legacyJwtRetainedOnlyAsCandidate = ($null -ne $legacyCandidate) -and ($legacyCandidate.Value -eq 'legacy-test-jwt')
   secretsWereSeparated = $after['OMR_QR_HMAC_SECRET'] -ne $after['JWT_SECRETO']
 } | ConvertTo-Json -Compress
 `.trim();
@@ -2822,12 +2825,41 @@ $ring = $after['OMR_QR_HMAC_SECRETS_JSON'] | ConvertFrom-Json
       requestedJwtRotationApplied: true,
       omrSecretSurvivedJwtRotation: true,
       activeKeyIdStable: true,
+      activeKeyIdIsVersion2: true,
       activeKeyInRing: true,
+      legacyJwtRetainedOnlyAsCandidate: true,
       secretsWereSeparated: true
     });
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('la migración se detiene si una instalación existente declara keyId pero perdió la clave', () => {
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$envMap = @{ OMR_QR_HMAC_KEY_ID='qr-h1-v1' }
+$errorMessage = ''
+try {
+  Ensure-OmrSigningConfig -EnvMap $envMap -LegacyJwtSecret 'legacy-test-jwt' | Out-Null
+} catch {
+  $errorMessage = $_.Exception.Message
+}
+[pscustomobject]@{
+  stopped = -not [string]::IsNullOrWhiteSpace($errorMessage)
+  noReplacementSecretCreated = -not $envMap.ContainsKey('OMR_QR_HMAC_SECRET')
+  errorMessage = $errorMessage
+} | ConvertTo-Json -Compress
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) return;
+  const parsed = parseJsonOutput(result.stdout);
+  assert.deepEqual(parsed, {
+    stopped: true,
+    noReplacementSecretCreated: true,
+    errorMessage: 'Falta la clave OMR activa en una instalación con configuración previa; se cancela para no reemplazar una firma histórica.'
+  });
 });
 
 test('configuracion operativa difiere portal cloud en instalacion minima docente', () => {

@@ -44,15 +44,19 @@ if (entorno === 'production' && !jwtSecreto) {
   throw new Error('JWT_SECRETO es requerido en producción');
 }
 const jwtSecretoEfectivo = jwtSecreto || 'cambia-este-secreto';
-const omrQrHmacSecret = String(process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || jwtSecretoEfectivo;
-const omrQrHmacKeyId = String(process.env.OMR_QR_HMAC_KEY_ID ?? process.env.OMR_QR_RECOVERY_KEY_ID ?? 'qr-h1-v1').trim() || 'qr-h1-v1';
+// La clave OMR es estable e independiente del JWT en producción. Si falta,
+// la app puede iniciar, pero el flujo OMR falla cerrado hasta reparar config.
+const omrQrHmacSecret = String(process.env.OMR_QR_HMAC_SECRET ?? '').trim() ||
+  (entorno === 'production' ? '' : jwtSecretoEfectivo);
+const omrQrHmacKeyId = String(process.env.OMR_QR_HMAC_KEY_ID ?? 'qr-h1-v1').trim() || 'qr-h1-v1';
 if (!/^[A-Za-z0-9_-]{1,20}$/.test(omrQrHmacKeyId)) {
   throw new Error('OMR_QR_HMAC_KEY_ID debe contener entre 1 y 20 caracteres alfanuméricos, guion o guion bajo.');
 }
 const omrRecoveryKeyId =
-  String(process.env.OMR_QR_RECOVERY_KEY_ID ?? process.env.OMR_QR_HMAC_KEY_ID ?? 'recovery-h1-v1').trim() || 'recovery-h1-v1';
+  String(process.env.OMR_QR_RECOVERY_KEY_ID ?? 'recovery-h1-v1').trim() || 'recovery-h1-v1';
 const omrRecoverySecret =
-  String(process.env.OMR_QR_RECOVERY_SECRET ?? process.env.OMR_QR_HMAC_SECRET ?? jwtSecretoEfectivo).trim() || omrQrHmacSecret;
+  String(process.env.OMR_QR_RECOVERY_SECRET ?? process.env.OMR_QR_HMAC_SECRET ?? '').trim() ||
+  (entorno === 'production' ? omrQrHmacSecret : jwtSecretoEfectivo);
 function parsearMapaSecretos(raw: string, fallbackKeyId: string, fallbackSecret: string, variableName: string) {
   const mapa: Record<string, string> = {};
   if (raw.trim()) {
@@ -81,7 +85,11 @@ function parsearMapaSecretos(raw: string, fallbackKeyId: string, fallbackSecret:
       mapa[normalizedKeyId] = normalizedSecret;
     }
   }
-  if (!mapa[fallbackKeyId]) {
+  const fallbackKeyExistente = Object.keys(mapa).find((keyId) => keyId.toLowerCase() === fallbackKeyId.toLowerCase());
+  if (fallbackKeyExistente && fallbackSecret && mapa[fallbackKeyExistente] !== fallbackSecret) {
+    throw new Error(`${variableName} contradice el secreto configurado para el keyId activo.`);
+  }
+  if (!fallbackKeyExistente && fallbackSecret) {
     mapa[fallbackKeyId] = fallbackSecret;
   }
   return mapa;
