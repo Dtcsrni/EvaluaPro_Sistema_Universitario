@@ -188,7 +188,14 @@ test('update API expone check y download con transición válida', { timeout: 18
   const stepUpRes = await fetch(`http://127.0.0.1:${port}/api/support/privileged/step-up`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
   });
-  assert.equal(stepUpRes.status, 400, 'step-up sin código debe rechazarse sin invocar el proveedor');
+  const stepUpResult = await stepUpRes.json();
+  if (process.platform === 'win32') {
+    assert.equal(stepUpRes.status, 400, 'step-up sin código debe rechazarse sin invocar el proveedor');
+    assert.equal(stepUpResult.error, 'step_up_code_invalid_format');
+  } else {
+    assert.equal(stepUpRes.status, 501, 'step-up debe informar que el proveedor solo está disponible en Windows');
+    assert.equal(stepUpResult.error, 'step_up_windows_only');
+  }
 
   const checkRes = await fetch(`http://127.0.0.1:${port}/api/update/check`, {
     method: 'POST',
