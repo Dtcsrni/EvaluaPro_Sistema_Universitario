@@ -1,8 +1,8 @@
 ---
 id: SPEC-150
 titulo: Bandeja nativa e inicio automatico para EvaluaPro docente-local
-version: 1.0.0
-fecha: 2026-11-03
+version: 1.1.0
+fecha: 2026-11-25
 autor: Codex
 modulo: app-host-windows
 estado: approved
@@ -20,12 +20,13 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 - REQ-002: El host crea un `NotifyIcon` nativo con acciones «Abrir EvaluaPro» y «Salir». Doble clic y «Abrir EvaluaPro» restauran la ventana y su estado.
 - REQ-003: Cerrar la ventana principal oculta la ventana y mantiene activos el host, dashboard, API y web. No solicita ni ejecuta shutdown en este camino.
 - REQ-004: «Salir» es la única acción de bandeja que solicita el cierre ordenado de los servicios que el host inició o verificó como propios; luego dispone el icono y cierra el host.
-- REQ-005: La reconciliación nativa crea y verifica un acceso directo por usuario en `Environment.SpecialFolder.Startup`, dirigido al ejecutable canónico con argumento `--tray-start`; la reconciliación es idempotente y no altera los accesos directos existentes.
+- REQ-005: La reconciliación nativa crea y verifica un acceso directo por usuario en `Environment.SpecialFolder.Startup`, dirigido al ejecutable canónico con argumento `--tray-start`; la reconciliación es idempotente y no altera los accesos directos existentes salvo el caso explícito y verificable de REQ-011.
 - REQ-006: El host nativo deshabilita el autoinicio del tray PowerShell en el dashboard. docente-local no depende de `launcher-tray.ps1`, `.vbs`, `powershell.exe`, `pwsh.exe` ni `wscript.exe` para la bandeja o el inicio automático.
 - REQ-007: No se agrega servicio Windows, dependencia de runtime, privilegio elevado ni cambio de datos. La bandeja se ejecuta en la sesión interactiva del usuario.
 - REQ-008: En `docente-local`, una solicitud web a la raíz del supervisor redirige a la Web Docente, excepto cuando `EVALUAPRO_DEBUG=1`. Las rutas `/api/*` del supervisor permanecen disponibles para el host nativo y el panel lateral.
 - REQ-009: La salud del perfil `docente-local` no sondea ni muestra MongoDB. Las verificaciones de los servicios requeridos se ejecutan concurrentemente. Los perfiles que declaran explícitamente runtime Docker conservan su comprobación de MongoDB.
 - REQ-010: `EvaluaPro.exe --shutdown` envía una orden unidireccional de cierre al App Host de la misma ruta, usuario y sesión mediante una tubería local limitada al usuario actual. El cliente devuelve el resultado del envío; el E2E verifica por separado que el host y su árbol Node terminen dentro del timeout.
+- REQ-011: La reconciliación puede archivar únicamente `EvaluaPro docente-local (bandeja).lnk` dentro de Startup cuando su destino corresponda exactamente al patrón `LocalApplicationData\Packages\OpenAI.Codex_*\LocalCache\Local\EvaluaPro\EvaluaPro.exe` y sus argumentos sean exactamente `--tray-start`. Debe moverlo a un backup local, verificar SHA-256, restaurarlo si la verificación falla y conservar cualquier acceso cuya identidad no pueda comprobarse. La operación es idempotente y registra solo estado, nombre de backup y hash.
 
 ## Criterios de Aceptación
 
@@ -38,6 +39,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 7. Abrir directamente el puerto del supervisor en `docente-local` redirige a la Web Docente; modo debug conserva la pantalla administrativa y `/api/status` responde para el host.
 8. En `docente-local` la respuesta de salud omite `mongoLocal`; el perfil Docker mantiene esa verificación. Las comprobaciones independientes se inician en paralelo.
 9. La orden `--shutdown` cierra desde bandeja sin interacción gráfica, conserva los servicios si la identidad del host no coincide y el E2E verifica la terminación del host y su árbol Node.
+10. La reconciliación conserva cualquier acceso Startup no coincidente; el acceso heredado que cumple todos los criterios queda archivado con SHA-256 verificable y no vuelve a aparecer en una segunda ejecución.
 
 ## Matriz de Trazabilidad
 
@@ -48,6 +50,7 @@ Diseño aprobado por el usuario: iniciar con Windows, minimizar al cerrar, deten
 | REQ-006..REQ-007 | Contrato de runtime nativo y empaquetado | Implementado; build local pasa; MSI no publicado |
 | REQ-008..REQ-009 | `scripts/tests/dashboard-native-health.contract.test.mjs`, `scripts/tests/dashboard-repair.test.mjs` | Implementado; 4 contratos enfocados y E2E local del supervisor pasan |
 | REQ-010 | `scripts/tests/app-host-shutdown.contract.test.mjs` + `scripts/tests/installer-hub-e2e-docente.ps1` | Contrato local actualizado; requiere E2E real Windows para verificar la terminación |
+| REQ-011 | `scripts/tests/app-host-tray-lifecycle.contract.test.mjs` | Contrato verifica identidad estricta, archivo reversible y preservación por defecto; requiere validación real del acceso Startup en Windows |
 
 ## Riesgos y decisión
 

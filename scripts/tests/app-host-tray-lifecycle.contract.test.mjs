@@ -47,6 +47,28 @@ test('el acceso de inicio usa Startup por usuario y no sobrescribe otro ejecutab
   assert.match(shortcuts, /CreateShortcutIfOwned\(startupDirectory, "EvaluaPro", executable, root, "--tray-start"/);
 });
 
+test('solo archiva el acceso heredado de Codex cuando nombre, destino y argumento coinciden', () => {
+  assert.match(shortcuts, /const string legacyShortcutName = "EvaluaPro docente-local \(bandeja\)\.lnk"/);
+  assert.match(shortcuts, /IsLegacyCodexTrayTarget\(target\)[\s\S]*?ReadShortcutArguments\(link\), "--tray-start"/);
+  assert.match(shortcuts, /segments\[0\]\.StartsWith\("OpenAI\.Codex_"/);
+  assert.match(shortcuts, /"LocalCache"[\s\S]*?"Local"[\s\S]*?"EvaluaPro"[\s\S]*?"EvaluaPro\.exe"/);
+  assert.match(shortcuts, /segments\.Length == 5/);
+  assert.match(shortcuts, /preserved_unverified/);
+  assert.match(shortcuts, /preserved_unreadable/);
+  assert.match(shortcuts, /not_found/);
+});
+
+test('el archivo conserva bytes en backup y verifica SHA-256 antes de retirar el acceso de Inicio', () => {
+  assert.match(shortcuts, /Backups", "startup-shortcuts"/);
+  assert.match(shortcuts, /inspectedHash = Convert\.ToHexString\(SHA256\.HashData\(File\.ReadAllBytes\(shortcutPath\)\)\)/);
+  assert.match(shortcuts, /preserved_changed_during_inspection/);
+  assert.match(shortcuts, /File\.Move\(shortcutPath, backupPath\)/);
+  assert.match(shortcuts, /SHA256\.HashData\(File\.ReadAllBytes\(backupPath\)\)/);
+  assert.match(shortcuts, /preserved_hash_mismatch/);
+  assert.match(shortcuts, /File\.Move\(backupPath, shortcutPath\)/);
+  assert.match(shortcuts, /legacyStartupShortcutCleanup/);
+});
+
 test('docente-local desactiva el launcher PowerShell duplicado', () => {
   assert.match(window, /EnvironmentVariables\["DASHBOARD_TRAY_AUTOSTART"\] = "0"/);
 });
