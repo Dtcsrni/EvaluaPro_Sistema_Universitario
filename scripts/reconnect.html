@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>Reconectar EvaluaPro</title>
+<style>body{font:16px system-ui,sans-serif;max-width:640px;margin:12vh auto;padding:24px;color:#e8eef8;background:#09111f}main{padding:28px;border:1px solid #26364b;border-radius:18px;background:#111c2d}button{padding:10px 16px;border:1px solid #45617f;border-radius:10px;background:#1a3552;color:inherit;font:inherit;cursor:pointer}#status{min-height:3em;white-space:pre-wrap}</style></head>
+<body><main><h1>Reconectar EvaluaPro</h1><p id="status" role="status" aria-live="polite">Preparando servicios locales…</p><button id="retry" hidden>Intentar de nuevo</button><p><a href="http://127.0.0.1:4173/">Abrir EvaluaPro</a></p></main>
+<script>
+const status=document.getElementById('status'),retry=document.getElementById('retry');let running=false;
+async function json(path,method='GET'){const r=await fetch(path,{method,headers:method==='GET'?{}:{'Content-Type':'application/json'},body:method==='GET'?undefined:'{}',cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);return d}
+async function reconnect(){if(running)return;running=true;retry.hidden=true;status.textContent='Solicitando al supervisor que recupere los servicios…';try{await json('/api/lifecycle/reconcile','POST');const until=Date.now()+60000;while(Date.now()<until){const s=await json('/api/lifecycle/status');if(s.services?.apiDocente?.ok){status.textContent='API docente conectada. Ya puedes volver a la aplicación.';retry.hidden=true;running=false;return}status.textContent='Esperando a que responda la API docente…';await new Promise(r=>setTimeout(r,1200))}throw new Error('La API no respondió en 60 segundos. Puedes volver a intentarlo.')}catch(e){status.textContent=e.message;retry.hidden=false}finally{running=false}}
+retry.onclick=reconnect;if(new URLSearchParams(location.search).get('run')==='1')void reconnect();
+</script></body></html>

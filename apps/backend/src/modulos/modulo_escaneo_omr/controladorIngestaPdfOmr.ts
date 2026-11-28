@@ -34,7 +34,7 @@ import { construirGroundTruthManualOmr, construirMapaOmrPaginaPilotoReal, extrae
 import { recuperarQrIngestaPorGeometria } from './recuperarQrIngesta.js';
 import { segmentarCopiasFormulario, type CopiaFormulario } from './copiasFormularioOmr.js';
 import { rasterizarBloqueIngestaOmr } from './infra/rasterizadorIngestaPdfOmr.js';
-import { evaluarAutoCalificableOmr, OMR_TV4_REAL_PILOT_GATE_PASSED } from './politicaAutoCalificacionOmr.js';
+import { evaluarAutoCalificableOmr, OMR_TV4_REAL_PILOT_GATE_PASSED, proyectarEvidenciaRespuestaAutoCalificacionOmr, type EvidenciaRespuestaAutoCalificacionOmr } from './politicaAutoCalificacionOmr.js';
 import { diagnosticoGatePilotoRealOmr, MENSAJE_PLANTILLA_OMR_NO_COMPATIBLE } from './diagnosticosOmr.js';
 const PAGE_BLOCK_SIZE = 4;
 const RASTER_DPI = 144;
@@ -67,6 +67,7 @@ type PaginaProcesada = {
   scanStatus: 'accepted' | 'needs_review' | 'rejected';
   confidence: number;
   autoGradable: boolean;
+  autoGradingEvidence?: EvidenciaRespuestaAutoCalificacionOmr[];
   omrAnalysis?: {
     estadoAnalisis: 'ok' | 'rechazado_calidad' | 'requiere_revision';
     calidadPagina: number;
@@ -706,9 +707,11 @@ function serializarEstado(job: { id: string; estado: string; totalHojas: number;
     blindReviewMode: true as const,
     reference: { sha256: meta.reference.sha256, pages: meta.reference.pages, pagesWithQr: meta.reference.pagesWithQr, origen: meta.reference.origen ?? 'generada' },
     pages: meta.pages.map((page) => {
+      const publicPage = { ...page };
+      delete publicPage.autoGradingEvidence;
       if (page.scanStatus === 'rejected') {
         return {
-          ...page,
+          ...publicPage,
           responses: Array.isArray(page.responses) ? page.responses.map(proyectarRespuestaParaRevisionOmr) : []
         };
       }
@@ -718,6 +721,7 @@ function serializarEstado(job: { id: string; estado: string; totalHojas: number;
       const paginaSegura: Partial<PaginaProcesada> = { ...page };
       delete paginaSegura.confidence;
       delete paginaSegura.autoGradable;
+      delete paginaSegura.autoGradingEvidence;
       delete paginaSegura.ocrSuggestion;
       delete paginaSegura.identityResult;
       delete paginaSegura.exceptions;
@@ -780,10 +784,11 @@ function errorCalificacionAutomatica(error: unknown) {
 export async function calificarGrupoIngestaOmr(args: {
   docenteId: string;
   exam: Pick<ExamenConRelaciones, 'id' | 'folio' | 'alumnoId' | 'mapaOmr' | 'mapaVariante'>;
-  pages: Array<Pick<PaginaProcesada, 'examPage' | 'scanStatus' | 'autoGradable' | 'manualReviewRequired' | 'responses' | 'omrAnalysis'>>;
+  pages: Array<Pick<PaginaProcesada, 'examPage' | 'scanStatus' | 'autoGradable' | 'manualReviewRequired' | 'responses' | 'omrAnalysis' | 'autoGradingEvidence'>>;
+  paginasOmr?: Array<{ numeroPagina: number; imagenBase64: string }>;
   soloPreview?: boolean;
 }): Promise<ResultadoAutoCalificacionOmr> {
-  const { docenteId, exam, pages, soloPreview = false } = args;
+  const { docenteId, exam, pages, paginasOmr = [], soloPreview = false } = args;
   const map = json<any>(exam.mapaOmr, null);
   const variant = json<any>(exam.mapaVariante, null);
   const expectedPageMaps = (Array.isArray(map?.paginas) ? map.paginas : [])
@@ -823,15 +828,24 @@ export async function calificarGrupoIngestaOmr(args: {
       || actualNumbers.some((number, index) => number !== expectedNumbers[index])) {
       blockCodes.add('OMR_RESPUESTAS_INCOMPLETAS');
     }
+    const evidenceNumbers = page.autoGradingEvidence?.map((response) => Number(response.numeroPregunta)).sort((left, right) => left - right);
+    if (!evidenceNumbers || evidenceNumbers.length !== expectedNumbers.length
+      || evidenceNumbers.some((number, index) => number !== expectedNumbers[index])) {
+      blockCodes.add('OMR_EVIDENCIA_AUTO_INCOMPLETA');
+    }
   }
   if (pagesByNumber.size !== expectedPageNumbers.length) blockCodes.add('OMR_PAGINAS_FUERA_DE_MAPA');
   if (blockCodes.size) return { status: 'needs_review', reasonCodes: [...blockCodes].sort() };
 
   const responses: RespuestaRevisionOmr[] = [];
+  const policyResponses: EvidenciaRespuestaAutoCalificacionOmr[] = [];
   for (const expectedPage of expectedPageMaps) {
-    responses.push(...pagesByNumber.get(Number(expectedPage.numeroPagina))![0]!.responses);
+    const page = pagesByNumber.get(Number(expectedPage.numeroPagina))![0]!;
+    responses.push(...page.responses);
+    policyResponses.push(...page.autoGradingEvidence!);
   }
   responses.sort((left: RespuestaRevisionOmr, right: RespuestaRevisionOmr) => left.numeroPregunta - right.numeroPregunta);
+  policyResponses.sort((left, right) => Number(left.numeroPregunta) - Number(right.numeroPregunta));
   const expectedGlobalNumbers: number[] = Array.from({ length: expectedQuestionCount }, (_, index) => index + 1);
   if (responses.length !== expectedQuestionCount
     || responses.some((response, index) => response.numeroPregunta !== expectedGlobalNumbers[index])
@@ -852,11 +866,7 @@ export async function calificarGrupoIngestaOmr(args: {
     confianzaPromedioPagina: confidence,
     ratioAmbiguas: ambiguousRatio,
     coberturaDeteccion: responses.length / expectedQuestionCount,
-    respuestasDetectadas: responses.map((response) => ({
-      opcion: response.opcion,
-      confianza: response.confianza,
-      ...(response.estadoRespuesta && response.estadoRespuesta !== 'manual_review' ? { estadoRespuesta: response.estadoRespuesta } : {})
-    }))
+    respuestasDetectadas: policyResponses
   });
   if (!policy.autoCalificableOmr) return { status: 'needs_review', reasonCodes: ['OMR_POLITICA_AUTO_NO_CUMPLIDA'] };
 
@@ -884,6 +894,7 @@ export async function calificarGrupoIngestaOmr(args: {
     alumnoId: exam.alumnoId,
     totalReactivos: expectedQuestionCount,
     clientRequestId: uuidCalificacionAutomatica(docenteId, exam.id),
+    paginasOmr,
     ...(soloPreview ? { soloPreview: true } : {}),
     respuestasDetectadas: responses.map((response) => ({
       numeroPregunta: response.numeroPregunta,
@@ -1448,6 +1459,9 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 : [];
               const confidence = Number(result.confianzaPromedioPagina ?? 0);
               const responses: RespuestaRevisionOmr[] = Array.isArray(result.respuestasDetectadas) ? result.respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr) : [];
+              const autoGradingEvidence = Array.isArray(result.respuestasDetectadas)
+                ? result.respuestasDetectadas.map((response: unknown) => proyectarEvidenciaRespuestaAutoCalificacionOmr(response)).filter((response: EvidenciaRespuestaAutoCalificacionOmr | null): response is EvidenciaRespuestaAutoCalificacionOmr => response !== null)
+                : [];
               const motivos = Array.isArray(result.motivosRevision) ? result.motivosRevision.map(String) : [];
               const quality = Number(result.calidadPagina ?? 0);
               const ambiguousRatio = Number(result.ratioAmbiguas ?? 1);
@@ -1458,11 +1472,7 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 confianzaPromedioPagina: confidence,
                 ratioAmbiguas: ambiguousRatio,
                 coberturaDeteccion: coverage,
-                respuestasDetectadas: responses.map((response) => ({
-                  opcion: response.opcion,
-                  confianza: response.confianza,
-                  ...(response.estadoRespuesta && response.estadoRespuesta !== 'manual_review' ? { estadoRespuesta: response.estadoRespuesta } : {})
-                }))
+                respuestasDetectadas: autoGradingEvidence
               }).autoCalificableOmr;
               const responseNumbers = responses.map((response) => response.numeroPregunta).sort((left, right) => left - right);
               const expectedNumbersSorted = [...expectedQuestionNumbers].sort((left, right) => left - right);
@@ -1490,6 +1500,7 @@ async function procesarIngesta(jobId: string, docenteId: string, examenes: Exame
                 scanStatus: accepted && !duplicate && gradosQr === 0 ? 'accepted' : 'needs_review',
                 confidence: Number.isFinite(confidence) ? confidence : 0,
                 autoGradable: automaticEligible,
+                autoGradingEvidence,
                 manualReviewRequired: !automaticEligible,
                 omrAnalysis: {
                   estadoAnalisis: result.estadoAnalisis === 'ok' || result.estadoAnalisis === 'rechazado_calidad' ? result.estadoAnalisis : 'requiere_revision',
@@ -2112,17 +2123,27 @@ export async function previsualizarCalificacionIngestaOmr(req: SolicitudDocente,
       attempts.push({ examId, submissionId, status: 'requires_review', reasonCodes: ['OMR_COPIA_VARIANTE_INCOMPATIBLE'] });
       continue;
     }
-    const pages = metadata.pages
+    const paginasAsociadas = metadata.pages
       .filter((page) => page.examId === form.id && (!submissionId || page.submissionId === submissionId))
-      .map((page) => ({
+    const pages = paginasAsociadas.map((page) => ({
         examPage: page.examPage,
         scanStatus: page.scanStatus,
         autoGradable: page.autoGradable,
         manualReviewRequired: page.manualReviewRequired,
         responses: page.responses,
-        omrAnalysis: page.omrAnalysis
+        omrAnalysis: page.omrAnalysis,
+        autoGradingEvidence: page.autoGradingEvidence
       }));
-    const resultado = await calificarGrupoIngestaOmr({ docenteId, exam, pages, soloPreview: true });
+    let resultado: ResultadoAutoCalificacionOmr;
+    try {
+      const paginasOmr = await rasterizarPaginasFuenteParaReanalisis(jobId, metadata, paginasAsociadas);
+      resultado = await calificarGrupoIngestaOmr({ docenteId, exam, pages, paginasOmr, soloPreview: true });
+    } catch (error) {
+      resultado = {
+        status: 'needs_review',
+        reasonCodes: [error instanceof ErrorAplicacion ? error.codigo : 'OMR_CAPTURA_ORIGINAL_NO_DISPONIBLE']
+      };
+    }
     attempts.push({
       examId,
       submissionId,
@@ -2139,6 +2160,66 @@ export async function previsualizarCalificacionIngestaOmr(req: SolicitudDocente,
 
   res.setHeader('Cache-Control', 'private, no-store');
   return res.status(200).json({ jobId, loteId: metadata.loteId, attempts });
+}
+
+async function rasterizarPaginasFuenteParaReanalisis(
+  jobId: string,
+  metadata: MetadataIngesta,
+  paginas: PaginaProcesada[]
+): Promise<Array<{ numeroPagina: number; imagenBase64: string }>> {
+  const archivosPorId = new Map(metadata.files.map((file) => [file.id, file]));
+  const bytesPorArchivo = new Map<string, Buffer>();
+  const paginasPorArchivo = new Map<string, Array<{ numeroPagina: number; numeroFuente: number }>>();
+
+  for (const pagina of paginas) {
+    const numeroPagina = Number(pagina.examPage);
+    const numeroFuente = Number(pagina.sourcePage);
+    if (!Number.isInteger(numeroPagina) || numeroPagina < 1 || !Number.isInteger(numeroFuente) || numeroFuente < 1) {
+      throw new ErrorAplicacion('OMR_ASOCIACION_FUENTE_INVALIDA', 'La página no tiene una asociación válida con el documento original.', 422);
+    }
+    const archivo = archivosPorId.get(pagina.sourceFileId);
+    if (!archivo) throw new ErrorAplicacion('OMR_ORIGINAL_NO_ENCONTRADO', 'El PDF original de una página del examen ya no está disponible.', 404);
+    let bytes = bytesPorArchivo.get(archivo.id);
+    if (!bytes) {
+      bytes = await fs.readFile(resolverRutaIngesta(jobId, archivo.relativePath));
+      if (sha256(bytes) !== archivo.sha256) {
+        throw new ErrorAplicacion('OMR_ORIGINAL_HASH_INVALIDO', 'El PDF original no coincide con el hash registrado en el job.', 409);
+      }
+      bytesPorArchivo.set(archivo.id, bytes);
+    }
+    const grupo = paginasPorArchivo.get(archivo.id) ?? [];
+    grupo.push({ numeroPagina, numeroFuente });
+    paginasPorArchivo.set(archivo.id, grupo);
+  }
+
+  const imagenesPorFuente = new Map<string, string>();
+  for (const [archivoId, paginasArchivo] of paginasPorArchivo) {
+    const bytes = bytesPorArchivo.get(archivoId)!;
+    const numerosFuente = [...new Set(paginasArchivo.map((pagina) => pagina.numeroFuente))].sort((left, right) => left - right);
+    for (let indice = 0; indice < numerosFuente.length;) {
+      let fin = indice + 1;
+      while (fin < numerosFuente.length && fin - indice < PAGE_BLOCK_SIZE && numerosFuente[fin] === numerosFuente[fin - 1]! + 1) fin += 1;
+      const bloque = numerosFuente.slice(indice, fin);
+      const raster = await rasterizarBloqueIngestaOmr(bytes, bloque[0]!, bloque.length);
+      for (const numeroFuente of bloque) {
+        const imagen = raster.paginas.get(numeroFuente);
+        if (!imagen?.dataUrl || raster.fallidas.has(numeroFuente)) {
+          throw new ErrorAplicacion('OMR_PAGINA_ORIGINAL_NO_DISPONIBLE', 'No se pudo renderizar una página fuente para volver a leerla.', 409);
+        }
+        imagenesPorFuente.set(`${archivoId}:${numeroFuente}`, imagen.dataUrl);
+      }
+      indice = fin;
+    }
+  }
+
+  return paginas.map((pagina) => {
+    const archivoId = pagina.sourceFileId;
+    const numeroPagina = Number(pagina.examPage);
+    const numeroFuente = Number(pagina.sourcePage);
+    const imagenBase64 = imagenesPorFuente.get(`${archivoId}:${numeroFuente}`);
+    if (!imagenBase64) throw new ErrorAplicacion('OMR_PAGINA_ORIGINAL_NO_DISPONIBLE', 'No se pudo recuperar una página fuente para volver a leerla.', 409);
+    return { numeroPagina, imagenBase64 };
+  });
 }
 
 export async function recuperarIngestaPdfOmrPorClave(req: SolicitudDocente, res: Response) {

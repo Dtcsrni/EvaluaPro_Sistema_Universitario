@@ -15,7 +15,7 @@ import { analizarImagen } from './controladorEscaneoOmr.js';
 import { esquemaListarJobsOmr } from './validacionesOmr.js';
 import { proyectarRespuestaParaRevisionOmr, type RespuestaRevisionOmr } from './omr/decision/respuestaRevision.js';
 import { resolverPaginaCapturableOmr } from './paginasCapturablesOmr.js';
-import { evaluarAutoCalificableOmr, respuestasCubrenReactivosEsperadosOmr } from './politicaAutoCalificacionOmr.js';
+import { evaluarAutoCalificableOmr, respuestasCubrenReactivosEsperadosOmr, proyectarEvidenciaRespuestaAutoCalificacionOmr, type EvidenciaRespuestaAutoCalificacionOmr } from './politicaAutoCalificacionOmr.js';
 import { calificarGrupoIngestaOmr, type ResultadoAutoCalificacionOmr } from './controladorIngestaPdfOmr.js';
 
 type CapturaOmr = { nombreArchivo?: string; imagenBase64: string };
@@ -31,6 +31,7 @@ export type PaginaJob = {
   scanStatus: 'accepted' | 'needs_review' | 'rejected' | 'ignored';
   confidence: number;
   autoGradable: boolean;
+  autoGradingEvidence?: EvidenciaRespuestaAutoCalificacionOmr[];
   manualReviewRequired: boolean;
   identityResult?: { studentId?: string | null; studentName?: string | null };
   versionResult?: { versionCode?: string | null };
@@ -164,6 +165,8 @@ export function convertirResultadoAPagina(
   const estadoBase: PaginaJob['scanStatus'] = estado === 'ok' ? 'accepted' : estado === 'rechazado_calidad' ? 'rejected' : 'needs_review';
   const motivos = Array.isArray(resultado.motivosRevision) ? resultado.motivosRevision.map((item: unknown) => String(item)).filter(Boolean) : [];
   const respuestasDetectadas = Array.isArray(resultado.respuestasDetectadas) ? resultado.respuestasDetectadas : [];
+  const autoGradingEvidence = respuestasDetectadas.map((response: unknown) => proyectarEvidenciaRespuestaAutoCalificacionOmr(response))
+    .filter((response: EvidenciaRespuestaAutoCalificacionOmr | null): response is EvidenciaRespuestaAutoCalificacionOmr => response !== null);
   const respuestas = respuestasDetectadas.length > 0
     ? respuestasDetectadas.map(proyectarRespuestaParaRevisionOmr)
     : [];
@@ -202,6 +205,7 @@ export function convertirResultadoAPagina(
     identityResult: { studentId: payload?.alumnoId ?? null },
     versionResult: { versionCode: null },
     responses: respuestas,
+    autoGradingEvidence,
     exceptions: motivos.map((message: string, index: number) => ({
       code: `OMR_REVIEW_${index + 1}`,
       severity: scanStatus === 'rejected' ? 'blocking' : 'warning',
@@ -251,11 +255,15 @@ function toPublicJob(job: { id: string; estado: string; totalHojas: number; proc
     errors: [],
     reviewResolutions: []
   });
-  const pages = Array.isArray(metadata.pages) ? metadata.pages.map((page) => ({
-    ...page,
-    resultado: page.resultado ? { ...page.resultado, qrTexto: undefined } : undefined,
-    responses: Array.isArray(page.responses) ? page.responses.map(proyectarRespuestaParaRevisionOmr) : []
-  })) : [];
+  const pages = Array.isArray(metadata.pages) ? metadata.pages.map((page) => {
+    const publicPage = { ...page };
+    delete publicPage.autoGradingEvidence;
+    return {
+      ...publicPage,
+      resultado: page.resultado ? { ...page.resultado, qrTexto: undefined } : undefined,
+      responses: Array.isArray(page.responses) ? page.responses.map(proyectarRespuestaParaRevisionOmr) : []
+    };
+  }) : [];
   const accepted = pages.filter((page) => page.scanStatus === 'accepted').length;
   const needsReview = pages.filter((page) => page.scanStatus === 'needs_review').length;
   const rejected = pages.filter((page) => page.scanStatus === 'rejected').length;
@@ -408,6 +416,7 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
 
   const paginasEntrada = await expandirCapturas(body.capturas, body.sourceType);
   const paginas: PaginaJob[] = [];
+  const paginasOmrParaReanalisis: Array<{ numeroPagina: number; imagenBase64: string }> = [];
   const errors: ErrorJob[] = [];
   await prisma.omrScanJob.update({ where: { id: job.id }, data: { totalHojas: paginasEntrada.length } });
 
@@ -462,6 +471,9 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
       });
       await prisma.omrScanJob.update({ where: { id: job.id }, data: { procesadas: paginas.length } });
       continue;
+    }
+    if (entrada.imagenBase64) {
+      paginasOmrParaReanalisis.push({ numeroPagina: numeroPaginaOmr, imagenBase64: entrada.imagenBase64 });
     }
     try {
       const payload = await ejecutarAnalisisInterno({ docenteId, folio: examen.folio, numeroPagina: numeroPaginaOmr, imagenBase64: entrada.imagenBase64 ?? '' });
@@ -518,12 +530,14 @@ export async function crearJobOmr(req: SolicitudDocente, res: Response) {
     automaticGrade = await calificarGrupoIngestaOmr({
       docenteId,
       exam: examen,
+      paginasOmr: paginasOmrParaReanalisis,
       pages: automaticPages.map((page) => ({
         examPage: page.pageIndex,
         scanStatus: page.scanStatus === 'ignored' ? 'needs_review' : page.scanStatus,
         autoGradable: page.autoGradable,
         manualReviewRequired: page.manualReviewRequired,
         responses: page.responses,
+        autoGradingEvidence: page.autoGradingEvidence,
         omrAnalysis: page.resultado ? {
           estadoAnalisis: page.resultado.estadoAnalisis === 'ok' || page.resultado.estadoAnalisis === 'rechazado_calidad' ? page.resultado.estadoAnalisis : 'requiere_revision',
           calidadPagina: page.resultado.calidadPagina,

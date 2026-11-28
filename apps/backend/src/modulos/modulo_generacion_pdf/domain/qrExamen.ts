@@ -66,12 +66,14 @@ function resolverSecretoQrPorKeyId(keyId: string | undefined) {
 }
 
 function hmacCorto(valor: string, length = 24, keyId = configuracion.omrQrHmacKeyId) {
-  const secret = resolverSecretoQrPorKeyId(keyId) ?? configuracion.omrQrHmacSecret;
+  const secret = resolverSecretoQrPorKeyId(keyId);
+  if (!secret) throw new Error(`No hay una clave OMR configurada para firmar QR (${String(keyId ?? 'sin keyId')}).`);
   return createHmac('sha256', secret).update(valor).digest('hex').slice(0, length).toUpperCase();
 }
 
 function hmacQrCorto(valor: string, keyId = configuracion.omrQrHmacKeyId) {
-  const secret = resolverSecretoQrPorKeyId(keyId) ?? configuracion.omrQrHmacSecret;
+  const secret = resolverSecretoQrPorKeyId(keyId);
+  if (!secret) throw new Error(`No hay una clave OMR configurada para firmar QR (${String(keyId ?? 'sin keyId')}).`);
   return createHmac('sha256', secret).update(valor).digest().subarray(0, 12).toString('base64url');
 }
 
@@ -345,7 +347,7 @@ function resolverFirmaQrCorto(firma: string | undefined, identidadFirmada: strin
   }
 
   const candidatos = [
-    [configuracion.omrQrHmacKeyId, resolverSecretoQrPorKeyId(configuracion.omrQrHmacKeyId) ?? configuracion.omrQrHmacSecret] as const,
+    [configuracion.omrQrHmacKeyId, resolverSecretoQrPorKeyId(configuracion.omrQrHmacKeyId)] as const,
     ...Object.entries(configuracion.omrQrHmacSecrets)
   ];
   const secretosVistos = new Set<string>();

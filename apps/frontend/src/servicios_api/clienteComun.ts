@@ -433,7 +433,7 @@ export async function fetchConManejoErrores<T>(opts: {
   fetcher: (signal: AbortSignal) => Promise<unknown>;
   mensajeServicio: string;
   timeoutMs?: number;
-  toastUnreachable: { id: string; title: string; message: string };
+  toastUnreachable: { id: string; title: string; message: string; action?: ToastAction };
   toastTimeout?: { id: string; title: string; message: string };
   toastServerError: { id: string; title: string; message: (status: number | undefined) => string };
   retry?: { intentos?: number; baseMs?: number; maxMs?: number; jitterMs?: number };
@@ -496,7 +496,8 @@ export async function fetchConManejoErrores<T>(opts: {
           level: 'error',
           title: opts.toastUnreachable.title,
           message: opts.toastUnreachable.message,
-          durationMs: 5200
+          durationMs: 5200,
+          ...(opts.toastUnreachable.action ? { action: opts.toastUnreachable.action } : {})
         });
       }
       throw new ErrorRemoto(opts.mensajeServicio, { mensaje: 'Sin conexion', detalles: String(error) });
@@ -535,6 +536,7 @@ type ToastDescriptor = {
   id: string;
   title: string;
   message: string;
+  action?: ToastAction;
 };
 
 type ToastServerDescriptor = {

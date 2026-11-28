@@ -370,8 +370,10 @@ describe('validador piloto real TV4', () => {
     const cohort = JSON.parse(sourceCohortBytes.toString('utf8')) as {
       corpusId: string;
       examBatchId: string;
+      expectedFolios: number;
+      sourceAssetsStatus: string;
       sourceCapturePdfs: Array<{ fileName: string; sha256: string; bytes: number; pages: number }>;
-      referencePdf: { fileName: string; sha256: string; bytes: number; pages: number };
+      referencePdf: { fileName: string; sha256: string; bytes: number; pages: number } | null;
       expectedScannedPages: number;
       groundTruth: { status: string; predictionsAreGroundTruth: boolean };
       privacy: {
@@ -383,44 +385,22 @@ describe('validador piloto real TV4', () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'evaluapro-tv4-latest-lot-'));
     try {
       expect(cohort).toMatchObject({
-        corpusId: 'latest-real-omr-lote-7CC16F5D',
-        examBatchId: '7CC16F5D',
-        expectedScannedPages: 48,
-        sourceCapturePdfs: [
-          {
-            fileName: 'CamScanner 07-11-2026 02.33.pdf',
-            sha256: '13FEFA772B35D5123501A117D20976FB87D6EB5B3B3A04877F4C6C67EA24A712',
-            bytes: 135988826,
-            pages: 47
-          },
-          {
-            fileName: 'CamScanner 07-11-2026 03.12.pdf',
-            sha256: '7CE07F68043B99FC1267A0DB80EB990899E587432E9ED9235E27F54374064212',
-            bytes: 2216701,
-            pages: 1
-          }
-        ],
-        referencePdf: {
-          fileName: 'evaluapro_paquete_examenes_materia-Legalidad_Y_Marketing_En_La_Empresa_plantilla-Examen_Global_-_Legalidad_y_Marketin_total-12_lote-7CC16F5D.pdf',
-          sha256: 'E088EEEBFC54BF3C59585AC0E8A02DEF3E38370EF2CD2265467708C150C6B2E0',
-          bytes: 8777717,
-          pages: 48
-        },
-        groundTruth: { status: 'pending_blind_human_review', predictionsAreGroundTruth: false },
+        corpusId: 'latest-engineering-software-omr-lote-644A8439',
+        examBatchId: '644A8439',
+        expectedFolios: 4,
+        expectedScannedPages: 8,
+        sourceAssetsStatus: 'available_outside_repository_not_imported',
+        sourceCapturePdfs: [],
+        referencePdf: null,
+        groundTruth: { status: 'pending_source_assets_and_blind_human_review', predictionsAreGroundTruth: false },
         privacy: {
           descriptorContainsPersonalData: false,
           sourcePdfsMayContainPersonalData: true,
           sourcePdfsStoredInRepository: false
         }
       });
-      expect(cohort.sourceCapturePdfs.map((pdf) => pdf.pages)).toEqual([47, 1]);
-      expect(cohort.sourceCapturePdfs.reduce((total, pdf) => total + pdf.pages, 0)).toBe(cohort.expectedScannedPages);
-      expect(cohort.sourceCapturePdfs.every((pdf) => /^[A-F0-9]{64}$/.test(pdf.sha256) && pdf.bytes > 0)).toBe(true);
-      expect(cohort.referencePdf).toMatchObject({ pages: 48 });
-      expect(/^[A-F0-9]{64}$/.test(cohort.referencePdf.sha256)).toBe(true);
-      for (const pdf of cohort.sourceCapturePdfs) {
-        await expect(fs.access(path.join(datasetRoot, 'source', pdf.fileName))).rejects.toThrow();
-      }
+      expect(cohort.sourceCapturePdfs).toHaveLength(0);
+      expect(cohort.referencePdf).toBeNull();
       expect(manifest.capturas).toHaveLength(0);
 
       const resultado = await runTv4PilotRealValidation({

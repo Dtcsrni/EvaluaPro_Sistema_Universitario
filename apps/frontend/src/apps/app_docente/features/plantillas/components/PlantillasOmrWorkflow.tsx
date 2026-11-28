@@ -902,7 +902,7 @@ export function PlantillasOmrWorkflow({
         </Boton>
       </div>
       {selectionError && <InlineMensaje tipo="error">{selectionError}</InlineMensaje>}
-      {files.some(esArchivoPdf) && !selectionError && <InlineMensaje tipo="info">EvaluaPro conservará el original, procesará páginas por bloques, cotejará cada QR con el lote y preparará paquetes. Al terminar, guardará automáticamente las notas de exámenes completos que pasen los controles de identidad, mapa, calidad y confianza; los casos no verificables quedarán para revisión.</InlineMensaje>}
+      {files.some(esArchivoPdf) && !selectionError && <InlineMensaje tipo="info">EvaluaPro limita este job al lote seleccionado, conserva los originales y coteja cada QR antes de preparar paquetes. Todas las páginas de un examen deben pertenecer al mismo lote y estar completas; páginas de otro lote, duplicadas o faltantes quedan para revisión. Si varios grupos son de la misma clase pero tienen lotes distintos, separa el PDF por lote y procesa cada lote por separado. La calificación automática solo opera si el gate del piloto está habilitado y el examen pasa todos los controles.</InlineMensaje>}
       {referencePdf && !selectionError && <InlineMensaje tipo="info">El PDF de referencia se conserva solo con este job. La ingesta falla si no coinciden todas las páginas y los QR firmados del lote.</InlineMensaje>}
 
       {panelHistorialOmr}

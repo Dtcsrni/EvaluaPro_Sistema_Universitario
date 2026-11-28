@@ -162,6 +162,7 @@ internal static class NativeInstallerHelper
             ["dataDir"] = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EvaluaPro", "data"),
             ["flavorId"] = flavorId,
             ["version"] = ReadPackageVersion(packagePath),
+            ["hubVersion"] = ReadConfigVersion(Path.Combine(installDir, "config", "hub-version.json")),
             ["manifestPresent"] = manifestPresent,
             ["payloadPresent"] = payloadPresent,
             ["dataPresent"] = Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EvaluaPro", "data")),
@@ -932,6 +933,18 @@ internal static class NativeInstallerHelper
         {
             using var package = JsonDocument.Parse(File.ReadAllText(path));
             return package.RootElement.GetProperty("version").GetString() ?? string.Empty;
+        }
+        catch { return string.Empty; }
+    }
+
+    private static string ReadConfigVersion(string path)
+    {
+        try
+        {
+            using var config = JsonDocument.Parse(File.ReadAllText(path));
+            return config.RootElement.TryGetProperty("version", out var version)
+                ? version.GetString() ?? string.Empty
+                : string.Empty;
         }
         catch { return string.Empty; }
     }

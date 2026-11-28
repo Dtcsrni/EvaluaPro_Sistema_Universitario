@@ -20,6 +20,91 @@ function New-GeneratedSecret {
   }
 }
 
+function Ensure-OmrSigningConfig {
+  param(
+    [Parameter(Mandatory = $true)][System.Collections.IDictionary]$EnvMap,
+    [string]$LegacyJwtSecret = ''
+  )
+
+  $configuredKeyId = [string]$EnvMap['OMR_QR_HMAC_KEY_ID']
+  $keyIdWasConfigured = -not [string]::IsNullOrWhiteSpace($configuredKeyId)
+  $keyId = if ($keyIdWasConfigured) { $configuredKeyId } else { 'qr-h1-v1' }
+  $keyId = $keyId.Trim()
+  if ($keyId -notmatch '^[A-Za-z0-9_-]{1,20}$') {
+    throw 'OMR_QR_HMAC_KEY_ID debe contener entre 1 y 20 caracteres alfanuméricos, guion o guion bajo.'
+  }
+
+  $keyRing = @{}
+  $seenKeyIds = @{}
+  $rawKeyRing = [string]$EnvMap['OMR_QR_HMAC_SECRETS_JSON']
+  if (-not [string]::IsNullOrWhiteSpace($rawKeyRing)) {
+    try {
+      $parsedKeyRing = ConvertFrom-Json -InputObject $rawKeyRing -ErrorAction Stop
+    } catch {
+      throw 'OMR_QR_HMAC_SECRETS_JSON está mal formado; se cancela para no perder claves firmantes.'
+    }
+    if ($parsedKeyRing -is [System.Collections.IDictionary]) {
+      foreach ($entry in $parsedKeyRing.GetEnumerator()) {
+        if ($entry.Value -isnot [string]) { throw 'OMR_QR_HMAC_SECRETS_JSON debe asociar cada keyId con un secreto de texto.' }
+        $canonicalKeyId = ([string]$entry.Key).ToLowerInvariant()
+        if ($seenKeyIds.ContainsKey($canonicalKeyId) -and $seenKeyIds[$canonicalKeyId] -cne [string]$entry.Value) {
+          throw 'OMR_QR_HMAC_SECRETS_JSON contiene keyId duplicados con valores contradictorios.'
+        }
+        $seenKeyIds[$canonicalKeyId] = [string]$entry.Value
+        $keyRing[[string]$entry.Key] = [string]$entry.Value
+      }
+    } elseif ($parsedKeyRing -is [System.Management.Automation.PSCustomObject]) {
+      foreach ($property in $parsedKeyRing.PSObject.Properties) {
+        if ($property.Value -isnot [string]) { throw 'OMR_QR_HMAC_SECRETS_JSON debe asociar cada keyId con un secreto de texto.' }
+        $canonicalKeyId = $property.Name.ToLowerInvariant()
+        if ($seenKeyIds.ContainsKey($canonicalKeyId) -and $seenKeyIds[$canonicalKeyId] -cne [string]$property.Value) {
+          throw 'OMR_QR_HMAC_SECRETS_JSON contiene keyId duplicados con valores contradictorios.'
+        }
+        $seenKeyIds[$canonicalKeyId] = [string]$property.Value
+        $keyRing[$property.Name] = [string]$property.Value
+      }
+    } else {
+      throw 'OMR_QR_HMAC_SECRETS_JSON debe ser un objeto de identificadores y secretos.'
+    }
+    foreach ($entryKey in @($keyRing.Keys)) {
+      if ($entryKey -notmatch '^[A-Za-z0-9_-]{1,20}$' -or [string]::IsNullOrWhiteSpace([string]$keyRing[$entryKey])) {
+        throw 'OMR_QR_HMAC_SECRETS_JSON contiene una clave inválida; se cancela para no perder claves firmantes.'
+      }
+    }
+  }
+
+  $configuredSecret = ([string]$EnvMap['OMR_QR_HMAC_SECRET']).Trim()
+  $ringSecret = if ($keyRing.ContainsKey($keyId)) { [string]$keyRing[$keyId] } else { '' }
+  if ($configuredSecret -and $ringSecret -and $configuredSecret -cne $ringSecret) {
+    throw 'OMR_QR_HMAC_SECRET contradice la entrada activa de OMR_QR_HMAC_SECRETS_JSON.'
+  }
+  $activeSecret = if ($ringSecret) { $ringSecret } elseif ($configuredSecret) { $configuredSecret } else { '' }
+  if (-not $activeSecret) {
+    if ($keyRing.Count -gt 0 -or $keyIdWasConfigured) {
+      throw 'Falta la clave OMR activa en una instalación con configuración previa; se cancela para no reemplazar una firma histórica.'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($LegacyJwtSecret)) {
+      # Conserva JWT solo como candidato de verificación para QR históricos.
+      # No lo uses para firmar: puede no ser la clave con que se imprimieron.
+      $legacyKeyId = 'QR-H1-V1'
+      if (-not $keyRing.ContainsKey($legacyKeyId)) {
+        $keyRing[$legacyKeyId] = $LegacyJwtSecret.Trim()
+      }
+      $keyId = 'qr-h1-v2'
+    } else {
+      # Una instalación nueva comienza con una clave OMR independiente.
+      $keyId = 'qr-h1-v1'
+    }
+    $activeSecret = New-GeneratedSecret
+  }
+
+  $keyRing[$keyId] = $activeSecret
+  $EnvMap['OMR_QR_HMAC_KEY_ID'] = $keyId
+  $EnvMap['OMR_QR_HMAC_SECRET'] = $activeSecret
+  $EnvMap['OMR_QR_HMAC_SECRETS_JSON'] = ConvertTo-Json -InputObject $keyRing -Compress -Depth 4
+  return [pscustomobject]@{ keyId = $keyId; secretPresent = [bool]$activeSecret; keyCount = $keyRing.Count }
+}
+
 function Get-InstallerHubConfigValue {
   param(
     [hashtable]$InputConfig,
@@ -42,13 +127,14 @@ function Get-InstallerHubConfigValue {
   return $DefaultValue
 }
 
-function Merge-ExistingOAuthConfig {
+function Merge-ExistingRuntimeSecretsConfig {
   param(
     [hashtable]$InputConfig,
     [hashtable]$ExistingEnv
   )
 
   $mappings = @(
+    @{ config = 'jwtSecreto'; env = 'JWT_SECRETO' },
     @{ config = 'googleOauthClientId'; env = 'GOOGLE_OAUTH_CLIENT_ID' },
     @{ config = 'googleClassroomClientId'; env = 'GOOGLE_CLASSROOM_CLIENT_ID' },
     @{ config = 'googleClassroomClientSecret'; env = 'GOOGLE_CLASSROOM_CLIENT_SECRET' },
@@ -441,8 +527,9 @@ function Invoke-EvaluaProOperationalConfiguration {
   )
   $envPath = Join-Path $InstallDir '.env'
   $envMap = if ($Mode -eq 'uninstall') { @{} } else { Read-EnvMap -Path $envPath }
+  $legacyJwtSecret = if ($envMap.ContainsKey('JWT_SECRETO')) { [string]$envMap['JWT_SECRETO'] } else { '' }
   if ($Mode -ne 'uninstall') {
-    Merge-ExistingOAuthConfig -InputConfig $Config -ExistingEnv $envMap
+    Merge-ExistingRuntimeSecretsConfig -InputConfig $Config -ExistingEnv $envMap
   }
   $normalized = Normalize-OperationalConfig -InputConfig $Config
   $validation = Test-OperationalConfig -Mode $Mode -Config $normalized
@@ -457,6 +544,10 @@ function Invoke-EvaluaProOperationalConfiguration {
 
   if (-not (Test-Path $InstallDir)) {
     throw "No existe carpeta de instalacion para escribir .env: $InstallDir"
+  }
+
+  if ($normalized.flavorId -eq 'docente-local' -and $normalized.nodeEnv -eq 'production') {
+    Ensure-OmrSigningConfig -EnvMap $envMap -LegacyJwtSecret $legacyJwtSecret | Out-Null
   }
 
   Set-OrReplaceEnvLine -Map $envMap -Key 'DATABASE_URL' -Value $normalized.databaseUrl
@@ -629,6 +720,7 @@ function Invoke-EvaluaProOperationalConfiguration {
 
 Export-ModuleMember -Function @(
   'ConvertTo-InstallerHubBool',
+  'Ensure-OmrSigningConfig',
   'Invoke-EvaluaProOperationalConfiguration',
   'Normalize-OperationalConfig',
   'Test-OperationalConfig',

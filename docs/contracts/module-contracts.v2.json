@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "host": {
-    "version": "1.2.25",
+    "version": "1.2.29",
     "compatibility": ">=1.2.6 <2.0.0"
   },
   "persistence": {
@@ -502,7 +502,7 @@
         },
         {
           "module": "modulo_escaneo_omr",
-          "contractRange": "^2.0.0"
+          "contractRange": "^3.0.0"
         },
         {
           "module": "modulo_generacion_pdf",
@@ -747,7 +747,7 @@
     },
     {
       "id": "modulo_escaneo_omr",
-      "contractVersion": "2.1.0",
+      "contractVersion": "3.0.0",
       "entry": "apps/backend/src/modulos/modulo_escaneo_omr/index.ts",
       "hostCompatibility": ">=1.2.6 <2.0.0",
       "purpose": "Ingesta y análisis de hojas OMR.",
@@ -843,6 +843,39 @@
               "signature": "{ respuestasDetectadas: ResultadoOmr[\"respuestasDetectadas\"]; analisis: { estadoAnalisis: ResultadoOmr[\"estadoAnalisis\"]; calidadPagina: number; confianzaPromedioPagina: number; ratioAmbiguas: number; templateVersionDetectada: 4; motivosRevision: string[]; engineVersion: string; geomQuality: number; photoQuality: number; decisionPolicy: string; qrTexto: string; resumenRespuestas: NonNullable<ResultadoOmr[\"resumenRespuestas\"]>; bonoVisible: boolean; bonoOcrResuelto: boolean; bonoOcrConfianza: number; }; paginas: Array<{ numeroPagina: number; sha256Imagen: string; qrTexto: string; estadoAnalisis: ResultadoOmr[\"estadoAnalisis\"]; calidadPagina: number; confianzaPromedioPagina: number; ratioAmbiguas: number; engineVersion: string; decisionPolicy: string; }>; }"
             }
           ]
+        },
+        {
+          "version": "3.0.0",
+          "exports": [
+            {
+              "name": "analizarPaginasOmrParaCalificacion",
+              "signature": "(params: { folio: string; mapaOmr: MapaOmrExamen; paginasExamen: PaginaExamenOmr[]; paginasCapturadas: PaginaCapturadaOmr[]; totalPreguntasEsperadas: number; analizar?: AnalizadorPaginaOmr; leerBono?: typeof leerBonoVisibleOmr; }) => Promise<ResultadoCalificacionOmrLocal>"
+            },
+            {
+              "name": "evaluarAutoCalificableOmr",
+              "signature": "(args: EntradaAutoCalificacionOmr) => { hardStop: boolean; rescateAltaPrecision: boolean; autoCalificableOmr: boolean; motivos: string[]; }"
+            },
+            {
+              "name": "leerCapturasOmrParaPortal",
+              "signature": "(folio: string) => Promise<Array<{ numeroPagina: number; formato: \"webp\"; imagenBase64: string; calidad?: number; sugerencias?: string[]; }>>"
+            },
+            {
+              "name": "leerQrDesdeImagen",
+              "signature": "(imagenBase64: string) => Promise<string | undefined>"
+            },
+            {
+              "name": "obtenerTransformacion",
+              "signature": "(gray: Uint8ClampedArray, width: number, height: number, advertencias: string[], qr?: QrDetalle | null, opciones?: { margenMm: number; qrSizePts: number; qrGeometry?: { x: number; y: number; size: number; marginModules?: number; matrixModules?: number; errorCorrectionLevel?: \"L\" | \"M\" | \"Q\" | \"H\"; textoEsperado?: string | string[]; }; marcasPagina?: { tipo?: \"lineas\" | \"cuadrados\"; size?: number; quietZone?: number; orientacion?: { esquina: \"tl\"; tipo: \"centro_vacio\"; radio: number; }; tl?: Punto; tr?: Punto; bl?: Punto; br?: Punto; }; qrOrientacionFuenteGrados?: 0 | 90 | 180 | 270; anchoCarta: number; altoCarta: number; mmAPuntos: number; }) => { transformar: (punto: Punto) => { x: number; y: number; }; tipo: \"homografia\"; referenciaPagina: { fuenteOrientacion: \"indeterminada\" | \"qr\" | \"qr_patron_esperado\" | \"fiducial_direccional\"; conflictoOrientacion: boolean; confianzaOrientacion?: number | undefined; margenOrientacion?: number | undefined; orientacionDeterminada: boolean; orientacionGrados?: 0 | 180 | 90 | 270 | undefined; inclinacionGrados?: number | undefined; tipo: \"marcas_esquina\"; calidad: number; puntosDetectados: number; }; } | { transformar: (punto: Punto) => { x: number; y: number; }; tipo: \"qr\"; referenciaPagina: { orientacionDeterminada: boolean; fuenteOrientacion: \"qr\"; conflictoOrientacion: boolean; orientacionGrados: 0 | 90 | 180 | 270; inclinacionGrados: number; tipo: \"qr\"; calidad: number; puntosDetectados: number; }; } | { transformar: (punto: Punto) => { x: number; y: number; }; tipo: \"escala\"; referenciaPagina: { tipo: \"escala\"; calidad: number; puntosDetectados: number; orientacionDeterminada: boolean; fuenteOrientacion: \"indeterminada\"; conflictoOrientacion: boolean; }; }"
+            },
+            {
+              "name": "OMR_TV4_REAL_PILOT_GATE_PASSED",
+              "signature": "boolean"
+            },
+            {
+              "name": "ResultadoCalificacionOmrLocal",
+              "signature": "{ respuestasDetectadas: ResultadoOmr[\"respuestasDetectadas\"]; analisis: { estadoAnalisis: ResultadoOmr[\"estadoAnalisis\"]; calidadPagina: number; confianzaPromedioPagina: number; ratioAmbiguas: number; templateVersionDetectada: 4; motivosRevision: string[]; engineVersion: string; geomQuality: number; photoQuality: number; decisionPolicy: string; qrTexto: string; resumenRespuestas: NonNullable<ResultadoOmr[\"resumenRespuestas\"]>; bonoVisible: boolean; bonoOcrResuelto: boolean; bonoOcrConfianza: number; }; paginas: Array<{ numeroPagina: number; sha256Imagen: string; qrTexto: string; estadoAnalisis: ResultadoOmr[\"estadoAnalisis\"]; calidadPagina: number; confianzaPromedioPagina: number; ratioAmbiguas: number; engineVersion: string; decisionPolicy: string; }>; }"
+            }
+          ]
         }
       ],
       "compositionEntry": "apps/backend/src/modulos/modulo_escaneo_omr/composition.ts",
@@ -895,6 +928,35 @@
         },
         {
           "version": "2.1.0",
+          "exports": [
+            {
+              "name": "configurarCalificadorAutomaticoOmr",
+              "signature": "(calificador: CalificadorAutomaticoOmr) => void"
+            },
+            {
+              "name": "configurarCalificadorExamenOmr",
+              "signature": "(calificador: CalificadorExamenOmr) => void"
+            },
+            {
+              "name": "ejecutarSmokeTestOmrCv",
+              "signature": "() => Promise<EstadoSmokeOmrCv>"
+            },
+            {
+              "name": "ErrorOmrCvNoDisponible",
+              "signature": "typeof ErrorOmrCvNoDisponible"
+            },
+            {
+              "name": "recuperarIngestasPdfOmrInterrumpidas",
+              "signature": "() => Promise<number>"
+            },
+            {
+              "name": "rutasEscaneoOmr",
+              "signature": "import(\"#host/../../../node_modules/@types/express-serve-static-core/index.d.ts\").Router"
+            }
+          ]
+        },
+        {
+          "version": "3.0.0",
           "exports": [
             {
               "name": "configurarCalificadorAutomaticoOmr",
@@ -2096,7 +2158,7 @@
         },
         {
           "module": "modulo_escaneo_omr",
-          "contractRange": "^2.0.0"
+          "contractRange": "^3.0.0"
         },
         {
           "module": "modulo_evaluaciones",

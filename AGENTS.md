@@ -53,6 +53,7 @@ Docker, WSL, credenciales o integraciones.
 
 ## Automatización docente por API
 
+- Ninguna actividad solicitada sobre EvaluaPro debe depender de Computer Use. Cada operación debe poder completarse por API cuando exista contrato; cuando requiera interacción, debe estar disponible en una interfaz web accesible desde el panel lateral o Edge. Si falta una ruta API para una operación necesaria, implementarla sobre los mismos servicios y permisos de la GUI; no crear persistencia paralela ni automatización visual como requisito.
 - Para sesiones automatizadas, usar primero el API docente autenticado y el cliente sin dependencias `scripts/api/evaluapro-client.mjs`; no usar computer-use o navegador para operaciones que tenga un endpoint API.
 - Consultar `scripts/api/openapi.json` y `scripts/api/CRUD_CATALOG.md` antes de implementar una integración. Cubren los routers montados y señalan permiso RBAC, validador Zod y operaciones CRUD/acciones disponibles. No inventar CRUD que el backend no expone ni tratar un validador genérico OpenAPI como sustituto del schema Zod real.
 - El cliente API ofrece `request()` para rutas documentadas sin helper específico, también sin navegador; su llamada genérica no aplica las confirmaciones locales de los wrappers. Antes de una mutación directa, revisar el schema Zod y servicio de dominio, pedir autorización aplicable y conservar confirmación, control de concurrencia, clave idempotente, auditoría y recuperación que exija esa ruta.

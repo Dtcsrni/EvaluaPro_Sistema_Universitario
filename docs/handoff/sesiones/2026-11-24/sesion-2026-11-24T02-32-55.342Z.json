@@ -1,0 +1,575 @@
+{
+  "traceSchemaVersion": "1.0.0",
+  "sessionId": "sesion-2026-11-24T02-32-55.342Z",
+  "status": "draft",
+  "generatedAt": "2026-11-25T06:28:35Z",
+  "validationProfile": "quick",
+  "agent": {
+    "name": "unknown",
+    "version": "unknown",
+    "provider": "unknown",
+    "kind": "unknown",
+    "channel": "unknown"
+  },
+  "request": {
+    "summary": "Corregir la autocalificación OMR y añadir pruebas estables; los grupos 25A y 26 pertenecen a la misma clase. El usuario exige que los replays usen la plantilla activa y, como mínimo, el último lote de Ingeniería de Software (644A8439), nunca que se califique con una plantilla anterior."
+  },
+  "objective": "Conservar las señales OMR completas y privadas entre el análisis por página y la reevaluación del lote, probar recuperación de parciales y abstención ante segunda marca, sin abrir el gate global.",
+  "scope": [
+    "Ingesta PDF OMR y jobs OMR.",
+    "Reevaluación por grupo y política de cinco opciones.",
+    "SPEC-117 y pruebas unitarias, de lote e integración."
+  ],
+  "constraints": [
+    "Checkout aislado codex/omr-autograding-stability-20261123; no modificar el checkout canónico con 187 cambios locales.",
+    "No registrar calificaciones reales, desplegar ni publicar.",
+    "Mantener cerrado el gate global hasta evidencia piloto humana independiente."
+  ],
+  "actions": [
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck_direct",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de eslint_scoped",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de tests_focused",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de omr_integration",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de sdd_audit",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de traceability_tests",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de handoff_tests",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de pipeline_contract",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de typecheck_script",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Ejecucion de docs_check",
+      "timestamp": "2026-11-24T02:35:04.835Z",
+      "status": "falla"
+    },
+    {
+      "type": "validation",
+      "summary": "Corregidas dos rutas de relectura OMR duplicadas. Suites OMR 171/171, integración del job 17/17 y evaluación sintética con cero discordancias; 11/12 capturas autoelegibles. El dataset real sigue vacío y no se abren los gates.",
+      "timestamp": "2026-11-24T10:27:40Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay del lote real con la versión actual del worktree: 28 páginas, 308 reactivos, 296 opciones detectadas, 12 ambiguos; QR y orientación coinciden en todas. No se evaluó contra clave independiente ni se escribieron notas.",
+      "timestamp": "2026-11-24T13:22:35.42Z",
+      "status": "ok"
+    },
+    {
+      "type": "fix",
+      "summary": "El servicio fuerza requiere_revision y autoCalificableOmr=false si una pasada alternativa deja respuestas sin opción con bandera fuera_roi.",
+      "timestamp": "2026-11-24T13:26:58.152Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay final del lote real: 28 páginas, 14 folios, 308 reactivos; 307 opciones detectadas y 1 ambigua (9442395C P2 Q18). QR correcto y orientación determinada en 28/28. 1443F909 P2 pasó a 12/12; no se usó clave ni se escribieron notas.",
+      "timestamp": "2026-11-24T14:27:37Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Cuatro suites OMR pasaron 142/142; ESLint backend, TypeScript directo, huella del evaluador y git diff --check pasaron.",
+      "timestamp": "2026-11-24T14:27:37Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "La integración del job OMR pasó 17/17 pruebas en 347.49 s con la implementación final.",
+      "timestamp": "2026-11-24T14:37:00Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Política y cálculo OMR: 5 suites, 80/80; SDD audit, trazabilidad 7/7, pipeline contract 76/76 y handoff 11/11 pasaron.",
+      "timestamp": "2026-11-24T14:38:07Z",
+      "status": "ok"
+    },
+    {
+      "type": "validation",
+      "summary": "Replay read-only del lote vigente de Ingeniería de Software con plantilla activa v4: 8 páginas, 88 reactivos, QR crudo correcto 8/8; Q18 de 9442395C P2 queda sin_marca. Sin clave/HMAC, elegibilidad ni notas.",
+      "timestamp": "2026-11-25T06:12:43Z",
+      "status": "ok"
+    },
+    {
+      "type": "fix",
+      "summary": "El runner real deriva la política activa, rechaza versiones viejas, agrega modo reader-only explícitamente inelegible y valida el QR contra la página fuente; SPEC-117 y regresiones quedaron actualizadas.",
+      "timestamp": "2026-11-25T06:12:43Z",
+      "status": "ok"
+    }
+  ],
+  "files": {
+    "read": [
+      "AGENTS.md",
+      "docs/IA_TRAZABILIDAD_AGENTES.md",
+      "docs/POLITICA_SDD.md",
+      "docs/specs/SPEC-117_calificacion_automatica_local_omr.spec.md",
+      "apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts"
+    ],
+    "changed": [
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/controladorJobsOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/evaluatorCodeFingerprint.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/infra/imagenProcesamientoCanonico.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts",
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmrCv.ts",
+      "apps/backend/tests/calificacion.omr.lote.test.ts",
+      "apps/backend/tests/omr.consenso.robusto.test.ts",
+      "apps/backend/tests/omr.geometry.reference.test.ts",
+      "apps/backend/tests/omr.jobs.policy.test.ts",
+      "apps/backend/tests/omr.test.ts",
+      "apps/backend/scripts/omr-tv4-real-lot-replay.ts",
+      "apps/backend/tests/omr.tv4.real-lot-replay.test.ts",
+      "apps/frontend/src/apps/app_docente/features/plantillas/components/PlantillasOmrWorkflow.tsx",
+      "apps/frontend/tests/plantillasOmrWorkflow.test.tsx",
+      "docs/specs/SPEC-117_calificacion_automatica_local_omr.spec.md",
+      "docs/handoff/sesiones/2026-11-24/",
+      "apps/backend/src/modulos/modulo_escaneo_omr/servicioOmr.ts"
+    ],
+    "artifacts": [
+      "docs/handoff/sesiones/2026-11-24/sesion-2026-11-24T02-32-55.342Z.json",
+      "docs/handoff/sesiones/2026-11-24/sesion-2026-11-24T02-32-55.342Z.md",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-synthetic-20261124.json",
+      "apps/backend/spa.traineddata (artefacto sin seguimiento generado por Tesseract)",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-lote-28p-sin-duplicada.pdf",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-pages-01-15.pdf",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-pages-16-29.pdf",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-lote-457C4C74-20p.pdf",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-lote-644A8439-8p.pdf",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-pilot-real-pages/omr-real-job-policy-analysis.json",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-pilot-real-pages/omr-latest-lot-current-template-verified.json",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-omr-synthetic-final-20261124.json",
+      "C:/Users/evega/AppData/Local/Temp/evaluapro-pilot-real-pages/review-crops/9442395C_P2_Q18.png"
+    ]
+  },
+  "commands": [
+    {
+      "name": "typecheck_direct",
+      "command": "node ../../node_modules/typescript/bin/tsc --noEmit --project tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "TypeScript completo del backend sin diagnósticos.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "eslint_scoped",
+      "command": "node ../../node_modules/eslint/bin/eslint.js <5 archivos OMR y pruebas> --max-warnings=0",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "ESLint focalizado sin errores ni warnings.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "tests_focused",
+      "command": "npm test -- tests/omr.pilot-gate-default.test.ts tests/omr.jobs.policy.test.ts tests/omr.politicaAutoCalificacion.test.ts tests/calificacion.omr.lote.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "4 archivos; 67 pruebas aprobadas.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "omr_integration",
+      "command": "npm test -- tests/integracion/omrJobsWorkflow.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 375380,
+      "resultSummary": "1 archivo; 17 pruebas aprobadas.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "sdd_audit",
+      "command": "npm run sdd:audit",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "Auditoría SDD exitosa; especificaciones válidas.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "traceability_tests",
+      "command": "npm run test:ia:traceability",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "7 pruebas aprobadas.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "handoff_tests",
+      "command": "npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 0,
+      "resultSummary": "11 pruebas aprobadas.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "pipeline_contract",
+      "command": "npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2691,
+      "resultSummary": "Contrato de pipeline aprobado por la ejecución quick.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "typecheck_script",
+      "command": "npm run typecheck",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 0,
+      "resultSummary": "El script busca @typescript/native/bin/tsc, ausente en el worktree aislado; el compilador TypeScript disponible pasó directamente.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "docs_check",
+      "command": "npm run docs:check",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 1209,
+      "resultSummary": "docs/AUTO_ENV.md desactualizado; no se regeneró porque es ajeno al cambio.",
+      "timestamp": "2026-11-24T02:35:04.835Z"
+    },
+    {
+      "name": "omr_recovered_orientation_tests",
+      "command": "npm -C apps/backend run test -- --reporter=verbose tests/omr.consenso.robusto.test.ts tests/omr.geometry.reference.test.ts tests/omr.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 79930,
+      "resultSummary": "3 archivos; 109 pruebas aprobadas después de la corrección de tipos.",
+      "timestamp": "2026-11-24T09:54:06Z"
+    },
+    {
+      "name": "backend_lint_final",
+      "command": "npm -C apps/backend run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 9194,
+      "resultSummary": "ESLint completo de backend sin errores ni warnings.",
+      "timestamp": "2026-11-24T09:54:06Z"
+    },
+    {
+      "name": "backend_typecheck_direct_final",
+      "command": "node node_modules/typescript/bin/tsc --noEmit --project apps/backend/tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 10010,
+      "resultSummary": "TypeScript completo del backend sin diagnósticos.",
+      "timestamp": "2026-11-24T09:54:06Z"
+    },
+    {
+      "name": "sdd_trace_pipeline_final",
+      "command": "npm run sdd:audit; npm run test:ia:traceability; npm run test:ia:handoff; npm run pipeline:contract:check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 3624,
+      "resultSummary": "Auditoría SDD aprobada; trazabilidad 7/7; handoff 11/11; pipeline contract 76/76.",
+      "timestamp": "2026-11-24T09:54:06Z"
+    },
+    {
+      "name": "omr_stability_regression_suite",
+      "command": "npm -C apps/backend run test -- --reporter=dot tests/omr.test.ts tests/omr.consenso.robusto.test.ts tests/omr.geometry.reference.test.ts tests/omr.jobs.policy.test.ts tests/omr.politicaAutoCalificacion.test.ts tests/calificacion.omr.lote.test.ts tests/calificacion.omr.local.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 86030,
+      "resultSummary": "7 archivos; 171 pruebas aprobadas después de las correcciones de no duplicación.",
+      "timestamp": "2026-11-24T10:13:32Z"
+    },
+    {
+      "name": "omr_jobs_workflow_after_duplicate_pass_fix",
+      "command": "npm -C apps/backend run test -- --reporter=dot tests/integracion/omrJobsWorkflow.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 346050,
+      "resultSummary": "Integración del job OMR: 1 archivo; 17 pruebas aprobadas.",
+      "timestamp": "2026-11-24T10:15:05Z"
+    },
+    {
+      "name": "frontend_plantillas_workflow_single_react_alias",
+      "command": "npm -C apps/frontend run test -- --config vitest.temp.config.ts tests/plantillasOmrWorkflow.test.tsx (alias temporal retirado al terminar)",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 2890,
+      "resultSummary": "Prueba focal de UI: 1 archivo; 18 pruebas aprobadas usando una sola copia de React.",
+      "timestamp": "2026-11-24T10:10:46Z"
+    },
+    {
+      "name": "alignment_guard_regression_suite",
+      "command": "npm -C apps/backend run test -- tests/omr.test.ts tests/omr.estado-respuesta.test.ts tests/omr.consenso.robusto.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 70000,
+      "resultSummary": "3 archivos; 98 pruebas aprobadas.",
+      "timestamp": "2026-11-24T13:26:58.152Z"
+    },
+    {
+      "name": "alignment_guard_real_page_replay",
+      "command": "node --import tsx %TEMP%/omr-wrapper-state-check.mts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 13200,
+      "resultSummary": "11E844B4 P2 completa: estado requiere_revision, autoCalificableOmr=false; P19/P20/P22 conservan fuera_roi.",
+      "timestamp": "2026-11-24T13:26:58.152Z"
+    },
+    {
+      "name": "backend_lint_after_alignment_guard",
+      "command": "npm -C apps/backend run lint",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 10000,
+      "resultSummary": "ESLint backend sin errores ni warnings.",
+      "timestamp": "2026-11-24T13:26:58.152Z"
+    },
+    {
+      "name": "backend_typecheck_after_alignment_guard",
+      "command": "node node_modules/typescript/bin/tsc --noEmit --project apps/backend/tsconfig.json --pretty false",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 11000,
+      "resultSummary": "TypeScript completo del backend sin diagnósticos.",
+      "timestamp": "2026-11-24T13:26:58.152Z"
+    },
+    {
+      "name": "omr_regression_suite_final",
+      "command": "npm run test -- tests/omr.geometry.reference.test.ts tests/omr.estado-respuesta.test.ts tests/omr.test.ts tests/omr.consenso.robusto.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 80780,
+      "resultSummary": "4 archivos; 142 pruebas aprobadas.",
+      "timestamp": "2026-11-24T14:27:37Z"
+    },
+    {
+      "name": "real_batch_replay_final",
+      "command": "node --import tsx %TEMP%/evaluapro-pilot-real-pages/analyze-real-pages.mts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 180000,
+      "resultSummary": "28 páginas, 308 reactivos, 307 opciones y 1 ambigua; 0 QR incorrectos, 0 orientaciones indeterminadas.",
+      "timestamp": "2026-11-24T14:27:37Z"
+    },
+    {
+      "name": "omr_jobs_workflow_final",
+      "command": "npm run test -- tests/integracion/omrJobsWorkflow.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 347490,
+      "resultSummary": "Integración de jobs OMR: 1 archivo; 17 pruebas aprobadas.",
+      "timestamp": "2026-11-24T14:37:00Z"
+    },
+    {
+      "name": "omr_policy_and_grade_batch_tests_final",
+      "command": "npm run test -- tests/omr.pilot-gate-default.test.ts tests/omr.jobs.policy.test.ts tests/omr.politicaAutoCalificacion.test.ts tests/calificacion.omr.lote.test.ts tests/calificacion.omr.local.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 7330,
+      "resultSummary": "5 archivos; 80 pruebas aprobadas.",
+      "timestamp": "2026-11-24T14:38:07Z"
+    },
+    {
+      "name": "sdd_trace_pipeline_contract_final",
+      "command": "npm run sdd:audit; npm run test:ia:traceability; npm run pipeline:contract:check; npm run test:ia:handoff",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 6000,
+      "resultSummary": "SDD OK; trazabilidad 7/7; pipeline contract 76/76; handoff 11/11.",
+      "timestamp": "2026-11-24T14:38:07Z"
+    },
+    {
+      "name": "autograding_ambiguity_policy_final",
+      "command": "npm run omr:fingerprint:check; npx vitest run tests/omr.pilot-gate-default.test.ts tests/omr.jobs.policy.test.ts tests/omr.politicaAutoCalificacion.test.ts tests/calificacion.omr.lote.test.ts tests/calificacion.omr.local.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 8310,
+      "resultSummary": "5 archivos; 81 pruebas aprobadas; huella OMR correcta.",
+      "timestamp": "2026-11-24T14:44:00Z"
+    },
+    {
+      "name": "omr_jobs_workflow_policy_rerun",
+      "command": "npx vitest run tests/integracion/omrJobsWorkflow.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 334980,
+      "resultSummary": "Integración del job OMR tras endurecer la política: 1 archivo; 17 pruebas aprobadas.",
+      "timestamp": "2026-11-24T14:49:56Z"
+    },
+    {
+      "name": "real_batch_job_policy_replay",
+      "command": "NODE_ENV=test node --import tsx %TEMP%/analyze-real-pages-with-job-policy.mts",
+      "status": "ok",
+      "exitCode": 0,
+      "resultSummary": "28 páginas y 308 reactivos; 307 opciones, 1 ambiguo, 0 QR incorrectos; 13 folios autoelegibles y 1 en revisión (9442395C P2 Q18). Solo lectura, sin cotejo con clave ni escritura de notas.",
+      "timestamp": "2026-11-24T15:02:50Z"
+    },
+    {
+      "name": "omr_policy_geometry_final",
+      "command": "npx vitest run tests/omr.politicaAutoCalificacion.test.ts tests/omr.consenso.robusto.test.ts tests/omr.core.decision.test.ts; npm run lint; node ..\\..\\node_modules\\typescript\\bin\\tsc --noEmit --project tsconfig.json --pretty false; npm run omr:fingerprint:check; git diff --check",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 18000,
+      "resultSummary": "96 pruebas focalizadas aprobadas; ESLint, TypeScript directo, huella OMR y diff check sin errores. Reproducción: TV4-SYNTH-001-P1 Q7 blank queda ambigua; C46A04BB P1 Q4=A real sigue respondida.",
+      "timestamp": "2026-11-24T16:00:33.709Z"
+    },
+    {
+      "name": "autograding_policy_batch_final",
+      "command": "npx vitest run tests/omr.pilot-gate-default.test.ts tests/omr.jobs.policy.test.ts tests/omr.politicaAutoCalificacion.test.ts tests/calificacion.omr.lote.test.ts tests/calificacion.omr.local.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 8380,
+      "resultSummary": "5 archivos; 82 pruebas aprobadas.",
+      "timestamp": "2026-11-24T16:00:33.709Z"
+    },
+    {
+      "name": "omr_jobs_workflow_final_calibration",
+      "command": "npx vitest run tests/integracion/omrJobsWorkflow.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 332060,
+      "resultSummary": "1 archivo; 17 pruebas aprobadas con la calibración final.",
+      "timestamp": "2026-11-24T16:00:33.709Z"
+    },
+    {
+      "name": "synthetic_tv4_final",
+      "command": "NODE_ENV=test node --import tsx scripts/omr-tv4-eval-synthetic.ts --dataset ../../omr_samples_tv4",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 98000,
+      "resultSummary": "12 capturas, 120 reactivos; precisión/recall/F1 1.0, falsos positivos 0, discordancias automáticas 0, pero gate cerrado por cobertura automática 6/12 (0.5): cinco capturas con doble marca explícita y una con Q19 ambigua.",
+      "timestamp": "2026-11-24T16:00:33.709Z"
+    },
+    {
+      "name": "real_batch_job_policy_final",
+      "command": "NODE_ENV=test node --import tsx %TEMP%/analyze-real-pages-with-job-policy.mts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 195000,
+      "resultSummary": "28 páginas, 308 reactivos, 307 opciones, 1 ambiguo, 0 QR incorrectos; 13 folios elegibles y 1 en revisión (9442395C P2 Q18). C46A04BB P1 Q4=A se conserva como respuesta. Solo lectura, sin clave ni escritura de notas.",
+      "timestamp": "2026-11-24T16:00:33.709Z"
+    },
+    {
+      "name": "active_template_signed_grading_replay",
+      "command": "NODE_ENV=development npm run omr:replay:real-lot -- --manifest <manifest-real.json> --lot-id 644A8439 --template-id omr-canonical-1.0.0 --template-version 4 --expected-pages 8 --expected-folios 4",
+      "status": "falla",
+      "exitCode": 1,
+      "durationMs": 2500,
+      "resultSummary": "El replay fail-closed rechazó el QR firmado de 9442395C P1: el parser devolvió payloadSignatureValid=false con los secretos configurados disponibles. No se usó modo permisivo para calificar.",
+      "timestamp": "2026-11-25T05:56:00Z"
+    },
+    {
+      "name": "active_template_latest_lot_replay",
+      "command": "NODE_ENV=test npm run omr:replay:real-lot -- --manifest <manifest-real.json> --lot-id 644A8439 --template-id omr-canonical-1.0.0 --template-version 4 --expected-pages 8 --expected-folios 4 --reader-only",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 69300,
+      "resultSummary": "Lote 644A8439, plantilla activa omr-canonical-1.0.0 v4: 8 páginas, 4 folios, 88 reactivos, 0 fallos de página, QR crudo coincidente 8/8; 87 respondidas y 9442395C P2 Q18 sin_marca. Modo reader-only: 0 folios elegibles y ninguna nota escrita; no verifica firma HMAC ni clave.",
+      "timestamp": "2026-11-25T06:12:43Z"
+    },
+    {
+      "name": "active_template_replay_regressions",
+      "command": "npm test -- tests/omr.tv4.real-lot-replay.test.ts; eslint scripts/omr-tv4-real-lot-replay.ts tests/omr.tv4.real-lot-replay.test.ts; tsc --noEmit --project tsconfig.json",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 4000,
+      "resultSummary": "7/7 pruebas de replay; ESLint y TypeScript directo sin errores. El harness rechaza plantilla distinta a config/omr-version-policy.json y no permite combinar reader-only con require-eligible.",
+      "timestamp": "2026-11-25T06:12:43Z"
+    },
+    {
+      "name": "omr_autograding_full_focused_suite_active_template",
+      "command": "npm test -- tests/calificacion.omr.local.test.ts tests/calificacion.omr.lote.test.ts tests/calificacion.omr.payload.test.ts tests/omr.consenso.robusto.test.ts tests/omr.core.decision.test.ts tests/omr.estado-respuesta.test.ts tests/omr.geometry.reference.test.ts tests/omr.jobs.policy.test.ts tests/omr.politicaAutoCalificacion.test.ts tests/omr.test.ts tests/omr.tv4.synthetic.metrics.test.ts tests/omr.tv4.real-lot-replay.test.ts",
+      "status": "ok",
+      "exitCode": 0,
+      "durationMs": 183860,
+      "resultSummary": "12 archivos; 252/252 pruebas aprobadas. Incluye guardia para plantilla activa y lote 644A8439.",
+      "timestamp": "2026-11-25T06:26:33Z"
+    }
+  ],
+  "decisions": [
+    "Persistir en metadatos internos solo los campos usados por la política y ligarlos al número de reactivo; eliminarlos de las respuestas públicas y de la revisión ciega.",
+    "Abstenerse si la evidencia interna está ausente o no cubre exactamente las preguntas esperadas.",
+    "Actualizar la huella del evaluador para invalidar reportes piloto ligados al código anterior."
+  ],
+  "assumptions": [
+    "25A y 26 se tratan como grupos de una misma clase para el alcance posterior del lote."
+  ],
+  "risks": [
+    "El piloto humano independiente y el mínimo poblacional de SPEC-117 siguen pendientes; estas pruebas no los reemplazan.",
+    "El dataset real de SPEC-117 tiene capturas vacías. La evaluación sintética logró cero discordancias, pero solo 11/12 páginas autoelegibles; una marca débil sigue en revisión.",
+    "El guard WCAG no completó ESLint por falta de @eslint/compat; la prueba frontend estándar mezcla React 19.3.1/19.3.0. El typecheck frontend directo pasó y el test de UI pasó con alias temporal; no se instalaron dependencias.",
+    "El evaluador sintético generó apps/backend/spa.traineddata fuera de seguimiento. La revisión automática bloqueó eliminarlo y no expuso motivo; no se agregó al código.",
+    "No se instaló este cambio en la app/API activa ni se procesaron calificaciones reales.",
+    "El script npm run typecheck no encuentra @typescript/native/bin/tsc en el worktree aislado; el compilador TypeScript disponible se ejecutó directamente y pasó.",
+    "La comprobación rápida npm run docs:check falla porque docs/AUTO_ENV.md está desactualizado; no se regeneró documentación ajena al cambio.",
+    "El lote real se recuperó en modo lectura y se eliminó una página QR duplicada en una copia de 28 páginas; el motor actualizado aún no se validó con la clave porque la sesión no tiene plantillas:leer.",
+    "El replay final recuperó las marcas visibles P19/P20/P22 de 11E844B4 P2 y completó 12/12. 9442395C P2 Q18 permanece ambiguo; no se promueve a omisión sin revisión humana.",
+    "El replay real no prueba exactitud de calificación: faltan clave de respuestas con permiso de solo lectura y etiquetas humanas independientes para las marcas ambiguas.",
+    "La política ahora bloquea ambigua, doble_marca y tachada para revisión humana aunque pasen los controles globales; solo una sin_marca con evidencia confirmada puede contarse incorrecta.",
+    "Replay real contra convertirResultadoAPagina: 13 folios con ambas páginas autoelegibles y 9442395C en revisión por Q18; este resultado no equivale a exactitud frente a la clave.",
+    "No hay clave de respuestas ni etiquetas humanas independientes para declarar exactitud real; el gate global continúa cerrado.",
+    "El replay sintético final conserva el gate cerrado por cobertura 6/12 debido a cinco dobles marcas y una ambigüedad; la política REQ-003 exige revisión humana para esos estados.",
+    "El replay real final reitera que 9442395C P2 Q18 requiere revisión; faltan clave con permiso plantillas:leer y etiquetas humanas independientes para certificar exactitud.",
+    "En 9442395C P2 Q18, E tiene score residual 0.389 y compacidad 0.143; solo 1/5 contornos verificados, menos del mínimo de 3/5 para confirmar omisión. El recorte parece blanco, pero el motor conserva revisión conforme a REQ-004.",
+    "Corrección vigente: el replay directo con la política de marca clara clasifica 9442395C P2 Q18 como sin_marca; los registros anteriores que lo describen como ambiguo quedan supersedidos. El lote 644A8439 usa la plantilla activa v4. El replay reader-only valida lectura/QR crudo, no HMAC, clave ni exactitud; la ruta de calificación sigue cerrada."
+  ],
+  "nextStep": "Validar las 87 respuestas del lote 644A8439 contra sus claves versionadas y verificar la firma QR HMAC con la configuración vigente; incorporar verdad terreno humana ciega para el piloto. No revisar Q18 como ambigua: quedó sin_marca. Mantener el gate cerrado; no registrar notas ni desplegar.",
+  "completion": {
+    "isComplete": false,
+    "pendingFields": [
+      "Validación exacta de respuestas del lote 644A8439 contra la clave versionada; el snapshot firmado existe pero no verifica con la clave configurada disponible.",
+      "Verificación HMAC de los QR del lote con la clave de firma correspondiente; los secretos configurados disponibles no validan esa firma.",
+      "Etiquetas humanas ciegas y suficientes para el gate piloto/global."
+    ]
+  },
+  "repo": {
+    "rootDir": "C:\\Users\\evega\\Documents\\EvaluaPro\\worktrees\\omr-autograding-stability-20261123",
+    "branch": "codex/omr-autograding-stability-20261123",
+    "commit": "79dcd705",
+    "workingTreeStatus": "Cambios OMR/backend, frontend, SPEC-117 y handoff; spa.traineddata sin seguimiento (artefacto local). Checkout canónico intacto; sin escrituras ni despliegue."
+  }
+}

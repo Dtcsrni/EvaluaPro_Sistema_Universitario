@@ -229,6 +229,7 @@ describe('PlantillasOmrWorkflow', () => {
 
     fireEvent.change(input, { target: { files: [pdfUno, pdfDos] } });
     expect(screen.queryByText(/Separa los PDF y las imágenes en jobs distintos/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/limita este job al lote seleccionado.*separa el PDF por lote y procesa cada lote por separado.*gate del piloto/i)).toBeInTheDocument();
     expect(botonProcesar).toBeEnabled();
     expect(toastSpy).not.toHaveBeenCalled();
     fireEvent.click(botonProcesar);

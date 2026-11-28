@@ -570,6 +570,13 @@ describe('workflow OMR por jobs', () => {
       .expect(200);
     expect(preview.body.jobId).toBe(jobId);
     expect(preview.body.attempts).toEqual(expect.any(Array));
+    const intentoPreview = preview.body.attempts.find((attempt: { examId?: string }) => attempt.examId === escenario.examenId);
+    expect(intentoPreview).toBeDefined();
+    expect(intentoPreview.reasonCodes ?? []).not.toEqual(expect.arrayContaining([
+      'OMR_CAPTURAS_ORIGINALES_REQUERIDAS',
+      'OMR_ORIGINAL_HASH_INVALIDO',
+      'OMR_PAGINA_ORIGINAL_NO_DISPONIBLE'
+    ]));
     expect(await prisma.calificacion.count({ where: { examenGeneradoId: escenario.examenId } })).toBe(calificacionesAntes);
     const original = await request(app).get(`/api/omr/ingestas/${jobId}/originales/${job.files[0].id}`).set(auth).buffer(true).parse(parsearBinario).expect(200);
     expect(original.body).toEqual(scan);
@@ -929,12 +936,13 @@ describe('workflow OMR por jobs', () => {
         const opcionIncorrecta = pregunta.opciones.find((opcion) => opcion.letra !== letraCorrecta);
         expect(opcionCorrecta, `falta la opción de clave para el reactivo ${pregunta.numeroPregunta}`).toBeDefined();
         expect(opcionIncorrecta, `falta una opción incorrecta para el reactivo ${pregunta.numeroPregunta}`).toBeDefined();
+        // El caso de integración debe ejercitar una marca inequívoca, no un punto pequeño en el núcleo.
         primera[indicePagina]!.drawCircle({
-          x: opcionCorrecta!.x, y: opcionCorrecta!.y, size: Number(opcionCorrecta!.radio ?? 3) * 0.45,
+          x: opcionCorrecta!.x, y: opcionCorrecta!.y, size: Number(opcionCorrecta!.radio ?? 3) * 0.8,
           color: rgb(0.08, 0.08, 0.08)
         });
         segunda[indicePagina]!.drawCircle({
-          x: opcionIncorrecta!.x, y: opcionIncorrecta!.y, size: Number(opcionIncorrecta!.radio ?? 3) * 0.45,
+          x: opcionIncorrecta!.x, y: opcionIncorrecta!.y, size: Number(opcionIncorrecta!.radio ?? 3) * 0.8,
           color: rgb(0.08, 0.08, 0.08)
         });
       }

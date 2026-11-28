@@ -67,12 +67,14 @@ test('el cierre asíncrono evita reentrada y cierra después de limpiar servicio
     'la ventana debe diferir el diálogo hasta que el evento Closing haya terminado');
   assert.doesNotMatch(closingHandler, /WpfMessageBox\.Show\s*\(|\.ShowDialog\s*\(|new WindowInteropHelper\s*\(|\.Close\s*\(/,
     'el evento Closing no debe abrir ventanas ni reentrar al cerrar el Window');
-  const closeConfirmation = closePrompt.match(/var choice = WpfMessageBox\.Show\([\s\S]*?MessageBoxImage\.Question\);/)?.[0];
+  const closeConfirmation = closePrompt.match(/var choice = WpfMessageBox\.Show\([\s\S]*?MessageBoxImage\.Question,[\s\S]*?MessageBoxResult\.No\);/)?.[0];
   assert.ok(closeConfirmation, 'debe existir una confirmación de cierre identificable');
   assert.match(closeConfirmation, /WpfMessageBox\.Show\(\s*"¿Cerrar EvaluaPro\?/,
     'el diálogo de confirmación no toma como owner la ventana que está cerrando');
   assert.doesNotMatch(closeConfirmation, /WpfMessageBox\.Show\(\s*this,/,
     'el diálogo no consulta el handle o la visibilidad de la ventana en transición');
+  assert.match(closeConfirmation, /MessageBoxResult\.No\s*\)/,
+    'No es la opción predeterminada para conservar los servicios activos');
   assert.match(closePrompt, /if \(choice == MessageBoxResult\.Cancel\) return;/,
     'Cancelar conserva la ventana abierta');
   const noChoice = closePrompt.match(/if \(choice == MessageBoxResult\.No\)[\s\S]*?\n            }/)?.[0];

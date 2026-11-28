@@ -1168,7 +1168,16 @@ test('bootstrapper Burn WPF implementa resiliencia ante errores, msiInstalled y 
   assert.ok(bootstrapperCode.includes('payload.Lifecycle?.State, "repairable"'));
   assert.ok(bootstrapperCode.includes('payload.Prerequisites.All(prerequisite => prerequisite.Installed)'));
   assert.ok(bootstrapperCode.includes('var remediationHealthy = payload.Remediation is null'));
-  assert.match(bootstrapperCode, /hasOlderRelatedBundle && diagnosticsHealthy \? "install" : "repair"/);
+  assert.match(bootstrapperCode, /versionUpgradeAvailable/);
+  assert.match(bootstrapperCode, /GetAssemblyMetadataVersion\("EvaluaProAppVersion"\)/);
+  assert.match(bootstrapperCode, /GetHubVersion\(\)/);
+  assert.match(bootstrapperCode, /public string HubVersion \{ get; set; \}/);
+  assert.match(bootstrapperCode, /fallbackBundleUpgradeAvailable/);
+  assert.match(bootstrapperCode, /appVersionKnown && targetApp > currentApp/);
+  assert.match(bootstrapperCode, /targetApp >= currentApp && targetHub > currentHub/);
+  const installerHelper = fs.readFileSync(path.join(root, 'packaging', 'wix', 'BurnBootstrapperApp', 'NativeInstallerHelper.cs'), 'utf8');
+  assert.match(installerHelper, /\["hubVersion"\]\s*=\s*ReadConfigVersion/);
+  assert.match(installerHelper, /private static string ReadConfigVersion\(/);
   assert.match(bootstrapperCode, /ResolveOperationMode\(payload, isGenuinelyInstalledHeadless\)/);
   assert.match(bootstrapperCode, /DispatcherUnhandledException/);
   assert.match(bootstrapperCode, /UnhandledException/);
@@ -2035,6 +2044,7 @@ test('helper Burn prepara contrato runtime instalado para dashboard docente', ()
   assert.match(helper, /ConvertTo-VbsStringLiteralContent/);
   assert.match(helper, /function Write-InstallerRuntimeEnv/);
   assert.match(helper, /JWT_SECRETO/);
+  assert.match(helper, /Ensure-OmrSigningConfig/);
   assert.match(helper, /New-InstallerSecret/);
   assert.match(helper, /DATABASE_URL/);
   assert.match(helper, /BACKEND_DATABASE_URL/);
@@ -2716,6 +2726,15 @@ $r | ConvertTo-Json -Depth 8
     assert.match(envRaw, /DATABASE_URL=/);
     assert.match(envRaw, /BACKEND_DATABASE_URL=/);
     assert.match(envRaw, /JWT_SECRETO=/);
+    assert.match(envRaw, /OMR_QR_HMAC_KEY_ID=qr-h1-v1/);
+    assert.match(envRaw, /OMR_QR_HMAC_SECRET=/);
+    assert.match(envRaw, /OMR_QR_HMAC_SECRETS_JSON=/);
+    const installedEnv = Object.fromEntries(envRaw.split(/\r?\n/).filter(Boolean).map((line) => {
+      const separator = line.indexOf('=');
+      return [line.slice(0, separator), line.slice(separator + 1)];
+    }));
+    assert.notEqual(installedEnv.OMR_QR_HMAC_SECRET, installedEnv.JWT_SECRETO);
+    assert.equal(JSON.parse(installedEnv.OMR_QR_HMAC_SECRETS_JSON)['qr-h1-v1'], installedEnv.OMR_QR_HMAC_SECRET);
     assert.match(envRaw, /EVALUAPRO_BACKUP_CIFRADO_SECRETO=synthetic-test-backupCifradoSecreto/);
     assert.match(envRaw, /EVALUAPRO_FLAVOR=docente-local/);
     assert.doesNotMatch(envRaw, /EVALUAPRO_IMAGE_TAG=/);
@@ -2742,6 +2761,107 @@ $r | ConvertTo-Json -Depth 8
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('la migración conserva JWT como candidato histórico y firma con una clave OMR independiente', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluapro-jwt-omr-stability-'));
+  const installDir = path.join(tempRoot, 'EvaluaPro');
+  const programDataDir = path.join(tempRoot, 'ProgramData');
+  fs.mkdirSync(installDir, { recursive: true });
+  const envPath = path.join(installDir, '.env');
+  fs.writeFileSync(envPath, 'JWT_SECRETO=legacy-test-jwt\nNODE_ENV=production\nEVALUAPRO_FLAVOR=docente-local\n', 'utf8');
+
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$env:ProgramData = '${programDataDir.replace(/'/g, "''")}'
+$config = @{
+  databaseUrl='file:C:/ProgramData/EvaluaPro/data/evaluapro.db'
+  jwtSecreto=''
+  nodeEnv='production'
+  puertoApi='4000'
+  puertoPortal='4518'
+  corsOrigenes='http://localhost:4173,http://127.0.0.1:4173'
+  flavorId='docente-local'
+  updateChannel='stable'
+  updateOwner='Dtcsrni'
+  updateRepo='EvaluaPro_Sistema_Universitario'
+  updateAssetName='EvaluaPro-InstallerHub-docente-local.exe'
+  updateShaAssetName='EvaluaPro-InstallerHub-docente-local.exe.sha256'
+  updateRequireSha256='1'
+}
+$first = Invoke-EvaluaProOperationalConfiguration -Mode install -InstallDir '${installDir.replace(/'/g, "''")}' -Config $config
+function Read-TestEnv([string]$path) {
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $path) {
+    $at = $line.IndexOf('=')
+    if ($at -gt 0) { $values[$line.Substring(0, $at)] = $line.Substring($at + 1) }
+  }
+  return $values
+}
+$before = Read-TestEnv '${envPath.replace(/'/g, "''")}'
+$config.jwtSecreto = 'rotated-test-jwt'
+$second = Invoke-EvaluaProOperationalConfiguration -Mode repair -InstallDir '${installDir.replace(/'/g, "''")}' -Config $config
+$after = Read-TestEnv '${envPath.replace(/'/g, "''")}'
+$ring = $after['OMR_QR_HMAC_SECRETS_JSON'] | ConvertFrom-Json
+$legacyCandidate = $ring.PSObject.Properties | Where-Object { $_.Name -ieq 'QR-H1-V1' } | Select-Object -First 1
+[pscustomobject]@{
+  ok = [bool]$first.ok -and [bool]$second.ok
+  legacyJwtPreserved = $before['JWT_SECRETO'] -eq 'legacy-test-jwt'
+  requestedJwtRotationApplied = $after['JWT_SECRETO'] -eq 'rotated-test-jwt'
+  omrSecretSurvivedJwtRotation = $before['OMR_QR_HMAC_SECRET'] -eq $after['OMR_QR_HMAC_SECRET']
+  activeKeyIdStable = $before['OMR_QR_HMAC_KEY_ID'] -eq $after['OMR_QR_HMAC_KEY_ID']
+  activeKeyIdIsVersion2 = $after['OMR_QR_HMAC_KEY_ID'] -eq 'qr-h1-v2'
+  activeKeyInRing = $ring.($after['OMR_QR_HMAC_KEY_ID']) -eq $after['OMR_QR_HMAC_SECRET']
+  legacyJwtRetainedOnlyAsCandidate = ($null -ne $legacyCandidate) -and ($legacyCandidate.Value -eq 'legacy-test-jwt')
+  secretsWereSeparated = $after['OMR_QR_HMAC_SECRET'] -ne $after['JWT_SECRETO']
+} | ConvertTo-Json -Compress
+`.trim();
+
+  try {
+    const result = runPowerShell(script);
+    if (result.skipped) return;
+    const parsed = parseJsonOutput(result.stdout);
+    assert.deepEqual(parsed, {
+      ok: true,
+      legacyJwtPreserved: true,
+      requestedJwtRotationApplied: true,
+      omrSecretSurvivedJwtRotation: true,
+      activeKeyIdStable: true,
+      activeKeyIdIsVersion2: true,
+      activeKeyInRing: true,
+      legacyJwtRetainedOnlyAsCandidate: true,
+      secretsWereSeparated: true
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('la migración se detiene si una instalación existente declara keyId pero perdió la clave', () => {
+  const script = `
+Import-Module -Force -WarningAction SilentlyContinue '${operationalConfigModulePath.replace(/'/g, "''")}'
+$envMap = @{ OMR_QR_HMAC_KEY_ID='qr-h1-v1' }
+$errorMessage = ''
+try {
+  Ensure-OmrSigningConfig -EnvMap $envMap -LegacyJwtSecret 'legacy-test-jwt' | Out-Null
+} catch {
+  $errorMessage = $_.Exception.Message
+}
+[pscustomobject]@{
+  stopped = -not [string]::IsNullOrWhiteSpace($errorMessage)
+  noReplacementSecretCreated = -not $envMap.ContainsKey('OMR_QR_HMAC_SECRET')
+  errorMessage = $errorMessage
+} | ConvertTo-Json -Compress
+`.trim();
+
+  const result = runPowerShell(script);
+  if (result.skipped) return;
+  const parsed = parseJsonOutput(result.stdout);
+  assert.deepEqual(parsed, {
+    stopped: true,
+    noReplacementSecretCreated: true,
+    errorMessage: 'Falta la clave OMR activa en una instalación con configuración previa; se cancela para no reemplazar una firma histórica.'
+  });
 });
 
 test('configuracion operativa difiere portal cloud en instalacion minima docente', () => {

@@ -57,6 +57,10 @@ export function resumirRespuestasOmr(
   const reactivosSinMarca = estados.filter((estado) => estado === 'sin_marca').length;
   const reactivosAmbiguos = estados.filter((estado) => estado === 'ambigua').length;
   const reactivosInvalidos = estados.filter((estado) => estado === 'doble_marca' || estado === 'tachada').length;
+  const respuestasFueraDeRoiSinLetra = respuestas.filter((respuesta) =>
+    respuesta.opcion == null && respuesta.flags.includes('fuera_roi')
+  ).length;
+  const blancosObservables = reactivosSinMarca + respuestasFueraDeRoiSinLetra;
   const calidadApta = Number.isFinite(calidadPagina) && calidadPagina >= 0.55;
   const geometriaApta = Number.isFinite(geomQuality) && geomQuality >= 0.65;
   const tieneRespuestaFuerte = respuestas.some((respuesta, indice) => {
@@ -86,7 +90,7 @@ export function resumirRespuestasOmr(
     // Basta una pregunta inequívocamente vacía para corroborar que las demás
     // señales débiles son ruido de impresión/captura y no respuestas válidas.
     // Si toda la hoja es ambigua, se conserva en revisión.
-    reactivosSinMarca >= Math.max(1, Math.floor(totalReactivos * 0.05)) &&
+    blancosObservables >= Math.max(1, Math.floor(totalReactivos * 0.05)) &&
     reactivosAmbiguos >= Math.ceil(totalReactivos * 0.5) &&
     reactivosInvalidos <= Math.max(1, Math.ceil(totalReactivos * 0.05)) &&
     calidadApta &&

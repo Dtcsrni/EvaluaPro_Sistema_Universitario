@@ -5,6 +5,7 @@ Este archivo sigue el formato "Keep a Changelog" (alto nivel) y SemVer.
 ## [Unreleased]
 
 ### Fixed
+- El banner compara releases `hub-vX.Y.Z` con la versión instalada del Hub, y el flujo GUI preselecciona actualización cuando la app o el Hub incluidos superan las versiones instaladas; una app más nueva nunca se degrada.
 - En el perfil `docente-local`, la raíz del supervisor redirige a la Web Docente para evitar mostrar un dashboard administrativo obsoleto; las rutas API requeridas por el host se conservan.
 - La salud local omite MongoDB cuando el perfil no usa Docker y ejecuta las sondas independientes en paralelo, evitando falsos avisos y esperas secuenciales.
 - El workflow de release verifica la reutilización del E2E candidato antes de instalar toolchains y dependencias que solo se requieren para una ejecución E2E nueva.

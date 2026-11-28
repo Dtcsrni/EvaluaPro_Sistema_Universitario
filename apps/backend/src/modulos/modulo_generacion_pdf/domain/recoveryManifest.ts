@@ -176,7 +176,8 @@ function hashBytes(value: Uint8Array) {
 
 function signPayload(payload: unknown, keyId = configuracion.omrRecoveryKeyId) {
   const canonical = stableStringify(payload);
-  const secret = resolverSecretoRecoveryPorKeyId(keyId) ?? configuracion.omrRecoverySecret;
+  const secret = resolverSecretoRecoveryPorKeyId(keyId);
+  if (!secret) throw new Error(`No hay una clave OMR configurada para firmar manifiestos de recuperación (${String(keyId ?? 'sin keyId')}).`);
   const signature = `${RECOVERY_SIGNATURE_PREFIX}${createHmac('sha256', secret)
     .update(canonical)
     .digest('hex')

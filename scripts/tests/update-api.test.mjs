@@ -17,6 +17,19 @@ const lockPath = path.join(root, 'logs', 'dashboard.lock.json');
 const singletonPath = path.join(root, 'logs', 'dashboard.singleton.json');
 const requestedPort = 5799;
 
+test('el update local bloquea el instalador si no valida firma del mismo editor del Hub', () => {
+  const launcher = fs.readFileSync(path.join(root, 'scripts', 'launcher-dashboard.mjs'), 'utf8');
+  const verifierPath = path.join(root, 'scripts', 'verify-update-installer-signature.ps1');
+  assert.equal(fs.existsSync(verifierPath), true);
+  const verifier = fs.readFileSync(verifierPath, 'utf8');
+  assert.match(verifier, /Get-AuthenticodeSignature -LiteralPath \$bundlePath/);
+  assert.match(verifier, /Get-AuthenticodeSignature -LiteralPath \$target/);
+  assert.match(verifier, /SignerCertificate\.Thumbprint/);
+  const apply = launcher.slice(launcher.indexOf('async function runInstallerForUpdate'), launcher.indexOf('async function healthCheckAfterUpdate'));
+  assert.match(apply, /verify-update-installer-signature\.ps1/);
+  assert.ok(apply.indexOf('if (!signature.ok)') < apply.indexOf("runProcessCapture(installerPath"), 'la verificación debe ocurrir antes de ejecutar el instalador');
+});
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -131,7 +144,8 @@ test('update API expone check y download con transición válida', { timeout: 18
       ...process.env,
       EVALUAPRO_UPDATE_FEED_URL: `http://127.0.0.1:${fake.port}/releases`,
       EVALUAPRO_UPDATE_FLAVOR: 'docente-local',
-      EVALUAPRO_UPDATE_REQUIRE_SHA256: '1'
+      EVALUAPRO_UPDATE_REQUIRE_SHA256: '1',
+      EVALUAPRO_TEST_INSTANCE: '1'
     }
   });
 
@@ -151,6 +165,37 @@ test('update API expone check y download con transición válida', { timeout: 18
   assert.equal(statusRes.status, 200);
   const initial = await statusRes.json();
   assert.equal(typeof initial.state, 'string');
+  const expectedHubVersion = JSON.parse(fs.readFileSync(path.join(root, 'config', 'hub-version.json'), 'utf8')).version;
+  assert.equal(initial.currentVersion, expectedHubVersion, 'updater debe comparar la versión del Hub, no package.json (versión de la app)');
+  const expectedAppVersion = JSON.parse(fs.readFileSync(path.join(root, 'config', 'app-version.json'), 'utf8')).version;
+  assert.equal(initial.appVersion, expectedAppVersion);
+  assert.equal(initial.hubVersion, expectedHubVersion);
+
+  for (const page of ['/update', '/reconnect']) {
+    const pageRes = await fetch(`http://127.0.0.1:${port}${page}`);
+    assert.equal(pageRes.status, 200);
+    assert.match(pageRes.headers.get('content-type') || '', /text\/html/);
+    assert.match(pageRes.headers.get('cache-control') || '', /no-store/);
+    const html = await pageRes.text();
+    assert.match(html, page === '/update' ? /api\/update\/apply/ : /api\/lifecycle\/reconcile/);
+    if (page === '/update') {
+      assert.match(html, /aria-live="polite"/);
+      assert.match(html, /aria-label="Progreso de actualización"/);
+      assert.match(html, /Solicitar reinicio de Windows/);
+      assert.match(html, /Reabre EvaluaPro/);
+    }
+  }
+  const stepUpRes = await fetch(`http://127.0.0.1:${port}/api/support/privileged/step-up`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+  });
+  const stepUpResult = await stepUpRes.json();
+  if (process.platform === 'win32') {
+    assert.equal(stepUpRes.status, 400, 'step-up sin código debe rechazarse sin invocar el proveedor');
+    assert.equal(stepUpResult.error, 'step_up_code_invalid_format');
+  } else {
+    assert.equal(stepUpRes.status, 501, 'step-up debe informar que el proveedor solo está disponible en Windows');
+    assert.equal(stepUpResult.error, 'step_up_windows_only');
+  }
 
   const checkRes = await fetch(`http://127.0.0.1:${port}/api/update/check`, {
     method: 'POST',

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace EvaluaPro.AppHost;
@@ -52,6 +53,7 @@ internal static class ShortcutReconciler
         }
 
         var entries = new List<ShortcutResult>();
+        var legacyStartupShortcutCleanup = new StartupShortcutCleanupResult("not_checked", null, null);
         foreach (var directory in locations)
         {
             if (string.IsNullOrWhiteSpace(directory)) continue;
@@ -66,12 +68,124 @@ internal static class ShortcutReconciler
         if (!string.IsNullOrWhiteSpace(startupDirectory))
         {
             Directory.CreateDirectory(startupDirectory);
+            legacyStartupShortcutCleanup = ArchiveLegacyStartupShortcut(startupDirectory);
             entries.Add(CreateShortcutIfOwned(startupDirectory, "EvaluaPro", executable, root, "--tray-start",
                 ResolveIcon(root, "dashboard-prod.ico", executable)));
         }
 
-        WriteSuccess(executable, entries);
+        WriteSuccess(executable, entries, legacyStartupShortcutCleanup);
         return 0;
+    }
+
+    private static StartupShortcutCleanupResult ArchiveLegacyStartupShortcut(string startupDirectory)
+    {
+        const string legacyShortcutName = "EvaluaPro docente-local (bandeja).lnk";
+        var shortcutPath = Path.Combine(startupDirectory, legacyShortcutName);
+        if (!File.Exists(shortcutPath)) return new StartupShortcutCleanupResult("not_found", null, null);
+
+        string inspectedHash;
+        try
+        {
+            inspectedHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(shortcutPath)));
+        }
+        catch
+        {
+            return new StartupShortcutCleanupResult("preserved_unreadable", null, null);
+        }
+
+        object? shellLink = null;
+        try
+        {
+            shellLink = new ShellLink();
+            ((IPersistFile)shellLink).Load(shortcutPath, 0);
+            var link = (IShellLinkW)shellLink;
+            var target = ReadShortcutTarget(link);
+            if (!IsLegacyCodexTrayTarget(target) ||
+                !string.Equals(ReadShortcutArguments(link), "--tray-start", StringComparison.Ordinal))
+            {
+                return new StartupShortcutCleanupResult("preserved_unverified", null, null);
+            }
+            if (!string.Equals(inspectedHash,
+                Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(shortcutPath))), StringComparison.Ordinal))
+            {
+                return new StartupShortcutCleanupResult("preserved_changed_during_inspection", null, null);
+            }
+        }
+        catch
+        {
+            return new StartupShortcutCleanupResult("preserved_unreadable", null, null);
+        }
+        finally
+        {
+            if (shellLink is not null && Marshal.IsComObject(shellLink)) Marshal.FinalReleaseComObject(shellLink);
+        }
+
+        var backupDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EvaluaPro", "Backups", "startup-shortcuts");
+        var sourceRoot = Path.GetPathRoot(Path.GetFullPath(shortcutPath));
+        var backupRoot = Path.GetPathRoot(Path.GetFullPath(backupDirectory));
+        if (!string.Equals(sourceRoot, backupRoot, StringComparison.OrdinalIgnoreCase))
+            return new StartupShortcutCleanupResult("preserved_different_volume", null, null);
+
+        string? backupPath = null;
+        var moved = false;
+        try
+        {
+            Directory.CreateDirectory(backupDirectory);
+            backupPath = Path.Combine(backupDirectory,
+                Path.GetFileNameWithoutExtension(shortcutPath) + "." + Guid.NewGuid().ToString("N") + ".lnk.bak");
+            File.Move(shortcutPath, backupPath);
+            moved = true;
+
+            var backupHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(backupPath)));
+            if (!string.Equals(inspectedHash, backupHash, StringComparison.Ordinal))
+            {
+                File.Move(backupPath, shortcutPath);
+                moved = false;
+                return new StartupShortcutCleanupResult("preserved_hash_mismatch", null, null);
+            }
+
+            SHChangeNotify(ShcneUpdateItem, ShcnfPathW | ShcnfFlush, shortcutPath, IntPtr.Zero);
+            return new StartupShortcutCleanupResult("archived", Path.GetFileName(backupPath), backupHash);
+        }
+        catch (Exception exception)
+        {
+            if (moved && backupPath is not null && File.Exists(backupPath) && !File.Exists(shortcutPath))
+            {
+                try
+                {
+                    File.Move(backupPath, shortcutPath);
+                    moved = false;
+                }
+                catch { }
+            }
+
+            return new StartupShortcutCleanupResult(
+                moved ? "rollback_failed" : "preserved_error_" + exception.GetType().Name,
+                moved && backupPath is not null ? Path.GetFileName(backupPath) : null,
+                null);
+        }
+    }
+
+    private static bool IsLegacyCodexTrayTarget(string target)
+    {
+        if (string.IsNullOrWhiteSpace(target)) return false;
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var packagesRoot = Path.GetFullPath(Path.Combine(localAppData, "Packages"))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var fullTarget = Path.GetFullPath(target);
+        if (!fullTarget.StartsWith(packagesRoot, StringComparison.OrdinalIgnoreCase)) return false;
+
+        var relative = fullTarget[packagesRoot.Length..];
+        var segments = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length == 5 &&
+            segments[0].StartsWith("OpenAI.Codex_", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[1], "LocalCache", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[2], "Local", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[3], "EvaluaPro", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[4], "EvaluaPro.exe", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolveUserInstallRoot()
@@ -183,6 +297,13 @@ internal static class ShortcutReconciler
         return path.ToString();
     }
 
+    private static string ReadShortcutArguments(IShellLinkW link)
+    {
+        var arguments = new StringBuilder(32768);
+        link.GetArguments(arguments, arguments.Capacity);
+        return arguments.ToString();
+    }
+
     private static ShortcutResult CreateShortcut(string directory, string name, string executable, string workingDirectory, string arguments, string iconPath)
     {
         var linkPath = Path.Combine(directory, name + ".lnk");
@@ -207,7 +328,7 @@ internal static class ShortcutReconciler
         }
     }
 
-    private static void WriteSuccess(string executable, List<ShortcutResult> entries)
+    private static void WriteSuccess(string executable, List<ShortcutResult> entries, StartupShortcutCleanupResult cleanup)
     {
         try
         {
@@ -227,7 +348,9 @@ internal static class ShortcutReconciler
             }
             var success = entries.All(entry => entry.Success);
             var json = "{\"success\":" + (success ? "true" : "false") + ",\"state\":\"" + (success ? "ok" : "degraded") + "\",\"schemaVersion\":2,\"executable\":\"" +
-                EscapeJson(executable) + "\",\"entries\":[" + serializedEntries + "]}";
+                EscapeJson(executable) + "\",\"legacyStartupShortcutCleanup\":{\"state\":\"" + EscapeJson(cleanup.State) + "\",\"backupFileName\":" +
+                (cleanup.BackupFileName is null ? "null" : "\"" + EscapeJson(cleanup.BackupFileName) + "\"") + ",\"sha256\":" +
+                (cleanup.Sha256 is null ? "null" : "\"" + EscapeJson(cleanup.Sha256) + "\"") + "},\"entries\":[" + serializedEntries + "]}";
             File.WriteAllText(Path.Combine(logDirectory, "shortcut-reconciliation.json"), json);
         }
         catch { }
@@ -270,6 +393,7 @@ internal static class ShortcutReconciler
     }
 
     private sealed record ShortcutResult(string Path, string Target, string Arguments, string WorkingDirectory, string Icon, bool Success);
+    private sealed record StartupShortcutCleanupResult(string State, string? BackupFileName, string? Sha256);
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern void SHChangeNotify(uint eventId, uint flags, string path, IntPtr item);
@@ -287,7 +411,7 @@ internal static class ShortcutReconciler
         void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string name);
         void GetWorkingDirectory(IntPtr directory, int maxPath);
         void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string directory);
-        void GetArguments(IntPtr arguments, int maxPath);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder arguments, int maxPath);
         void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string arguments);
         void GetHotkey(out short hotkey);
         void SetHotkey(short hotkey);

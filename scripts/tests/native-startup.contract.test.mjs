@@ -25,8 +25,19 @@ test('el arranque nativo evita duplicar API o web cuando el puerto ya está ocup
 
 test('el launcher nativo recarga configuración Classroom del .env frente a un supervisor obsoleto', () => {
   assert.match(nativeLauncher, /overrideKeys:\s*obtenerClavesEnvAutoritativas\(/);
+  assert.match(nativeLauncher, /clearMissingKeys:\s*obtenerClavesEnvLimpiarSiAusentes\(/);
+  assert.match(nativeLauncher, /ignoreKeys:\s*obtenerClavesEnvIgnorar\(/);
+  assert.match(nativeLauncher, /leerVariablesEnvDesdeArchivo\(envPath\)/);
+  assert.match(nativeLauncher, /resolverContextoEnvRuntime\(valoresInstalados, process\.env,\s*\{\s*installedEnvPresent: fs\.existsSync\(envPath\)/);
+  assert.match(nativeLauncher, /process\.env\.NODE_ENV = runtime\.nodeEnv/);
+  assert.match(nativeLauncher, /process\.env\.EVALUAPRO_FLAVOR = runtime\.flavor/);
   assert.match(runtimeEnv, /'CLASSROOM_ENABLED'/);
   assert.match(runtimeEnv, /'CLASSROOM_TOKEN_CIPHER_KEY'/);
+  assert.match(runtimeEnv, /'JWT_SECRETO'/);
+  assert.match(runtimeEnv, /'OMR_QR_HMAC_SECRETS_JSON'/);
+  assert.match(runtimeEnv, /export function obtenerClavesEnvIgnorar/);
+  assert.match(runtimeEnv, /'EVALUAPRO_FLAVOR'/);
+  assert.match(runtimeEnv, /processEnv\.EVALUAPRO_E2E_BUILD === '1'[\s\S]*processEnv\.NODE_ENV[\s\S]*'test'/);
   assert.doesNotMatch(runtimeEnv, /'GOOGLE_CLASSROOM_CLIENT_SECRET'/);
   assert.doesNotMatch(runtimeEnv, /'GOOGLE_CLASSROOM_REDIRECT_URI'/);
   assert.match(runtimeEnv, /nodeEnv[\s\S]*production[\s\S]*flavor[\s\S]*docente-local/);

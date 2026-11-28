@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { obtenerOpcionPuntuableOmr, omrRequiereResolucionManual } from '../src/modulos/modulo_calificacion/respuestaPuntuableOmr.js';
 import {
   evidenciaOmrNoDiscriminante,
@@ -15,6 +15,29 @@ import {
 } from '../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js';
 
 describe('politicaAutoCalificacionOmr', () => {
+  it('ignora el antiguo override de entorno y conserva estado y umbrales estrictos', async () => {
+    vi.stubEnv('OMR_AUTO_FORCE_ALL_PAGES', '1');
+    vi.resetModules();
+    try {
+      const policy = await import('../src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.js');
+      const resultado = policy.evaluarAutoCalificableOmr({
+        estadoAnalisis: 'requiere_revision',
+        calidadPagina: 0.51,
+        confianzaPromedioPagina: 0.57,
+        ratioAmbiguas: 0,
+        coberturaDeteccion: 1,
+        respuestasDetectadas: []
+      });
+
+      expect(resultado.autoCalificableOmr).toBe(false);
+      expect(resultado.motivos).toContain('estado_analisis_no_ok');
+      expect(policy.UMBRALES_OMR_AUTO).not.toHaveProperty('autoForceAllPages');
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+
   it('abstiene cuando el ruido llena varias opciones, pero conserva una señal débil aislada', () => {
     const respuesta = (scoresPorOpcion: Array<{
       opcion: string;
@@ -121,6 +144,59 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(resultado.autoCalificableOmr).toBe(true);
   });
 
+  it('mantiene en revisión un texto impreso que domina el núcleo sin forma compacta', () => {
+    const respuesta = {
+      opcion: null,
+      confianza: 0.5,
+      estadoRespuesta: 'ambigua' as const,
+      flags: ['parcial_detectada'],
+      scoresPorOpcion: ['A', 'B', 'C', 'D', 'E'].map((opcion) => opcion === 'A'
+        ? { opcion, score: 0.833, fillRatioCore: 0.77, nucleusFillRatio: 0.97, centroidOffsetRatio: 0.25, markConfidence: 1, shapeCompactness: 0.36, contraste: 0.54, estadoMarca: 'marcada' }
+        : opcion === 'C'
+          ? { opcion, score: 0.197, fillRatioCore: 0.31, nucleusFillRatio: 0.54, centroidOffsetRatio: 0.17, markConfidence: 0.4, shapeCompactness: 0.43, contraste: 0.2, estadoMarca: 'marcada' }
+          : { opcion, score: 0.16, fillRatioCore: 0.23, nucleusFillRatio: 0.3, centroidOffsetRatio: 0.24, markConfidence: 0.2, shapeCompactness: 0.14, contraste: 0.12, estadoMarca: 'parcial' })
+    };
+
+    expect(opcionParcialDominanteRecuperable(respuesta)).toBeNull();
+    const marcaRealDeBajaResolucion = {
+      ...respuesta,
+      scoresPorOpcion: ['A', 'B', 'C', 'D', 'E'].map((opcion) => opcion === 'A'
+        ? { opcion, score: 0.823, fillRatioCore: 0.667, nucleusFillRatio: 0.644, centroidOffsetRatio: 0.166, markConfidence: 0.9, shapeCompactness: 0.443, contraste: 0.402, estadoMarca: 'marcada' }
+        : { opcion, score: 0.11, fillRatioCore: 0.2, nucleusFillRatio: 0.05, centroidOffsetRatio: 0.2, markConfidence: 0.2, shapeCompactness: 0.05, contraste: 0.02, estadoMarca: 'parcial' })
+    };
+    expect(opcionParcialDominanteRecuperable(marcaRealDeBajaResolucion)).toBe('A');
+  });
+
+  it('no convierte una candidata E de alta confianza pero no compacta en calificación automática', () => {
+    const respuesta = {
+      numeroPregunta: 18,
+      opcion: null,
+      confianza: 0.5,
+      estadoRespuesta: 'ambigua' as const,
+      flags: ['parcial_detectada'],
+      scoresPorOpcion: [
+        { opcion: 'E', score: 0.3888, fillRatioCore: 0.2667, fillRatioRing: 0.125, nucleusFillRatio: 0.6444, centroidOffsetRatio: 0.2475, markConfidence: 0.9387, shapeCompactness: 0.1431, contraste: 0.2486, softCoreContrast: 0.2235, estadoMarca: 'marcada' },
+        { opcion: 'D', score: 0.1852, fillRatioCore: 0.2, fillRatioRing: 0.1042, nucleusFillRatio: 0, centroidOffsetRatio: 0.1693, markConfidence: 0.3403, shapeCompactness: 0.3083, contraste: 0.0948, softCoreContrast: 0.0974, estadoMarca: 'marcada' },
+        { opcion: 'B', score: 0.1166, fillRatioCore: 0.1333, fillRatioRing: 0.0625, nucleusFillRatio: 0, centroidOffsetRatio: 0.1192, markConfidence: 0.2171, shapeCompactness: 0.2438, contraste: 0.0599, softCoreContrast: 0.0707, estadoMarca: 'parcial' },
+        { opcion: 'A', score: 0.0836, fillRatioCore: 0.2, fillRatioRing: 0.0625, nucleusFillRatio: 0.4444, centroidOffsetRatio: 0.2104, markConfidence: 0.3287, shapeCompactness: 0.0384, contraste: 0.0446, softCoreContrast: 0.1162, estadoMarca: 'parcial' },
+        { opcion: 'C', score: 0.0823, fillRatioCore: 0.2667, fillRatioRing: 0.0833, nucleusFillRatio: 0.4222, centroidOffsetRatio: 0.2415, markConfidence: 0.3297, shapeCompactness: 0.0423, contraste: 0.0656, softCoreContrast: 0.1728, estadoMarca: 'parcial' }
+      ]
+    };
+
+    expect(opcionParcialDominanteRecuperable(respuesta)).toBeNull();
+    expect(parcialDetectadaConFormaCircularFuerte({ ...respuesta, opcion: 'E' })).toBe(false);
+    const decision = evaluarAutoCalificableOmr({
+      estadoAnalisis: 'ok',
+      calidadPagina: 0.99,
+      confianzaPromedioPagina: 0.99,
+      ratioAmbiguas: 0.1,
+      coberturaDeteccion: 1,
+      respuestasDetectadas: [respuesta]
+    });
+    expect(decision.autoCalificableOmr).toBe(false);
+    expect(decision.motivos).toContain('respuesta_requiere_revision_humana');
+  });
+
   it('cuenta una señal débil recuperable cuando no hay otra opción claramente marcada', () => {
     const respuesta = {
       opcion: null,
@@ -157,7 +233,7 @@ describe('politicaAutoCalificacionOmr', () => {
     })).toBe('B');
   });
 
-  it('considera incorrecta una respuesta ambigua con dos marcas claras sin detener la página', () => {
+  it('bloquea la autocalificación de una respuesta ambigua con dos marcas claras', () => {
     const scoresPorOpcion = ['A', 'B', 'C', 'D', 'E'].map((opcion) => {
       if (opcion === 'A' || opcion === 'B') {
         return { opcion, score: 0.74, fillRatioCore: 0.8, nucleusFillRatio: 0.7, centroidOffsetRatio: 0.2, markConfidence: 0.85, shapeCompactness: 0.55, contraste: 0.2, estadoMarca: 'marcada' };
@@ -181,12 +257,12 @@ describe('politicaAutoCalificacionOmr', () => {
       coberturaDeteccion: 1,
       respuestasDetectadas: [respuesta]
     });
-    expect(resultado.hardStop).toBe(false);
-    expect(resultado.autoCalificableOmr).toBe(true);
-    expect(resultado.motivos).not.toContain('marca_parcial_no_competitiva');
+    expect(resultado.hardStop).toBe(true);
+    expect(resultado.autoCalificableOmr).toBe(false);
+    expect(resultado.motivos).toContain('respuesta_requiere_revision_humana');
   });
 
-  it('mantiene sin opción una ambigüedad sin señal visible y la permite puntuar como incorrecta', () => {
+  it('mantiene en revisión una ambigüedad sin opción aunque no haya señal visible', () => {
     const respuesta = {
       opcion: null,
       confianza: 0,
@@ -214,7 +290,8 @@ describe('politicaAutoCalificacionOmr', () => {
       coberturaDeteccion: 1,
       respuestasDetectadas: [respuesta]
     });
-    expect(resultado.autoCalificableOmr).toBe(true);
+    expect(resultado.autoCalificableOmr).toBe(false);
+    expect(resultado.motivos).toContain('respuesta_requiere_revision_humana');
   });
 
   it('no interpreta ruido muy débil como una respuesta', () => {
@@ -321,7 +398,7 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(resultado.motivos).toEqual([]);
   });
 
-  it('cuenta como incorrecta una respuesta ambigua sin opción cuando la página supera los controles globales', () => {
+  it('bloquea una respuesta ambigua sin opción aunque la página supere los controles globales', () => {
     const resultado = evaluarAutoCalificableOmr({
       estadoAnalisis: 'ok',
       calidadPagina: 0.99,
@@ -337,18 +414,19 @@ describe('politicaAutoCalificacionOmr', () => {
       ]
     });
 
-    expect(resultado.hardStop).toBe(false);
-    expect(resultado.autoCalificableOmr).toBe(true);
+    expect(resultado.hardStop).toBe(true);
+    expect(resultado.autoCalificableOmr).toBe(false);
+    expect(resultado.motivos).toContain('respuesta_requiere_revision_humana');
   });
 
-  it.each(['sin_marca', 'ambigua', 'doble_marca', 'tachada'] as const)(
-    'permite calificar como incorrecta la respuesta %s sin opción cuando identidad y calidad son verificables',
+  it.each(['ambigua', 'doble_marca', 'tachada'] as const)(
+    'exige revisión humana para la respuesta %s sin opción',
     (estadoRespuesta) => {
       const resultado = evaluarAutoCalificableOmr({
         estadoAnalisis: 'ok',
         calidadPagina: 0.99,
         confianzaPromedioPagina: 0.99,
-        ratioAmbiguas: estadoRespuesta === 'ambigua' ? 0.2 : 0,
+        ratioAmbiguas: 0,
         coberturaDeteccion: 1,
         respuestasDetectadas: [
           { opcion: 'A', confianza: 0.99, estadoRespuesta: 'respondida' },
@@ -359,8 +437,9 @@ describe('politicaAutoCalificacionOmr', () => {
         ]
       });
 
-      expect(resultado.hardStop).toBe(false);
-      expect(resultado.autoCalificableOmr).toBe(true);
+      expect(resultado.hardStop).toBe(true);
+      expect(resultado.autoCalificableOmr).toBe(false);
+      expect(resultado.motivos).toContain('respuesta_requiere_revision_humana');
     }
   );
 
@@ -724,11 +803,11 @@ describe('politicaAutoCalificacionOmr', () => {
     expect(resultado.autoCalificableOmr).toBe(true);
   });
 
-  it('deja la pregunta 19 sin opción ante ruido menor al piso y la cuenta incorrecta', () => {
+  it('deja la pregunta 19 como omisión ante ruido menor al piso y la cuenta incorrecta', () => {
     const sinMarca = {
       opcion: null,
       confianza: 0.45707,
-      estadoRespuesta: 'ambigua' as const,
+      estadoRespuesta: 'sin_marca' as const,
       flags: ['parcial_detectada'],
       scoresPorOpcion: ['A', 'B', 'C', 'D', 'E'].map((opcion) => opcion === 'C'
         ? { opcion, score: 0.0773, fillRatioCore: 0.09091, nucleusFillRatio: 0.10811, centroidOffsetRatio: 0.04714, markConfidence: 0.16569, shapeCompactness: 0.95286, contraste: 0.00671, estadoMarca: 'no_marcada' }

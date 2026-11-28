@@ -12,6 +12,10 @@ export function obtenerVersionTecnicaApp(): string {
   return String(import.meta.env.VITE_APP_VERSION || '1.1.1');
 }
 
+export function obtenerVersionTecnicaHub(): string {
+  return String(import.meta.env.VITE_HUB_VERSION || '0.0.0');
+}
+
 export function obtenerModoApp(): 'prod' | 'dev' | 'test' {
   const modo = String(import.meta.env.VITE_EVALUAPRO_MODE || 'prod').trim().toLowerCase();
   return modo === 'dev' || modo === 'test' ? modo : 'prod';

@@ -81,7 +81,6 @@ Las variables de herramientas y scripts se listan por separado y no representan 
 - `OMR_AUTO_AMBIGUAS_MAX` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
 - `OMR_AUTO_CONF_MIN` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
 - `OMR_AUTO_DETECCION_MIN` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
-- `OMR_AUTO_FORCE_ALL_PAGES` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
 - `OMR_AUTO_HARDSTOP_AMBIGUAS_MIN` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
 - `OMR_AUTO_HARDSTOP_CONF_MAX` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)
 - `OMR_AUTO_HARDSTOP_DETECCION_MAX` (usado en: apps/backend/src/modulos/modulo_escaneo_omr/politicaAutoCalificacionOmr.ts)

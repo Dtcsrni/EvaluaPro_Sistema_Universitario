@@ -976,13 +976,63 @@ internal sealed class EvaluaProBootstrapperApplication : BootstrapperApplication
             && prerequisitesHealthy
             && remediationHealthy;
         var hasOlderRelatedBundle = olderRelatedBundleVersion is not null;
-        var defaultMode = hasOlderRelatedBundle && diagnosticsHealthy ? "install" : "repair";
+        var instance = payload.Lifecycle?.Instances?.FirstOrDefault(candidate =>
+            string.Equals(candidate.FlavorId, payload.Flavor?.FlavorId ?? "docente-local", StringComparison.OrdinalIgnoreCase));
+        var installedAppVersion = instance?.Version ?? string.Empty;
+        var installedHubVersion = instance?.HubVersion ?? string.Empty;
+        var targetAppVersion = GetAssemblyMetadataVersion("EvaluaProAppVersion");
+        var targetHubVersion = GetHubVersion();
+        var currentApp = new Version(0, 0, 0);
+        var currentHub = new Version(0, 0, 0);
+        var targetApp = new Version(0, 0, 0);
+        var targetHub = new Version(0, 0, 0);
+        var appVersionKnown = TryParseStableVersion(installedAppVersion, out currentApp)
+            && TryParseStableVersion(targetAppVersion, out targetApp);
+        var hubVersionKnown = TryParseStableVersion(installedHubVersion, out currentHub)
+            && TryParseStableVersion(targetHubVersion, out targetHub);
+        var appUpgradeAvailable = appVersionKnown && targetApp > currentApp;
+        var hubUpgradeAvailable = appVersionKnown && hubVersionKnown && targetApp >= currentApp && targetHub > currentHub;
+        var versionUpgradeAvailable = appUpgradeAvailable || hubUpgradeAvailable;
+        var fallbackBundleUpgradeAvailable = appVersionKnown && targetApp >= currentApp && !hubVersionKnown && hasOlderRelatedBundle;
+        var defaultMode = diagnosticsHealthy && (versionUpgradeAvailable || fallbackBundleUpgradeAvailable)
+            ? "install"
+            : "repair";
 
         Log(
             diagnosticsHealthy ? "info" : "warn",
-            $"Modo predeterminado resuelto: {(defaultMode == "install" ? "actualizar" : "reparar")}; instalado={isGenuinelyInstalled} bundleAnterior={olderRelatedBundleVersion?.ToString() ?? "no"} diagnosticoSano={diagnosticsHealthy} prerequisitos={payload.Prerequisites?.Count ?? 0} incidencias={payload.System?.Issues?.Count ?? 0} estado={payload.Lifecycle?.State ?? "desconocido"}");
+            $"Modo predeterminado resuelto: {(defaultMode == "install" ? "actualizar" : "reparar")}; instalado={isGenuinelyInstalled} app={installedAppVersion}->{targetAppVersion} hub={installedHubVersion}->{targetHubVersion} appVersionKnown={appVersionKnown} hubVersionKnown={hubVersionKnown} bundleAnterior={olderRelatedBundleVersion?.ToString() ?? "no"} diagnosticoSano={diagnosticsHealthy} prerequisitos={payload.Prerequisites?.Count ?? 0} incidencias={payload.System?.Issues?.Count ?? 0} estado={payload.Lifecycle?.State ?? "desconocido"}");
 
         return NormalizeMode(defaultMode);
+    }
+
+    private static string GetAssemblyMetadataVersion(string key)
+    {
+        return typeof(EvaluaProBootstrapperApplication).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => string.Equals(attribute.Key, key, StringComparison.Ordinal))?.Value ?? string.Empty;
+    }
+
+    private static string GetHubVersion()
+    {
+        var version = typeof(EvaluaProBootstrapperApplication).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? string.Empty;
+        var metadataSeparator = version.IndexOf('+');
+        return metadataSeparator >= 0 ? version[..metadataSeparator] : version;
+    }
+
+    private static bool TryParseStableVersion(string value, out Version version)
+    {
+        if (!Version.TryParse(value.TrimStart('v'), out var parsed) || parsed is null || parsed.Build < 0)
+        {
+            version = new Version(0, 0, 0);
+            return false;
+        }
+
+        version = parsed;
+        return true;
     }
 
     private static bool HasInstalledPayloadFiles(string installDir)
@@ -3027,6 +3077,7 @@ public sealed class LifecycleInstancePayload
     public string DataDir { get; set; } = string.Empty;
     public string FlavorId { get; set; } = "unknown";
     public string Version { get; set; } = string.Empty;
+    public string HubVersion { get; set; } = string.Empty;
     public string State { get; set; } = "unknown";
     public bool ReadOnlyInventory { get; set; } = true;
     public bool PreserveDataByDefault { get; set; } = true;

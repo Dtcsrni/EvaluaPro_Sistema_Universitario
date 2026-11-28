@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import {
   buscarMejorOffsetPregunta,
   calcularMetricasPregunta,
+  debePermitirBusquedaLocalPorPregunta,
   evaluarConOffset,
   type EstadoImagenOmr
 } from './omrCore.js';
@@ -83,6 +84,54 @@ export type ScoreOpcionOmr = {
   estadoMarca: 'no_marcada' | 'parcial' | 'marcada' | 'tachada';
 };
 
+/** Un blanco solo es confirmable cuando el mapa cae sobre los contornos impresos de la mayoría de opciones. */
+export function tieneAlineacionDeBurbujasVerificadaOmr(scores: readonly ScoreOpcionOmr[]): boolean {
+  if (scores.length < 3) return false;
+  const opcionesConContorno = scores.filter((score) =>
+    Number.isFinite(score.outerMean) &&
+    Number.isFinite(score.ringMean) &&
+    score.outerMean - score.ringMean >= 8
+  ).length;
+  return opcionesConContorno >= Math.ceil(scores.length * 0.6);
+}
+
+/** Recupera un blanco solo cuando el pase estricto confirma ausencia de tinta y contornos alineados. */
+export function recuperarOmisionesConCoordenadasEstrictasOmr(
+  respuestasBase: readonly RespuestaDetectadaOmr[],
+  respuestasEstrictas: readonly RespuestaDetectadaOmr[]
+): RespuestaDetectadaOmr[] {
+  const estrictasPorPregunta = new Map(respuestasEstrictas.map((respuesta) => [respuesta.numeroPregunta, respuesta]));
+  return respuestasBase.map((respuesta) => {
+    if (respuesta.opcion !== null || respuesta.estadoRespuesta !== 'ambigua' ||
+        respuesta.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')) return respuesta;
+    const estricta = estrictasPorPregunta.get(respuesta.numeroPregunta);
+    if (!estricta || estricta.opcion !== null || estricta.estadoRespuesta !== 'sin_marca' ||
+        estricta.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada' || flag === 'parcial_detectada') ||
+        !estricta.scoresPorOpcion || estricta.scoresPorOpcion.length !== 5 ||
+        estricta.scoresPorOpcion.some((score) => score.estadoMarca !== 'no_marcada') ||
+        !tieneAlineacionDeBurbujasVerificadaOmr(estricta.scoresPorOpcion)) return respuesta;
+    return estricta;
+  });
+}
+
+/** Evita que tinta ajena al círculo convierta un núcleo grande y elongado en respuesta. */
+export function debeRechazarMarcaDominanteNoCompactaOmr(args: {
+  panelHorizontal: boolean;
+  scoreDominante: number;
+  fillRatioCore: number;
+  nucleusFillRatio: number;
+  fillRatioRing: number;
+  shapeCompactness: number;
+}) {
+  return args.panelHorizontal &&
+    args.scoreDominante >= 0.44 &&
+    args.scoreDominante < 0.95 &&
+    args.fillRatioCore >= 0.65 &&
+    args.nucleusFillRatio >= 0.85 &&
+    args.shapeCompactness < 0.4 &&
+    args.fillRatioRing <= 0.3;
+}
+
 export type RespuestaDetectadaOmr = {
   numeroPregunta: number;
   /** Página del examen que originó esta lectura; se añade al agregar el análisis multipágina. */
@@ -132,6 +181,214 @@ export type ResultadoOmr = {
   /** Orientacion aplicada antes de proyectar el mapa OMR. */
   orientationMode?: 'none' | 'exif' | 'landscape_without_exif';
 };
+
+export function aplicarReglaMarcaClaraOmr(resultado: ResultadoOmr): ResultadoOmr {
+  const respuestasDetectadas = resultado.respuestasDetectadas.map((respuesta) => {
+    const scoreElegido = respuesta.opcion == null
+      ? undefined
+      : respuesta.scoresPorOpcion.find((score) => score.opcion === respuesta.opcion);
+    const marcaCromaticaClara = Boolean(
+      scoreElegido &&
+      (scoreElegido.contrasteCromaticoLocal ?? 0) >= 0.08 &&
+      (scoreElegido.margenCromatico ?? 0) >= 0.04 &&
+      scoreElegido.score >= 0.4 &&
+      (scoreElegido.fillRatioCore >= 0.08 || scoreElegido.nucleusFillRatio >= 0.12) &&
+      scoreElegido.centroidOffsetRatio <= 0.68 &&
+      scoreElegido.shapeCompactness >= 0.45
+    );
+    const marcasTenuesClaras = respuesta.scoresPorOpcion.filter((score) =>
+      score.estadoMarca === 'parcial' &&
+      score.score >= 0.48 &&
+      score.fillRatioCore >= 0.7 &&
+      score.fillRatioRing <= 0.18 &&
+      score.shapeCompactness >= 0.3 &&
+      score.markConfidence >= 0.9 &&
+      score.centroidOffsetRatio <= 0.25
+    );
+    const marcaTenueClara = marcasTenuesClaras.length === 1 &&
+      !respuesta.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada') &&
+      resultado.calidadPagina >= 0.55 &&
+      resultado.geomQuality >= 0.65 &&
+      resultado.pageOrientationDetermined === true
+      ? marcasTenuesClaras[0]
+      : undefined;
+    const opcionNoClara = respuesta.opcion != null &&
+      scoreElegido?.estadoMarca !== 'marcada' &&
+      !marcaCromaticaClara;
+    const todasLasOpcionesSinMarca =
+      respuesta.scoresPorOpcion.length === 5 &&
+      respuesta.scoresPorOpcion.every((score) => score.estadoMarca !== 'marcada');
+    // El detector puede proponer una doble por dos señales parciales de papel,
+    // compresión o tinta residual. Sin ninguna burbuja clasificada como marcada
+    // no hay evidencia de doble respuesta; con geometría fiable se confirma vacío.
+    const dobleSinMarcaClasificada =
+      respuesta.flags.includes('doble_marca') && todasLasOpcionesSinMarca;
+    const medicionCentradaEnOpciones =
+      respuesta.scoresPorOpcion.length === 5 &&
+      respuesta.scoresPorOpcion.every((score) =>
+        score.centroidOffsetRatio <= 0.75 && score.fillRatioRing <= 0.5
+      );
+    const medicionDeBlancoVerificable = medicionCentradaEnOpciones || (
+      respuesta.scoresPorOpcion.length === 5 &&
+      respuesta.scoresPorOpcion.every((score) => score.estadoMarca === 'no_marcada') &&
+      respuesta.scoresPorOpcion.filter((score) =>
+        Number.isFinite(score.outerMean) && Number.isFinite(score.ringMean) &&
+        score.outerMean - score.ringMean >= 30
+      ).length >= 4 &&
+      tieneCentroSinTintaRelativaOmr(respuesta.scoresPorOpcion)
+    );
+    const invalida = respuesta.flags.includes('tachada_detectada') ||
+      (respuesta.flags.includes('doble_marca') && !dobleSinMarcaClasificada);
+    const competidoraConEvidencia = respuesta.scoresPorOpcion.some((score) =>
+      score.opcion !== respuesta.opcion &&
+      score.estadoMarca !== 'no_marcada' &&
+      score.score >= 0.2 &&
+      score.fillRatioCore >= 0.25 &&
+      score.fillRatioRing >= 0.18 &&
+      score.markConfidence >= 0.35 &&
+      score.shapeCompactness >= 0.25
+    );
+    const respuestaUnicaClara = Boolean(
+      scoreElegido?.estadoMarca === 'marcada' &&
+      scoreElegido.score >= 0.7 &&
+      scoreElegido.fillRatioCore >= 0.65 &&
+      scoreElegido.markConfidence >= 0.72 &&
+      scoreElegido.shapeCompactness >= 0.55 &&
+      !invalida &&
+      !competidoraConEvidencia &&
+      resultado.calidadPagina >= 0.55 &&
+      resultado.geomQuality >= 0.65 &&
+      resultado.pageOrientationDetermined === true
+    );
+    const blancoConfirmable =
+      todasLasOpcionesSinMarca &&
+      !marcaTenueClara &&
+      medicionDeBlancoVerificable &&
+      !invalida &&
+      resultado.calidadPagina >= 0.55 &&
+      resultado.geomQuality >= 0.65;
+    const blancoConGeometriaInsuficiente =
+      respuesta.opcion == null &&
+      todasLasOpcionesSinMarca &&
+      !medicionDeBlancoVerificable &&
+      !invalida &&
+      resultado.calidadPagina >= 0.55 &&
+      resultado.geomQuality >= 0.65;
+
+    if (
+      !opcionNoClara &&
+      !(respuesta.opcion == null && blancoConfirmable) &&
+      !respuestaUnicaClara &&
+      !marcaTenueClara &&
+      !blancoConGeometriaInsuficiente
+    ) return respuesta;
+
+    const flags = marcaTenueClara
+      ? respuesta.flags.filter((flag) => flag !== 'parcial_detectada' && flag !== 'bajo_contraste')
+      : blancoConfirmable
+      ? respuesta.flags.filter((flag) =>
+          flag !== 'parcial_detectada' && flag !== 'bajo_contraste' &&
+          flag !== 'fuera_roi' && flag !== 'doble_marca'
+        )
+      : respuestaUnicaClara
+        ? respuesta.flags.filter((flag) => flag !== 'parcial_detectada' && flag !== 'bajo_contraste')
+      : blancoConGeometriaInsuficiente
+        ? Array.from(new Set([...respuesta.flags, 'fuera_roi' as const]))
+      : respuesta.flags;
+    const flagsFinales = !marcaTenueClara && !blancoConfirmable && !respuestaUnicaClara && !blancoConGeometriaInsuficiente && flags.length === 0
+      ? ['parcial_detectada' as const]
+      : flags;
+    const opcionFinal = marcaTenueClara?.opcion ??
+      (blancoConfirmable || opcionNoClara ? null : respuesta.opcion);
+    return {
+      ...respuesta,
+      opcion: opcionFinal,
+      confianza: marcaTenueClara
+        ? Math.max(respuesta.confianza, Math.min(0.95, marcaTenueClara.markConfidence))
+        : blancoConfirmable || opcionNoClara
+        ? Math.min(0.5, respuesta.confianza)
+        : respuesta.confianza,
+      flags: flagsFinales,
+      estadoRespuesta: clasificarEstadoRespuestaOmr({
+        opcion: opcionFinal,
+        flags: flagsFinales
+      })
+    };
+  });
+  const ratioAmbiguas = respuestasDetectadas.filter((respuesta) =>
+    respuesta.opcion == null && respuesta.flags.length > 0
+  ).length / Math.max(1, respuestasDetectadas.length);
+
+  return {
+    ...resultado,
+    respuestasDetectadas,
+    ratioAmbiguas,
+    resumenRespuestas: resumirRespuestasOmr(
+      respuestasDetectadas,
+      resultado.calidadPagina,
+      resultado.geomQuality
+    )
+  };
+}
+
+/** Filas sin marcas candidatas que ameritan un segundo ajuste geométrico local. */
+export function preguntasParaRelecturaLocalOmr(
+  respuestasEstrictas: readonly RespuestaDetectadaOmr[]
+): number[] {
+  return respuestasEstrictas
+    .filter((respuesta) => {
+      if (respuesta.opcion !== null || respuesta.estadoRespuesta !== 'ambigua' ||
+          !respuesta.scoresPorOpcion || respuesta.scoresPorOpcion.length !== 5 ||
+          respuesta.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada' || flag === 'parcial_detectada') ||
+          respuesta.scoresPorOpcion.some((score) => score.estadoMarca !== 'no_marcada')) return false;
+      return respuesta.flags.includes('fuera_roi') ||
+        !tieneAlineacionDeBurbujasVerificadaOmr(respuesta.scoresPorOpcion);
+    })
+    .map((respuesta) => respuesta.numeroPregunta);
+}
+
+function buscarMarcaTenuePorContrasteRelativoOmr(scores: readonly ScoreOpcionOmr[]) {
+  if (scores.length !== 5 || !scores.every((score) => Number.isFinite(score.centerMean) && Number.isFinite(score.ringMean))) {
+    return null;
+  }
+  const median = (values: number[]) => {
+    const ordered = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(ordered.length / 2);
+    const lower = ordered[middle - 1];
+    const upper = ordered[middle];
+    return ordered.length % 2 === 0 ? ((lower ?? 0) + (upper ?? 0)) / 2 : ordered[middle] ?? Number.NaN;
+  };
+  const medianaCentro = median(scores.map((score) => score.centerMean));
+  const medianaAnillo = median(scores.map((score) => score.ringMean));
+  const [candidata, segunda] = [...scores].sort((a, b) => a.centerMean - b.centerMean);
+  if (!candidata || !segunda) return null;
+  const oscurecimientoCentro = medianaCentro - candidata.centerMean;
+  const separacionCentro = segunda.centerMean - candidata.centerMean;
+  const oscurecimientoAnillo = medianaAnillo - candidata.ringMean;
+  return candidata.score >= 0.08 &&
+    candidata.fillRatioCore >= 0.14 &&
+    candidata.shapeCompactness >= 0.24 &&
+    candidata.softCoreContrast >= 0.06 &&
+    candidata.centroidOffsetRatio <= 0.2 &&
+    candidata.strokeLeakPenalty <= 0.18 &&
+    oscurecimientoCentro >= 10 &&
+    oscurecimientoCentro <= 55 &&
+    separacionCentro >= 8 &&
+    oscurecimientoAnillo <= 40 &&
+    candidata.estadoMarca !== 'tachada'
+    ? candidata
+    : null;
+}
+
+/** Un blanco puede tener anillos impresos oscuros; se valida la uniformidad del interior, no el centroide de tinta. */
+function tieneCentroSinTintaRelativaOmr(scores: readonly ScoreOpcionOmr[]): boolean {
+  if (scores.length !== 5 || !scores.every((score) => Number.isFinite(score.centerMean))) return false;
+  const centros = scores.map((score) => score.centerMean);
+  const ordenados = [...centros].sort((a, b) => a - b);
+  const mediana = ordenados[2];
+  if (mediana == null) return false;
+  return centros.every((centro) => mediana - centro <= 18);
+}
 
 /**
  * Una respuesta pendiente basta para intentar la segunda hipotesis de
@@ -358,6 +615,14 @@ export function debeAceptarMarcaCromaticaAisladaOmr(args: {
   centroidOffsetRatio: number;
   softCentroidOffsetRatio: number;
 }) {
+  const dominaPorPuntaje = args.score >= Math.max(0.4, args.scoreCompetidor * 1.9);
+  // Con luz cálida, una burbuja azul puede parecer menos oscura que bordes
+  // impresos en escala de grises. Solo se relaja la dominancia del score si
+  // el contraste y el margen cromáticos son excepcionalmente claros.
+  const dominaPorTintaCromatica =
+    args.contrasteCromaticoLocal >= 0.18 &&
+    args.margenCromatico >= 0.15 &&
+    args.score >= Math.max(0.4, args.scoreCompetidor * 1.3);
   return (
     args.panelHorizontal &&
     !args.dobleMarcada &&
@@ -365,7 +630,7 @@ export function debeAceptarMarcaCromaticaAisladaOmr(args: {
     !args.existeOpcionActual &&
     args.contrasteCromaticoLocal >= 0.04 &&
     args.margenCromatico >= 0.035 &&
-    args.score >= Math.max(0.4, args.scoreCompetidor * 1.9) &&
+    (dominaPorPuntaje || dominaPorTintaCromatica) &&
     (args.fillRatioCore >= 0.08 || args.nucleusFillRatio >= 0.12) &&
     (args.centroidOffsetRatio <= 0.68 || args.softCentroidOffsetRatio <= 0.45)
   );
@@ -631,6 +896,100 @@ export function seleccionarMarcaUnicaConEvidenciaSuficiente(
     item.markConfidence >= 0.2
   );
   return candidatas.length === 1 ? candidatas[0] ?? null : null;
+}
+
+/** Dos burbujas marcadas con núcleo independiente invalidan la respuesta aunque una ruta de rescate proponga una letra. */
+export function detectarDobleMarcaPorFormaOmr(scores: readonly ScoreOpcionOmr[]): boolean {
+  const [dominante, segunda] = [...scores].sort((a, b) => b.score - a.score);
+  const evidenciaTonalIndependiente = (score: ScoreOpcionOmr | undefined) => Boolean(
+    score && (
+      (score.contraste >= 0.1 &&
+        score.markConfidence >= 0.55 &&
+        score.nucleusFillRatio >= 0.55 &&
+        score.radialMassRatio >= 0.35 &&
+        score.shapeCompactness >= 0.3) || (
+        score.softCoreContrast >= 0.2 &&
+        score.fillRatioCore >= 0.55 &&
+        score.nucleusFillRatio >= 0.55 &&
+        score.radialMassRatio >= 0.35 &&
+        score.markConfidence >= 0.55
+      )
+    )
+  );
+  return Boolean(
+    dominante?.estadoMarca === 'marcada' &&
+    segunda?.estadoMarca === 'marcada' &&
+    segunda.score >= OMR_DOUBLE_SECOND_SCORE_MIN &&
+    segunda.fillRatioCore >= OMR_DOUBLE_SECOND_CORE_MIN &&
+    segunda.score / Math.max(0.0001, dominante.score) >= OMR_DOUBLE_SECOND_RATIO_MIN &&
+    evidenciaTonalIndependiente(dominante) &&
+    evidenciaTonalIndependiente(segunda)
+  );
+}
+
+/** Aplica la última abstención morfológica después de fusionar/reintentar pasadas OMR. */
+export function aplicarAbstencionPorDobleMarcaOmr(resultado: ResultadoOmr): ResultadoOmr {
+  let cambios = 0;
+  const respuestasDetectadas = resultado.respuestasDetectadas.map((respuesta) => {
+    if (!detectarDobleMarcaPorFormaOmr(respuesta.scoresPorOpcion)) return respuesta;
+    if (respuesta.opcion == null && respuesta.flags.includes('doble_marca')) return respuesta;
+    cambios += 1;
+    const flags = Array.from(new Set([...respuesta.flags, 'doble_marca' as const, 'bajo_contraste' as const]));
+    return {
+      ...respuesta,
+      opcion: null,
+      confianza: Math.min(0.5, respuesta.confianza),
+      flags,
+      estadoRespuesta: 'doble_marca' as const
+    };
+  });
+  if (cambios === 0) return resultado;
+  const ambiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length;
+  const confianzaPromedioPagina = respuestasDetectadas.reduce(
+    (suma, respuesta) => suma + Math.max(0, respuesta.confianza), 0
+  ) / Math.max(1, respuestasDetectadas.length);
+  const motivo = 'Doble marca confirmada por evidencia de núcleo después de combinar pasadas OMR';
+  return {
+    ...resultado,
+    respuestasDetectadas,
+    confianzaPromedioPagina,
+    ratioAmbiguas: ambiguas / Math.max(1, respuestasDetectadas.length),
+    estadoAnalisis: resultado.estadoAnalisis === 'rechazado_calidad' ? resultado.estadoAnalisis : 'requiere_revision',
+    motivosRevision: Array.from(new Set([...resultado.motivosRevision, motivo])).slice(0, 24),
+    resumenRespuestas: resumirRespuestasOmr(
+      respuestasDetectadas,
+      resultado.calidadPagina,
+      resultado.geomQuality,
+      { forzarRevision: true }
+    )
+  };
+}
+
+/**
+ * Una pasada alternativa no puede rehabilitar una respuesta fuera del ROI:
+ * si el contorno impreso no se localizó, el pipeline completo debe abstenerse.
+ */
+export function aplicarAbstencionPorDesalineacionOmr(resultado: ResultadoOmr): ResultadoOmr {
+  const respuestasFueraDeRoi = resultado.respuestasDetectadas.filter((respuesta) =>
+    respuesta.opcion === null && respuesta.flags.includes('fuera_roi')
+  );
+  if (respuestasFueraDeRoi.length === 0) return resultado;
+
+  const motivo = 'No se confirmó la alineación de los contornos OMR; se requiere revisión manual';
+  const ambiguas = resultado.respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length;
+  return {
+    ...resultado,
+    autoCalificableOmr: false,
+    estadoAnalisis: resultado.estadoAnalisis === 'rechazado_calidad' ? resultado.estadoAnalisis : 'requiere_revision',
+    ratioAmbiguas: ambiguas / Math.max(1, resultado.respuestasDetectadas.length),
+    motivosRevision: Array.from(new Set([...resultado.motivosRevision, motivo])).slice(0, 24),
+    resumenRespuestas: resumirRespuestasOmr(
+      resultado.respuestasDetectadas,
+      resultado.calidadPagina,
+      resultado.geomQuality,
+      { forzarRevision: true }
+    )
+  };
 }
 
 /**
@@ -1501,9 +1860,11 @@ type OpcionesAnalisisInterno = {
   noRetry?: boolean;
   rescueFiduciales?: boolean;
   disableLocalGeometry?: boolean;
+  forceLocalGeometryForQuestions?: readonly number[];
   forceHomographyGeometry?: boolean;
   qrGeometryOutputSize?: number;
   qrTextoPrevalidado?: string;
+  qrOrientacionFuenteGrados?: 0 | 90 | 180 | 270;
 };
 
 type DebugPregunta = {
@@ -1524,6 +1885,14 @@ type DebugPregunta = {
   flags?: string[];
   dx: number;
   dy: number;
+  geometriaLocal?: {
+    habilitada: boolean;
+    fiducialesDetectados: number;
+    fiducialesEsperados: number;
+    errorReproyeccionPx: number | null;
+    motivo?: string;
+    centros?: Array<{ opcion: string; x: number; y: number }>;
+  };
   scoreMean: number;
   scoreStd: number;
   scoreThreshold: number;
@@ -1739,6 +2108,7 @@ function resolverEstadoAnalisis(args: {
   totalRespuestas: number;
   respuestasAnalizadas?: number;
   geometriaConfiable?: boolean;
+  alineacionPanelesConfiable?: boolean;
 }) {
   const { calidadPagina, confianzaMedia, ratioAmbiguas, totalRespuestas } = args;
   const geometriaConfiable = args.geometriaConfiable !== false;
@@ -1830,6 +2200,13 @@ function resolverEstadoAnalisis(args: {
     anularRespuestas = true;
     motivos.push('Referencia de página insuficiente: se requiere QR legible o cuatro marcas y orientación verificables');
     advertencias.push('No se autocalifica una captura sin geometría y orientación confiables');
+  }
+
+  if (args.alineacionPanelesConfiable === false) {
+    if (estado !== 'rechazado_calidad') estado = 'requiere_revision';
+    anularRespuestas = true;
+    motivos.push('No se confirmó la alineación de los contornos de respuesta con el mapa OMR');
+    advertencias.push('Se requiere revisión: las marcas vacías no pueden comprobarse contra sus burbujas impresas');
   }
 
   return { estado, motivos, advertencias, anularRespuestas };
@@ -2264,7 +2641,15 @@ export async function detectarQrEnResolucionFuenteRotada(
       opciones
     );
     if (verificado && payloadsEsperados.includes(verificado.data)) {
-      return { ...verificado, fuenteDeteccionQr: 'rotacion_pagina' };
+      const locationFuente = {
+        topLeftCorner: desrotarPuntoQr(verificado.location.topLeftCorner, giro, Number(metadata.width), Number(metadata.height)),
+        topRightCorner: desrotarPuntoQr(verificado.location.topRightCorner, giro, Number(metadata.width), Number(metadata.height))
+      };
+      return {
+        ...verificado,
+        orientacionFuenteGrados: detectarOrientacionQrEnMarcoFuente(locationFuente),
+        fuenteDeteccionQr: 'rotacion_pagina'
+      };
     }
   }
   return null;
@@ -2334,11 +2719,7 @@ export async function detectarQrConRotacionPagina(
     const anchoCompleto = info.width ?? widthRotada;
     const altoCompleto = info.height ?? heightRotada;
     const rgbaCompleto = new Uint8ClampedArray(pixeles);
-    const desrotar = (punto: { x: number; y: number }) => {
-      if (giro === 90) return { x: punto.y, y: height - 1 - punto.x };
-      if (giro === 180) return { x: width - 1 - punto.x, y: height - 1 - punto.y };
-      return { x: width - 1 - punto.y, y: punto.x };
-    };
+    const desrotar = (punto: { x: number; y: number }) => desrotarPuntoQr(punto, giro, width, height);
     const regiones = [
       region,
       {
@@ -2362,19 +2743,44 @@ export async function detectarQrConRotacionPagina(
         { width: anchoCompleto, height: altoCompleto, qrSizePts, anchoCarta: ANCHO_CARTA }
       );
       if (!detectado || (payloadsEsperados.length > 0 && !payloadsEsperados.includes(detectado.data))) continue;
+      const location = {
+        topLeftCorner: desrotar(detectado.location.topLeftCorner),
+        topRightCorner: desrotar(detectado.location.topRightCorner),
+        bottomRightCorner: desrotar(detectado.location.bottomRightCorner),
+        bottomLeftCorner: desrotar(detectado.location.bottomLeftCorner)
+      };
+      const orientacionFuenteGrados = detectarOrientacionQrEnMarcoFuente(location);
       return {
         ...detectado,
-        location: {
-          topLeftCorner: desrotar(detectado.location.topLeftCorner),
-          topRightCorner: desrotar(detectado.location.topRightCorner),
-          bottomRightCorner: desrotar(detectado.location.bottomRightCorner),
-          bottomLeftCorner: desrotar(detectado.location.bottomLeftCorner)
-        },
+        location,
+        orientacionFuenteGrados,
         fuenteDeteccionQr: 'rotacion_pagina'
       };
     }
   }
   return null;
+}
+
+function detectarOrientacionQrEnMarcoFuente(
+  location: Pick<QrDetalle['location'], 'topLeftCorner' | 'topRightCorner'>
+): 0 | 90 | 180 | 270 {
+  const angulo = Math.atan2(
+    location.topRightCorner.y - location.topLeftCorner.y,
+    location.topRightCorner.x - location.topLeftCorner.x
+  ) * 180 / Math.PI;
+  const grados = ((Math.round(angulo / 90) * 90) % 360 + 360) % 360;
+  return grados as 0 | 90 | 180 | 270;
+}
+
+function desrotarPuntoQr(
+  punto: { x: number; y: number },
+  giro: 90 | 180 | 270,
+  width: number,
+  height: number
+) {
+  if (giro === 90) return { x: punto.y, y: height - 1 - punto.x };
+  if (giro === 180) return { x: width - 1 - punto.x, y: height - 1 - punto.y };
+  return { x: width - 1 - punto.y, y: punto.x };
 }
 
 function calcularMetricaAlineacion(
@@ -3221,6 +3627,73 @@ function mediaSaturacionEnAnillo(
   return count > 0 ? total / count : 0;
 }
 
+export function clasificarEstadoBurbujaOmr(args: {
+  trazoTachado: boolean;
+  score: number;
+  fillRatioCore: number;
+  fillDelta: number;
+  contraste: number;
+  centerDarknessDelta: number;
+  centroidOffsetRatio: number;
+  nucleusFillRatio: number;
+  shapeCompactness: number;
+  markConfidence: number;
+  gapCentro: number;
+  largestComponentPixels: number;
+  largestComponentAspectRatio: number;
+}) {
+  if (args.trazoTachado) return 'tachada' as const;
+
+  // Un score alto puede venir de texto/impresión del reverso dentro del ROI.
+  // Para llamar marcada a una burbuja exigimos que la tinta conserve una
+  // forma compacta, centrada y con evidencia de relleno; la confianza
+  // compuesta por sí sola no puede convertir ruido en respuesta.
+  const marcaClara =
+    (
+      args.score >= 0.18 &&
+      args.fillRatioCore >= 0.18 &&
+      args.gapCentro >= 16 &&
+      args.centroidOffsetRatio <= 0.42 &&
+      args.shapeCompactness >= 0.45
+    ) || (
+      args.score >= 0.14 &&
+      args.fillRatioCore >= 0.26 &&
+      args.gapCentro >= 12 &&
+      args.centroidOffsetRatio <= 0.42 &&
+      args.shapeCompactness >= 0.45
+    ) || (
+      args.markConfidence >= 0.72 &&
+      args.nucleusFillRatio >= 0.3 &&
+      args.shapeCompactness >= 0.45
+    );
+  if (marcaClara) return 'marcada' as const;
+
+  const trazoParcialLocalizado =
+    (
+      (
+        args.largestComponentPixels >= 7 &&
+        args.largestComponentAspectRatio >= 2.2
+      ) || (
+        args.largestComponentPixels >= 7 &&
+        args.largestComponentPixels <= 20 &&
+        args.score >= 0.04 &&
+        args.shapeCompactness < 0.05
+      )
+    ) && args.centroidOffsetRatio <= 0.55;
+  const intentoParcialCoherente =
+    (args.score >= 0.1 || args.fillRatioCore >= 0.14 || args.fillDelta >= 0.06) &&
+    args.centroidOffsetRatio <= 0.55 &&
+    (trazoParcialLocalizado || (
+      args.shapeCompactness >= 0.32 &&
+      (
+        args.centerDarknessDelta >= 0.08 ||
+        args.contraste >= 0.08 ||
+        args.nucleusFillRatio >= 0.15
+      )
+    ));
+  return intentoParcialCoherente ? 'parcial' as const : 'no_marcada' as const;
+}
+
 function construirScoresPorOpcion(args: {
   estado: EstadoImagenOmr;
   centros: Array<{ letra: string; punto: Punto }>;
@@ -3271,16 +3744,23 @@ function construirScoresPorOpcion(args: {
           rasgos.centroidOffsetRatio * 0.18
       );
       const gapCentro = rasgos.ringMean - rasgos.centerMean;
-      const estadoMarca: ScoreOpcionOmr['estadoMarca'] =
-        scoreItem.score >= 0.16 && rasgos.ratioRing >= 0.32 && rasgos.ratioCore < 0.22 && rasgos.anisotropy >= 2.45
-          ? 'tachada'
-          : (scoreItem.score >= 0.18 && rasgos.ratioCore >= 0.18 && gapCentro >= 16 && rasgos.centroidOffsetRatio <= 0.42) ||
-              (scoreItem.score >= 0.14 && rasgos.ratioCore >= 0.26 && gapCentro >= 12) ||
-              markConfidence >= 0.72
-            ? 'marcada'
-            : scoreItem.score >= 0.1 || rasgos.ratioCore >= 0.14 || rasgos.fillDelta >= 0.06
-              ? 'parcial'
-              : 'no_marcada';
+      const trazoTachado =
+        scoreItem.score >= 0.16 && rasgos.ratioRing >= 0.32 && rasgos.ratioCore < 0.22 && rasgos.anisotropy >= 2.45;
+      const estadoMarca = clasificarEstadoBurbujaOmr({
+        trazoTachado,
+        score: scoreItem.score,
+        fillRatioCore: rasgos.ratioCore,
+        fillDelta: rasgos.fillDelta,
+        contraste: rasgos.contraste,
+        centerDarknessDelta,
+        centroidOffsetRatio: rasgos.centroidOffsetRatio,
+        nucleusFillRatio,
+        shapeCompactness,
+        markConfidence,
+        gapCentro,
+        largestComponentPixels: rasgos.largestComponentPixels,
+        largestComponentAspectRatio: rasgos.largestComponentAspectRatio
+      });
 
       return {
         opcion: (String(scoreItem.letra ?? '').trim().toUpperCase() || 'A') as OpcionRespuestaOmr,
@@ -3561,17 +4041,92 @@ export function aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
   habilitada: boolean
 ): ResultadoOmr {
   if (!habilitada || pasadas.length < 2) return resultado;
+  const pasadasUnicas = Array.from(new Set(pasadas));
+  const orientacionesRegistradas = new Set(pasadasUnicas
+    .map((pasada) => pasada.pageRotationDegrees)
+    .filter((grados): grados is NonNullable<ResultadoOmr['pageRotationDegrees']> => grados !== undefined));
+  const puedeResolverMayoria = pasadasUnicas.length >= 3 &&
+    pasadasUnicas.every((pasada) => pasada.pageRotationDegrees !== undefined) &&
+    pasadasUnicas.every((pasada) =>
+      pasada.pageOrientationDetermined === true && pasada.pageOrientationConflict !== true &&
+      pasada.estadoAnalisis !== 'rechazado_calidad' && pasada.geomQuality >= 0.52 &&
+      pasada.calidadPagina >= OMR_QUALITY_REJECT_MIN
+    ) && orientacionesRegistradas.size <= 1;
   let discrepancias = 0;
+  let resueltasPorMayoria = 0;
+  let resueltasPorRasgos = 0;
   const respuestasDetectadas = resultado.respuestasDetectadas.map((respuesta) => {
-    const opcionesConfiables = new Set(pasadas.flatMap((pasada) => {
+    const rescateRasgos = respuesta.opcion === null
+      ? rescatarMarcaDominanteRepetidaPorRasgosOmr(respuesta.numeroPregunta, pasadasUnicas)
+      : null;
+    if (rescateRasgos) {
+      resueltasPorRasgos += 1;
+      return {
+        ...respuesta,
+        opcion: rescateRasgos.opcion,
+        confianza: rescateRasgos.confianza,
+        scoresPorOpcion: rescateRasgos.scoresPorOpcion,
+        flags: respuesta.flags.filter((flag) => flag !== 'parcial_detectada' && flag !== 'bajo_contraste'),
+        estadoRespuesta: 'respondida' as const
+      };
+    }
+    const lecturasConfiables = pasadasUnicas.flatMap((pasada) => {
       const lectura = pasada.respuestasDetectadas.find((item) => item.numeroPregunta === respuesta.numeroPregunta);
       if (
         !lectura || lectura.opcion == null || lectura.confianza < OMR_AUTO_CONF_MIN ||
-        lectura.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')
+        lectura.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada' || flag === 'parcial_detectada' || flag === 'fuera_roi')
       ) return [];
-      return [lectura.opcion];
-    }));
+      return [{ pasada, lectura }];
+    });
+    const opcionesConfiables = new Set(lecturasConfiables
+      .map(({ lectura }) => lectura.opcion)
+      .filter((opcion): opcion is NonNullable<RespuestaDetectadaOmr['opcion']> => opcion !== null));
+    if (opcionesConfiables.size < 2 && respuesta.opcion != null) return respuesta;
+
+    if (puedeResolverMayoria && !pasadasUnicas.some((pasada) =>
+      pasada.respuestasDetectadas.find((lectura) => lectura.numeroPregunta === respuesta.numeroPregunta)
+        ?.flags.includes('tachada_detectada')
+    )) {
+      const votos = new Map<string, Array<{ pasada: ResultadoOmr; lectura: RespuestaDetectadaOmr }>>();
+      for (const voto of lecturasConfiables) {
+        const opcion = voto.lectura.opcion;
+        if (opcion === null) continue;
+        const grupo = votos.get(opcion) ?? [];
+        grupo.push(voto);
+        votos.set(opcion, grupo);
+      }
+      const [opcionGanadora, apoyoGanador = []] = Array.from(votos.entries())
+        .sort((a, b) => b[1].length - a[1].length)[0] ?? [];
+      const minimoApoyo = Math.ceil(lecturasConfiables.length / 2);
+      const apoyosOrdenados = [...apoyoGanador].sort((a, b) => b.lectura.confianza - a.lectura.confianza);
+      const confianzaConsenso = Math.min(apoyosOrdenados[0]?.lectura.confianza ?? 0, apoyosOrdenados[1]?.lectura.confianza ?? 0);
+      const marcasInvalidantes = pasadasUnicas.filter((pasada) => {
+        const lectura = pasada.respuestasDetectadas.find((item) => item.numeroPregunta === respuesta.numeroPregunta);
+        return lectura?.flags.includes('doble_marca') === true;
+      }).length;
+      if (
+        opcionGanadora && apoyoGanador.length >= 2 && apoyoGanador.length > lecturasConfiables.length / 2 &&
+        apoyoGanador.length >= minimoApoyo && confianzaConsenso >= OMR_AUTO_CONF_MIN && marcasInvalidantes < 2
+      ) {
+        const mejorApoyo = apoyosOrdenados[0]!.lectura;
+        const flags = Array.from(new Set([
+          ...respuesta.flags.filter((flag) => flag !== 'doble_marca' && flag !== 'tachada_detectada' && flag !== 'parcial_detectada' && flag !== 'fuera_roi'),
+          ...apoyosOrdenados.slice(0, 2).flatMap(({ lectura }) => lectura.flags.filter((flag) => flag === 'bajo_contraste'))
+        ])) as RespuestaDetectadaOmr['flags'];
+        resueltasPorMayoria += 1;
+        return {
+          ...respuesta,
+          opcion: opcionGanadora as RespuestaDetectadaOmr['opcion'],
+          confianza: confianzaConsenso,
+          scoresPorOpcion: mejorApoyo.scoresPorOpcion,
+          flags,
+          estadoRespuesta: 'respondida' as const
+        };
+      }
+    }
+
     if (opcionesConfiables.size < 2) return respuesta;
+
     discrepancias += 1;
     return {
       ...respuesta,
@@ -3581,23 +4136,119 @@ export function aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
       estadoRespuesta: 'ambigua' as const
     };
   });
-  if (discrepancias === 0) return resultado;
+  if (discrepancias === 0 && resueltasPorMayoria === 0 && resueltasPorRasgos === 0) return resultado;
   const confianzaPromedioPagina = respuestasDetectadas.reduce(
     (total, respuesta) => total + Math.max(0, respuesta.confianza), 0
   ) / Math.max(1, respuestasDetectadas.length);
   const ratioAmbiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length /
     Math.max(1, respuestasDetectadas.length);
-  const motivo = `${discrepancias} respuesta(s) quedaron sin calificar por desacuerdo entre pasadas OMR independientes`;
+  const motivoDiscrepancias = `${discrepancias} respuesta(s) quedaron sin calificar por desacuerdo entre pasadas OMR independientes`;
+  const avisoMayoria = `${resueltasPorMayoria} respuesta(s) recuperadas por mayoría de pasadas OMR con orientación concordante`;
+  const avisoRasgos = `${resueltasPorRasgos} respuesta(s) recuperadas por rasgos dominantes repetidos entre pasadas OMR`;
+  const avisos = [
+    ...(discrepancias > 0 ? [motivoDiscrepancias] : []),
+    ...(resueltasPorMayoria > 0 ? [avisoMayoria] : []),
+    ...(resueltasPorRasgos > 0 ? [avisoRasgos] : [])
+  ];
   return {
     ...resultado,
     respuestasDetectadas,
     confianzaPromedioPagina,
     ratioAmbiguas,
-    estadoAnalisis: resultado.estadoAnalisis === 'rechazado_calidad' ? 'rechazado_calidad' : 'requiere_revision',
-    motivosRevision: Array.from(new Set([...resultado.motivosRevision, motivo])).slice(0, 24),
-    advertencias: Array.from(new Set([...resultado.advertencias, motivo])),
-    resumenRespuestas: resumirRespuestasOmr(respuestasDetectadas, resultado.calidadPagina, resultado.geomQuality, { forzarRevision: true })
+    estadoAnalisis: discrepancias > 0 && resultado.estadoAnalisis !== 'rechazado_calidad' ? 'requiere_revision' : resultado.estadoAnalisis,
+    motivosRevision: Array.from(new Set([...resultado.motivosRevision, ...(discrepancias > 0 ? [motivoDiscrepancias] : [])])).slice(0, 24),
+    advertencias: Array.from(new Set([...resultado.advertencias, ...avisos])),
+    resumenRespuestas: resumirRespuestasOmr(respuestasDetectadas, resultado.calidadPagina, resultado.geomQuality, { forzarRevision: discrepancias > 0 })
   };
+}
+
+/**
+ * Recupera una marca con relleno central dominante cuando dos preprocesamientos
+ * independientes la ordenan primero, aunque uno no alcance el umbral normal.
+ * Una candidata tenue nunca se rescata por mayoría sola: la pasada original
+ * debe conservar evidencia central y separación clara frente a sus rivales.
+ */
+export function rescatarMarcaDominanteRepetidaPorRasgosOmr(
+  numeroPregunta: number,
+  pasadas: readonly ResultadoOmr[]
+): Pick<RespuestaDetectadaOmr, 'opcion' | 'confianza' | 'scoresPorOpcion'> | null {
+  if (pasadas.length < 2) return null;
+  const orientaciones = new Set(pasadas
+    .map((pasada) => pasada.pageRotationDegrees)
+    .filter((grados): grados is NonNullable<ResultadoOmr['pageRotationDegrees']> => grados !== undefined));
+  if (orientaciones.size > 1 || pasadas.some((pasada) =>
+    pasada.pageOrientationDetermined !== true || pasada.pageOrientationConflict === true ||
+    pasada.estadoAnalisis === 'rechazado_calidad' || pasada.geomQuality < 0.52 ||
+    pasada.calidadPagina < OMR_QUALITY_REJECT_MIN
+  )) return null;
+
+  const lecturas = pasadas.map((pasada) => pasada.respuestasDetectadas.find(
+    (respuesta) => respuesta.numeroPregunta === numeroPregunta
+  ));
+  if (lecturas.some((lectura) => !lectura || lectura.flags.some((flag) =>
+    flag === 'doble_marca' || flag === 'tachada_detectada' || flag === 'fuera_roi'
+  ))) return null;
+
+  const primera = lecturas[0]!;
+  const [candidata] = [...primera.scoresPorOpcion].sort((a, b) => b.score - a.score);
+  if (!candidata || candidata.estadoMarca === 'tachada') return null;
+  const rivales = primera.scoresPorOpcion.filter((score) => score.opcion !== candidata.opcion);
+  const segundoRelleno = Math.max(0, ...rivales.map((score) => score.fillRatioCore));
+  const evidenciaBaseSuficiente =
+    candidata.score >= 0.22 &&
+    candidata.fillRatioCore >= 0.5 &&
+    candidata.contraste >= 0.1 &&
+    candidata.centerDarknessDelta >= 0.12 &&
+    candidata.nucleusFillRatio >= 0.18 &&
+    candidata.radialMassRatio >= 0.22 &&
+    candidata.centroidOffsetRatio <= 0.32 &&
+    candidata.markConfidence >= 0.6 &&
+    candidata.fillRatioCore - segundoRelleno >= 0.18 &&
+    !rivales.some((score) =>
+      score.fillRatioCore >= 0.4 && score.contraste >= Math.max(0.08, candidata.contraste * 0.75)
+    );
+  if (!evidenciaBaseSuficiente) return null;
+
+  const apoyos = lecturas.filter((lectura) => {
+    const [top] = [...lectura!.scoresPorOpcion].sort((a, b) => b.score - a.score);
+    return top?.opcion === candidata.opcion && top.score >= 0.15;
+  }).length;
+  if (apoyos < 2) return null;
+
+  const competidoraFuerte = lecturas.some((lectura) => lectura!.scoresPorOpcion.some((score) =>
+    score.opcion !== candidata.opcion && score.score >= 0.22 && score.fillRatioCore >= 0.45 &&
+    score.contraste >= 0.1 && score.markConfidence >= 0.6
+  ));
+  if (competidoraFuerte) return null;
+
+  return {
+    opcion: candidata.opcion,
+    confianza: Math.min(0.76, Math.max(primera.confianza, candidata.markConfidence)),
+    scoresPorOpcion: primera.scoresPorOpcion
+  };
+}
+
+/** Evita repetir como un voto nuevo una lectura de alta resolución ya ejecutada. */
+export function debeEjecutarPaseAltaResolucionOmr(args: {
+  resultadoExistente: ResultadoOmr | null;
+  rescateRequerido: boolean;
+  conflictoRequiereRescate: boolean;
+  quedanPreguntasSinResolver: boolean;
+}): boolean {
+  return args.resultadoExistente === null &&
+    args.quedanPreguntasSinResolver &&
+    (args.rescateRequerido || args.conflictoRequiereRescate);
+}
+
+/** Una pasada de alta resolución local ya cubre esta hipótesis si el pase previo usó la misma geometría. */
+export function debeEjecutarPaseAltaResolucionGeometriaLocalOmr(args: {
+  resultadoAltaResolucionExistente: boolean;
+  geometriaLocalDeshabilitadaEnPaseExistente: boolean;
+  quedanPreguntasSinResolver: boolean;
+}): boolean {
+  const geometriaLocalYaEvaluada = args.resultadoAltaResolucionExistente &&
+    !args.geometriaLocalDeshabilitadaEnPaseExistente;
+  return args.quedanPreguntasSinResolver && !geometriaLocalYaEvaluada;
 }
 
 function anularRespuestasAmbiguasParaCalificacion(resultado: ResultadoOmr): ResultadoOmr {
@@ -4114,7 +4765,9 @@ export function combinarRespuestasOmrSinPerderDeterminadas(
     const rescateConfiable = Boolean(
       alternativa?.opcion != null &&
       alternativa.confianza >= 0.65 &&
-      !alternativa.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')
+      !alternativa.flags.some((flag) =>
+        flag === 'doble_marca' || flag === 'tachada_detectada' || flag === 'parcial_detectada' || flag === 'bajo_contraste'
+      )
     );
     if (rescateConfiable && alternativa) return alternativa;
     if (candidataAltaResolucion && debeAceptarRescateAltaResolucionOmr(candidataAltaResolucion)) {
@@ -4176,12 +4829,21 @@ export function rescatarMarcaTenueConsensuadaEntrePasadasOmr(
   pasadas: readonly (readonly RespuestaDetectadaOmr[])[],
   mapaPagina: MapaOmrPagina
 ): ResultadoOmr {
+  const textoQrDelMapa = (mapaPagina.qr as (typeof mapaPagina.qr & { texto?: string }) | undefined)?.texto;
+  const qrYGeometriaConfiables = Boolean(
+    textoQrDelMapa &&
+    resultado.qrTexto === textoQrDelMapa &&
+    (resultado.geometryMode === 'homografia' || resultado.geometryMode === 'qr') &&
+    (resultado.geometryReferencePoints ?? 0) >= 4 &&
+    (resultado.geometryReferenceQuality ?? 0) >= 0.95
+  );
+  const escalaLocalConfiable = resultado.qrTexto == null &&
+    resultado.geometryMode === 'escala' &&
+    resultado.geometryLocalEnabled === true &&
+    (resultado.geometryReferencePoints ?? 0) >= 4 &&
+    (resultado.geometryReferenceQuality ?? 0) >= 0.9;
   if (
-    resultado.qrTexto ||
-    resultado.geometryMode !== 'escala' ||
-    !resultado.geometryLocalEnabled ||
-    (resultado.geometryReferencePoints ?? 0) < 4 ||
-    (resultado.geometryReferenceQuality ?? 0) < 0.9 ||
+    (!qrYGeometriaConfiables && !escalaLocalConfiable) ||
     resultado.resumenRespuestas?.examenVacio === true
   ) return resultado;
 
@@ -4203,7 +4865,8 @@ export function rescatarMarcaTenueConsensuadaEntrePasadasOmr(
     if (
       respuesta.opcion != null ||
       !preguntasHorizontales.has(respuesta.numeroPregunta) ||
-      respuesta.flags.some((flag) => flag === 'tachada_detectada' || flag === 'fuera_roi')
+      respuesta.flags.some((flag) => flag === 'tachada_detectada') ||
+      (respuesta.flags.includes('fuera_roi') && !qrYGeometriaConfiables)
     ) return respuesta;
 
     const votos = new Map<OpcionRespuestaOmr, ScoreOpcionOmr[]>();
@@ -4212,11 +4875,30 @@ export function rescatarMarcaTenueConsensuadaEntrePasadasOmr(
     for (const pasada of pasadas) {
       const evidencia = pasada.find((item) => item.numeroPregunta === respuesta.numeroPregunta);
       if (!evidencia) continue;
-      if (evidencia.opcion != null) {
+      const marcadaConEvidenciaFuerte = evidencia.scoresPorOpcion.find((score) =>
+        score.opcion === evidencia.opcion &&
+        score.estadoMarca === 'marcada' &&
+        score.score >= 0.7 &&
+        score.fillRatioCore >= 0.65 &&
+        score.markConfidence >= 0.72 &&
+        score.shapeCompactness >= 0.5
+      );
+      if (evidencia.opcion != null && marcadaConEvidenciaFuerte) {
         opcionesDeterminadas.add(evidencia.opcion);
         continue;
       }
-      if (evidencia.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada' || flag === 'fuera_roi')) {
+      const candidataPorContrasteRelativo = buscarMarcaTenuePorContrasteRelativoOmr(evidencia.scoresPorOpcion);
+      const fueraRoiConCandidataVerificada = evidencia.flags.includes('fuera_roi') &&
+        qrYGeometriaConfiables && candidataPorContrasteRelativo !== null;
+      const dobleSinEvidenciaDeMarca = evidencia.flags.includes('doble_marca') &&
+        evidencia.scoresPorOpcion.every((score) => score.estadoMarca !== 'marcada') &&
+        candidataPorContrasteRelativo !== null;
+      const dobleConMarcaClasificada = evidencia.flags.includes('doble_marca') && !dobleSinEvidenciaDeMarca;
+      if (
+        evidencia.flags.includes('tachada_detectada') ||
+        (evidencia.flags.includes('fuera_roi') && !fueraRoiConCandidataVerificada) ||
+        dobleConMarcaClasificada
+      ) {
         pasadasInvalidantes += 1;
         continue;
       }
@@ -4229,20 +4911,24 @@ export function rescatarMarcaTenueConsensuadaEntrePasadasOmr(
       const [candidata, segunda] = [...evidencia.scoresPorOpcion].sort(
         (a, b) => proxy(b) - proxy(a) || a.opcion.localeCompare(b.opcion)
       );
-      if (!candidata ||
-        candidata.score < 0.02 ||
-        candidata.fillRatioCore < 0.18 ||
-        candidata.nucleusFillRatio < 0.18 ||
-        candidata.softCoreContrast < 0.08 ||
-        candidata.softCentroidOffsetRatio > 0.42 ||
-        candidata.shapeCompactness < 0.12 ||
-        candidata.radialMassRatio < 0.15 ||
-        candidata.strokeLeakPenalty > 0.18 ||
-        proxy(candidata) - proxy(segunda) < 0.1
-      ) continue;
-      const previas = votos.get(candidata.opcion) ?? [];
-      previas.push(candidata);
-      votos.set(candidata.opcion, previas);
+      const candidataTenue = candidataPorContrasteRelativo ?? (
+        candidata &&
+        candidata.score >= 0.02 &&
+        candidata.fillRatioCore >= 0.18 &&
+        candidata.nucleusFillRatio >= 0.18 &&
+        candidata.softCoreContrast >= 0.08 &&
+        candidata.softCentroidOffsetRatio <= 0.42 &&
+        candidata.shapeCompactness >= 0.12 &&
+        candidata.radialMassRatio >= 0.15 &&
+        candidata.strokeLeakPenalty <= 0.18 &&
+        proxy(candidata) - proxy(segunda) >= 0.1
+          ? candidata
+          : null
+      );
+      if (!candidataTenue) continue;
+      const previas = votos.get(candidataTenue.opcion) ?? [];
+      previas.push(candidataTenue);
+      votos.set(candidataTenue.opcion, previas);
     }
 
     if (OMR_DEBUG) {
@@ -4264,7 +4950,11 @@ export function rescatarMarcaTenueConsensuadaEntrePasadasOmr(
       opcion,
       confianza: 0.72,
       estadoRespuesta: 'respondida' as const,
-      flags: respuesta.flags.filter((flag) => flag !== 'bajo_contraste' && flag !== 'parcial_detectada')
+      flags: respuesta.flags.filter((flag) =>
+        flag !== 'bajo_contraste' &&
+        flag !== 'parcial_detectada' &&
+        (flag !== 'fuera_roi' || !qrYGeometriaConfiables)
+      )
     };
   });
 
@@ -4451,6 +5141,7 @@ export async function analizarOmr(
   });
   let qrTexto = qrPrevalidado ? opcionesInternas?.qrTextoPrevalidado : qrDetalle?.data;
   let qrFuenteDeteccion = qrPrevalidado ? 'pipeline_validated_payload' as const : qrDetalle?.fuenteDeteccionQr;
+  let qrOrientacionFuenteGrados = opcionesInternas?.qrOrientacionFuenteGrados;
   if (!qrPrevalidado && (!qrDetalle || !coincideQrEsperado(qrDetalle.data))) {
     const qrRealzado = await detectarQrEnImagenRealzada(data, width, height, perfilInicial.qrSizePts);
     if (qrRealzado && coincideQrEsperado(qrRealzado.data)) {
@@ -4465,6 +5156,9 @@ export async function analizarOmr(
       payloadsEsperados: qrEsperados
     });
     if (qrNativo && coincideQrEsperado(qrNativo.data)) {
+      if (qrNativo.fuenteDeteccionQr === 'rotacion_pagina') {
+        qrOrientacionFuenteGrados = qrNativo.orientacionFuenteGrados;
+      }
       // Sin cantidad de módulos persistida, ZXing conserva identidad, pero sus
       // centros extrapolados no deben gobernar una homografía del mapa.
       qrDetalle = qrNativo.fuenteDeteccionQr === 'rotacion_pagina' ||
@@ -4574,10 +5268,12 @@ export async function analizarOmr(
     );
     if (qrRotado) {
       // La posición medida sobre los píxeles girados identifica el QR, pero
-      // no gobierna OMR: la geometría sigue resolviéndose con la captura base.
+      // solo su borde orientado puede desambiguar la dirección de la página;
+      // la geometría OMR sigue resolviéndose con los fiduciales de la captura.
       qrDetalle = null;
       qrTexto = qrRotado.data;
       qrFuenteDeteccion = 'rotacion_pagina';
+      qrOrientacionFuenteGrados = qrRotado.orientacionFuenteGrados;
     }
   }
   const escalaX = width / ANCHO_CARTA;
@@ -4619,6 +5315,7 @@ export async function analizarOmr(
     qrSizePts: perfil.qrSizePts,
     qrGeometry: mapaPagina.qr ? { ...mapaPagina.qr, textoEsperado: qrEsperado } : undefined,
     marcasPagina: mapaPagina.marcasPagina,
+    qrOrientacionFuenteGrados,
     anchoCarta: ANCHO_CARTA,
     altoCarta: ALTO_CARTA,
     mmAPuntos: MM_A_PUNTOS
@@ -4653,6 +5350,7 @@ export async function analizarOmr(
         qrSizePts: perfil.qrSizePts,
         qrGeometry: { ...mapaPagina.qr, textoEsperado: qrEsperado },
         marcasPagina: mapaPagina.marcasPagina,
+        qrOrientacionFuenteGrados,
         anchoCarta: ANCHO_CARTA,
         altoCarta: ALTO_CARTA,
         mmAPuntos: MM_A_PUNTOS
@@ -4710,7 +5408,7 @@ export async function analizarOmr(
     qrDetectado: Boolean(qrTexto),
     capturaBajaResolucion,
     forceSimpleScale,
-    tieneFiducialesLocales
+    tieneFiducialesLocales,
   });
   const useMapCoordinatesStrict =
     typeof mapaPagina.engineHints?.useMapCoordinatesStrict === 'boolean'
@@ -4950,6 +5648,7 @@ export async function analizarOmr(
     ? Math.max(0.62, OMR_RESPUESTA_CONF_MIN - 0.14)
     : OMR_RESPUESTA_CONF_MIN;
   const respuestasDetectadas: ResultadoOmr['respuestasDetectadas'] = [];
+  let alineacionPanelesConfiable = true;
   const patches: PatchRegistro[] = [];
   let preguntasAmbiguas = 0;
   let reprojectionErrorAcumulado = 0;
@@ -4968,13 +5667,17 @@ export async function analizarOmr(
 
   const usarCoordenadasEstrictas = mapaPagina.engineHints?.useMapCoordinatesStrict === true;
   mapaPagina.preguntas.forEach((pregunta) => {
+    const forzarGeometriaLocalPregunta = opcionesInternas?.forceLocalGeometryForQuestions?.includes(
+      pregunta.numeroPregunta
+    ) ?? false;
+    const usarGeometriaLocalPregunta = usarGeometriaLocalEfectiva || forzarGeometriaLocalPregunta;
     const prep = prepararCentrosPregunta(
       estado,
       pregunta,
       transformar,
       perfil,
       usarCoordenadasEstrictas,
-       usarGeometriaLocalEfectiva,
+       usarGeometriaLocalPregunta,
       mapaPagina.markerSpec?.sizeMm ?? OMR_FIDUCIAL_SIZE_MM_DEFAULT,
       permitirBusquedaHorizontal,
       referenciaGlobalFuerte,
@@ -4982,13 +5685,14 @@ export async function analizarOmr(
     );
     let centros = prep.centros;
     const panelHorizontalCompacto = Number.isFinite(pregunta.perfilOmr?.pasoX) && Number(pregunta.perfilOmr?.pasoX) > 0.4;
-    const permitirBusquedaLocalPregunta = permitirRescateLocal ||
-      (capturaResolucionIntermedia && referenciaGlobalFuerte && panelHorizontalCompacto) ||
-      // En originales de hasta 900 px la homografía puede ser correcta a
-      // escala de página, pero quedar desplazada varios píxeles en un panel
-      // pequeño. Habilitar la búsqueda solo para el panel horizontal evita
-      // perder una marca válida; la decisión de doble marca sigue intacta.
-      (capturaMuyBajaResolucion && referenciaGlobalFuerte && panelHorizontalCompacto);
+    const permitirBusquedaLocalPregunta = debePermitirBusquedaLocalPorPregunta({
+      coordenadasEstrictas: usarCoordenadasEstrictas,
+      permitirRescateLocal,
+      capturaResolucionIntermedia,
+      referenciaGlobalFuerte,
+      panelHorizontalCompacto,
+      capturaMuyBajaResolucion
+    });
     if ((prep.usaRescateCaja || /panel OMR derecho|ajuste local parcial/i.test(String(prep.motivo ?? ''))) && prep.motivo) {
       advertencias.push(`P${pregunta.numeroPregunta}: ${prep.motivo}`);
     }
@@ -5006,7 +5710,7 @@ export async function analizarOmr(
       prep.puntosFidDetectados >= 3 &&
       reprojectionDisponible &&
       (reprojectionError as number) <= perfil.reprojectionMaxErrorPx;
-    const habilitarAjusteLocalPregunta = usarGeometriaLocalEfectiva && fiducialConfiable;
+    const habilitarAjusteLocalPregunta = usarGeometriaLocalPregunta && fiducialConfiable;
     if (perfil.reprojectionMaxErrorPx < Number.POSITIVE_INFINITY && reprojectionFueraDeRango && bloqueoPorFiducial) {
       motivosRevision.push(`P${pregunta.numeroPregunta}: error geometrico local (fiduciales)`);
       if (opcionesInternas?.rescueFiduciales) {
@@ -5028,7 +5732,7 @@ export async function analizarOmr(
     let rescateOffsetAmplioArtefacto = false;
     const localSearchRadiusPregunta = !permitirBusquedaLocalPregunta
       ? 0
-      : !usarGeometriaLocalEfectiva
+      : !usarGeometriaLocalPregunta
         ? localSearchRadiusPx
         : habilitarAjusteLocalPregunta
           ? 0
@@ -5099,6 +5803,7 @@ export async function analizarOmr(
     // un panel vertical nunca se mueve por esta heurística. La aceptación
     // exige que la hipótesis corregida sea suficiente y deje de ser doble.
     if (
+      !useMapCoordinatesStrict &&
       referenciaGlobalFuerte &&
       capturaBajaResolucion &&
       panelHorizontalCompacto &&
@@ -5289,6 +5994,7 @@ export async function analizarOmr(
     // ventanas permanecen vacías. Una doble marca o ruido distribuido no puede
     // atravesar este filtro.
     if (
+      !useMapCoordinatesStrict &&
       referenciaGlobalFuerte &&
       capturaMuyBajaResolucion &&
       panelHorizontalCompacto &&
@@ -5572,12 +6278,7 @@ export async function analizarOmr(
       (scoresPorOpcion[1]?.fillRatioCore ?? 0) >= 0.4 &&
       (scoresPorOpcion[1]?.fillRatioRing ?? 0) >= 0.28 &&
       (scoresPorOpcion[1]?.markConfidence ?? 0) >= 0.35;
-    const dobleMarcadaPorForma =
-      scoresPorOpcion[0]?.estadoMarca === 'marcada' &&
-      scoresPorOpcion[1]?.estadoMarca === 'marcada' &&
-      scoreSegundo >= OMR_DOUBLE_SECOND_SCORE_MIN &&
-      (scoresPorOpcion[1]?.fillRatioCore ?? 0) >= OMR_DOUBLE_SECOND_CORE_MIN &&
-      scoreSegundo / Math.max(0.0001, scoreDominante) >= OMR_DOUBLE_SECOND_RATIO_MIN;
+    const dobleMarcadaPorForma = detectarDobleMarcaPorFormaOmr(scoresPorOpcion);
     const topEsMarcaSolida =
       scoreDominante >= 0.9 &&
       (scoresPorOpcion[0]?.fillRatioCore ?? 0) >= 0.72 &&
@@ -6027,16 +6728,16 @@ export async function analizarOmr(
       (scoresPorOpcion[0]?.shapeCompactness ?? 1) < 0.45 &&
       (scoresPorOpcion[0]?.fillRatioRing ?? 1) <= 0.28;
     const marcaAmbiguaNoCompacta =
-      panelHorizontalCompacto &&
-      !rescateNucleoRobusto &&
       !rescateMarcaFaint &&
-      scoreDominante >= 0.44 &&
-      scoreDominante < 0.95 &&
-      scoreSegundo >= 0.2 &&
       scoresPorOpcion[0]?.estadoMarca === 'marcada' &&
-      (scoresPorOpcion[0]?.fillRatioCore ?? 0) >= 0.65 &&
-      (scoresPorOpcion[0]?.shapeCompactness ?? 1) < 0.65 &&
-      (scoresPorOpcion[0]?.fillRatioRing ?? 1) <= 0.3;
+      debeRechazarMarcaDominanteNoCompactaOmr({
+        panelHorizontal: panelHorizontalCompacto,
+        scoreDominante,
+        fillRatioCore: scoresPorOpcion[0]?.fillRatioCore ?? 0,
+        nucleusFillRatio: scoresPorOpcion[0]?.nucleusFillRatio ?? 0,
+        fillRatioRing: scoresPorOpcion[0]?.fillRatioRing ?? 1,
+        shapeCompactness: scoresPorOpcion[0]?.shapeCompactness ?? 1
+      });
     const marcaAmbiguaDeBajoContraste = Boolean(
       panelHorizontalCompacto &&
       scoreDominante >= 0.44 &&
@@ -6101,12 +6802,14 @@ export async function analizarOmr(
         marcaAmbiguaDeBajoContraste
       );
     const rescateMarcaAislada = rescatePrimeraPorNucleoFuerte || rescateSegundaPorNucleoFuerte;
-    const rechazoPorMarcaInvalida = !marcaUnicaConEvidencia && !rescateMarcaCromatica && !rescatePuntoCompacto && !rescateNucleoTenue && (
-      (dobleMarcadaReal && !rescateMarcaAislada) ||
-      marcaParcialDominante ||
-      formaCircularInsuficiente ||
-      marcaAmbiguaNoCompacta ||
-      marcaAmbiguaDeBajoContraste
+    const rechazoPorMarcaInvalida = marcaAmbiguaNoCompacta || (
+      !marcaUnicaConEvidencia && !rescateMarcaCromatica && !rescatePuntoCompacto && !rescateNucleoTenue &&
+      (
+        (dobleMarcadaReal && !rescateMarcaAislada) ||
+        marcaParcialDominante ||
+        formaCircularInsuficiente ||
+        marcaAmbiguaDeBajoContraste
+      )
     );
     const rescateDominante = marcaUnicaConEvidencia
       ? {
@@ -6235,15 +6938,15 @@ export async function analizarOmr(
       confianzaPregunta = Math.max(confianzaPregunta, metricas.confianza);
     }
 
-    // Una ruta de recuperacion distinta puede volver a elegir la misma
-    // componente diminuta que el detector de punto central ya rechazo. No
-    // convertir ese residuo aislado (etiquetado como no marcado) en respuesta.
-    const opcionElegidaSinTinta = scoresPorOpcion.find(
-      (item) => item.opcion === opcionDetectada && item.estadoMarca === 'no_marcada'
+    // Ninguna ruta de rescate puede publicar una letra si su ROI no superó la
+    // regla de marca clara. La excepción cromática requiere contraste local y
+    // margen exclusivos, y se valida en debeAceptarMarcaCromaticaAisladaOmr.
+    const opcionElegidaSinMarcaClara = scoresPorOpcion.find(
+      (item) => item.opcion === opcionDetectada && item.estadoMarca !== 'marcada'
     );
-    if (opcionElegidaSinTinta && pareceResiduoDeCompresionOmr(opcionElegidaSinTinta)) {
+    if (opcionElegidaSinMarcaClara && !rescateMarcaCromatica) {
       opcionDetectada = null;
-      confianzaPregunta = 0;
+      confianzaPregunta = Math.min(confianzaPregunta, 0.5);
     }
     // Las candidatas con confianza subumbral siguen visibles en los scores
     // para revisión, pero se excluyen de la respuesta que recibe puntaje.
@@ -6256,6 +6959,13 @@ export async function analizarOmr(
     const hayEvidenciaMarca = scoresPorOpcion.some((item) =>
       item.estadoMarca !== 'no_marcada'
     );
+    const contornoNoConfirmado = opcionDetectada === null && !hayEvidenciaMarca &&
+      !tieneAlineacionDeBurbujasVerificadaOmr(scoresPorOpcion);
+    if (contornoNoConfirmado) {
+      alineacionPanelesConfiable = false;
+      flags.push('fuera_roi');
+      motivosRevision.push(`P${pregunta.numeroPregunta}: contorno de burbujas no localizado en el mapa OMR`);
+    }
     // La evidencia nueva se aplica después de fusionar hipótesis para que una
     // marca tenue no contamine la decisión ni suprima una letra recuperable.
     const intentosMarcaDebil = scoresPorOpcion.filter(esIntentoCircularTenueOmr);
@@ -6282,7 +6992,9 @@ export async function analizarOmr(
       confianza: confianzaPregunta,
       scoresPorOpcion,
       flags,
-      estadoRespuesta: clasificarEstadoRespuestaOmr({ opcion: opcionDetectada, flags })
+      estadoRespuesta: contornoNoConfirmado
+        ? 'ambigua'
+        : clasificarEstadoRespuestaOmr({ opcion: opcionDetectada, flags })
     });
     if (esRespuestaAmbiguaOmr({ opcion: opcionDetectada, flags })) {
       preguntasAmbiguas += 1;
@@ -6353,6 +7065,20 @@ export async function analizarOmr(
         opcionDetectada,
         confianzaPregunta,
         flags,
+        geometriaLocal: {
+          habilitada: usarGeometriaLocalPregunta,
+          fiducialesDetectados: prep.puntosFidDetectados,
+          fiducialesEsperados: prep.puntosFidEsperados,
+          errorReproyeccionPx: Number.isFinite(prep.reprojectionErrorPx)
+            ? prep.reprojectionErrorPx
+            : null,
+          motivo: prep.motivo,
+          centros: prep.centros.map((centro) => ({
+            opcion: centro.letra,
+            x: centro.punto.x,
+            y: centro.punto.y
+          }))
+        },
         offsetEscalaLocal: diagnosticoOffsetEscalaLocal,
         microRescate: rescateMicro,
         microScores: microScoresPorOpcion.slice(0, 2).map((item) => ({
@@ -6492,7 +7218,8 @@ export async function analizarOmr(
     ratioAmbiguas,
     totalRespuestas: respuestasDetectadas.length,
     respuestasAnalizadas,
-    geometriaConfiable
+    geometriaConfiable,
+    alineacionPanelesConfiable
   });
   const estadoAnalisis: ResultadoOmr['estadoAnalisis'] = decisionEstado.estado;
   if (decisionEstado.anularRespuestas) {
@@ -6586,9 +7313,11 @@ export async function analizarOmr(
         noRetry: true,
         rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
         disableLocalGeometry: usarGeometriaLocal,
-        qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
+        qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado,
+        qrOrientacionFuenteGrados
       }
     );
+    const pasadasConsensoOmr = [resultadoBase, resultadoRescate];
     const fusion = fusionarResultadosOmr(resultadoBase, resultadoRescate);
     const scoreBase = puntuarResultadoOmr(resultadoBase);
     const scoreRescate = puntuarResultadoOmr(resultadoRescate);
@@ -6673,7 +7402,12 @@ export async function analizarOmr(
     let resultadoAltaResolucion = usarAltaResolucionRescate && coberturaBase < 0.75
       ? resultadoRescate
       : null;
-    if ((usarAltaResolucionRescate || usarAltaPorConflictoDeFusion) && quedanPreguntasSinResolver) {
+    if (debeEjecutarPaseAltaResolucionOmr({
+      resultadoExistente: resultadoAltaResolucion,
+      rescateRequerido: usarAltaResolucionRescate,
+      conflictoRequiereRescate: usarAltaPorConflictoDeFusion,
+      quedanPreguntasSinResolver
+    })) {
       resultadoAltaResolucion = await analizarOmr(
         imagenBase64,
         mapaPagina,
@@ -6686,9 +7420,13 @@ export async function analizarOmr(
           noRetry: true,
           rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
           disableLocalGeometry: usarGeometriaLocal,
-          qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
+          qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado,
+          qrOrientacionFuenteGrados
         }
       );
+    }
+    if (resultadoAltaResolucion && !pasadasConsensoOmr.includes(resultadoAltaResolucion)) {
+      pasadasConsensoOmr.push(resultadoAltaResolucion);
     }
     if (resultadoAltaResolucion && quedanPreguntasSinResolver) {
       const fusionAltaResolucion = fusionarResultadosOmr(
@@ -6731,9 +7469,11 @@ export async function analizarOmr(
             rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
             disableLocalGeometry: true,
             forceHomographyGeometry: true,
-            qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
+            qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado,
+            qrOrientacionFuenteGrados
           }
         );
+        pasadasConsensoOmr.push(resultadoHomografiaAlterna);
         const resultadoConsensoGeometrico = fusionarRescateAditivoOmr(
           resultadoElegido,
           resultadoElegido,
@@ -6756,21 +7496,32 @@ export async function analizarOmr(
       !resultadoBase.resumenRespuestas?.examenVacio &&
       resultadoElegido.respuestasDetectadas.some((respuesta) => respuesta.opcion == null)
     ) {
-      const resultadoAltaResolucionGeometriaLocal = await analizarOmr(
-        imagenBase64,
-        mapaPagina,
-        qrEsperado,
-        margenMm,
-        debugInfo,
-        {
-          aggressivePreprocess: true,
-          highResolutionRescue: true,
-          noRetry: true,
-          rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
-          disableLocalGeometry: false,
-          qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado
-        }
-      );
+      const requiereNuevaHipotesisGeometrica = debeEjecutarPaseAltaResolucionGeometriaLocalOmr({
+        resultadoAltaResolucionExistente: resultadoAltaResolucion !== null,
+        geometriaLocalDeshabilitadaEnPaseExistente: usarGeometriaLocal,
+        quedanPreguntasSinResolver: resultadoElegido.respuestasDetectadas.some((respuesta) => respuesta.opcion == null)
+      });
+      const resultadoAltaResolucionGeometriaLocal = requiereNuevaHipotesisGeometrica
+        ? await analizarOmr(
+          imagenBase64,
+          mapaPagina,
+          qrEsperado,
+          margenMm,
+          debugInfo,
+          {
+            aggressivePreprocess: true,
+            highResolutionRescue: true,
+            noRetry: true,
+            rescueFiduciales: OMR_SECOND_PASS_FIDUCIALES_RESCUE,
+            disableLocalGeometry: false,
+            qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado,
+            qrOrientacionFuenteGrados
+          }
+        )
+        : resultadoAltaResolucion!;
+      if (!pasadasConsensoOmr.includes(resultadoAltaResolucionGeometriaLocal)) {
+        pasadasConsensoOmr.push(resultadoAltaResolucionGeometriaLocal);
+      }
       const resultadoAditivoLocal = fusionarRescateAditivoOmr(
         resultadoElegido,
         resultadoElegido,
@@ -6826,9 +7577,10 @@ export async function analizarOmr(
         permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
       }
     );
+    const resultadoConOmisionesVerificadas = await recuperarOmisionesEstrictasSinRecursion(resultadoFinal);
     return aplicarAbstencionPorDiscrepanciasEntrePasadasOmr(
-      resultadoFinal,
-      [resultadoBase, resultadoRescate],
+      resultadoConOmisionesVerificadas,
+      pasadasConsensoOmr,
       perfilHorizontalCompacto
     );
   } else if (!opcionesInternas?.noRetry && resultadoBase.estadoAnalisis !== 'ok') {
@@ -6848,18 +7600,104 @@ export async function analizarOmr(
       resultadoRasgosAislados.advertencias = Array.from(
         new Set([...resultadoRasgosAislados.advertencias, 'Rescate OMR conservador completó marcas aisladas con baja confianza; requiere revisión'])
       );
-      return agregarIntentosNoResueltosAlResultadoOmr(
+      const resultadoFinal = agregarIntentosNoResueltosAlResultadoOmr(
         aplicarAbstencionPorOrientacionOmr(anularRespuestasAmbiguasParaCalificacion(resultadoRasgosAislados)),
         {
           permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
         }
       );
+      return recuperarOmisionesEstrictasSinRecursion(resultadoFinal);
     }
   }
-  return agregarIntentosNoResueltosAlResultadoOmr(
+  const resultadoFinal = agregarIntentosNoResueltosAlResultadoOmr(
     aplicarAbstencionPorOrientacionOmr(anularRespuestasAmbiguasParaCalificacion(resultadoBase)),
     {
       permitirMicrocomponenteRelativo: !opcionesInternas?.noRetry
     }
   );
+  return recuperarOmisionesEstrictasSinRecursion(resultadoFinal);
+
+  async function recuperarOmisionesEstrictasSinRecursion(resultado: ResultadoOmr): Promise<ResultadoOmr> {
+    if (opcionesInternas?.noRetry || !resultado.respuestasDetectadas.some((respuesta) =>
+      respuesta.opcion === null && respuesta.estadoRespuesta === 'ambigua' &&
+      !respuesta.flags.some((flag) => flag === 'doble_marca' || flag === 'tachada_detectada')
+    )) return resultado;
+    const mapaCoordenadasEstrictas: MapaOmrPagina = {
+      ...mapaPagina,
+      engineHints: { ...mapaPagina.engineHints, useMapCoordinatesStrict: true }
+    };
+    const resultadoEstricto = await analizarOmr(
+      imagenBase64,
+      mapaCoordenadasEstrictas,
+      qrEsperado,
+      margenMm,
+      debugInfo ? { ...debugInfo, folio: `${debugInfo.folio}-strict-blank` } : undefined,
+      { noRetry: true, qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado, qrOrientacionFuenteGrados }
+    );
+    let respuestasDetectadas = recuperarOmisionesConCoordenadasEstrictasOmr(
+      resultado.respuestasDetectadas,
+      resultadoEstricto.respuestasDetectadas
+    );
+    let fuenteRelectura: 'estricta' | 'fiduciales_locales' = 'estricta';
+    if (!respuestasDetectadas.some((respuesta, indice) => respuesta !== resultado.respuestasDetectadas[indice])) {
+      // Una homografía global puede quedar desplazada en una fila concreta.
+      // Solo intentamos el ajuste local cuando el pase estricto vio cinco
+      // opciones sin tinta pero no pudo confirmar sus contornos; la respuesta
+      // final aún debe pasar las mismas condiciones de blanco y alineación.
+      const preguntasSinContorno = preguntasParaRelecturaLocalOmr(resultadoEstricto.respuestasDetectadas);
+      if (preguntasSinContorno.length > 0) {
+        const mapaGeometriaLocal: MapaOmrPagina = {
+          ...mapaPagina,
+          engineHints: { ...mapaPagina.engineHints, useMapCoordinatesStrict: false }
+        };
+        const resultadoGeometriaLocal = await analizarOmr(
+          imagenBase64,
+          mapaGeometriaLocal,
+          qrEsperado,
+          margenMm,
+          debugInfo ? { ...debugInfo, folio: `${debugInfo.folio}-local-blank` } : undefined,
+          {
+            noRetry: true,
+            forceLocalGeometryForQuestions: preguntasSinContorno,
+            qrTextoPrevalidado: opcionesInternas?.qrTextoPrevalidado,
+            qrOrientacionFuenteGrados
+          }
+        );
+        const respuestasConGeometriaLocal = recuperarOmisionesConCoordenadasEstrictasOmr(
+          resultado.respuestasDetectadas,
+          resultadoGeometriaLocal.respuestasDetectadas.filter((respuesta) =>
+            preguntasSinContorno.includes(respuesta.numeroPregunta)
+          )
+        );
+        if (respuestasConGeometriaLocal.some((respuesta, indice) => respuesta !== resultado.respuestasDetectadas[indice])) {
+          respuestasDetectadas = respuestasConGeometriaLocal;
+          fuenteRelectura = 'fiduciales_locales';
+        } else {
+          return resultado;
+        }
+      } else {
+        return resultado;
+      }
+    }
+    const preguntasAmbiguas = respuestasDetectadas.filter(esRespuestaAmbiguaOmr).length;
+    return {
+      ...resultado,
+      respuestasDetectadas,
+      confianzaPromedioPagina: respuestasDetectadas.reduce((suma, respuesta) => suma + Math.max(0, respuesta.confianza), 0) /
+        Math.max(1, respuestasDetectadas.length),
+      ratioAmbiguas: preguntasAmbiguas / Math.max(1, respuestasDetectadas.length),
+      resumenRespuestas: resumirRespuestasOmr(
+        respuestasDetectadas,
+        resultado.calidadPagina,
+        resultado.geomQuality,
+        { forzarRevision: resultado.estadoAnalisis !== 'ok' }
+      ),
+      advertencias: Array.from(new Set([
+        ...resultado.advertencias,
+        fuenteRelectura === 'estricta'
+          ? 'Omisión confirmada por relectura con coordenadas estrictas y contornos alineados'
+          : 'Omisión confirmada por relectura con fiduciales locales y contornos alineados'
+      ]))
+    };
+  }
 }

@@ -82,6 +82,20 @@ describe('fetchConManejoErrores', () => {
     expect(respuesta.ok).toBe(true);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  it('incluye la acción Reconectar en el aviso de API inalcanzable', async () => {
+    const action = { label: 'Reconectar', onClick: vi.fn() };
+    const { emitToast } = await import('../src/ui/toast/toastBus');
+    await expect(fetchConManejoErrores({
+      fetcher: async () => { throw new Error('ECONNREFUSED'); },
+      mensajeServicio: 'API no disponible',
+      retry: { intentos: 0 },
+      timeoutMs: 500,
+      toastUnreachable: { id: 'api-unreachable', title: 'Sin conexion', message: 'API no disponible', action },
+      toastServerError: { id: 'server', title: 'Error', message: () => 'Error' }
+    })).rejects.toThrow('API no disponible');
+    expect(emitToast).toHaveBeenCalledWith(expect.objectContaining({ action }));
+  });
 });
 
 describe('acciones de sesión para errores HTTP', () => {

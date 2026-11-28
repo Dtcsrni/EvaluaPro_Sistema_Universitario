@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '../src/infraestructura/baseDatos/sqlite.js';
-import { calificarIngestaPdfOmr, coincideLecturaCalificacionOmr } from '../src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
+import { calificarGrupoIngestaOmr, calificarIngestaPdfOmr, coincideLecturaCalificacionOmr, configurarCalificadorAutomaticoOmr } from '../src/modulos/modulo_escaneo_omr/controladorIngestaPdfOmr.js';
 import type { SolicitudDocente } from '../src/modulos/modulo_autenticacion/middlewareAutenticacion.js';
 import { cerrarSqliteTest, conectarSqliteTest, limpiarSqliteTest } from './utils/sqliteTestDatabase.js';
 
@@ -32,6 +32,46 @@ describe('autocalificación OMR por lote', () => {
     expect(coincideLecturaCalificacionOmr(respuesta, { ...persistida, calificacionExamenFinalTexto: '4.9' })).toBe(false);
     expect(coincideLecturaCalificacionOmr(respuesta, { ...persistida, bonoTexto: '0' })).toBe(false);
     expect(coincideLecturaCalificacionOmr(respuesta, { ...persistida, fraccion: '{"numerador":"90","denominador":"18"}' })).toBe(false);
+  });
+
+  it('reevalúa el lote con las cinco señales internas y no con las candidatas reducidas de revisión', async () => {
+    const scoresPorOpcion = ['A', 'B', 'C', 'D', 'E'].map((opcion) => opcion === 'C'
+      ? { opcion, score: 0.95, fillRatioCore: 1, nucleusFillRatio: 1, centroidOffsetRatio: 0.1, markConfidence: 1, shapeCompactness: 0.47, contraste: 0.49, estadoMarca: 'marcada' }
+      : opcion === 'A'
+        ? { opcion, score: 0.131, fillRatioCore: 0.231, nucleusFillRatio: 0.081, centroidOffsetRatio: 0.2, markConfidence: 0.251, shapeCompactness: 0.211, contraste: 0.058, estadoMarca: 'parcial' }
+        : { opcion, score: 0.02, fillRatioCore: 0.05, nucleusFillRatio: 0, centroidOffsetRatio: 0.2, markConfidence: 0.04, shapeCompactness: 0.02, contraste: 0.02, estadoMarca: 'no_marcada' });
+    let payloadEnviado: any;
+    configurarCalificadorAutomaticoOmr(async ({ body }) => {
+      payloadEnviado = body;
+      return {
+        statusCode: 200,
+        body: { preview: { aciertos: 1, totalReactivos: 1, calificacionExamenFinalTexto: '10' } }
+      };
+    });
+    const imagenOriginal = 'data:image/png;base64,aW1hZ2VuLW9yaWdpbmFs';
+
+    const resultado = await calificarGrupoIngestaOmr({
+      docenteId: 'docente-omr-evidence',
+      exam: {
+        id: 'exam-omr-evidence', folio: 'FOLIO-OMR-EVIDENCE', alumnoId: 'alumno-omr-evidence',
+        mapaOmr: JSON.stringify({ templateVersion: 4, paginas: [{ numeroPagina: 1, preguntas: [{ numeroPregunta: 1 }] }] }),
+        mapaVariante: JSON.stringify({ ordenPreguntas: [1] })
+      },
+      paginasOmr: [{ numeroPagina: 1, imagenBase64: imagenOriginal }],
+      soloPreview: true,
+      pages: [{
+        examPage: 1,
+        scanStatus: 'accepted',
+        autoGradable: true,
+        manualReviewRequired: false,
+        responses: [{ numeroPregunta: 1, opcion: 'C', opcionDetectada: 'C', confianza: 1, estadoRespuesta: 'respondida', flags: ['parcial_detectada'], candidatas: [] }],
+        autoGradingEvidence: [{ numeroPregunta: 1, opcion: 'C', confianza: 1, estadoRespuesta: 'respondida', flags: ['parcial_detectada'], scoresPorOpcion }],
+        omrAnalysis: { estadoAnalisis: 'ok', calidadPagina: 0.99, confianzaPromedioPagina: 0.99, ratioAmbiguas: 0, motivosRevision: [], engineVersion: 'test', geomQuality: 1, photoQuality: 1, decisionPolicy: 'test', qrTexto: 'test' }
+      }]
+    });
+
+    expect(resultado, JSON.stringify(resultado)).toMatchObject({ status: 'preview', aciertos: 1, totalReactivos: 1 });
+    expect(payloadEnviado.paginasOmr).toEqual([{ numeroPagina: 1, imagenBase64: imagenOriginal }]);
   });
 
   it('aísla una hoja pendiente y no escribe calificación para ese examen', async () => {

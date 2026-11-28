@@ -4,7 +4,7 @@
  * Responsabilidad: Modulo interno del sistema.
  * Limites: Mantener contrato y comportamiento observable del modulo.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
 import QRCode from 'qrcode';
 import { configuracion } from '../src/configuracion.js';
@@ -39,6 +39,122 @@ function construirQrCompactoHistorico() {
 }
 
 describe('qr examen enriquecido', () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it('verifica QR históricos con su clave OMR aunque el JWT actual haya rotado', async () => {
+    const variables = [
+      'NODE_ENV',
+      'EVALUAPRO_FLAVOR',
+      'CORS_ORIGENES',
+      'PORTAL_SYNC_REQUIRED',
+      'PORTAL_ALUMNO_URL',
+      'PORTAL_ALUMNO_API_KEY',
+      'JWT_SECRETO',
+      'OMR_QR_HMAC_KEY_ID',
+      'OMR_QR_HMAC_SECRET',
+      'OMR_QR_HMAC_SECRETS_JSON',
+      'OMR_QR_RECOVERY_KEY_ID',
+      'OMR_QR_RECOVERY_SECRET',
+      'OMR_QR_RECOVERY_SECRETS_JSON'
+    ] as const;
+    const anteriores = new Map(variables.map((key) => [key, process.env[key] ?? null]));
+    process.env.NODE_ENV = 'test';
+    process.env.JWT_SECRETO = 'jwt-rotado-en-la-actualizacion';
+    process.env.OMR_QR_HMAC_KEY_ID = 'qr-h1-v2';
+    process.env.OMR_QR_HMAC_SECRET = 'clave-omr-v2-independiente';
+    process.env.OMR_QR_HMAC_SECRETS_JSON = JSON.stringify({
+      'qr-h1-v1': 'clave-omr-v1-historica',
+      'qr-h1-v2': 'clave-omr-v2-independiente'
+    });
+    vi.resetModules();
+
+    try {
+      const { extraerResumenQrExamen } = await import('../src/modulos/modulo_generacion_pdf/domain/qrExamen.js');
+      const identidad = 'EXAMEN:FOLIO-ANTERIOR:P1:TV4';
+      const segmentos = `${identidad}:LI:LOTE-ANTERIOR:KI:QR-H1-V1`;
+      const firma = createHmac('sha256', 'clave-omr-v1-historica')
+        .update(segmentos)
+        .digest('hex')
+        .slice(0, 24)
+        .toUpperCase();
+      const qr = `${segmentos}:SG:H1${firma}`;
+
+      expect(extraerResumenQrExamen(qr)).toMatchObject({
+        keyId: 'QR-H1-V1',
+        payloadSignatureMode: 'hmac-v1',
+        payloadSignatureValid: true
+      });
+    } finally {
+      for (const [key, value] of anteriores) {
+        if (value === null) delete process.env[key];
+        else process.env[key] = value;
+      }
+      vi.resetModules();
+    }
+  });
+
+  it('no firma QR de producción con JWT cuando falta la clave OMR', async () => {
+    const variables = [
+      'NODE_ENV',
+      'EVALUAPRO_FLAVOR',
+      'CORS_ORIGENES',
+      'PORTAL_SYNC_REQUIRED',
+      'PORTAL_ALUMNO_URL',
+      'PORTAL_ALUMNO_API_KEY',
+      'JWT_SECRETO',
+      'OMR_QR_HMAC_KEY_ID',
+      'OMR_QR_HMAC_SECRET',
+      'OMR_QR_HMAC_SECRETS_JSON',
+      'OMR_QR_RECOVERY_KEY_ID',
+      'OMR_QR_RECOVERY_SECRET',
+      'OMR_QR_RECOVERY_SECRETS_JSON'
+    ] as const;
+    const anteriores = new Map(variables.map((key) => [key, process.env[key] ?? null]));
+    process.env.NODE_ENV = 'production';
+    process.env.EVALUAPRO_FLAVOR = 'docente-local';
+    process.env.CORS_ORIGENES = 'http://localhost:4173';
+    process.env.PORTAL_SYNC_REQUIRED = '0';
+    process.env.PORTAL_ALUMNO_URL = '';
+    process.env.PORTAL_ALUMNO_API_KEY = '';
+    process.env.JWT_SECRETO = 'jwt-production-no-es-clave-omr';
+    for (const key of [
+      'OMR_QR_HMAC_KEY_ID',
+      'OMR_QR_HMAC_SECRET',
+      'OMR_QR_HMAC_SECRETS_JSON',
+      'OMR_QR_RECOVERY_KEY_ID',
+      'OMR_QR_RECOVERY_SECRET',
+      'OMR_QR_RECOVERY_SECRETS_JSON'
+    ]) delete process.env[key];
+    vi.resetModules();
+
+    try {
+      const { construirTextoQrExamenPagina, extraerResumenQrExamen } = await import('../src/modulos/modulo_generacion_pdf/domain/qrExamen.js');
+      const segmentos = 'EXAMEN:FOLIO-SIN-OMR:P1:TV4:LI:LOTE-1:KI:QR-H1-V1';
+      const firmaConJwt = createHmac('sha256', process.env.JWT_SECRETO!)
+        .update(segmentos)
+        .digest('hex')
+        .slice(0, 24)
+        .toUpperCase();
+
+      expect(extraerResumenQrExamen(`${segmentos}:SG:H1${firmaConJwt}`)?.payloadSignatureValid).toBe(false);
+      expect(() => construirTextoQrExamenPagina({
+        folio: 'FOLIO-SIN-OMR',
+        numeroPagina: 1,
+        templateVersion: 4,
+        loteId: 'LOTE-1',
+        compacto: true
+      })).toThrow('No hay una clave OMR configurada para firmar QR');
+    } finally {
+      for (const [key, value] of anteriores) {
+        if (value === null) delete process.env[key];
+        else process.env[key] = value;
+      }
+      vi.resetModules();
+    }
+  });
+
   it('incluye folio, pagina, template, hashes y ordenes de variante', () => {
     const qr = construirTextoQrExamenPagina({
       folio: 'FOLIO-TV4-001',

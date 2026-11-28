@@ -1360,7 +1360,8 @@ public partial class MainWindow : Window
                 "¿Cerrar EvaluaPro?\n\nSí: detener API e interfaz y cerrar.\nNo: dejar los servicios activos en segundo plano y cerrar solo la ventana.\nCancelar: volver a EvaluaPro.",
                 "EvaluaPro · Cerrar",
                 MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Question);
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
             WriteStartupDiagnostic($"Respuesta de confirmación de cierre: {choice}.");
 
             if (choice == MessageBoxResult.Cancel) return;

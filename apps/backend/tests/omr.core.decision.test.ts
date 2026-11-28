@@ -7,11 +7,42 @@
 import { describe, expect, it } from 'vitest';
 import {
   calcularMetricasPregunta,
+  debePermitirBusquedaLocalPorPregunta,
   type CentroOpcion,
   type EstadoImagenOmr,
   type EvaluarConOffsetResultado,
   type ParametrosBurbujaCore
 } from '../src/modulos/modulo_escaneo_omr/omrCore.js';
+
+describe('búsqueda de offsets OMR', () => {
+  const rutaIntermedia = {
+    coordenadasEstrictas: false,
+    permitirRescateLocal: false,
+    capturaResolucionIntermedia: true,
+    referenciaGlobalFuerte: true,
+    panelHorizontalCompacto: true,
+    capturaMuyBajaResolucion: false
+  };
+
+  it('permite rescate local solo para mapas no estrictos', () => {
+    expect(debePermitirBusquedaLocalPorPregunta(rutaIntermedia)).toBe(true);
+    expect(debePermitirBusquedaLocalPorPregunta({ ...rutaIntermedia, coordenadasEstrictas: true })).toBe(false);
+  });
+
+  it('mantiene habilitadas las rutas explícitas de rescate cuando el mapa no es estricto', () => {
+    expect(debePermitirBusquedaLocalPorPregunta({
+      ...rutaIntermedia,
+      capturaResolucionIntermedia: false,
+      permitirRescateLocal: true
+    })).toBe(true);
+    expect(debePermitirBusquedaLocalPorPregunta({
+      ...rutaIntermedia,
+      capturaResolucionIntermedia: false,
+      panelHorizontalCompacto: true,
+      capturaMuyBajaResolucion: true
+    })).toBe(true);
+  });
+});
 
 type RasgoMock = {
   score: number;

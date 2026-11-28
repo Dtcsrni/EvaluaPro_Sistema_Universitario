@@ -300,7 +300,7 @@ describe('calificación OMR payload estricto', () => {
     expect(respuesta.body.error.codigo).toBe('OMR_CAPTURAS_ORIGINALES_REQUERIDAS');
   }, 60_000);
 
-  it('puntúa una doble marca como incorrecta y conserva cerrado el gate sin validación independiente', async () => {
+  it('no guarda una doble marca hasta que la revisión resuelva explícitamente el reactivo', async () => {
     const base = await crearEscenarioBase(app);
     const capturasQr = await crearCapturasQr(base);
 
@@ -329,9 +329,10 @@ describe('calificación OMR payload estricto', () => {
           qrTexto: base.qrTexto
         }
       })
-      .expect(201);
+      .expect(422);
 
-    expect(respuesta.body.calificacion).toMatchObject({ aciertos: 0, totalReactivos: 1 });
+    expect(respuesta.body.error.codigo).toBe('OMR_RESPUESTAS_PENDIENTES_REVISION');
+    expect(respuesta.body.error.detalles.preguntas).toEqual([1]);
   });
 
   it('rechaza folio de payload que no coincide', async () => {

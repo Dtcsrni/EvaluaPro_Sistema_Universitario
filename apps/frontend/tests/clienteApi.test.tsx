@@ -8,6 +8,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   crearClienteApi,
+  abrirPaginaReconectar,
   guardarTokenDocente,
   limpiarTokenDocente,
   obtenerTokenDocente
@@ -15,6 +16,12 @@ import {
 import { mensajeUsuarioDeError } from '../src/servicios_api/clienteComun';
 
 describe('clienteApi', () => {
+  it('abre la ruta local de recuperación desde la acción Reconectar', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    abrirPaginaReconectar();
+    expect(open).toHaveBeenCalledWith('http://127.0.0.1:4519/reconnect?run=1', '_blank', 'noopener,noreferrer');
+  });
+
   it('administra tokens persistentes y elimina el token de pestaña', () => {
     sessionStorage.setItem('tokenDocente', 'token-anterior');
     expect(guardarTokenDocente('token-prueba')).toBe(true);

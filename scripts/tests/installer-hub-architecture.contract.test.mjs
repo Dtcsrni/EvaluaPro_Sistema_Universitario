@@ -90,10 +90,10 @@ test('Burn y MSI empaquetan los módulos de contratos y orquestación', () => {
   assert.match(operation, /recovery_required/);
 });
 
-test('versiones de monorepo y payload se alinean por separado de la version del Hub', () => {
+test('versiones de monorepo, payload y Hub se mantienen alineadas', () => {
   assert.equal(appVersionMetadata.version, rootPackage.version);
   assert.equal(appVersionMetadata.displayVersion, rootPackage.version);
-  assert.match(hubVersionMetadata.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(hubVersionMetadata.version, appVersionMetadata.version);
   assert.equal(hubVersionMetadata.displayVersion, hubVersionMetadata.version);
   assert.match(msiBuild, /appVersionMetadata\.version/);
   assert.match(msiBuild, /hubVersionMetadata\.version/);
@@ -151,8 +151,8 @@ test('AppHost abre Installer Hub solo por mensaje local validado del WebView', (
   assert.match(appHost, /ReadExpectedHashAsync/);
   assert.match(appHost, /HashMatches\(partialPath, expectedHash\)/);
   assert.match(appHost, /TryParseHubReleaseTag/);
-  assert.match(appHost, /hub-v/);
-  assert.match(appHost, /ReadReleaseManifestHashAsync/);
+  assert.match(appHost, /@"\^\(\?:hub-\)\?v\?\(\?<version>/);
+  assert.match(appHost, /RegisterTrustedInstallerHub\(targetPath, latest, expectedHash\)/);
   assert.match(appHost, /RegisterTrustedInstallerHub/);
   assert.match(appHost, /trusted-bundle\.json/);
   assert.match(appHost, /IsTrustedInstallerHub/);

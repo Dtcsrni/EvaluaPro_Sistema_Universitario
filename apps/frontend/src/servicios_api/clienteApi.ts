@@ -12,6 +12,22 @@ import {
 } from './clienteComun';
 
 const baseApi = import.meta.env.VITE_API_BASE_URL || '/api';
+const supervisorPort = String(import.meta.env.VITE_EVALUAPRO_MODE || 'prod').trim().toLowerCase() === 'dev' ? 4520 : 4519;
+export function abrirPaginaReconectar() {
+  const url = `http://127.0.0.1:${supervisorPort}/reconnect?run=1`;
+  const tab = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!tab) window.location.assign(url);
+}
+
+const toastReconectar = {
+  id: 'api-unreachable',
+  title: 'Sin conexion',
+  message: 'No se pudo contactar la API docente.',
+  action: {
+    label: 'Reconectar',
+    onClick: abrirPaginaReconectar
+  }
+};
 const claveToken = 'tokenDocente';
 const claveEquipoSincronizacion = 'evaluapro.equipo.sincronizacion';
 
@@ -129,11 +145,7 @@ export function crearClienteApi() {
             }),
           mensajeServicio: 'API no disponible',
           timeoutMs: 10_000,
-          toastUnreachable: {
-            id: 'api-unreachable',
-            title: 'Sin conexion',
-            message: 'No se pudo contactar la API docente.'
-          },
+          toastUnreachable: toastReconectar,
           toastTimeout: {
             id: 'api-timeout',
             title: 'Tiempo de espera',
@@ -175,11 +187,7 @@ export function crearClienteApi() {
     headers: { 'X-EvaluaPro-Equipo': obtenerIdEquipoSincronizacion() },
     retry: retryApi,
     silenciarDuranteArranque,
-    toastUnreachable: {
-      id: 'api-unreachable',
-      title: 'Sin conexion',
-      message: 'No se pudo contactar la API docente.'
-    },
+    toastUnreachable: toastReconectar,
     toastTimeout: {
       id: 'api-timeout',
       title: 'Tiempo de espera',

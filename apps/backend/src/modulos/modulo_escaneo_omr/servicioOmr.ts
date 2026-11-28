@@ -6,6 +6,9 @@
  */
 import { ejecutarPipelineOmr } from './omr/pipeline/ejecutorPipelineOmr.js';
 import {
+  aplicarReglaMarcaClaraOmr,
+  aplicarAbstencionPorDesalineacionOmr,
+  aplicarAbstencionPorDobleMarcaOmr,
   analizarOmr as analizarOmrCv,
   leerQrDesdeImagen as leerQrDesdeImagenCv,
   type ResultadoOmr
@@ -37,5 +40,7 @@ export async function analizarOmr(
     debugInfo,
     requestId
   });
-  return pipeline.resultado;
+  return aplicarAbstencionPorDesalineacionOmr(
+    aplicarAbstencionPorDobleMarcaOmr(aplicarReglaMarcaClaraOmr(pipeline.resultado))
+  );
 }

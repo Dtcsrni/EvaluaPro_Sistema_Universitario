@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icono } from '../iconos';
-import { compararVersiones, obtenerVersionTecnicaApp } from './versionInfo';
+import { compararVersiones, obtenerVersionTecnicaHub } from './versionInfo';
 
 const OWNER = 'Dtcsrni';
 const REPOSITORY = 'EvaluaPro_Sistema_Universitario';
@@ -13,10 +13,6 @@ type LatestRelease = {
   prerelease?: boolean;
   html_url?: string;
   assets?: Array<{ name?: string; browser_download_url?: string }>;
-};
-
-type HubBridgeWindow = Window & {
-  chrome?: { webview?: { postMessage?: (message: unknown) => void } };
 };
 
 export function UpdateAvailabilityBanner() {
@@ -45,7 +41,7 @@ export function UpdateAvailabilityBanner() {
         if (
           candidate.draft === true || candidate.prerelease === true || !hasInstaller || !hasChecksum
           || !/^\d+\.\d+\.\d+$/.test(version)
-          || compararVersiones(version, obtenerVersionTecnicaApp()) <= 0
+          || compararVersiones(version, obtenerVersionTecnicaHub()) <= 0
           || !releaseUrl.startsWith(`https://github.com/${OWNER}/${REPOSITORY}/releases/tag/`)
         ) return;
 
@@ -71,22 +67,21 @@ export function UpdateAvailabilityBanner() {
   if (!release || postponed) return null;
 
   const openHub = () => {
-    const webview = (window as HubBridgeWindow).chrome?.webview;
-    if (webview?.postMessage) {
-      webview.postMessage({ type: 'EVALUAPRO_UPDATE_HUB', version: release.version });
-      return;
-    }
-    window.open(release.url, '_blank', 'noopener,noreferrer');
+    const mode = String(import.meta.env.VITE_EVALUAPRO_MODE || 'prod').trim().toLowerCase();
+    const supervisorPort = mode === 'dev' ? 4520 : 4519;
+    const url = `http://127.0.0.1:${supervisorPort}/update?run=1`;
+    const tab = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!tab) window.location.assign(url);
   };
 
   return (
     <div className="mensaje update-availability-banner" role="status" aria-live="polite">
       <span className="mensaje__icono" aria-hidden="true"><Icono nombre="info" /></span>
       <span className="mensaje__contenido">
-        Hay una nueva versión disponible: <strong>v{release.version}</strong>.
+        Hay una nueva versión del Installer Hub disponible: <strong>v{release.version}</strong>.
       </span>
       <button type="button" className="btn btn-secundario" onClick={openHub}>
-        Actualizar a v{release.version}
+        Actualizar Hub a v{release.version}
       </button>
       <a href={release.url} target="_blank" rel="noopener noreferrer">
         Ver novedades
@@ -94,7 +89,7 @@ export function UpdateAvailabilityBanner() {
       <button
         type="button"
         className="btn btn-secundario"
-        aria-label={`Posponer el aviso de la versión ${release.version}`}
+        aria-label={`Posponer el aviso del Installer Hub v${release.version}`}
         onClick={() => {
           try { window.sessionStorage.setItem(POSTPONED_VERSION_KEY, release.version); } catch {
             // El posponer en memoria sigue funcionando si el storage esta bloqueado.
